@@ -721,11 +721,13 @@ export default function App() {
   };
 
   // ─── QTY CONTROL ───
+  const [qtyPopup, setQtyPopup] = useState(null); // {r, value}
+  const [qtyPopupVal, setQtyPopupVal] = useState('');
   const QtyControl = ({r, value, compact, showDelete}) => (
     <div style={{display:'flex',alignItems:'center',gap:4}}>
       {showDelete && <button onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:12,cursor:'pointer',fontWeight:700}}>🗑</button>}
       <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1&&!showDelete?'#fee':'#eee',color:value<=1&&!showDelete?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
-      <div style={{width:compact?48:60,height:compact?30:34,borderRadius:8,border:`2px solid #e0e0e0`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,fontFamily:font}}>{value}</div>
+      <div onClick={()=>{setQtyPopup({r,value});setQtyPopupVal(String(value))}} style={{width:compact?48:60,height:compact?30:34,borderRadius:8,border:`2px solid ${EPJ.blue}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,fontFamily:font,cursor:'pointer',color:EPJ.blue}}>{value}</div>
       <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
     </div>
   );
@@ -847,6 +849,7 @@ export default function App() {
           <button className="epj-btn" onClick={()=>{if(diversName.trim()){const ref=diversRef.trim()||`DIV-${Date.now()}`;CATALOG.push({c:'Divers',s:'Article libre',r:ref,n:diversName.trim(),u:'Pièce'});setCart(p=>({...p,[ref]:diversQty}));setDiversName('');setDiversRef('');setDiversQty(1);setShowDivers(false);showT('Ajouté')}}} style={{width:'100%',background:EPJ.blue,color:'#fff'}} disabled={!diversName.trim()}>Ajouter au panier</button>
         </div>
       </div>}
+      <QtyPopupOverlay/>
     </div>
   );
 
@@ -890,6 +893,7 @@ export default function App() {
           <button className="epj-btn" onClick={()=>setView('catalog')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Catalogue</button>
           <button className="epj-btn" onClick={()=>setView('details')} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>Finaliser →</button>
         </div>}
+        <QtyPopupOverlay/>
       </div>
     );
   }
@@ -1432,6 +1436,23 @@ export default function App() {
       </div>
     );}
   }
+
+  // ─── POPUP SAISIE QUANTITÉ (overlay global) ───
+  const QtyPopupOverlay = () => qtyPopup ? (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setQtyPopup(null)}>
+      <div style={{background:'#fff',borderRadius:20,padding:24,width:'100%',maxWidth:320,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Saisir la quantité</div>
+        <input type="text" inputMode="numeric" pattern="[0-9]*" autoFocus
+          value={qtyPopupVal} onChange={e=>setQtyPopupVal(e.target.value.replace(/[^0-9]/g,''))}
+          onKeyDown={e=>{if(e.key==='Enter'){const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}}}
+          style={{width:'100%',fontSize:32,fontWeight:800,textAlign:'center',border:`3px solid ${EPJ.blue}`,borderRadius:12,padding:'12px',fontFamily:font,color:EPJ.dark,marginBottom:16}}/>
+        <div style={{display:'flex',gap:10}}>
+          <button className="epj-btn" onClick={()=>setQtyPopup(null)} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'12px'}}>Annuler</button>
+          <button className="epj-btn" onClick={()=>{const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'12px'}}>✓ OK</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return null;
 }
