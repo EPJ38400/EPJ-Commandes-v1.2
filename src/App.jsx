@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc } from "firebase/firestore";
 
@@ -327,8 +327,9 @@ const EQUIP_CATS = ["Outillage"];
 // ─── PDF COMPONENT (React natif, pas d'iframe) ───
 const PdfView = ({order, onClose}) => {
   const byFourn = {};
-  order.items.forEach(it => { const c = it.r.split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
-  const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
+  const items = order.items || [];
+  items.forEach(it => { const c = (it.r||'').split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
+  const totalQty = items.reduce((s,i)=>s+(i.qty||0),0);
   const ch = order.chantierObj || {num:order.chantierNum||order.numAffaire, nom:order.chantierNom||order.chantier, adresse:order.chantierAdresse||'', conducteur:order.chantierConducteur||''};
   const S = {
     page:{fontFamily:'Arial,Helvetica,sans-serif',color:'#3d3d3d',fontSize:11,lineHeight:1.4,background:'#fff',padding:20,borderRadius:12,maxWidth:520,margin:'0 auto'},
@@ -384,7 +385,7 @@ const PdfView = ({order, onClose}) => {
           <tbody>{items.map(it=>(<tr key={it.r}><td style={S.tdRef}>{it.r}</td><td style={S.td}>{it.n}</td><td style={S.tdQty}>{it.qty}</td><td style={S.tdUnit}>{it.u||'Pièce'}</td></tr>))}</tbody></table>
         </div>
       ))}
-      <div style={S.totalBar}><span>Total</span><span>{totalQty} articles — {order.items.length} références</span></div>
+      <div style={S.totalBar}><span>Total</span><span>{totalQty} articles — {items.length} références</span></div>
       <div style={S.footer}><div>EPJ — Électricité Générale<br/>Commande générée le {order.date}</div><div style={{textAlign:'right'}}>Document interne — {order.num}<br/>Statut : {order.statut}</div></div>
     </div>
   );
@@ -510,6 +511,50 @@ export default function App() {
   const numCmd = () => `CMD-${new Date().getFullYear()}-${String(cmdCounter).padStart(4,'0')}`;
   const clearOrder = () => {setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");setSelectedCat(null);setSearch("");setSending(false)};
 
+  // ─── Générer PDF (ouvre dans un nouvel onglet pour téléchargement/impression) ───
+  const generateAndOpenPdf = (order) => {
+    const ch = order.chantierObj || {num:order.chantierNum||order.numAffaire, nom:order.chantierNom||order.chantier, adresse:order.chantierAdresse||'', conducteur:order.chantierConducteur||''};
+    const items = order.items || [];
+    const byFourn = {};
+    items.forEach(it => { const c = (it.r||'').split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
+    const totalQty = items.reduce((s,i)=>s+(i.qty||0),0);
+    
+    let rows = '';
+    Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).forEach(([code,fitems])=>{
+      rows += `<tr><td colspan="4" style="background:#00A3E0;color:#fff;padding:6px 12px;font-weight:700;font-size:12px">▸ ${code} — ${fitems.length} réf.</td></tr>`;
+      fitems.forEach(it => {
+        rows += `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-family:monospace;color:#00A3E0;font-weight:600;font-size:10px">${it.r||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${it.n||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;font-weight:900;font-size:13px">${it.qty||0}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;color:#8C8C8C;font-size:10px">${it.u||'Pièce'}</td></tr>`;
+      });
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${order.num} — EPJ</title>
+    <style>@media print{body{margin:0}button{display:none!important}}body{font-family:Arial,sans-serif;color:#3d3d3d;max-width:700px;margin:20px auto;padding:20px}table{width:100%;border-collapse:collapse}</style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:3px solid #00A3E0">
+      <div style="font-size:24px;font-weight:900;color:#3d3d3d">EPJ <span style="font-size:10px;color:#8C8C8C;letter-spacing:2px">ÉLECTRICITÉ GÉNÉRALE</span></div>
+      <div style="text-align:right"><div style="font-size:20px;font-weight:900;color:#00A3E0">${order.num}</div><div style="font-size:11px;color:#8C8C8C">${order.date}</div></div>
+    </div>
+    <div style="height:4px;background:linear-gradient(90deg,#00A3E0,#A8C536,#F5841F);margin:0 0 15px"></div>
+    ${order.urgent?'<div style="background:#E53935;color:#fff;padding:8px 16px;font-weight:900;text-align:center;border-radius:4px;margin-bottom:12px">⚠️ COMMANDE URGENTE</div>':''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px">
+      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Demandeur</div><div style="font-size:13px;font-weight:700">${order.user}</div><div style="font-size:9px;color:#8C8C8C">${order.fonction||''}</div></div>
+      ${order.type==='chantier'
+        ?`<div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #A8C536"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Chantier — N°${ch?.num||''}</div><div style="font-size:13px;font-weight:700">${order.chantier||''}</div><div style="font-size:9px;color:#8C8C8C">${ch?.adresse||''}</div></div>`
+        :`<div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #A8C536"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Destinataire</div><div style="font-size:13px;font-weight:700">${order.salarie||''}</div></div>`}
+      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Livraison</div><div style="font-size:13px;font-weight:700">${order.livraison||'—'}</div></div>
+      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Date réception</div><div style="font-size:13px;font-weight:700">${order.dateReception||'Non précisée'}</div></div>
+    </div>
+    ${order.remarques?`<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:11px"><strong>📝 Remarques :</strong> ${order.remarques}</div>`:''}
+    <table><thead><tr><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Référence</th><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Désignation</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Qté</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Unité</th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="background:#3d3d3d;color:#fff;padding:8px 14px;border-radius:4px;display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin-top:8px"><span>Total</span><span>${totalQty} articles — ${items.length} références</span></div>
+    <div style="margin-top:20px;padding-top:10px;border-top:2px solid #eee;display:flex;justify-content:space-between;font-size:9px;color:#8C8C8C"><div>EPJ — Électricité Générale<br/>Commande générée le ${order.date}</div><div style="text-align:right">Document interne — ${order.num}<br/>Statut : ${order.statut}</div></div>
+    <div style="margin-top:30px;text-align:center"><button onclick="window.print()" style="background:#00A3E0;color:#fff;border:none;padding:12px 30px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button></div>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if(w) { w.document.write(html); w.document.close(); }
+    else { showT("⚠️ Autorisez les popups pour télécharger le PDF"); }
+  };
+
   const sendOrder = async () => {
     if(sending) return;
     setSending(true);
@@ -530,17 +575,17 @@ export default function App() {
     };
 
     try {
-      const docRef = await addDoc(collection(db, "commandes"), orderData);
-      console.log("Commande envoyée dans Firebase, id:", docRef.id);
+      await addDoc(collection(db, "commandes"), orderData);
       const newCount = cmdCounter + 1;
       setCmdCounter(newCount);
       await setDoc(doc(db, "config", "compteur"), { value: newCount });
 
       const localOrder = {...orderData, chantierObj:chObj};
-      if(!needsValidation) { setPdfOrder(localOrder); }
       setLastSentOrder(localOrder);
+      if(!needsValidation) { setPdfOrder(localOrder); }
       setSending(false);
       setView("done");
+      showT(needsValidation ? "📤 Commande soumise !" : "✅ Commande enregistrée !");
     } catch(err) {
       console.error("Erreur envoi commande:", err);
       setSending(false);
@@ -881,65 +926,46 @@ export default function App() {
     const o=lastSentOrder||history[0];
     const wasV=o?.statut==="En attente de validation";
     
-    // Build full order content for email body
-    const buildMailBody = () => {
-      if(!o) return '';
-      const byFourn = {};
-      (o.items||[]).forEach(it => { const c = (it.r||'').split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
-      const totalQty = (o.items||[]).reduce((s,i)=>s+(i.qty||0),0);
-      let b = '';
-      b += `BON DE COMMANDE ${o.num}\n`;
-      b += `Date : ${o.date}\n`;
-      if(o.urgent) b += `⚠️ COMMANDE URGENTE\n`;
-      b += `\n`;
-      b += `Demandeur : ${o.user} (${o.fonction||''})\n`;
-      if(o.type==='chantier') {
-        b += `Chantier : ${o.chantier}\n`;
-        if(o.numAffaire||o.chantierNum) b += `N° Affaire : ${o.numAffaire||o.chantierNum}\n`;
-        if(o.chantierAdresse) b += `Adresse : ${o.chantierAdresse}\n`;
-      } else {
-        b += `Destinataire : ${o.salarie}\n`;
-      }
-      b += `Livraison : ${o.livraison||'—'}\n`;
-      b += `Date souhaitée : ${o.dateReception||'Non précisée'}\n`;
-      if(o.remarques) b += `Remarques : ${o.remarques}\n`;
-      b += `\n--- ARTICLES ---\n\n`;
-      Object.entries(byFourn).sort(([a],[bb])=>a.localeCompare(bb)).forEach(([code,items])=>{
-        b += `${code} (${items.length} réf.)\n`;
-        items.forEach(it => {
-          b += `  • ${it.r} — ${it.n} — Qté: ${it.qty} ${it.u||'Pièce'}\n`;
-        });
-        b += `\n`;
-      });
-      b += `TOTAL : ${totalQty} articles — ${(o.items||[]).length} références\n`;
-      b += `\nCordialement,\n${o.user}\nEPJ — Électricité Générale`;
-      return b;
-    };
-
     const mailDest = o ? (o.extraEmail ? `${EMAIL_ACHATS},${o.extraEmail}` : EMAIL_ACHATS) : EMAIL_ACHATS;
     const mailSubj = o ? `${o.urgent?'⚠️ URGENT — ':''}Commande ${o.num} — ${o.chantier||o.salarie}` : '';
-    const mailBody = buildMailBody();
-    const mailtoUrl = `mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(mailBody)}`;
+    const buildMailBody = () => {
+      if(!o) return '';
+      const oItems = o.items||[];
+      let b = `BON DE COMMANDE ${o.num}\nDate : ${o.date}\n`;
+      if(o.urgent) b += `⚠️ COMMANDE URGENTE\n`;
+      b += `\nDemandeur : ${o.user}\n`;
+      if(o.type==='chantier') { b += `Chantier : ${o.chantier}\nN° Affaire : ${o.numAffaire||o.chantierNum||''}\n`; }
+      else { b += `Destinataire : ${o.salarie}\n`; }
+      b += `\n--- ARTICLES ---\n`;
+      oItems.forEach(it => { b += `• ${it.r} — ${it.n} — Qté: ${it.qty} ${it.u||'Pièce'}\n`; });
+      b += `\nTOTAL : ${oItems.reduce((s,i)=>s+(i.qty||0),0)} articles\n\nCordialement,\n${o.user}\nEPJ — Électricité Générale`;
+      return b;
+    };
+    const mailtoUrl = `mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(buildMailBody())}`;
 
     return(
-    <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'40px 24px'}}>
+    <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>
       <style>{css}</style>
-      <div style={{fontSize:56,marginBottom:16}}>{wasV?'📤':'✅'}</div>
-      <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:8}}>{wasV?'Commande soumise !':'Commande prête !'}</div>
-      <div style={{fontSize:14,color:EPJ.gray,lineHeight:1.6,marginBottom:20}}>{wasV?'Transmise au conducteur pour validation.':'Le bon de commande complet sera inclus dans le mail.'}</div>
-      {o&&<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{o.numAffaire?` — N°${o.numAffaire}`:''}</div><div className="status-pill" style={{background:STATUS_COLORS[o.statut]?.bg,color:STATUS_COLORS[o.statut]?.color,marginTop:4}}>{STATUS_COLORS[o.statut]?.icon} {o.statut}</div></div>}
-      {/* Single email button with full order in body */}
-      {!wasV&&<a href={mailtoUrl} style={{display:'block',textDecoration:'none',marginBottom:16}}>
-        <div className="epj-btn" style={{background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,color:'#fff',padding:'18px 16px',fontSize:16,width:'100%',textAlign:'center'}}>✉️ Envoyer la commande par email</div>
-      </a>}
-      {/* PDF Preview inline */}
+      <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
+      <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
+      <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
+      {o&&<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div className="status-pill" style={{background:STATUS_COLORS[o.statut]?.bg,color:STATUS_COLORS[o.statut]?.color,marginTop:4}}>{STATUS_COLORS[o.statut]?.icon||''} {o.statut}</div></div>}
+      
+      {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+        <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
+        <a href={mailtoUrl} style={{textDecoration:'none'}}>
+          <div className="epj-btn" style={{background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,color:'#fff',padding:'16px',fontSize:15,width:'100%',textAlign:'center'}}>✉️ Envoyer par email</div>
+        </a>
+      </div>}
+
+      {/* Aperçu rapide */}
       {pdfOrder&&<div style={{marginBottom:16}}>
-        <div style={{background:EPJ.dark,color:'#fff',padding:'10px 14px',borderRadius:'14px 14px 0 0',fontSize:12,fontWeight:700}}>📄 Aperçu du bon de commande</div>
-        <div style={{border:'1px solid #ddd',borderTop:'none',borderRadius:'0 0 14px 14px',overflow:'hidden'}}>
+        <div style={{background:EPJ.dark,color:'#fff',padding:'8px 14px',borderRadius:'14px 14px 0 0',fontSize:11,fontWeight:700}}>Aperçu du bon de commande</div>
+        <div style={{border:'1px solid #ddd',borderTop:'none',borderRadius:'0 0 14px 14px',overflow:'hidden',maxHeight:300,overflowY:'auto'}}>
           <PdfView order={pdfOrder}/>
         </div>
       </div>}
-      <button className="epj-btn" onClick={()=>{clearOrder();setPdfOrder(null);setView('home')}} style={{background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'16px 40px',fontSize:16}}>Nouvelle commande</button>
+      <button className="epj-btn" onClick={()=>{clearOrder();setPdfOrder(null);setLastSentOrder(null);setView('home')}} style={{background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'16px 40px',fontSize:16,width:'100%'}}>🏠 Nouvelle commande</button>
     </div>
   )}
 
@@ -957,10 +983,10 @@ export default function App() {
             <div key={o.num} className="epj-card" style={{marginBottom:10}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
                 <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{o.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{o.date} • {o.user}</div><div style={{fontSize:12,color:EPJ.blue}}>🏗️ [{o.numAffaire}] {o.chantier}</div>{o.urgent&&<span style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700}}>⚠️ URGENT</span>}</div>
-                <div style={{fontSize:13,fontWeight:700}}>{o.items.length} réf.</div>
+                <div style={{fontSize:13,fontWeight:700}}>{(o.items||[]).length} réf.</div>
               </div>
               <div style={{background:EPJ.grayLight,borderRadius:8,padding:8,marginBottom:10,maxHeight:120,overflowY:'auto'}}>
-                {o.items.map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700}}>x{it.qty}</span></div>))}
+                {(o.items||[]).map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700}}>x{it.qty}</span></div>))}
               </div>
               <div style={{display:'flex',gap:8}}>
                 <button className="epj-btn" onClick={()=>validateOrder(o.num)} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px'}}>✅ Valider</button>
@@ -1049,7 +1075,7 @@ export default function App() {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>Articles par fournisseur</div>
               {/* Bouton re-générer PDF */}
-              <button className="epj-btn" onClick={()=>{setPdfOrder(o);setView('pdfPreview')}} style={{background:EPJ.blue,color:'#fff',padding:'6px 14px',fontSize:11}}>📄 PDF</button>
+              <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:EPJ.blue,color:'#fff',padding:'6px 14px',fontSize:11}}>📄 PDF</button>
             </div>
             {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
               <div key={code} style={{marginBottom:12}}>
