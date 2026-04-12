@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { db } from "./firebase";
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc } from "firebase/firestore";
 
 /* ═══════════════════════════════════════════════════
    EPJ — Application de Commande de Matériel V1.3
@@ -329,7 +329,7 @@ const PdfView = ({order, onClose}) => {
   const byFourn = {};
   order.items.forEach(it => { const c = it.r.split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
   const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
-  const ch = order.chantierObj;
+  const ch = order.chantierObj || {num:order.chantierNum||order.numAffaire, nom:order.chantierNom||order.chantier, adresse:order.chantierAdresse||'', conducteur:order.chantierConducteur||''};
   const S = {
     page:{fontFamily:'Arial,Helvetica,sans-serif',color:'#3d3d3d',fontSize:11,lineHeight:1.4,background:'#fff',padding:20,borderRadius:12,maxWidth:520,margin:'0 auto'},
     hdr:{display:'flex',justifyContent:'space-between',alignItems:'center',paddingBottom:12,borderBottom:'3px solid #00A3E0'},
@@ -428,9 +428,11 @@ export default function App() {
 
   // ─── FIREBASE : écoute temps réel des commandes ───
   useEffect(() => {
-    const q = query(collection(db, "commandes"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "commandes"));
     const unsub = onSnapshot(q, (snap) => {
       const allOrders = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+      // Trier par date de création décroissante
+      allOrders.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
       setHistory(allOrders);
       setPendingOrders(allOrders.filter(o => o.statut === "En attente de validation"));
       setFbLoading(false);
@@ -505,35 +507,42 @@ export default function App() {
   const numCmd = () => `CMD-${new Date().getFullYear()}-${String(cmdCounter).padStart(4,'0')}`;
   const clearOrder = () => {setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");setSelectedCat(null);setSearch("")};
 
+  const [sending, setSending] = useState(false);
+
   const sendOrder = async () => {
+    if(sending) return;
+    setSending(true);
     const cmd = numCmd();
     const chObj = selectedChantierObj;
     const needsValidation = orderType==='chantier' && !user.directAchat;
     const statut = needsValidation ? "En attente de validation" : "Envoyée aux achats";
-    const order = {
-      num:cmd, date:new Date().toLocaleDateString('fr-FR'), type:orderType, items:[...cartItems],
+    const orderData = {
+      num:cmd, date:new Date().toLocaleDateString('fr-FR'), type:orderType,
+      items: cartItems.map(it=>({r:it.r, n:it.n, c:it.c, s:it.s, u:it.u||'Pièce', qty:it.qty, img:it.img||''})),
       user:`${user.prenom} ${user.nom}`, userId:user.id, fonction:user.fonction,
       chantier:orderType==='chantier'?(showNewChantier?newChantier:chantier):'',
-      chantierObj:chObj?{num:chObj.num,nom:chObj.nom,adresse:chObj.adresse,conducteur:chObj.conducteur}:null,
+      chantierNom:chObj?.nom||'', chantierNum:chObj?.num||'', chantierAdresse:chObj?.adresse||'', chantierConducteur:chObj?.conducteur||'',
       numAffaire:chObj?.num||'',
       salarie:targetSalarie||`${user.prenom} ${user.nom}`,
       urgent, livraison, remarques, dateReception, statut, extraEmail, motifRefus:"",
-      createdAt: serverTimestamp()
+      createdAt: new Date().toISOString()
     };
 
     try {
-      await addDoc(collection(db, "commandes"), order);
-      // Incrémenter le compteur
+      await addDoc(collection(db, "commandes"), orderData);
       const newCount = cmdCounter + 1;
       setCmdCounter(newCount);
       await setDoc(doc(db, "config", "compteur"), { value: newCount });
 
-      if(!needsValidation) { setPdfOrder({...order, chantierObj:chObj}); }
-      setLastSentOrder({...order, chantierObj:chObj});
+      const localOrder = {...orderData, chantierObj:chObj};
+      if(!needsValidation) { setPdfOrder(localOrder); }
+      setLastSentOrder(localOrder);
+      setSending(false);
       setView("done");
     } catch(err) {
       console.error("Erreur envoi commande:", err);
-      showT("❌ Erreur d'envoi — vérifiez votre connexion");
+      setSending(false);
+      showT("❌ Erreur : " + (err.message||"vérifiez votre connexion"));
     }
   };
 
@@ -859,7 +868,7 @@ export default function App() {
         </div>
         <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
           <button className="epj-btn" onClick={()=>setView('details')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Modifier</button>
-          <button className="epj-btn" onClick={sendOrder} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>{needsVal?'📤 Soumettre':'✉️ Envoyer + PDF'}</button>
+          <button className="epj-btn" onClick={sendOrder} disabled={sending} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>{sending?'⏳ Envoi en cours...':needsVal?'📤 Soumettre':'✉️ Envoyer + PDF'}</button>
         </div>
       </div>
     );
