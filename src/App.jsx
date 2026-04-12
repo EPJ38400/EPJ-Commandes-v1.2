@@ -721,13 +721,23 @@ export default function App() {
   };
 
   // ─── QTY CONTROL with editable input ───
-  const QtyControl = ({r, value, compact}) => (
+  const [typingRef, setTypingRef] = useState(null);
+  const [typingVal, setTypingVal] = useState('');
+  const QtyControl = ({r, value, compact}) => {
+    const isTyping = typingRef === r;
+    return (
     <div style={{display:'flex',alignItems:'center',gap:4}}>
       <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value===1?'#fee':'#eee',color:value===1?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>{value===1?'🗑':'−'}</button>
-      <input type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input" value={value} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');updateQty(r,v===''?0:v)}} onFocus={e=>{setTimeout(()=>e.target.select(),50)}} style={{width:compact?48:60}} />
+      <input type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input"
+        value={isTyping ? typingVal : value}
+        onFocus={()=>{setTypingRef(r);setTypingVal(String(value))}}
+        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');setTypingVal(v)}}
+        onBlur={()=>{const n=parseInt(typingVal)||0;updateQty(r,n);setTypingRef(null);setTypingVal('')}}
+        onKeyDown={e=>{if(e.key==='Enter'){e.target.blur()}}}
+        style={{width:compact?48:60}} />
       <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
-    </div>
-  );
+    </div>);
+  };
 
   // ═══ LOGIN ═══
   if(view==="login") return (
