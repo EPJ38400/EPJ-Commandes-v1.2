@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { initEPJData, uploadCatalog } from "./initFirestore";
@@ -720,20 +720,15 @@ export default function App() {
     return <div style={{width:size,height:size,borderRadius:8,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
   };
 
-  // ─── QTY CONTROL with editable input ───
-  const QtyControl = ({r, value, compact, showDelete}) => {
-    return (
+  // ─── QTY CONTROL ───
+  const QtyControl = ({r, value, compact, showDelete}) => (
     <div style={{display:'flex',alignItems:'center',gap:4}}>
-      {showDelete && <button onClick={()=>updateQty(r,0)} style={{width:compact?26:30,height:compact?26:30,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:13,cursor:'pointer',fontWeight:700}}>🗑</button>}
-      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1?'#fee':'#eee',color:value<=1?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
-      <input ref={inputRef} type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input"
-        defaultValue={value} key={r+'_'+value}
-        onBlur={e=>{const n=parseInt(e.target.value)||1;if(n!==value)updateQty(r,n)}}
-        onKeyDown={e=>{if(e.key==='Enter')e.target.blur()}}
-        style={{width:compact?48:60}} />
+      {showDelete && <button onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:12,cursor:'pointer',fontWeight:700}}>🗑</button>}
+      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1&&!showDelete?'#fee':'#eee',color:value<=1&&!showDelete?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
+      <div style={{width:compact?48:60,height:compact?30:34,borderRadius:8,border:`2px solid #e0e0e0`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,fontFamily:font}}>{value}</div>
       <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
-    </div>);
-  };
+    </div>
+  );
 
   // ═══ LOGIN ═══
   if(view==="login") return (
