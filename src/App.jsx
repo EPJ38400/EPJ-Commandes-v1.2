@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { initEPJData, uploadCatalog } from "./initFirestore";
@@ -721,20 +721,15 @@ export default function App() {
   };
 
   // ─── QTY CONTROL with editable input ───
-  const [typingRef, setTypingRef] = useState(null);
-  const [typingVal, setTypingVal] = useState('');
-  const QtyControl = ({r, value, compact}) => {
-    const isTyping = typingRef === r;
+  const QtyControl = ({r, value, compact, showDelete}) => {
     return (
     <div style={{display:'flex',alignItems:'center',gap:4}}>
-      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value===1?'#fee':'#eee',color:value===1?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>{value===1?'🗑':'−'}</button>
-      <input type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input"
-        value={isTyping ? typingVal : value}
-        onFocus={e=>{setTypingRef(r);setTypingVal('');e.target.value='';}}
-        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');setTypingVal(v)}}
-        onBlur={()=>{const n=parseInt(typingVal)||value;if(n>0)updateQty(r,n);setTypingRef(null);setTypingVal('')}}
-        onKeyDown={e=>{if(e.key==='Enter'){e.target.blur()}}}
-        placeholder={String(value)}
+      {showDelete && <button onClick={()=>updateQty(r,0)} style={{width:compact?26:30,height:compact?26:30,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:13,cursor:'pointer',fontWeight:700}}>🗑</button>}
+      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1?'#fee':'#eee',color:value<=1?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
+      <input ref={inputRef} type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input"
+        defaultValue={value} key={r+'_'+value}
+        onBlur={e=>{const n=parseInt(e.target.value)||1;if(n!==value)updateQty(r,n)}}
+        onKeyDown={e=>{if(e.key==='Enter')e.target.blur()}}
         style={{width:compact?48:60}} />
       <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
     </div>);
@@ -884,7 +879,7 @@ export default function App() {
                         <div style={{fontSize:13,fontWeight:600,color:EPJ.dark}}>{it.n}</div>
                         <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
                       </div>
-                      <QtyControl r={it.r} value={cart[it.r]}/>
+                      <QtyControl r={it.r} value={cart[it.r]} showDelete={true}/>
                     </div>
                   ))}
                 </div>
