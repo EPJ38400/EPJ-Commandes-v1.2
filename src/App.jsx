@@ -724,7 +724,7 @@ export default function App() {
   const QtyControl = ({r, value, compact}) => (
     <div style={{display:'flex',alignItems:'center',gap:4}}>
       <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value===1?'#fee':'#eee',color:value===1?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>{value===1?'🗑':'−'}</button>
-      <input type="number" inputMode="numeric" pattern="[0-9]*" className="qty-input" value={value} onChange={e=>updateQty(r,e.target.value)} onFocus={e=>e.target.select()} style={{width:compact?48:60}} min="0"/>
+      <input type="text" inputMode="numeric" pattern="[0-9]*" className="qty-input" value={value} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');updateQty(r,v===''?0:v)}} onFocus={e=>{setTimeout(()=>e.target.select(),50)}} style={{width:compact?48:60}} />
       <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
     </div>
   );
