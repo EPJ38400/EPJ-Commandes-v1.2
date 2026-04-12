@@ -702,7 +702,7 @@ export default function App() {
     <div style={{background:EPJ.dark,color:'#fff',padding:'14px 16px',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {back&&<button onClick={()=>{if(backView==='cats'){setSelectedCat(null);setSearch('')}else setView(backView||'home')}} style={{background:'rgba(255,255,255,.12)',border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:13,cursor:'pointer',fontWeight:600,fontFamily:font}}>←</button>}
+          {back&&<button onClick={()=>{if(backView==='cats'){setSelectedCat(null);setSearch('')}else if(backView==='admin'){setAdminSection(null);setAdminEdit(null);setAdminForm({});setSelectedCat(null);setSearch('');setView('admin')}else setView(backView||'home')}} style={{background:'rgba(255,255,255,.12)',border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:13,cursor:'pointer',fontWeight:600,fontFamily:font}}>←</button>}
           <div style={{fontSize:16,fontWeight:700}}>{title}</div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
