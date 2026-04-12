@@ -425,6 +425,8 @@ export default function App() {
   const [editingQty, setEditingQty] = useState(null);
   const [pdfOrder, setPdfOrder] = useState(null);
   const [fbLoading, setFbLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [lastSentOrder, setLastSentOrder] = useState(null);
 
   // ─── FIREBASE : écoute temps réel des commandes ───
   useEffect(() => {
@@ -506,8 +508,6 @@ export default function App() {
   const logout = () => {setUser(null);setView("login");setLoginId("");setLoginPwd("");setCart({});setOrderType("")};
   const numCmd = () => `CMD-${new Date().getFullYear()}-${String(cmdCounter).padStart(4,'0')}`;
   const clearOrder = () => {setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");setSelectedCat(null);setSearch("")};
-
-  const [sending, setSending] = useState(false);
 
   const sendOrder = async () => {
     if(sending) return;
@@ -874,8 +874,6 @@ export default function App() {
     );
   }
 
-  const [lastSentOrder, setLastSentOrder] = useState(null);
-
   // ═══ DONE ═══
   if(view==="done"){
     const o=lastSentOrder||history[0];
@@ -884,20 +882,19 @@ export default function App() {
     // Build full order content for email body
     const buildMailBody = () => {
       if(!o) return '';
-      const ch = o.chantierObj;
       const byFourn = {};
-      o.items.forEach(it => { const c = it.r.split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
-      const totalQty = o.items.reduce((s,i)=>s+i.qty,0);
+      (o.items||[]).forEach(it => { const c = (it.r||'').split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
+      const totalQty = (o.items||[]).reduce((s,i)=>s+(i.qty||0),0);
       let b = '';
       b += `BON DE COMMANDE ${o.num}\n`;
       b += `Date : ${o.date}\n`;
       if(o.urgent) b += `⚠️ COMMANDE URGENTE\n`;
       b += `\n`;
-      b += `Demandeur : ${o.user} (${o.fonction})\n`;
+      b += `Demandeur : ${o.user} (${o.fonction||''})\n`;
       if(o.type==='chantier') {
         b += `Chantier : ${o.chantier}\n`;
-        if(ch?.num) b += `N° Affaire : ${ch.num}\n`;
-        if(ch?.adresse) b += `Adresse : ${ch.adresse}\n`;
+        if(o.numAffaire||o.chantierNum) b += `N° Affaire : ${o.numAffaire||o.chantierNum}\n`;
+        if(o.chantierAdresse) b += `Adresse : ${o.chantierAdresse}\n`;
       } else {
         b += `Destinataire : ${o.salarie}\n`;
       }
@@ -912,7 +909,7 @@ export default function App() {
         });
         b += `\n`;
       });
-      b += `TOTAL : ${totalQty} articles — ${o.items.length} références\n`;
+      b += `TOTAL : ${totalQty} articles — ${(o.items||[]).length} références\n`;
       b += `\nCordialement,\n${o.user}\nEPJ — Électricité Générale`;
       return b;
     };
@@ -1010,11 +1007,11 @@ export default function App() {
       </div>
       <div style={{padding:12}}>
         {history.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
-        :history.filter(h=>!historyFilter.statut||h.statut===historyFilter.statut).filter(h=>!historyFilter.chantier||h.chantier===historyFilter.chantier).map((h,i)=>(
-          <div key={i} onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
+        :history.filter(h=>h&&h.num).filter(h=>!historyFilter.statut||h.statut===historyFilter.statut).filter(h=>!historyFilter.chantier||h.chantier===historyFilter.chantier).map((h,i)=>(
+          <div key={h._id||i} onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
             <div style={{display:'flex',justifyContent:'space-between'}}>
-              <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire}] ${h.chantier}`:`👷 ${h.salarie}`}</div></div>
-              <div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{h.items.length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:STATUS_COLORS[h.statut]?.bg||'#eee',color:STATUS_COLORS[h.statut]?.color||'#333'}}>{STATUS_COLORS[h.statut]?.icon} {h.statut}</div></div>
+              <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
+              <div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:STATUS_COLORS[h.statut]?.bg||'#eee',color:STATUS_COLORS[h.statut]?.color||'#333'}}>{STATUS_COLORS[h.statut]?.icon||''} {h.statut||'—'}</div></div>
             </div>
           </div>
         ))}
@@ -1024,7 +1021,7 @@ export default function App() {
 
   // ═══ ORDER DETAIL ═══
   if(view==="orderDetail"&&selectedOrder){
-    const o=selectedOrder;const byFourn={};o.items.forEach(it=>{const c=it.r.split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
+    const o=selectedOrder;const byFourn={};(o.items||[]).forEach(it=>{const c=(it.r||'').split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
     return(
       <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
         <style>{css}</style>
@@ -1058,7 +1055,7 @@ export default function App() {
                 {items.map(it=>(<div key={it.r} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #f5f5f5'}}><Thumb cat={it.c} imageUrl={it.img}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:EPJ.dark}}>{it.n}</div><div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div></div><div style={{fontSize:14,fontWeight:800,color:EPJ.blue}}>x{it.qty}</div></div>))}
               </div>
             ))}
-            <div style={{marginTop:10,padding:'10px 0',borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{o.items.reduce((s,i)=>s+i.qty,0)} articles ({o.items.length} réf.)</span></div>
+            <div style={{marginTop:10,padding:'10px 0',borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
           </div>
         </div>
       </div>
