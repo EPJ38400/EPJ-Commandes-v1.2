@@ -433,6 +433,7 @@ export default function App() {
     const q = query(collection(db, "commandes"));
     const unsub = onSnapshot(q, (snap) => {
       const allOrders = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+      console.log("Firebase: " + allOrders.length + " commande(s) chargée(s)");
       // Trier par date de création décroissante
       allOrders.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
       setHistory(allOrders);
@@ -507,7 +508,7 @@ export default function App() {
   };
   const logout = () => {setUser(null);setView("login");setLoginId("");setLoginPwd("");setCart({});setOrderType("")};
   const numCmd = () => `CMD-${new Date().getFullYear()}-${String(cmdCounter).padStart(4,'0')}`;
-  const clearOrder = () => {setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");setSelectedCat(null);setSearch("")};
+  const clearOrder = () => {setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");setSelectedCat(null);setSearch("");setSending(false)};
 
   const sendOrder = async () => {
     if(sending) return;
@@ -529,7 +530,8 @@ export default function App() {
     };
 
     try {
-      await addDoc(collection(db, "commandes"), orderData);
+      const docRef = await addDoc(collection(db, "commandes"), orderData);
+      console.log("Commande envoyée dans Firebase, id:", docRef.id);
       const newCount = cmdCounter + 1;
       setCmdCounter(newCount);
       await setDoc(doc(db, "config", "compteur"), { value: newCount });
