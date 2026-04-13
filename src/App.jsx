@@ -48,7 +48,7 @@ const CATALOG = [
   {c:"Béton + Descente",s:"Capri",r:"CAP 959922",n:"BOITE MAXIBANCHE GTI IRL2",u:"Pièce"},
   {c:"Béton + Descente",s:"Capri",r:"CAP 959937",n:"BOITE MAXIBANCHE DOS A DOS IRL",u:"Pièce"},
   {c:"Béton + Descente",s:"Capri",r:"CAP 859320",n:"Boîtier 32 A Ø 80",u:"Pièce"},
-  {c:"Béton + Descente",s:"Capri",r:"CAP 598940",n:"CONE D\'EXTRACTION",u:"Pièce"},
+  {c:"Béton + Descente",s:"Capri",r:"CAP 598940",n:"CONE D'EXTRACTION",u:"Pièce"},
   {c:"Béton + Descente",s:"Rallonge Doublage",r:"SIB P0106009",n:"Manchon doublage",u:"Pièce"},
   {c:"Béton + Descente",s:"Rallonge Doublage",r:"SIB P0106108",n:"Anneau adaptateur appareil vis",u:"Pièce"},
   {c:"Béton + Descente",s:"Sib",r:"SIB P01052",n:"ANNEAU A VIS UNIVERSEL",u:"Pièce"},
@@ -57,9 +57,9 @@ const CATALOG = [
   {c:"Béton + Descente",s:"Blm",r:"BLI 779925",n:"BANCHEBOX IRL25 murs de 160 à 200 mm (non percée)",u:"Pièce"},
   {c:"Béton + Descente",s:"Blm",r:"BLI 759010",n:"COUV. DE POSE MURBOX",u:"Pièce"},
   {c:"Béton + Descente",s:"Blm",r:"BLI 759920",n:"BAGUE DE RALLONGUE MURBOX 20MM",u:"Pièce"},
-  {c:"Béton + Descente",s:"Blm",r:"BLI 750090",n:"DISTANCIER MURBOX TYPE \'C\' 71X100 MM",u:"Pièce"},
+  {c:"Béton + Descente",s:"Blm",r:"BLI 750090",n:"DISTANCIER MURBOX TYPE 'C' 71X100 MM",u:"Pièce"},
   {c:"Béton + Descente",s:"Blm",r:"BLI 759020",n:"ANNEAU A VIS MURBOX",u:"Pièce"},
-  {c:"Béton + Descente",s:"Blm",r:"BLI 755108",n:"AIMANT RESINE 800N JAUNE",u:"Pièce"},
+  {c:"Béton + Descente",s:"Blm",r:"BLI 755108",n:"AIMANT RESINE Ø800N JAUNE",u:"Pièce"},
   {c:"Béton + Descente",s:"Tube Iro",r:"GEW DX27725",n:"IRL 3321 D25 T G TUBE IRL (GEWISS)",u:"Pièce"},
   {c:"Béton + Descente",s:"Tube Iro",r:"IBO B28970",n:"IRL 3321 D25 T G TUBE IRL",u:"Pièce"},
   {c:"Béton + Descente",s:"Tube Iro",r:"IBO B28980",n:"IRL 3321 D32 T G TUBE IRL",u:"Pièce"},
@@ -84,8 +84,8 @@ const CATALOG = [
   {c:"Conduit + Manchon",s:"Janolene Ik10",r:"CNT 12025520",n:"RLX ICTA 3522 IK10 25M AV.TIRE FIL D110",u:"Pièce"},
   {c:"Conduit + Manchon",s:"Janolene Ik10",r:"PUM 64998",n:"RLX ICTA 3522 IK10 25M AV.TIRE FIL D160",u:"Pièce"},
   {c:"Conduit + Manchon",s:"Pvc Ft",r:"PUM 12867",n:"GAINE PVC LST 6M 45X1,8",u:"Pièce"},
-  {c:"Conduit + Manchon",s:"Pvc Ft",r:"PUM 56220",n:"COURBE TELECOM MF-90\' R210 D 45",u:"Pièce"},
-  {c:"Conduit + Manchon",s:"Pvc Ft",r:"PUM 7600",n:"COURBE TELECOM MF-45\' R525 D 45",u:"Pièce"},
+  {c:"Conduit + Manchon",s:"Pvc Ft",r:"PUM 56220",n:"COURBE TELECOM MF-90' R210 D 45",u:"Pièce"},
+  {c:"Conduit + Manchon",s:"Pvc Ft",r:"PUM 7600",n:"COURBE TELECOM MF-45' R525 D 45",u:"Pièce"},
   {c:"Conduit + Manchon",s:"Tube Iro",r:"IBO B28960",n:"Tube iro - PVC - tulipé - Ø20 mm - long 3 m - Gris",u:"Pièce"},
   {c:"Conduit + Manchon",s:"Tube Iro",r:"IBO B28970",n:"Tube iro - PVC - tulipé - Ø25 mm - long 3 m - Gris",u:"Pièce"},
   {c:"Conduit + Manchon",s:"Tube Iro",r:"IBO B28990",n:"Tube iro - PVC - tulipé - Ø40 mm",u:"Pièce"},
@@ -153,10 +153,10 @@ const CATALOG = [
   {c:"Placo",s:"Quadruple",r:"BLI 684710",n:"BOITE NO AIR QUADRUPLE ENTRAXE 71mm",u:"Pièce"},
   {c:"Divers",s:"Général",r:"BLI 685500",n:"BOITE MICRO MODULE NO AIR",u:"Pièce"},
   {c:"Divers",s:"Général",r:"BLI 759020",n:"ANNEAU POUR APPAREILLAGE",u:"Pièce"},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 610559",n:"POINT DE CENTRE BLUE BOX DCL HT55 D67",u:"Pièce"},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"CAP 735049",n:"CAPRICLIPS POINT DE CENTRE DCL HT40 D86",u:"Pièce"},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670510",n:"NO AIR BBC POINT DE CENTRE DCL HT55 D67",u:"Pièce"},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"EUR 53063",n:"Eur Ohm - Point de centre air\'metic d85​​​​​​​",u:"Pièce"},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 610559",n:"POINT DE CENTRE BLUE BOX DCL HT55 ØD67",u:"Pièce"},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"CAP 735049",n:"CAPRICLIPS POINT DE CENTRE DCL HT40 ØD86",u:"Pièce"},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670510",n:"NO AIR BBC POINT DE CENTRE DCL HT55 ØD67",u:"Pièce"},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"EUR 53063",n:"Eur Ohm - Point de centre air'metic d85",u:"Pièce"},
   {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670860",n:"Point Centre GV No Air DCL D.86 Prof.40",u:"Pièce"},
   {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE PATT0",n:"Pettite trappe affleurante pour BTT26",u:"Pièce"},
   {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE PATT2",n:"Porte affleurante pour BTT26",u:"Pièce"},
@@ -296,7 +296,7 @@ const CATALOG = [
   {c:"Équipement Logement",s:"Sortie De Cable",r:"BLI 605211",n:"SORTIE DE CABLE 16A IP44",u:"Pièce"},
   {c:"Équipement Logement",s:"Sortie De Cable",r:"BLI 605215",n:"SORTIE DE CABLE 16A GRIFFES",u:"Pièce"},
   {c:"Équipement Logement",s:"Sortie De Cable",r:"EUR 60087",n:"SORTIE DE CABLE 32A GRIFFES",u:"Pièce"},
-  {c:"Équipement Logement",s:"Dcl",r:"BLI 600800",n:"COUVERCLE D\'APPLIQUE Ø67",u:"Pièce"},
+  {c:"Équipement Logement",s:"Dcl",r:"BLI 600800",n:"COUVERCLE D'APPLIQUE Ø67",u:"Pièce"},
   {c:"Équipement Logement",s:"Dcl",r:"BLI 601200",n:"COUVERCLE DCL Ø120",u:"Pièce"},
   {c:"Équipement Logement",s:"Dcl",r:"EUR 53042F",n:"Couv. de finition DCL d 120 IP44 avec membrane caoutchouc",u:"Pièce"},
   {c:"Équipement Logement",s:"Dcl",r:"BLI 601300",n:"COUVERCLE DCL Ø130",u:"Pièce"},
@@ -313,7 +313,7 @@ const CATALOG = [
   {c:"Équipement Logement",s:"Couvercle Vierge",r:"SIB P0211048",n:"Couvercle finition petite et grande tete de pieuvre Ø100",u:"Pièce"},
   {c:"Équipement Logement",s:"Seche-Serviette",r:"ATL 831416",n:"SECHE-SERVIETTE DEVO-DCB18 500W",u:"Pièce"},
   {c:"Équipement Logement",s:"Seche-Serviette",r:"ATL 831417",n:"SECHE-SERVIETTE DEVO-DCB18 750W",u:"Pièce"},
-  {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 081988",n:"BOITE D\'ENCASTREMENT PRISE DE SOL",u:"Pièce"},
+  {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 081988",n:"BOITE D'ENCASTREMENT PRISE DE SOL",u:"Pièce"},
   {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 089760",n:"PRISE SOL 2P+T 16A CARRÉE IB",u:"Pièce"},
   {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 089770",n:"PRISE SOL 2P+T 16A RONDE IB",u:"Pièce"},
   {c:"Équipement Logement",s:"Divers",r:"POI MM100TC",n:"COMPTEUR ELECTRIQUE MONOPHASE 100 A AVEC TRANSFORM",u:"Pièce"},
@@ -345,8 +345,8 @@ const CATALOG = [
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC AWC812",n:"DERIVATEUR TERMINAL 5 - 1 220 MHZ 8 SORTIES -12 DB",u:"Pièce"},
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC ABS021RJKIT",n:"KIT REPARTITEUR ULB 2 DIR. F/RJ45 + 2 CORDONS RJ/RJ PLATS +",u:"Pièce"},
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC ABS041RJKIT",n:"KIT REPARTITEUR ULB 4 DIR. F/RJ45 + 4 CORDONS RJ/RJ PLATS +",u:"Pièce"},
-  {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC EPRI2SDIN",n:"AMPLIFICATEUR D\'APPARTEMENT TV + SAT 2 SORTIES",u:"Pièce"},
-  {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC EPRI224",n:"AMPLIFICATEUR D\'APPARTEMENT TV REGLABLE 2 SORTIES",u:"Pièce"},
+  {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC EPRI2SDIN",n:"AMPLIFICATEUR D'APPARTEMENT TV + SAT 2 SORTIES",u:"Pièce"},
+  {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"EVC EPRI224",n:"AMPLIFICATEUR D'APPARTEMENT TV REGLABLE 2 SORTIES",u:"Pièce"},
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"SAT ANT-DPA001",n:"AMPLIFICATEUR PROGRAMMABLE 55DB 32 CANAUX 3E V/ U 1E FMFILTRE 4G/ 5G ANTTRON",u:"Pièce"},
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"SAT 6831",n:"PATTE EN M DEP.200MM GALVANISE",u:"Pièce"},
   {c:"Courant Faible",s:"Colonne + Antenne Tv",r:"SAT OPT-4015",n:"MAT D.40MM L.1,5M EMBOITABLE GALVANISE",u:"Pièce"},
@@ -374,7 +374,7 @@ const CATALOG = [
   {c:"Interphonie",s:"Comelit",r:"COT 4399",n:"Alimentation 12 Volts 4A",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT BP/408L",n:"Bouton sonore + led monté sur façade inox",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT 1210",n:"Alimentation 2 fils",u:"Pièce"},
-  {c:"Interphonie",s:"Comelit",r:"COT 1595",n:"TRANSFORMATEUR D\'ALIMENTATION 33VCC",u:"Pièce"},
+  {c:"Interphonie",s:"Comelit",r:"COT 1595",n:"TRANSFORMATEUR D'ALIMENTATION 33VCC",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT 1214/2C",n:"BORNE DE DÉRIVATION DE SIGNAL",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT CLE/B",n:"Clé résidant mifare Bleu",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT CLE/J",n:"Clé résidant mifare Jaune",u:"Pièce"},
@@ -385,7 +385,7 @@ const CATALOG = [
   {c:"Interphonie",s:"Comelit",r:"COT PL6721BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 4,3\"",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT PL6731BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 5\"",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM D83/I",n:"PLATINE VIDEO À DEFILEMENT 2VOICE 2 LIGNES PERCAGE T25 - INO",u:"Pièce"},
-  {c:"Interphonie",s:"Urmet",r:"URM CVPLUS1P",n:"CENTRALE 1 PORTE CVPLUS1P, GESTION CONNECTEE OU L/E, JUSQU\'A",u:"Pièce"},
+  {c:"Interphonie",s:"Urmet",r:"URM CVPLUS1P",n:"CENTRALE 1 PORTE CVPLUS1P, GESTION CONNECTEE OU L/E, JUSQU'A",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM CVPLUS1P/SP",n:"CENTRALE 1P VIGIK+ LE/IP PERSONNALISE POUR SYSTEMES URMET",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM KDATACVPLUS1P",n:"KIT COMPLET AVEC ALIM, CENTRALE CERTIFIEE VIGIK+, LECTEUR, M",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM ANTGPRS3G4G",n:"ANTENNE URMET POUR DEPORTER LA RECEPTION DU MODEM GPRS, 3G,",u:"Pièce"},
@@ -393,7 +393,7 @@ const CATALOG = [
   {c:"Interphonie",s:"Urmet",r:"URM 1083/53",n:"INTERFACE 2 PLATINES 2 COLONNES 2VOICE 4 DIN",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM 1083/55",n:"DERIVATEUR VIDEO 4 SORTIES 2VOICE POUR SYSTEMES URMET",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM AL12/2DIN",n:"ALIM REGULEE 12VCC 2A, REGLABLE 12-14V, 3 MODULES, VOYANT SE",u:"Pièce"},
-  {c:"Interphonie",s:"Urmet",r:"URM 1760/6",n:"MONITEUR D\'INTERPHONIE MAIN-LIBRE VOG5 AVEC ÉCRAN 5\' COMPATI",u:"Pièce"},
+  {c:"Interphonie",s:"Urmet",r:"URM 1760/6",n:"MONITEUR D'INTERPHONIE MAIN-LIBRE VOG5 AVEC ÉCRAN 5' COMPATI",u:"Pièce"},
   {c:"Lustrerie",s:"Ampoule Led E27",r:"BLD BL06092002",n:"BULB LAMPE A60-E27-9W-4000K-NON DIM",u:"Pièce"},
   {c:"Lustrerie",s:"Ampoule Led E27",r:"BLD BL06092001",n:"BULB LAMPE A60-E27-9W-3000K NON DIM",u:"Pièce"},
   {c:"Lustrerie",s:"Ampoule Led Gu10",r:"SON LAPAR01",n:"LAMPE LED GU10 4.9W 535LM 3000K x5p (BLANC CHAUD)",u:"Pièce"},
@@ -558,7 +558,7 @@ const CATALOG = [
   {c:"EPI",s:"Général",r:"VIN 360027",n:"LUNETTE A BRANCHE VISILUX",u:"Pièce"},
   {c:"EPI",s:"Général",r:"VIN 360332",n:"CASQUE ANTIBRUIT ARCEAU",u:"Pièce"},
   {c:"EPI",s:"Général",r:"VIN 360239",n:"MASQUE PAPIER FFP2 AV VALVE",u:"Pièce"},
-  {c:"Divers",s:"Divers",r:"BIZ 700231",n:"GEL LUBRIFIANT POUR CABLES ET FILS BIZ\'LUB",u:"Pièce"},
+  {c:"Divers",s:"Divers",r:"BIZ 700231",n:"GEL LUBRIFIANT POUR CABLES ET FILS BIZ'LUB",u:"Pièce"},
   {c:"Divers",s:"Divers",r:"CAP 599200",n:"CAPRIGEL GTI 1L POUR TOUS TYPES DE CABLES",u:"Pièce"},
   {c:"Divers",s:"Divers",r:"AGI 398443",n:"Aiguille en nylon de 25 m",u:"Pièce"},
   {c:"Divers",s:"Divers",r:"AGI 398445",n:"Aiguille en nylon de 30 m",u:"Pièce"},
@@ -1630,7 +1630,7 @@ export default function App() {
         <div style={{padding:12}}>
           <button className="epj-btn" onClick={()=>{setAdminEdit('new');setAdminForm({id:'',pwd:'1234',prenom:'',nom:'',fonction:'Ouvrier',email:'',directAchat:false})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Ajouter un utilisateur</button>
           {adminEdit&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='new'?'Nouvel utilisateur':'Modifier l\'utilisateur'}</div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='new'?'Nouvel utilisateur':'Modifier l'utilisateur'}</div>
             {['id','pwd','prenom','nom','email'].map(f=>(
               <div key={f} style={{marginBottom:8}}>
                 <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='id'?'IDENTIFIANT':f==='pwd'?'MOT DE PASSE':f==='prenom'?'PRÉNOM':f==='nom'?'NOM':'EMAIL'}</label>
@@ -1780,7 +1780,7 @@ export default function App() {
         <div style={{padding:12}}>
           <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Ajouter un article</button>
           {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier l\'article'}</div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier l'article'}</div>
             <div style={{marginBottom:8}}>
               <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>CATÉGORIE</label>
               <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
