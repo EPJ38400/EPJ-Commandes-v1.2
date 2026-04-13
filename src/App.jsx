@@ -624,7 +624,7 @@ export default function App() {
     const statut = needsValidation ? "En attente de validation" : "Envoyée aux achats";
     const orderData = {
       num:cmd, date:new Date().toLocaleDateString('fr-FR'), type:orderType,
-      items: cartItems.map(it=>({r:it.r, n:it.n, c:it.c, s:it.s, u:it.u||'Pièce', qty:it.qty, img:it.img||''})),
+      items: cartItems.map(it=>({r:it.r, n:it.n, c:it.c, s:it.s, u:it.u||'Pièce', qty:parseInt(it.qty)||1, img:it.img||''})),
       user:`${user.prenom} ${user.nom}`, userId:user.id, fonction:user.fonction,
       chantier:orderType==='chantier'?(showNewChantier?newChantier:chantier):'',
       chantierNom:chObj?.nom||'', chantierNum:chObj?.num||'', chantierAdresse:chObj?.adresse||'', chantierConducteur:chObj?.conducteur||'',
@@ -658,9 +658,16 @@ export default function App() {
     if(!order || !order._id) return;
     try {
       await updateDoc(doc(db, "commandes", order._id), { statut: "Validée" });
-      setPdfOrder({...order, statut:"Validée"});
-      setView("pdfPreview");
-      showT("✅ Commande validée — PDF généré");
+      const validatedOrder = {...order, statut:"Validée"};
+      // Générer le PDF
+      generateAndOpenPdf(validatedOrder);
+      // Ouvrir le mail
+      const mailDest = order.extraEmail ? `${dynEmailAchats},${order.extraEmail}` : dynEmailAchats;
+      const mailSubj = `${order.urgent?'⚠️ URGENT — ':''}Commande ${order.num} — ${order.chantier||order.salarie}`;
+      const mailItems = (order.items||[]).map(it=>`  • ${it.r} — ${it.n} — Qté: ${it.qty}`).join('\n');
+      const mailBody = `Bonjour,\n\nCommande ${order.num} validée.\n\n${mailItems}\n\nTotal : ${(order.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles\n\nCordialement,\n${user.prenom} ${user.nom}\nEPJ — Électricité Générale`;
+      setTimeout(()=>{window.location.href=`mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(mailBody)}`},800);
+      showT("✅ Commande validée — PDF + mail générés");
     } catch(err) {
       console.error("Erreur validation:", err);
       showT("❌ Erreur — réessayez");
@@ -1108,19 +1115,36 @@ export default function App() {
   );
 
   // ═══ HISTORY ═══
-  if(view==="history") return(
+  if(view==="history"){
+    const fullName = `${user.prenom} ${user.nom}`;
+    // Filtrer selon le rôle
+    let myHistory = history.filter(h=>h&&h.num);
+    if(user.fonction==="Admin") {
+      // Admin voit tout
+    } else if(user.fonction==="Conducteur de travaux") {
+      // Conducteur voit les commandes de ses chantiers
+      const mesChantiers = dynChantiers.filter(c=>c.conducteur===fullName).map(c=>c.nom);
+      myHistory = myHistory.filter(h=>mesChantiers.includes(h.chantier)||h.user===fullName);
+    } else {
+      // Monteur/Chef de chantier voit uniquement ses commandes
+      myHistory = myHistory.filter(h=>h.userId===user.id||h.user===fullName);
+    }
+    // Appliquer les filtres manuels
+    if(historyFilter.statut) myHistory = myHistory.filter(h=>h.statut===historyFilter.statut);
+    if(historyFilter.chantier) myHistory = myHistory.filter(h=>h.chantier===historyFilter.chantier);
+    return(
     <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
       <style>{css}</style>
       <Header title="Historique" back={true} backView="home" showCart={false}/>
       <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
         <div style={{display:'flex',gap:6}}>
           <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{Object.keys(STATUS_COLORS).map(s=><option key={s} value={s}>{s}</option>)}</select>
-          <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(history.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
+          <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
       </div>
       <div style={{padding:12}}>
-        {history.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
-        :history.filter(h=>h&&h.num).filter(h=>!historyFilter.statut||h.statut===historyFilter.statut).filter(h=>!historyFilter.chantier||h.chantier===historyFilter.chantier).map((h,i)=>(
+        {myHistory.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
+        :myHistory.map((h,i)=>(
           <div key={h._id||i} onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
             <div style={{display:'flex',justifyContent:'space-between'}}>
               <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
@@ -1130,7 +1154,7 @@ export default function App() {
         ))}
       </div>
     </div>
-  );
+  );}
 
   // ═══ ORDER DETAIL ═══
   if(view==="orderDetail"&&selectedOrder){
@@ -1357,15 +1381,39 @@ export default function App() {
               </div>
             </div>}
             {cats.map(cat=>(
-              <div key={cat} onClick={()=>setSelectedCat(cat)} className="epj-card" style={{marginBottom:6,cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
-                <span style={{fontSize:24}}>{dynCatIcons[cat]||'📦'}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{cat}</div>
-                  <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} articles • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.</div>
+              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
+                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
+                  <span style={{fontSize:24}}>{dynCatIcons[cat]||'📦'}</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{cat}</div>
+                    <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} articles • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.</div>
+                  </div>
                 </div>
-                <span style={{color:EPJ.gray}}>›</span>
+                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦'})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
+                <button onClick={async()=>{if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;setAdminSaving(true);const toDelete=dynCatalog.filter(p=>p.c===cat);for(const p of toDelete){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+cat.replace(/\s/g,'_'));try{await deleteDoc(doc(db,"catalogue",docId))}catch(e){}}const newIcons={...dynCatIcons};delete newIcons[cat];await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});setAdminSaving(false);showT("🗑️ Catégorie supprimée")}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>
               </div>
             ))}
+            {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Renommer la catégorie</div>
+              <div style={{display:'flex',gap:8,marginBottom:8}}>
+                <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
+                <input className="epj-input" placeholder="Icône" value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:60,padding:'8px',fontSize:20,textAlign:'center'}}/>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
+                <button className="epj-btn" onClick={async()=>{
+                  if(!adminForm.nom||!adminForm.oldNom)return;
+                  setAdminSaving(true);
+                  // Rename: update all articles in this category
+                  const toUpdate=dynCatalog.filter(p=>p.c===adminForm.oldNom);
+                  for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{...p,c:adminForm.nom},{merge:true})}catch(e){}}
+                  // Update icon
+                  const newIcons={...dynCatIcons};delete newIcons[adminForm.oldNom];newIcons[adminForm.nom]=adminForm.icon||'📦';
+                  await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});
+                  setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie renommée");
+                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Renommer'}</button>
+              </div>
+            </div>}
           </>) : (<>
             <button className="epj-btn" onClick={()=>setSelectedCat(null)} style={{width:'100%',background:'#eee',color:EPJ.dark,padding:'10px',fontSize:13,marginBottom:12}}>← Toutes les catégories</button>
             <button className="epj-btn" onClick={()=>{setAdminEdit('newSub');setAdminForm({nom:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle sous-catégorie dans {selectedCat}</button>
