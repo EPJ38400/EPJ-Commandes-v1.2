@@ -43,7 +43,7 @@ const CHANTIERS = [
 ];
 
 
-// ─── CATALOG (265 articles from pressbook) ───
+// ─── CATALOG (583 articles from pressbook — stock col G) ───
 const CATALOG = [
   {c:"Béton + Descente",s:"Capri",r:"CAP 959922",n:"BOITE MAXIBANCHE GTI IRL2",u:"Pièce",stock:false},
   {c:"Béton + Descente",s:"Capri",r:"CAP 959937",n:"BOITE MAXIBANCHE DOS A DOS IRL",u:"Pièce",stock:false},
@@ -59,7 +59,7 @@ const CATALOG = [
   {c:"Béton + Descente",s:"Blm",r:"BLI 759920",n:"BAGUE DE RALLONGUE MURBOX 20MM",u:"Pièce",stock:false},
   {c:"Béton + Descente",s:"Blm",r:"BLI 750090",n:"DISTANCIER MURBOX TYPE 'C' 71X100 MM",u:"Pièce",stock:false},
   {c:"Béton + Descente",s:"Blm",r:"BLI 759020",n:"ANNEAU A VIS MURBOX",u:"Pièce",stock:false},
-  {c:"Béton + Descente",s:"Blm",r:"BLI 755108",n:"AIMANT RESINE Ø800N JAUNE",u:"Pièce",stock:false},
+  {c:"Béton + Descente",s:"Blm",r:"BLI 755108",n:"AIMANT RESINE 800N JAUNE",u:"Pièce",stock:false},
   {c:"Béton + Descente",s:"Tube Iro",r:"GEW DX27725",n:"IRL 3321 D25 T G TUBE IRL (GEWISS)",u:"Pièce",stock:true},
   {c:"Béton + Descente",s:"Tube Iro",r:"IBO B28970",n:"IRL 3321 D25 T G TUBE IRL",u:"Pièce",stock:false},
   {c:"Béton + Descente",s:"Tube Iro",r:"IBO B28980",n:"IRL 3321 D32 T G TUBE IRL",u:"Pièce",stock:false},
@@ -109,8 +109,8 @@ const CATALOG = [
   {c:"Équip. Sous-Sol",s:"Detecteur",r:"BE4 91101",n:"LC CLICK DETECTEUR 140DEG BLANC",u:"Pièce",stock:false},
   {c:"Équip. Sous-Sol",s:"Detecteur",r:"BE4 91102",n:"LC CLICK DETECTEUR 200DEG BLANC",u:"Pièce",stock:false},
   {c:"Équip. Sous-Sol",s:"Detecteur",r:"BE4 92194",n:"DETECTEUR PD3-1C-APPLIQUE 360°",u:"Pièce",stock:false},
-  {c:"Équip. Sous-Sol",s:"B.A.E.S.",r:"ZEM AGV-60-NM",n:"Grille de protection IK 10 pour bloc XENA FLAT",u:"Pièce",stock:false},
-  {c:"Équip. Sous-Sol",s:"B.A.E.S.",r:"ZEM LXF-3045EX",n:"Bloc évacuation SATI 45 lms IP42/IK04 - 0,85w",u:"Pièce",stock:false},
+  {c:"Équip. Sous-Sol",s:"B.a.e.s.",r:"ZEM AGV-60-NM",n:"Grille de protection IK 10 pour bloc XENA FLAT",u:"Pièce",stock:false},
+  {c:"Équip. Sous-Sol",s:"B.a.e.s.",r:"ZEM LXF-3045EX",n:"Bloc évacuation SATI 45 lms IP42/IK04 - 0,85w",u:"Pièce",stock:false},
   {c:"Équip. Sous-Sol",s:"Tube Iro",r:"SCH IMT35201",n:"(TUBE NOIR POUR BS) IRL X LOURD 4554 STD 20",u:"Pièce",stock:false},
   {c:"Équip. Sous-Sol",s:"Tube Iro",r:"SCH IMT35213",n:"MANCHON Ø20 TUB.LOURD SS HALO",u:"Pièce",stock:true},
   {c:"Équip. Sous-Sol",s:"Tube Iro",r:"IBO B28960",n:"Tube iro - PVC - tulipé - Ø20 mm - long 3 m - Gris",u:"Pièce",stock:false},
@@ -131,8 +131,8 @@ const CATALOG = [
   {c:"Plexo",s:"Prise",r:"SCH MUR39010",n:"PRISE PLEXO IRVE EN SAILLIE BLANC",u:"Pièce",stock:false},
   {c:"Plexo",s:"Va Et Vient",r:"SCH MUR35021",n:"VA-ET-VIENT PLEXO SAILLI GRIS",u:"Pièce",stock:false},
   {c:"Plexo",s:"Va Et Vient",r:"SCH MUR39021",n:"VA-ET-VIENT PLEXO SAILLI BLANC",u:"Pièce",stock:false},
-  {c:"Plexo",s:"Va Et Vient",r:"SCH MUR35026",n:"BP PLEXO EN SAILLIE GRIS",u:"Pièce",stock:false},
-  {c:"Plexo",s:"Va Et Vient",r:"SCH MUR39026",n:"BP PLEXO EN SAILLIE BLANC",u:"Pièce",stock:false},
+  {c:"Plexo",s:"Bp",r:"SCH MUR35026",n:"BP PLEXO EN SAILLIE GRIS",u:"Pièce",stock:false},
+  {c:"Plexo",s:"Bp",r:"SCH MUR39026",n:"BP PLEXO EN SAILLIE BLANC",u:"Pièce",stock:false},
   {c:"Plexo",s:"Support Saillie",r:"SCH MUR37911",n:"SUPPORT 1 POSTE GRIS",u:"Pièce",stock:false},
   {c:"Plexo",s:"Support Saillie",r:"SCH MUR39911",n:"SUPPORT 1 POSTE BLANC",u:"Pièce",stock:false},
   {c:"Plexo",s:"Support Saillie",r:"SCH MUR37914",n:"SUPPORT 2 POSTE HORIZONTAL GRIS",u:"Pièce",stock:false},
@@ -143,8 +143,8 @@ const CATALOG = [
   {c:"Placo",s:"Simple",r:"BLI 675400",n:"LOT DE 500 NO AIR II + 1 SCIE CLOCHE",u:"Pièce",stock:false},
   {c:"Placo",s:"Simple",r:"BLI 613409U",n:"BOITE PLACO BLUE BOX Ø68 SIMPLE UNITAIRE",u:"Pièce",stock:true},
   {c:"Placo",s:"Simple",r:"BLI 675400U",n:"BOITE PLACO NO AIR Ø68 SIMPLE UNITAIRE",u:"Pièce",stock:true},
-  {c:"Placo",s:"Simple 32A",r:"CAP 736869",n:"CAPRICLIPS SIMPLE 32 AMPERES",u:"Pièce",stock:false},
-  {c:"Placo",s:"Simple 32A",r:"BLI 690860",n:"Boîtier 32 Amp. No Air D.86 prof.40",u:"Pièce",stock:false},
+  {c:"Placo",s:"Simple 32a",r:"CAP 736869",n:"CAPRICLIPS SIMPLE 32 AMPERES",u:"Pièce",stock:false},
+  {c:"Placo",s:"Simple 32a",r:"BLI 690860",n:"Boîtier 32 Amp. No Air D.86 prof.40",u:"Pièce",stock:false},
   {c:"Placo",s:"Double",r:"BLI 620719",n:"BOITE  DOUBLE ENTRAXE 71mm",u:"Pièce",stock:false},
   {c:"Placo",s:"Double",r:"BLI 682710",n:"BOITE NO AIR DOUBLE ENTRAXE 71mm",u:"Pièce",stock:false},
   {c:"Placo",s:"Triple",r:"EUR 52046",n:"BOITE  TRIPLE ENTRAXE 71mm",u:"Pièce",stock:false},
@@ -153,22 +153,22 @@ const CATALOG = [
   {c:"Placo",s:"Quadruple",r:"BLI 684710",n:"BOITE NO AIR QUADRUPLE ENTRAXE 71mm",u:"Pièce",stock:false},
   {c:"Divers",s:"Général",r:"BLI 685500",n:"BOITE MICRO MODULE NO AIR",u:"Pièce",stock:false},
   {c:"Divers",s:"Général",r:"BLI 759020",n:"ANNEAU POUR APPAREILLAGE",u:"Pièce",stock:false},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 610559",n:"POINT DE CENTRE BLUE BOX DCL HT55 ØD67",u:"Pièce",stock:false},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"CAP 735049",n:"CAPRICLIPS POINT DE CENTRE DCL HT40 ØD86",u:"Pièce",stock:false},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670510",n:"NO AIR BBC POINT DE CENTRE DCL HT55 ØD67",u:"Pièce",stock:false},
-  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"EUR 53063",n:"Eur Ohm - Point de centre air'metic d85",u:"Pièce",stock:false},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 610559",n:"POINT DE CENTRE BLUE BOX DCL HT55 D67",u:"Pièce",stock:false},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"CAP 735049",n:"CAPRICLIPS POINT DE CENTRE DCL HT40 D86",u:"Pièce",stock:false},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670510",n:"NO AIR BBC POINT DE CENTRE DCL HT55 D67",u:"Pièce",stock:false},
+  {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"EUR 53063",n:"Eur Ohm - Point de centre air'metic d85​​​​​​​",u:"Pièce",stock:false},
   {c:"Divers",s:"Kit Dcl + Kit Dcl Bbc",r:"BLI 670860",n:"Point Centre GV No Air DCL D.86 Prof.40",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE PATT0",n:"Pettite trappe affleurante pour BTT26",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE PATT2",n:"Porte affleurante pour BTT26",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE GTA203",n:"Partie démontable haute pour PATT 766*518mm",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE BTT20CBL",n:"Bac 2 travées PC+4R+ VA avec tableau com intégré 200 mm",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"AOE BTT20CBLX3",n:"Lot de 3 Bac 2 travées PC+4R+ VA avec tableau com intégré 200 mm",u:"Pièce",stock:false},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"AOE PATT0",n:"Pettite trappe affleurante pour BTT26",u:"Pièce",stock:false},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"AOE PATT2",n:"Porte affleurante pour BTT26",u:"Pièce",stock:false},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"AOE GTA203",n:"Partie démontable haute pour PATT 766*518mm",u:"Pièce",stock:false},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"AOE BTT20CBL",n:"Bac 2 travées PC+4R+ VA avec tableau com intégré 200 mm",u:"Pièce",stock:false},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"AOE BTT20CBLX3",n:"Lot de 3 Bac 2 travées PC+4R+ VA avec tableau com intégré 200 mm",u:"Pièce",stock:false},
   {c:"Divers",s:"Gtl",r:"GTL235ES01",n:"1 FOND 235 + 1 COUVERCLE + SANS SUPPORT + SANS EMBALLAGE",u:"Pièce",stock:false},
   {c:"Divers",s:"Gtl",r:"GTL235ED02",n:"1 FOND 235 + 2 COUVERCLES + 1 CLOISON + 6 SUPPORTS, CONDITIONNEE PAR 4",u:"Pièce",stock:false},
   {c:"Divers",s:"Gtl",r:"ELGTL00005",n:"CORNET EPANOUISSEUR POUR 1 GTL EXTRUDEE DIM 400X160",u:"Pièce",stock:false},
   {c:"Divers",s:"Gtl",r:"ELGTL00007",n:"CORNET EPANOUISSEUR POUR 1 GTL EXTRUDEE DIM 540X170",u:"Pièce",stock:false},
   {c:"Divers",s:"Gtl",r:"ELGTL00006",n:"CORNET EPANOUISSEUR POUR 1 GTL EXTRUDEE DIM 540X170",u:"Pièce",stock:false},
-  {c:"Divers",s:"Bac D'Encastrement + Porte",r:"LPE 98129",n:"MORTIER ADHESIF KRAFT 25KG MAP",u:"Pièce",stock:true},
+  {c:"Divers",s:"Bac D'encastrement + Porte",r:"LPE 98129",n:"MORTIER ADHESIF KRAFT 25KG MAP",u:"Pièce",stock:true},
   {c:"Colonne Montante",s:"Coffret De Façade",r:"BEO 0702",n:"BORNE ECP2D",u:"Pièce",stock:false},
   {c:"Colonne Montante",s:"Coffret De Façade",r:"BEO 0706",n:"BORNE ECP3D",u:"Pièce",stock:false},
   {c:"Colonne Montante",s:"Spcm",r:"BEO 1613",n:"CC 200A SPCM+cornet+2DEP.95MM2",u:"Pièce",stock:false},
@@ -197,15 +197,15 @@ const CATALOG = [
   {c:"Colonne Montante",s:"Tete De Cable",r:"TRM 82915",n:"EXT. E4R 50-150²",u:"Pièce",stock:true},
   {c:"Colonne Montante",s:"Tete De Cable",r:"TRM 82916",n:"EXT. E4R 240²",u:"Pièce",stock:true},
   {c:"Colonne Montante",s:"Tete De Cable",r:"BLI 694000",n:"BOUCHON ETANCHE NO AIR ICTA 40",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X35TGL",n:"AR2V ALU 1X35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X50TGL",n:"AR2V ALU 1X50TGL",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X70TGL",n:"AR2V ALU 1X70 TGL",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X95TGL",n:"AR2V ALU 1X95 TGL",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X120TGL",n:"AR2V ALU 1X120 TGL",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X35TGL",n:"R2V CU 1X35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X50TGL",n:"R2V CU 1X50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X70TGL",n:"R2V CU 1X70 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X95TGL",n:"R2V CU 1X95 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X35TGL",n:"AR2V ALU 1X35 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X50TGL",n:"AR2V ALU 1X50TGL",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X70TGL",n:"AR2V ALU 1X70 TGL",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X95TGL",n:"AR2V ALU 1X95 TGL",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X120TGL",n:"AR2V ALU 1X120 TGL",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X35TGL",n:"R2V CU 1X35 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X50TGL",n:"R2V CU 1X50 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X70TGL",n:"R2V CU 1X70 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X95TGL",n:"R2V CU 1X95 TGL",u:"ML",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 92194",n:"DETECTEUR PD3-1C-AP SAILLIE",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 92197",n:"DETECTEUR PD3-1C-FP ENCASTRE",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 91101",n:"LC CLICK DETECTEUR 140DEG BLANC",u:"Pièce",stock:false},
@@ -222,9 +222,9 @@ const CATALOG = [
   {c:"Équipement Commun",s:"Tableau + Gtl",r:"DIG 07813",n:"TABLEAU 3 RANGEES",u:"Pièce",stock:true},
   {c:"Équipement Commun",s:"Tableau + Gtl",r:"SCH R9HKT13",n:"kit goulotte GTL 13M",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Tableau + Gtl",r:"SCH R9HKT18",n:"kit goulotte GTL 18M",u:"Pièce",stock:false},
-  {c:"Équipement Commun",s:"B.A.E.S. Commun",r:"ZEM LXF3017EX",n:"BAEH XENA FLAT SATI 5H 8LM IP42/IK04 NP NF NI-CD 1.2W",u:"Pièce",stock:false},
-  {c:"Équipement Commun",s:"B.A.E.S. Commun",r:"ZEM 90091NMF",n:"PORTE ETIQUETTE ENCASTRE XENA-DIANA-PICTO NON INCLUS",u:"Pièce",stock:false},
-  {c:"Équipement Commun",s:"B.A.E.S. Commun",r:"ZEM APV000OP",n:"ETIQUETTE ADHESIVE OPAQUE MILTIDIRECTION - XENA - FORMAT 390",u:"Pièce",stock:false},
+  {c:"Équipement Commun",s:"B.a.e.s. Commun",r:"ZEM LXF3017EX",n:"BAEH XENA FLAT SATI 5H 8LM IP42/IK04 NP NF NI-CD 1.2W",u:"Pièce",stock:false},
+  {c:"Équipement Commun",s:"B.a.e.s. Commun",r:"ZEM 90091NMF",n:"PORTE ETIQUETTE ENCASTRE XENA-DIANA-PICTO NON INCLUS",u:"Pièce",stock:false},
+  {c:"Équipement Commun",s:"B.a.e.s. Commun",r:"ZEM APV000OP",n:"ETIQUETTE ADHESIVE OPAQUE MILTIDIRECTION - XENA - FORMAT 390",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Dad",r:"FRA NEU4710R1C",n:"DECLENCHEUR MANUEL ROUGE 1 CONTACT + CAPOT",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Dad",r:"FRA FINCARAIBES1",n:"DAD SECOURU AVEC 2 BATTERIES 12V 1.2AH",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Dad",r:"FRA FINSEXTANTDOC",n:"DETECTEUR OPTIQUE FUMEE CONVENTIONNEL SEXTANT 12/24V + SOCLE",u:"Pièce",stock:false},
@@ -311,15 +311,15 @@ const CATALOG = [
   {c:"Équipement Logement",s:"Couvercle Vierge",r:"SIB P0221091",n:"Couvercle de finition diametre ext 70",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Couvercle Vierge",r:"SIB P03210",n:"Couvercle finition petite et grande tete de pieuvre Ø85",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Couvercle Vierge",r:"SIB P0211048",n:"Couvercle finition petite et grande tete de pieuvre Ø100",u:"Pièce",stock:false},
-  {c:"Équipement Logement",s:"Seche-Serviette",r:"ATL 831416",n:"SECHE-SERVIETTE DEVO-DCB18 500W",u:"Pièce",stock:false},
-  {c:"Équipement Logement",s:"Seche-Serviette",r:"ATL 831417",n:"SECHE-SERVIETTE DEVO-DCB18 750W",u:"Pièce",stock:false},
+  {c:"Équipement Logement",s:"Seche-serviette",r:"ATL 831416",n:"SECHE-SERVIETTE DEVO-DCB18 500W",u:"Pièce",stock:false},
+  {c:"Équipement Logement",s:"Seche-serviette",r:"ATL 831417",n:"SECHE-SERVIETTE DEVO-DCB18 750W",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 081988",n:"BOITE D'ENCASTREMENT PRISE DE SOL",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 089760",n:"PRISE SOL 2P+T 16A CARRÉE IB",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Appareillage Special",r:"LEG 089770",n:"PRISE SOL 2P+T 16A RONDE IB",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Divers",r:"POI MM100TC",n:"COMPTEUR ELECTRIQUE MONOPHASE 100 A AVEC TRANSFORM",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Divers",r:"LCI 031276",n:"compteur multi-mesure monophasé, sur TI 100A fourni",u:"Pièce",stock:false},
   {c:"Équipement Logement",s:"Divers",r:"SAT DIG04924",n:"COMPTEUR WIFI MONO + TORE OUVRANT 60A - DIGITAL ELECTRIC",u:"Pièce",stock:false},
-  {c:"Courant Faible",s:"Équipement Tableau De Com",r:"AOE GTC113",n:"Répartiteur TV/SAT 3 sorties-1 entrée",u:"Pièce",stock:false},
+  {c:"Courant Faible",s:"Tv",r:"AOE GTC113",n:"Répartiteur TV/SAT 3 sorties-1 entrée",u:"Pièce",stock:false},
   {c:"Courant Faible",s:"Noyaux Rj",r:"BLI 731110",n:"Lot de 100 noyaux RJ45 G3",u:"Pièce",stock:false},
   {c:"Courant Faible",s:"Noyaux Rj",r:"BLI 731110U",n:"Noyaux RJ45 G3",u:"Pièce",stock:true},
   {c:"Courant Faible",s:"Répartiteur Tv / Rj45",r:"EVC ABS021RJKIT",n:"KIT REPARTITEUR ULB 2 DIR. F/RJ45 + 2 CORDONS RJ/RJ PLATS",u:"Pièce",stock:false},
@@ -404,8 +404,8 @@ const CATALOG = [
   {c:"Lustrerie",s:"Ampoule Led Gu10",r:"RES 931016",n:"AMP LED 7W 742lm GU10 4000K",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Fluo Led",r:"RES 607000",n:"SIMPLY 35W 4000K 4196lm",u:"Pièce",stock:true},
   {c:"Lustrerie",s:"Fluo Led",r:"RES 607001",n:"SIMPLY 50W 4000K 5517lm",u:"Pièce",stock:true},
-  {c:"Lustrerie",s:"Local Technique / Sas Sous-Sol",r:"RES 830000",n:"HUBO 18W CCT 4000K 1678lm",u:"Pièce",stock:true},
-  {c:"Lustrerie",s:"Local Technique / Sas Sous-Sol",r:"RES 830001",n:"HUBO 18W DET CCT 4000K 1678lm",u:"Pièce",stock:true},
+  {c:"Lustrerie",s:"Local Technique / Sas Sous-sol",r:"RES 830000",n:"HUBO 18W CCT 4000K 1678lm",u:"Pièce",stock:true},
+  {c:"Lustrerie",s:"Local Technique / Sas Sous-sol",r:"RES 830001",n:"HUBO 18W DET CCT 4000K 1678lm",u:"Pièce",stock:true},
   {c:"Lustrerie",s:"Escalier",r:"RES 850700",n:"KOMET 20W 4000K BLANC 2193lm",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Escalier",r:"RES 850701",n:"KOMET 20W HF 4000K BLANC 2193lm",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Escalier",r:"BLD BL12256507",n:"FOG 360-24W-3000K-IP66-DETECT",u:"Pièce",stock:false},
@@ -417,7 +417,7 @@ const CATALOG = [
   {c:"Lustrerie",s:"Spot Led",r:"RES 963240",n:"MIKS 1185lm CCT ANNEAU FIXE ROND BLANC",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Spot Led",r:"RES 963222",n:"MIKS 506lm CCT B.LUM RD/RD BLANC REFLECTEUR BLANC",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Spot Led",r:"RES 9633252",n:"MIKS 1043lm CCT B.LUM RD/RD BLANC REFLECTEUR BLANC",u:"Pièce",stock:false},
-  {c:"Lustrerie",s:"Spot Led",r:"RES  963226",n:"MIKS 412lm CCT B.LUM RD/RD NOIR REFLECTEUR NOIR",u:"Pièce",stock:false},
+  {c:"Lustrerie",s:"Spot Led",r:"RES 963226",n:"MIKS 412lm CCT B.LUM RD/RD NOIR REFLECTEUR NOIR",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Exterieur",r:"NOL 623180",n:"Bassi hub. GRAPH. E27/CFL",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Exterieur",r:"RES 946532",n:"MARKIZ E27 NOIR + LAMPE E27",u:"Pièce",stock:false},
   {c:"Lustrerie",s:"Exterieur",r:"RES 946533",n:"MARKIZ E27 BLANC + LAMPE E27",u:"Pièce",stock:false},
@@ -477,34 +477,34 @@ const CATALOG = [
   {c:"Outillage",s:"Trepant",r:"VIN423848",n:"PORTE OUTIL COURONNE TREPAN BOSCH",u:"Pièce",stock:false},
   {c:"Outillage",s:"Trepant",r:"VIN423846",n:"TREPAN BOSCH 68",u:"Pièce",stock:false},
   {c:"Outillage",s:"Trepant",r:"VIN423846",n:"TREPAN BOSCH 90",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 266535",n:"SEAU PLAST NOIRE 11L  310183",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 265318",n:"TENAILLE RUSSE 220MM KNIPEX",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 265160",n:"PINCE BECS MI-RONDS DR 200",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 265656",n:"POCHE CLOUS 8 POCHES TOILE",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 266176",n:"MASSETTE 1.20KG LEBOR M.BOIS",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 268413",n:"BURIN DE CARROSSIER 235MM EXTRA PLAT",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 269280",n:"BROCHE MACON 16X300 MERCIER",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 265849",n:"MARTEAU ELECTR. 18MM  GRAPHITE 200GR",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 265041",n:"COUTEAU CARBONE OPINEL N°10V",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 0269467",n:"COUTEAU AVEC SIFFLET OUTDOOR",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 264440",n:"NIVEAU COMPOSIT 40CM STANLEY",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 268884",n:"MESURE  5MX32MM MAGNET FATMAX BLADE ARMOR  STANLEY",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 268885",n:"MESURE 8MX32MM MAGNET FATMAX BLADE ARMOR STANLEY",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 266680",n:"TOURNEVIS JEU DE 6 ISOLE STAN",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267366",n:"TOURNEVIS PROTWIST PH1 VE 1000V",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267366",n:"TOURNEVIS PROTWIST 2X75VE 1000V",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 268501",n:"TOURNEVIS PROTWIST 4X100VE 1000V",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 268462",n:"TOURNEVIS PROTWIST FENT FORGEE 6.5X150",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"LEG 031996",n:"PINCE POUR COLLIER COLSON",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"AGI 221009",n:"PINCE DENUDE 1,5 / 2,5",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"AGI 424023",n:"COUPE CABLES",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267416",n:"CLE MIXTE 42 10  BETA France",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267419",n:"CLE MIXTE 42 13  BETA France",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267467",n:"CLE A PIPE DEBOUCHEE 6X6PANS 933 10X10 BETA France",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN267470",n:"CLE A PIPE DEBOUCHEE 6X6PANS 933 13X13 BETA France",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 267323",n:"CLE BTR JEU DE 8 1.5A8 MONTURE STANLEY",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 264977",n:"SCIE A METAUX URKO",u:"Pièce",stock:false},
-  {c:"Outillage",s:"Général",r:"VIN 264987",n:"SCIE EGOINE 152MM PANN PLATRE",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 266535",n:"SEAU PLAST NOIRE 11L  310183",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 265318",n:"TENAILLE RUSSE 220MM KNIPEX",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 265160",n:"PINCE BECS MI-RONDS DR 200",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 265656",n:"POCHE CLOUS 8 POCHES TOILE",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 266176",n:"MASSETTE 1.20KG LEBOR M.BOIS",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 268413",n:"BURIN DE CARROSSIER 235MM EXTRA PLAT",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 269280",n:"BROCHE MACON 16X300 MERCIER",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 265849",n:"MARTEAU ELECTR. 18MM  GRAPHITE 200GR",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 265041",n:"COUTEAU CARBONE OPINEL N°10V",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 0269467",n:"COUTEAU AVEC SIFFLET OUTDOOR",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 264440",n:"NIVEAU COMPOSIT 40CM STANLEY",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 268884",n:"MESURE  5MX32MM MAGNET FATMAX BLADE ARMOR  STANLEY",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 268885",n:"MESURE 8MX32MM MAGNET FATMAX BLADE ARMOR STANLEY",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 266680",n:"TOURNEVIS JEU DE 6 ISOLE STAN",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267366",n:"TOURNEVIS PROTWIST PH1 VE 1000V",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267366",n:"TOURNEVIS PROTWIST 2X75VE 1000V",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 268501",n:"TOURNEVIS PROTWIST 4X100VE 1000V",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 268462",n:"TOURNEVIS PROTWIST FENT FORGEE 6.5X150",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"LEG 031996",n:"PINCE POUR COLLIER COLSON",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"AGI 221009",n:"PINCE DENUDE 1,5 / 2,5",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"AGI 424023",n:"COUPE CABLES",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267416",n:"CLE MIXTE 42 10  BETA France",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267419",n:"CLE MIXTE 42 13  BETA France",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267467",n:"CLE A PIPE DEBOUCHEE 6X6PANS 933 10X10 BETA France",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN267470",n:"CLE A PIPE DEBOUCHEE 6X6PANS 933 13X13 BETA France",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 267323",n:"CLE BTR JEU DE 8 1.5A8 MONTURE STANLEY",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 264977",n:"SCIE A METAUX URKO",u:"Pièce",stock:false},
+  {c:"Outillage",s:"Equipement Monteur",r:"VIN 264987",n:"SCIE EGOINE 152MM PANN PLATRE",u:"Pièce",stock:false},
   {c:"Outillage",s:"Platre",r:"VIN 265987",n:"TRUELLE CARREE 16 M PLASTIQUE",u:"Pièce",stock:false},
   {c:"Outillage",s:"Platre",r:"VIN 268339",n:"PLATOIR ACIER INOX 28X12",u:"Pièce",stock:false},
   {c:"Outillage",s:"Platre",r:"VIN 520144",n:"COUTEAU A ENDUIRE INOX 20CM",u:"Pièce",stock:false},
@@ -526,15 +526,15 @@ const CATALOG = [
   {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361085",n:"PANTALON MULTIPOCHES NOIR     T42",u:"Pièce",stock:true},
   {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361086",n:"PANTALON MULTIPOCHES NOIR     T44",u:"Pièce",stock:true},
   {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361087",n:"PANTALON MULTIPOCHES NOIR     T46",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR M",n:"T-SHIRT NOIR TAILLE M",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR L",n:"T-SHIRT NOIR TAILLE L",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR XL",n:"T-SHIRT NOIR TAILLE XL",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU M",n:"T-SHIRT BLEU TAILLE M",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU L",n:"T-SHIRT BLEU TAILLE L",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU XL",n:"T-SHIRT BLEU TAILLE XL",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE M",n:"T-SHIRT ORANGE TAILLE M",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE L",n:"T-SHIRT ORANGE TAILLE L",u:"Pièce",stock:true},
-  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE XL",n:"T-SHIRT ORANGE TAILLE XL",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT NOIR M",n:"T-SHIRT NOIR TAILLE M",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT NOIR L",n:"T-SHIRT NOIR TAILLE L",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT NOIR XL",n:"T-SHIRT NOIR TAILLE XL",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT BLEU M",n:"T-SHIRT BLEU TAILLE M",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT BLEU L",n:"T-SHIRT BLEU TAILLE L",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT BLEU XL",n:"T-SHIRT BLEU TAILLE XL",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT ORANGE M",n:"T-SHIRT ORANGE TAILLE M",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT ORANGE L",n:"T-SHIRT ORANGE TAILLE L",u:"Pièce",stock:true},
+  {c:"Vêtements de travail",s:"T-shirt",r:"TEX T-SHIRT ORANGE XL",n:"T-SHIRT ORANGE TAILLE XL",u:"Pièce",stock:true},
   {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE M",n:"SWEET A CAPUCHE TAILLE M",u:"Pièce",stock:true},
   {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE L",n:"SWEET A CAPUCHE TAILLE L",u:"Pièce",stock:true},
   {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE XL",n:"SWEET A CAPUCHE TAILLE XL",u:"Pièce",stock:true},
@@ -551,89 +551,83 @@ const CATALOG = [
   {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362358",n:"BOTTE SECURITE FOURREES ZEUS  T43 K702",u:"Pièce",stock:false},
   {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362353",n:"BOTTE SECURITE FOURREES ZEUS  T44 K702",u:"Pièce",stock:false},
   {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362360",n:"BOTTE SECURITE FOURREES ZEUS  T45 K702",u:"Pièce",stock:false},
-  {c:"EPI",s:"Général",r:"VIN 360351",n:"CASQUE CHANTIER + LUNETTE KARA   BLANC",u:"Pièce",stock:false},
-  {c:"EPI",s:"Général",r:"VIN 360471",n:"GARNITURE SANI CONTOURE CASQUE KARA",u:"Pièce",stock:true},
-  {c:"EPI",s:"Général",r:"VIN 361660",n:"GANT CHAUD NOIR SNOWFLEX T9/  T10/T11",u:"Pièce",stock:true},
-  {c:"EPI",s:"Général",r:"VIN 360027",n:"LUNETTE A BRANCHE VISILUX",u:"Pièce",stock:false},
-  {c:"EPI",s:"Général",r:"VIN 360332",n:"CASQUE ANTIBRUIT ARCEAU",u:"Pièce",stock:true},
-  {c:"EPI",s:"Général",r:"VIN 360239",n:"MASQUE PAPIER FFP2 AV VALVE",u:"Pièce",stock:true},
-  {c:"Divers",s:"Divers",r:"BIZ 700231",n:"GEL LUBRIFIANT POUR CABLES ET FILS BIZ'LUB",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"CAP 599200",n:"CAPRIGEL GTI 1L POUR TOUS TYPES DE CABLES",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398443",n:"Aiguille en nylon de 25 m",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398445",n:"Aiguille en nylon de 30 m",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398425",n:"Tête de guidage flexible M4",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398429",n:"Oeillet de tirage M4",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398431",n:"Chaussette de tirage pourcâbles de ø 4 à 6 mm M4",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398419",n:"Tête de guidage flexible à sertir",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398421",n:"Oeillet de tirage à sertir",u:"Pièce",stock:false},
-  {c:"Divers",s:"Divers",r:"AGI 398607",n:"Pince à sertir",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Câbles réseaux",r:"ACO R7295AST",n:"CABLE 4P CAT6A F/FTP LSOH DCA",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Câbles réseaux",r:"ACO R8596AT5",n:"2X4P F/FTP CAT.6A LSOH- CCA-T500",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Interphone",r:"FIL SYT15PAWG20GRTGL",n:"SYT1 5 paires AWG20 Gris TGL",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"Interphone",r:"FIL SYT12PAWG20GRTGL",n:"SYT1 2 paires AWG20 Gris TGL",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"Incendie",r:"FIL SYT11PAWG20RGAEGTGL",n:"SYT1 1 paire AWG20 Rouge AE Gris TGL",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"Incendie",r:"FIL SYT11PAWG20RGSETGL",n:"SYT1 1 paire AWG20 Rouge SE TGL",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"Incendie",r:"FIL CR1C1NA2X1,5RONDTGL",n:"CR1-C1 2x1,5 Rond TGL Sécurité incendie",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"Câbles coaxiaux (antenne, vidéo)",r:"FIL 17VATCC100B",n:"Câble coaxial 17 VATC C100M",u:"ML",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5VJC100",n:"Fil H07VU 1,5 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5RGC100",n:"Fil H07VU 1,5 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5BEC100",n:"Fil H07VU 1,5 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5GRC100",n:"Fil H07VU 1,5 Gris C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5IVC100",n:"Fil H07VU 1,5 Ivoire C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5NRC100",n:"Fil H07VU 1,5 Noir C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5ORC100",n:"Fil H07VU 1,5 Orange C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5MNC100",n:"Fil H07VU 1,5 Marron C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5VIC100",n:"Fil H07VU 1,5 Violet C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5VJC100",n:"Fil H07VU 2,5 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5RGC100",n:"Fil H07VU 2,5 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5BEC100",n:"Fil H07VU 2,5 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5GRC100",n:"Fil H07VU 2,5 Gris C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5IVC100",n:"Fil H07VU 2,5 Ivoire C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5NRC100",n:"Fil H07VU 2,5 Noir C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5ORC100",n:"Fil H07VU 2,5 Orange C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5MNC100",n:"Fil H07VU 2,5 Marron C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5VIC100",n:"Fil H07VU 2,5 Violet C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5BAC100",n:"Fil H07VU 2,5 Blanc C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6VJC100",n:"Fil H07VR 6 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6RGC100",n:"Fil H07VR 6 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6BEC100",n:"Fil H07VR 6 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6NRC100",n:"Fil H07VR 6 Noir C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6MNC100",n:"Fil H07VR 6 Marron C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X1,5C100",n:"Câble U1000 R2V CU 2X1,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G1,5C100",n:"Câble U1000 R2V CU 3G1,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G1,5C100",n:"Câble U1000 R2V CU 4G1,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G1,5C100",n:"Câble U1000 R2V CU 5G1,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G2,5C100",n:"Câble U1000 R2V CU 3G2,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G2,5C100",n:"Câble U1000 R2V CU 4G2,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G2,5C100",n:"Câble U1000 R2V CU 5G2,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V7G2,5TGL",n:"Câble U1000 R2V CU 7G2,5 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G4TGL",n:"Câble U1000 R2V CU 3G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G4TGL",n:"Câble U1000 R2V CU 4G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G4TGL",n:"Câble U1000 R2V CU 5G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G6TGL",n:"Câble U1000 R2V CU 3G6 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G6TGL",n:"Câble U1000 R2V CU 5G6 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G10TGL",n:"Câble U1000 R2V CU 3G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G10TGL",n:"Câble U1000 R2V CU 4G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X10TGL",n:"Câble U1000 R2V CU 4X10 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G10TGL",n:"Câble U1000 R2V CU 5G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X16TGL",n:"Câble U1000 R2V CU 2X16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G16TGL",n:"Câble U1000 R2V CU 3G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G16TGL",n:"Câble U1000 R2V CU 4G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X16TGL",n:"Câble U1000 R2V CU 4X16 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G16TGL",n:"Câble U1000 R2V CU 5G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X25TGL",n:"Câble U1000 R2V CU 2X25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G25TGL",n:"Câble U1000 R2V CU 4G25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X25TGL",n:"Câble U1000 R2V CU 4X25 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G25TGL",n:"Câble U1000 R2V CU 5G25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X35TGL",n:"Câble U1000 R2V CU 2X35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G35TGL",n:"Câble U1000 R2V CU 4G35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X35TGL",n:"Câble U1000 R2V CU 4X35 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G35TGL",n:"Câble U1000 R2V CU 5G35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V1X50TGL",n:"Câble U1000 R2V CU 1X50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X50TGL",n:"Câble U1000 R2V CU 2X50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G50TGL",n:"Câble U1000 R2V CU 4G50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"Pièce",stock:false}
+  {c:"EPI",s:"Epi",r:"VIN 360351",n:"CASQUE CHANTIER + LUNETTE KARA   BLANC",u:"Pièce",stock:false},
+  {c:"EPI",s:"Epi",r:"VIN 360471",n:"GARNITURE SANI CONTOURE CASQUE KARA",u:"Pièce",stock:true},
+  {c:"EPI",s:"Epi",r:"VIN 361660",n:"GANT CHAUD NOIR SNOWFLEX T9/  T10/T11",u:"Pièce",stock:true},
+  {c:"EPI",s:"Epi",r:"VIN 360027",n:"LUNETTE A BRANCHE VISILUX",u:"Pièce",stock:false},
+  {c:"EPI",s:"Epi",r:"VIN 360332",n:"CASQUE ANTIBRUIT ARCEAU",u:"Pièce",stock:true},
+  {c:"EPI",s:"Epi",r:"VIN 360239",n:"MASQUE PAPIER FFP2 AV VALVE",u:"Pièce",stock:true},
+  {c:"Divers",s:"Général",r:"BIZ 700231",n:"GEL LUBRIFIANT POUR CABLES ET FILS BIZ'LUB",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"CAP 599200",n:"CAPRIGEL GTI 1L POUR TOUS TYPES DE CABLES",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398443",n:"Aiguille en nylon de 25 m",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398445",n:"Aiguille en nylon de 30 m",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398425",n:"Tête de guidage flexible M4",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398429",n:"Oeillet de tirage M4",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398431",n:"Chaussette de tirage pourcâbles de ø 4 à 6 mm M4",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398419",n:"Tête de guidage flexible à sertir",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398421",n:"Oeillet de tirage à sertir",u:"Pièce",stock:false},
+  {c:"Divers",s:"Général",r:"AGI 398607",n:"Pince à sertir",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"ACO R7295AST",n:"CABLE 4P CAT6A F/FTP LSOH DCA",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"ACO R8596AT5",n:"2X4P F/FTP CAT.6A LSOH- CCA-T500",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5VJC100",n:"Fil H07VU 1,5 Vert/Jaune C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5RGC100",n:"Fil H07VU 1,5 Rouge C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5BEC100",n:"Fil H07VU 1,5 Bleu C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5GRC100",n:"Fil H07VU 1,5 Gris C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5IVC100",n:"Fil H07VU 1,5 Ivoire C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5NRC100",n:"Fil H07VU 1,5 Noir C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5ORC100",n:"Fil H07VU 1,5 Orange C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5MNC100",n:"Fil H07VU 1,5 Marron C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5VIC100",n:"Fil H07VU 1,5 Violet C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5VJC100",n:"Fil H07VU 2,5 Vert/Jaune C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5RGC100",n:"Fil H07VU 2,5 Rouge C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5BEC100",n:"Fil H07VU 2,5 Bleu C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5GRC100",n:"Fil H07VU 2,5 Gris C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5IVC100",n:"Fil H07VU 2,5 Ivoire C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5NRC100",n:"Fil H07VU 2,5 Noir C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5ORC100",n:"Fil H07VU 2,5 Orange C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5MNC100",n:"Fil H07VU 2,5 Marron C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5VIC100",n:"Fil H07VU 2,5 Violet C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5BAC100",n:"Fil H07VU 2,5 Blanc C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6VJC100",n:"Fil H07VR 6 Vert/Jaune C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6RGC100",n:"Fil H07VR 6 Rouge C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6BEC100",n:"Fil H07VR 6 Bleu C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6NRC100",n:"Fil H07VR 6 Noir C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6MNC100",n:"Fil H07VR 6 Marron C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X1,5C100",n:"Câble U1000 R2V CU 2X1,5 C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G1,5C100",n:"Câble U1000 R2V CU 3G1,5 C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G1,5C100",n:"Câble U1000 R2V CU 4G1,5 C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G1,5C100",n:"Câble U1000 R2V CU 5G1,5 C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G2,5C100",n:"Câble U1000 R2V CU 3G2,5 C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G2,5C100",n:"Câble U1000 R2V CU 4G2,5 C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G2,5C100",n:"Câble U1000 R2V CU 5G2,5 C100M",u:"ML",stock:true},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V7G2,5TGL",n:"Câble U1000 R2V CU 7G2,5 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G4TGL",n:"Câble U1000 R2V CU 3G4 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G4TGL",n:"Câble U1000 R2V CU 4G4 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G4TGL",n:"Câble U1000 R2V CU 5G4 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G6TGL",n:"Câble U1000 R2V CU 3G6 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G6TGL",n:"Câble U1000 R2V CU 5G6 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G10TGL",n:"Câble U1000 R2V CU 3G10 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G10TGL",n:"Câble U1000 R2V CU 4G10 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X10TGL",n:"Câble U1000 R2V CU 4X10 SVJ TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G10TGL",n:"Câble U1000 R2V CU 5G10 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X16TGL",n:"Câble U1000 R2V CU 2X16 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G16TGL",n:"Câble U1000 R2V CU 3G16 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G16TGL",n:"Câble U1000 R2V CU 4G16 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X16TGL",n:"Câble U1000 R2V CU 4X16 SVJ TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G16TGL",n:"Câble U1000 R2V CU 5G16 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X25TGL",n:"Câble U1000 R2V CU 2X25 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G25TGL",n:"Câble U1000 R2V CU 4G25 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X25TGL",n:"Câble U1000 R2V CU 4X25 SVJ TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G25TGL",n:"Câble U1000 R2V CU 5G25 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X35TGL",n:"Câble U1000 R2V CU 2X35 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G35TGL",n:"Câble U1000 R2V CU 4G35 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X35TGL",n:"Câble U1000 R2V CU 4X35 SVJ TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G35TGL",n:"Câble U1000 R2V CU 5G35 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V1X50TGL",n:"Câble U1000 R2V CU 1X50 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X50TGL",n:"Câble U1000 R2V CU 2X50 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G50TGL",n:"Câble U1000 R2V CU 4G50 TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"ML",stock:false},
 ];const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺"};
 
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
@@ -759,6 +753,7 @@ export default function App() {
   const [dynCatOrder, setDynCatOrder] = useState([]);
   const [receptionOrder, setReceptionOrder] = useState(null);
   const [dynEmailAchats, setDynEmailAchats] = useState(EMAIL_ACHATS);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   // ─── ADMIN STATES ───
   const [adminSection, setAdminSection] = useState(null); // 'users','chantiers','catalog','categories'
@@ -828,6 +823,7 @@ export default function App() {
         if(d.catIcons) setDynCatIcons(d.catIcons);
         if(d.catOrder) setDynCatOrder(d.catOrder);
       }
+      setConfigLoaded(true); // toujours marquer comme chargé, même si pas de catOrder
     });
     return () => unsub();
   }, []);
@@ -918,78 +914,52 @@ export default function App() {
     const byFourn = {};
     items.forEach(it => { const c = (it.r||'').split(' ')[0].substring(0,3).toUpperCase(); if(!byFourn[c]) byFourn[c]=[]; byFourn[c].push(it); });
     const totalQty = items.reduce((s,i)=>s+(i.qty||0),0);
-    
     let rows = '';
     Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).forEach(([code,fitems])=>{
-      rows += `<tr><td colspan="4" style="background:#00A3E0;color:#fff;padding:6px 12px;font-weight:700;font-size:12px">▸ ${code} — ${fitems.length} réf.</td></tr>`;
+      rows += `<tr><td colspan="4" style="background:#00A3E0;color:#fff;padding:6px 12px;font-weight:700;font-size:12px">\u25b8 ${code} \u2014 ${fitems.length} r\u00e9f.</td></tr>`;
       fitems.forEach(it => {
-        rows += `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-family:monospace;color:#00A3E0;font-weight:600;font-size:10px">${it.r||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${it.n||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;font-weight:900;font-size:13px">${it.qty||0}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;color:#8C8C8C;font-size:10px">${it.u||'Pièce'}</td></tr>`;
+        rows += `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-family:monospace;color:#00A3E0;font-weight:600;font-size:10px">${it.r||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${it.n||''}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;font-weight:900;font-size:13px">${it.qty||0}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;color:#8C8C8C;font-size:10px">${it.u||'Pi\u00e8ce'}</td></tr>`;
       });
     });
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${order.num} — EPJ</title>
-    <style>@media print{body{margin:0}button{display:none!important}}body{font-family:Arial,sans-serif;color:#3d3d3d;max-width:700px;margin:20px auto;padding:20px}table{width:100%;border-collapse:collapse}</style></head><body>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:3px solid #00A3E0">
-      <div style="font-size:24px;font-weight:900;color:#3d3d3d">EPJ <span style="font-size:10px;color:#8C8C8C;letter-spacing:2px">ÉLECTRICITÉ GÉNÉRALE</span></div>
-      <div style="text-align:right"><div style="font-size:20px;font-weight:900;color:#00A3E0">${order.num}</div><div style="font-size:11px;color:#8C8C8C">${order.date}</div></div>
+    const sigBlock = order.signatureData ? `<div style="margin-top:20px;border:2px solid #3d3d3d;border-radius:8px;padding:12px;page-break-inside:avoid"><div style="font-size:10px;font-weight:700;margin-bottom:6px">\u270d\ufe0f Signature du b\u00e9n\u00e9ficiaire : ${order.salarie||order.user}</div><div style="font-size:9px;color:#388E3C;margin-bottom:8px">\u2705 R\u00e9ceptionn\u00e9e le ${order.dateReceptionEffective||order.date}</div><img src="${order.signatureData}" style="width:100%;max-height:80px;object-fit:contain;border:1px solid #eee;border-radius:4px;background:#fff"/></div>` : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${order.num} \u2014 EPJ</title>
+    <style>
+      @media print { .no-print { display:none !important } @page { margin:10mm } }
+      body { font-family:Arial,sans-serif;color:#3d3d3d;max-width:700px;margin:10px auto;padding:15px;font-size:11px }
+      table { width:100%;border-collapse:collapse }
+      .print-btn { display:block;width:100%;box-sizing:border-box;margin-top:20px;padding:14px;background:linear-gradient(135deg,#00A3E0,#A8C536);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;text-align:center }
+    </style>
+    </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:3px solid #00A3E0">
+      <div style="font-size:22px;font-weight:900;color:#3d3d3d">EPJ <span style="font-size:9px;color:#8C8C8C;letter-spacing:2px">\u00c9LECTRICIT\u00c9 G\u00c9N\u00c9RALE</span></div>
+      <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:#00A3E0">${order.num}</div><div style="font-size:10px;color:#8C8C8C">${order.date}</div></div>
     </div>
-    <div style="height:4px;background:linear-gradient(90deg,#00A3E0,#A8C536,#F5841F);margin:0 0 15px"></div>
-    ${order.urgent?'<div style="background:#E53935;color:#fff;padding:8px 16px;font-weight:900;text-align:center;border-radius:4px;margin-bottom:12px">⚠️ COMMANDE URGENTE</div>':''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px">
-      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Demandeur</div><div style="font-size:13px;font-weight:700">${order.user}</div><div style="font-size:9px;color:#8C8C8C">${order.fonction||''}</div></div>
+    <div style="height:3px;background:linear-gradient(90deg,#00A3E0,#A8C536,#F5841F);margin:0 0 12px"></div>
+    ${order.urgent?'<div style="background:#E53935;color:#fff;padding:6px 12px;font-weight:900;text-align:center;border-radius:4px;margin-bottom:10px">\u26a0\ufe0f COMMANDE URGENTE</div>':''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border-left:3px solid #00A3E0"><div style="font-size:8px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Demandeur</div><div style="font-size:12px;font-weight:700">${order.user}</div><div style="font-size:8px;color:#8C8C8C">${order.fonction||''}</div></div>
       ${order.type==='chantier'
-        ?`<div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #A8C536"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Chantier — N°${ch?.num||''}</div><div style="font-size:13px;font-weight:700">${order.chantier||''}</div><div style="font-size:9px;color:#8C8C8C">${ch?.adresse||''}</div></div>`
-        :`<div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #A8C536"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Destinataire</div><div style="font-size:13px;font-weight:700">${order.salarie||''}</div></div>`}
-      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Livraison</div><div style="font-size:13px;font-weight:700">${order.livraison||'—'}</div></div>
-      <div style="background:#f8f9fa;border-radius:6px;padding:10px 12px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Date réception</div><div style="font-size:13px;font-weight:700">${order.dateReception||'Non précisée'}</div></div>
+        ?`<div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border-left:3px solid #A8C536"><div style="font-size:8px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Chantier \u2014 N\u00b0${ch?.num||''}</div><div style="font-size:12px;font-weight:700">${order.chantier||''}</div><div style="font-size:8px;color:#8C8C8C">${ch?.adresse||''}</div></div>`
+        :`<div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border-left:3px solid #A8C536"><div style="font-size:8px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Destinataire</div><div style="font-size:12px;font-weight:700">${order.salarie||''}</div></div>`}
+      <div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border-left:3px solid #00A3E0"><div style="font-size:8px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Livraison</div><div style="font-size:12px;font-weight:700">${order.livraison||'\u2014'}</div></div>
+      <div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border-left:3px solid #00A3E0"><div style="font-size:8px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Date r\u00e9ception</div><div style="font-size:12px;font-weight:700">${order.dateReception||'Non pr\u00e9cis\u00e9e'}</div></div>
     </div>
-    ${order.remarques?`<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:11px"><strong>📝 Remarques :</strong> ${order.remarques}</div>`:''}
-    <table><thead><tr><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Référence</th><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Désignation</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Qté</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Unité</th></tr></thead><tbody>${rows}</tbody></table>
-    <div style="background:#3d3d3d;color:#fff;padding:8px 14px;border-radius:4px;display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin-top:8px"><span>Total</span><span>${totalQty} articles — ${items.length} références</span></div>
-    <div style="margin-top:20px;padding-top:10px;border-top:2px solid #eee;display:flex;justify-content:space-between;font-size:9px;color:#8C8C8C"><div>EPJ — Électricité Générale<br/>Commande générée le ${order.date}</div><div style="text-align:right">Document interne — ${order.num}<br/>Statut : ${order.statut}</div></div>
-    <div style="margin-top:30px;text-align:center">
-      <button id="dlBtn" onclick="downloadPDF()" style="background:linear-gradient(135deg,#00A3E0,#A8C536);color:#fff;border:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;width:100%;max-width:400px">📥 Télécharger le PDF</button>
-      <div id="dlMsg" style="margin-top:10px;font-size:13px;color:#2E7D32;font-weight:600;display:none">✅ PDF téléchargé !</div>
-    </div>
-    </body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-    async function downloadPDF(){
-      const btn=document.getElementById('dlBtn');const msg=document.getElementById('dlMsg');
-      btn.textContent='⏳ Génération...';btn.disabled=true;
-      try{
-        const canvas=await html2canvas(document.body,{scale:2,useCORS:true,backgroundColor:'#ffffff',ignoreElements:e=>e.id==='dlBtn'||e.id==='dlMsg'});
-        const imgData=canvas.toDataURL('image/png');
-        const {jsPDF}=window.jspdf;
-        const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        const pW=pdf.internal.pageSize.getWidth();
-        const pH=pdf.internal.pageSize.getHeight();
-        const imgW=pW-20;
-        const imgH=imgW*(canvas.height/canvas.width);
-        let remaining=imgH;let srcOffset=0;
-        while(remaining>0){
-          const sliceH=Math.min(pH-20,remaining);
-          const sc=document.createElement('canvas');
-          const scale=canvas.width/imgW;
-          sc.width=canvas.width;sc.height=Math.round(sliceH*scale);
-          const sctx=sc.getContext('2d');
-          sctx.drawImage(canvas,0,Math.round(srcOffset*scale),canvas.width,sc.height,0,0,canvas.width,sc.height);
-          pdf.addImage(sc.toDataURL('image/png'),'PNG',10,10,imgW,sliceH);
-          remaining-=sliceH;srcOffset+=sliceH;
-          if(remaining>0)pdf.addPage();
-        }
-        const fname='Commande_'+document.title.replace('Commande EPJ ','')+'_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.pdf';
-        pdf.save(fname);
-        btn.textContent='✅ Téléchargé !';msg.style.display='block';
-      }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;console.error(e);}
-    }
-    </script>
-    </html>`;
-
+    ${order.remarques?`<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:4px;padding:8px 10px;margin-bottom:10px;font-size:10px"><strong>\ud83d\udcdd Remarques :</strong> ${order.remarques}</div>`:''}
+    <table><thead><tr>
+      <th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:8px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">R\u00e9f\u00e9rence</th>
+      <th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:8px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">D\u00e9signation</th>
+      <th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:8px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Qt\u00e9</th>
+      <th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:8px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Unit\u00e9</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div style="background:#3d3d3d;color:#fff;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;font-weight:700;font-size:11px;margin-top:6px"><span>Total</span><span>${totalQty} articles \u2014 ${items.length} r\u00e9f\u00e9rences</span></div>
+    ${sigBlock}
+    <div style="margin-top:15px;padding-top:8px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:8px;color:#8C8C8C"><div>EPJ \u2014 \u00c9lectricit\u00e9 G\u00e9n\u00e9rale<br/>Commande g\u00e9n\u00e9r\u00e9e le ${order.date}</div><div style="text-align:right">Document interne \u2014 ${order.num}<br/>Statut : ${order.statut}</div></div>
+    <button class="no-print print-btn" onclick="window.print()">\ud83d\udcc4 Enregistrer en PDF / Imprimer</button>
+    <script>window.onload=function(){setTimeout(function(){if(/iPhone|iPad|Android/i.test(navigator.userAgent)){}},500)}<\/script>
+    </body></html>`;
     const w = window.open('', '_blank');
     if(w) { w.document.write(html); w.document.close(); }
-    else { showT("⚠️ Autorisez les popups pour télécharger le PDF"); }
+    else { showT("\u26a0\ufe0f Autorisez les popups pour t\u00e9l\u00e9charger le PDF"); }
   };
 
   const openReceptionSheet = (order) => {
@@ -1076,6 +1046,7 @@ export default function App() {
     input:focus,select:focus,textarea:focus{border-color:${EPJ.blue}!important;outline:none}
     ::placeholder{color:#aaa}
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.4)}50%{box-shadow:0 0 0 8px rgba(229,57,53,0)}}
     .epj-btn{border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:${font};transition:all .2s}
     .epj-btn:active{transform:scale(0.97)}.epj-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -1102,12 +1073,18 @@ export default function App() {
     </div>
   );
 
+  const CatIcon = ({cat, size=36}) => {
+    const icon = dynCatIcons[cat] || '📦';
+    const isImg = icon.startsWith('http') || icon.startsWith('data:');
+    if(isImg) return <img src={icon} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0}}/>;
+    return <div style={{width:size,height:size,borderRadius:8,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
+  };
+
   const Thumb = ({cat, imageUrl, size=36}) => {
     if (imageUrl) {
       return <img src={imageUrl} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0,background:EPJ.grayLight}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>;
     }
-    const icon = dynCatIcons[cat] || '📦';
-    return <div style={{width:size,height:size,borderRadius:8,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
+    return <CatIcon cat={cat} size={size}/>;
   };
 
   // ─── QTY CONTROL ───
@@ -1305,13 +1282,20 @@ export default function App() {
       <div style={{padding:12}}>
         {!selectedCat&&!search ? (
           <>
+            {!configLoaded ? (
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 20px',gap:10,color:EPJ.gray}}>
+                <div style={{width:20,height:20,border:`3px solid ${EPJ.blue}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>
+                <span style={{fontSize:13,fontWeight:600}}>Chargement du catalogue…</span>
+              </div>
+            ) : (
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               {availableCategories.map(cat=>(
                 <div key={cat} onClick={()=>setSelectedCat(cat)} style={{background:'#fff',borderRadius:14,padding:'14px 10px',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:600,color:EPJ.dark,boxShadow:'0 1px 3px rgba(0,0,0,.04)',lineHeight:1.3,border:'2px solid transparent'}}>
-                  <span style={{fontSize:26,display:'block',marginBottom:4}}>{dynCatIcons[cat]||'📦'}</span>{cat}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:4}}><CatIcon cat={cat} size={40}/></div>{cat}
                 </div>
               ))}
             </div>
+            )}
             <div onClick={()=>setShowDivers(true)} style={{marginTop:10,background:'#fff',borderRadius:14,padding:14,cursor:'pointer',textAlign:'center',border:`2px dashed ${EPJ.blue}`,color:EPJ.blue,fontWeight:600,fontSize:13}}>+ Article divers</div>
           </>
         ) : (
@@ -1367,7 +1351,7 @@ export default function App() {
             <>
               {Object.entries(cg).map(([cat,items])=>(
                 <div key={cat}>
-                  <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',margin:'12px 0 6px'}}>{dynCatIcons[cat]||'📦'} {cat}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',margin:'12px 0 6px',display:'flex',alignItems:'center',gap:6}}><CatIcon cat={cat} size={16}/> {cat}</div>
                   {items.map(it=>(
                     <div key={it.r} className="epj-row">
                       <Thumb cat={it.c} imageUrl={it.img}/>
@@ -1680,6 +1664,13 @@ export default function App() {
             ))}
             <div style={{marginTop:10,padding:'10px 0',borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
           </div>
+          {o.signatureData&&<div className="epj-card" style={{marginBottom:10,border:`2px solid ${EPJ.green}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+              <span style={{fontSize:20}}>✅</span>
+              <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+            </div>
+            <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray}33`,borderRadius:8,background:'#fafafa',padding:4}}/>
+          </div>}
         </div>
       </div>
     );
@@ -1737,9 +1728,26 @@ export default function App() {
           ))}
           <div style={{marginTop:20,borderTop:`1px solid #ddd`,paddingTop:16}}>
             <button className="epj-btn" onClick={adminInitAll} disabled={adminSaving} style={{width:'100%',background:'#555',color:'#fff',padding:'14px',fontSize:14,marginBottom:8}}>
-              {adminSaving?'⏳ En cours...':'🔄 Réinitialiser Firebase (583 articles)'}
+              {adminSaving?'⏳ En cours...':'🔄 Réinitialiser Firebase (589 articles)'}
             </button>
-            <div style={{fontSize:11,color:EPJ.gray,textAlign:'center'}}>Charge les données par défaut (utilisateurs, chantiers, catalogue) dans Firebase</div>
+            <div style={{fontSize:11,color:EPJ.gray,textAlign:'center',marginBottom:12}}>Charge les données par défaut (utilisateurs, chantiers, catalogue) dans Firebase</div>
+            <button className="epj-btn" onClick={async()=>{
+              const validCats = new Set(CATALOG.map(p=>p.c));
+              const allDocs = dynCatalog;
+              const orphans = allDocs.filter(p=>p.r && !validCats.has(p.c));
+              if(orphans.length===0){showT('✅ Aucune catégorie parasite');return;}
+              if(!confirm(`Supprimer ${orphans.length} articles de catégories parasites (Câbles, Câble Colonne, anciennes données) ?`))return;
+              setAdminSaving(true);
+              let deleted=0;
+              for(const p of orphans){
+                const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+String(p.c).replace(/\s/g,'_'));
+                try{await deleteDoc(doc(db,'catalogue',docId));deleted++;}catch(e){}
+              }
+              setAdminSaving(false);showT(`🗑️ ${deleted} articles parasites supprimés`);
+            }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>
+              🧹 Nettoyer catégories parasites Firebase
+            </button>
+            <div style={{fontSize:10,color:EPJ.gray,textAlign:'center'}}>Supprime les anciennes catégories (Câbles, Câble Colonne, Vêtements...) non présentes dans le catalogue standard</div>
           </div>
         </div>
         {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
@@ -1884,7 +1892,7 @@ export default function App() {
                   <button onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?'#eee':EPJ.dark,color:idx===cats.length-1?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
                 </div>
                 <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
-                  <span style={{fontSize:24}}>{dynCatIcons[cat]||'📦'}</span>
+                  <CatIcon cat={cat} size={32}/>
                   <div>
                     <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{cat}</div>
                     <div style={{fontSize:10,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
@@ -1898,7 +1906,11 @@ export default function App() {
               <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✏️ Modifier la catégorie</div>
               <div style={{display:'flex',gap:8,marginBottom:8}}>
                 <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,cursor:'pointer',background:'#f8f9fa'}} onClick={()=>setAdminForm(p=>({...p,showEmojiPicker:!p.showEmojiPicker}))}>{adminForm.icon||'📦'}</div>
+                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,cursor:'pointer',background:'#f8f9fa',overflow:'hidden'}} onClick={()=>setAdminForm(p=>({...p,showEmojiPicker:!p.showEmojiPicker}))}>
+                  {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    : <span>{adminForm.icon||'📦'}</span>}
+                </div>
               </div>
               {adminForm.showEmojiPicker&&<div style={{background:'#f8f9fa',borderRadius:10,padding:10,marginBottom:8}}>
                 <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,marginBottom:6}}>CHOISIR UNE ICÔNE</div>
@@ -1907,8 +1919,20 @@ export default function App() {
                     <button key={em} onClick={()=>setAdminForm(p=>({...p,icon:em,showEmojiPicker:false}))} style={{width:38,height:38,borderRadius:8,border:adminForm.icon===em?`2px solid ${EPJ.blue}`:'2px solid transparent',background:adminForm.icon===em?'#E3F2FD':'#fff',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{em}</button>
                   ))}
                 </div>
-                <div style={{marginTop:8,display:'flex',gap:6,alignItems:'center'}}>
-                  <input className="epj-input" placeholder="Ou coller un émoji..." value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{flex:1,padding:'6px 8px',fontSize:18,textAlign:'center'}}/>
+                <div style={{marginTop:10,borderTop:`1px solid #ddd`,paddingTop:10}}>
+                  <div style={{fontSize:10,fontWeight:700,color:EPJ.gray,marginBottom:4}}>OU COLLER UN ÉMOJI / URL D'IMAGE</div>
+                  <input className="epj-input" placeholder="Émoji ou URL https://..." value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:'100%',padding:'6px 8px',fontSize:14,boxSizing:'border-box'}}/>
+                  <div style={{marginTop:8}}>
+                    <div style={{fontSize:10,fontWeight:700,color:EPJ.gray,marginBottom:4}}>📸 OU UPLOADER UNE IMAGE</div>
+                    <input type="file" accept="image/*" style={{fontSize:12}} onChange={e=>{
+                      const file=e.target.files[0]; if(!file)return;
+                      if(file.size>200000){showT('⚠️ Image trop lourde (max 200KB)');return;}
+                      const reader=new FileReader();
+                      reader.onload=ev=>setAdminForm(p=>({...p,icon:ev.target.result,showEmojiPicker:false}));
+                      reader.readAsDataURL(file);
+                    }}/>
+                    <div style={{fontSize:9,color:EPJ.gray,marginTop:2}}>Max 200KB — JPG, PNG, SVG recommandé</div>
+                  </div>
                 </div>
               </div>}
               <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
@@ -2063,7 +2087,7 @@ export default function App() {
           {filtered.slice(0,50).map(p=>(
             <div key={p.r} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.includes(p.r)?'#E3F2FD':'#fff'}}>
               {bulkMode&&<input type="checkbox" checked={bulkSelected.includes(p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,p.r]);else setBulkSelected(s=>s.filter(r=>r!==p.r))}} style={{width:18,height:18,flexShrink:0}}/>}
-              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<div style={{width:36,height:36,borderRadius:6,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{dynCatIcons[p.c]||'📦'}</div>}
+              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
                 <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
