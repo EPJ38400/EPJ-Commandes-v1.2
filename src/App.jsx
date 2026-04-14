@@ -639,7 +639,7 @@ const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",
 
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
-const EQUIP_CATS = ["Outillage","Habillé","EPI"];
+const EQUIP_CATS = ["Outillage","Habillé","EPI","Vêtements de travail"];
 
 // ─── PDF COMPONENT (React natif, pas d'iframe) ───
 const PdfView = ({order, onClose}) => {
@@ -1703,16 +1703,20 @@ export default function App() {
                     <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} articles • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.</div>
                   </div>
                 </div>
-                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦'})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
+                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
                 <button onClick={async()=>{if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;setAdminSaving(true);const toDelete=dynCatalog.filter(p=>p.c===cat);for(const p of toDelete){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+cat.replace(/\s/g,'_'));try{await deleteDoc(doc(db,"catalogue",docId))}catch(e){}}const newIcons={...dynCatIcons};delete newIcons[cat];await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});setAdminSaving(false);showT("🗑️ Catégorie supprimée")}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>
               </div>
             ))}
             {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
-              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Renommer la catégorie</div>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Modifier la catégorie</div>
               <div style={{display:'flex',gap:8,marginBottom:8}}>
                 <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
                 <input className="epj-input" placeholder="Icône" value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:60,padding:'8px',fontSize:20,textAlign:'center'}}/>
               </div>
+              <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
+                <input type="checkbox" checked={adminForm.isEquip||false} onChange={e=>setAdminForm(p=>({...p,isEquip:e.target.checked}))} style={{width:18,height:18}}/>
+                <div><div style={{fontSize:13,fontWeight:600}}>Équipement Salarié</div><div style={{fontSize:10,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
+              </label>
               <div style={{display:'flex',gap:8}}>
                 <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
                 <button className="epj-btn" onClick={async()=>{
@@ -1723,9 +1727,13 @@ export default function App() {
                   for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{...p,c:adminForm.nom},{merge:true})}catch(e){}}
                   // Update icon
                   const newIcons={...dynCatIcons};delete newIcons[adminForm.oldNom];newIcons[adminForm.nom]=adminForm.icon||'📦';
-                  await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});
-                  setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie renommée");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Renommer'}</button>
+                  // Update equipCategories
+                  let newEquip=[...dynEquipCats].filter(c=>c!==adminForm.oldNom);
+                  if(adminForm.isEquip) newEquip.push(adminForm.nom);
+                  await setDoc(doc(db,"config","settings"),{catIcons:newIcons,equipCategories:newEquip},{merge:true});
+                  setDynEquipCats(newEquip);
+                  setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie mise à jour");
+                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Enregistrer'}</button>
               </div>
             </div>}
           </>) : (<>
@@ -1791,9 +1799,15 @@ export default function App() {
             {adminForm.img&&<div style={{marginBottom:8}}><img src={adminForm.img} alt="" style={{width:60,height:60,objectFit:'cover',borderRadius:8}} onError={e=>{e.target.style.display='none'}}/></div>}
             <div style={{display:'flex',gap:8}}>
               <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-              <button className="epj-btn" onClick={()=>{
-                const docId = adminForm.r ? adminForm.r.replace(/[\/\s]/g,'_') : 'art_'+Date.now();
-                adminSave('catalogue',docId,{c:adminForm.c,s:adminForm.s,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||''});
+              <button className="epj-btn" onClick={async()=>{
+                const newDocId = adminForm.r ? adminForm.r.replace(/[\/\s]/g,'_') : 'art_'+Date.now();
+                const origDocId = adminForm._origRef ? adminForm._origRef.replace(/[\/\s]/g,'_') : null;
+                const saveData = {c:adminForm.c,s:adminForm.s,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||''};
+                // If ref changed, delete old doc first
+                if(origDocId && origDocId !== newDocId) {
+                  try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){}
+                }
+                adminSave('catalogue',newDocId,saveData);
               }} disabled={adminSaving||!adminForm.r||!adminForm.n} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Sauvegarder'}</button>
             </div>
           </div>}
@@ -1805,7 +1819,7 @@ export default function App() {
                 <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
                 <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s}</div>
               </div>
-              <button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
+              <button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p,_origRef:p.r})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
             </div>
           ))}
           {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
