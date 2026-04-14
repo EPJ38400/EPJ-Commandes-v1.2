@@ -382,8 +382,8 @@ const CATALOG = [
   {c:"Interphonie",s:"Comelit",r:"COT CLE/V",n:"Clé résidant mifare Vert",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT 6710",n:"Etrier et borne de dérivation pour moniteur mini",u:"Pièce"},
   {c:"Interphonie",s:"Comelit",r:"COT 6721W/BM",n:"Moniteur mini main libre BM blanc SB TOP",u:"Pièce"},
-  {c:"Interphonie",s:"Comelit",r:"COT PL6721BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 4,3\"",u:"Pièce"},
-  {c:"Interphonie",s:"Comelit",r:"COT PL6731BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 5\"",u:"Pièce"},
+  {c:"Interphonie",s:"Comelit",r:"COT PL6721BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 4,3 pouces",u:"Pièce"},
+  {c:"Interphonie",s:"Comelit",r:"COT PL6731BM",n:"MONITEUR PEOPLE MAINS LIBRES BM 5 pouces",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM D83/I",n:"PLATINE VIDEO À DEFILEMENT 2VOICE 2 LIGNES PERCAGE T25 - INO",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM CVPLUS1P",n:"CENTRALE 1 PORTE CVPLUS1P, GESTION CONNECTEE OU L/E, JUSQU'A",u:"Pièce"},
   {c:"Interphonie",s:"Urmet",r:"URM CVPLUS1P/SP",n:"CENTRALE 1P VIGIK+ LE/IP PERSONNALISE POUR SYSTEMES URMET",u:"Pièce"},
@@ -1425,7 +1425,7 @@ export default function App() {
       <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
       <div style={{padding:12}}>
         <PdfView order={pdfOrder}/>
-        <button className="epj-btn" onClick={()=>{setPdfOrder(null);setView('home')}} style={{width:'100%',marginTop:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>← Retour à l'accueil</button>
+        <button className="epj-btn" onClick={()=>{setPdfOrder(null);setView('home')}} style={{width:'100%',marginTop:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>← Retour accueil</button>
       </div>
     </div>
   );
@@ -1629,7 +1629,7 @@ export default function App() {
         <div style={{padding:12}}>
           <button className="epj-btn" onClick={()=>{setAdminEdit('new');setAdminForm({id:'',pwd:'1234',prenom:'',nom:'',fonction:'Ouvrier',email:'',directAchat:false})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Ajouter un utilisateur</button>
           {adminEdit&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='new'?'Nouvel utilisateur':'Modifier l'utilisateur'}</div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='new'?'Nouvel utilisateur':'Modifier utilisateur'}</div>
             {['id','pwd','prenom','nom','email'].map(f=>(
               <div key={f} style={{marginBottom:8}}>
                 <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='id'?'IDENTIFIANT':f==='pwd'?'MOT DE PASSE':f==='prenom'?'PRÉNOM':f==='nom'?'NOM':'EMAIL'}</label>
@@ -1779,7 +1779,7 @@ export default function App() {
         <div style={{padding:12}}>
           <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Ajouter un article</button>
           {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier l'article'}</div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
             <div style={{marginBottom:8}}>
               <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>CATÉGORIE</label>
               <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
