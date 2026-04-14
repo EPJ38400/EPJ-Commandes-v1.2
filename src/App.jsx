@@ -197,15 +197,15 @@ const CATALOG = [
   {c:"Colonne Montante",s:"Tete De Cable",r:"TRM 82915",n:"EXT. E4R 50-150²",u:"Pièce",stock:true},
   {c:"Colonne Montante",s:"Tete De Cable",r:"TRM 82916",n:"EXT. E4R 240²",u:"Pièce",stock:true},
   {c:"Colonne Montante",s:"Tete De Cable",r:"BLI 694000",n:"BOUCHON ETANCHE NO AIR ICTA 40",u:"Pièce",stock:true},
-  {c:"Câble Colonne",s:"Tronçon Alu",r:"FIL AR2V1X35TGL",n:"AR2V ALU 1X35 TGL",u:"Pièce",stock:false},
-  {c:"Câble Colonne",s:"Tronçon Alu",r:"FIL AR2V1X50TGL",n:"AR2V ALU 1X50TGL",u:"Pièce",stock:true},
-  {c:"Câble Colonne",s:"Tronçon Alu",r:"FIL AR2V1X70TGL",n:"AR2V ALU 1X70 TGL",u:"Pièce",stock:true},
-  {c:"Câble Colonne",s:"Tronçon Alu",r:"FIL AR2V1X95TGL",n:"AR2V ALU 1X95 TGL",u:"Pièce",stock:true},
-  {c:"Câble Colonne",s:"Tronçon Alu",r:"FIL AR2V1X120TGL",n:"AR2V ALU 1X120 TGL",u:"Pièce",stock:true},
-  {c:"Câble Colonne",s:"Tronçon Cuivre",r:"FIL R2V1X35TGL",n:"R2V CU 1X35 TGL",u:"Pièce",stock:false},
-  {c:"Câble Colonne",s:"Tronçon Cuivre",r:"FIL R2V1X50TGL",n:"R2V CU 1X50 TGL",u:"Pièce",stock:false},
-  {c:"Câble Colonne",s:"Tronçon Cuivre",r:"FIL R2V1X70TGL",n:"R2V CU 1X70 TGL",u:"Pièce",stock:false},
-  {c:"Câble Colonne",s:"Tronçon Cuivre",r:"FIL R2V1X95TGL",n:"R2V CU 1X95 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X35TGL",n:"AR2V ALU 1X35 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X50TGL",n:"AR2V ALU 1X50TGL",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X70TGL",n:"AR2V ALU 1X70 TGL",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X95TGL",n:"AR2V ALU 1X95 TGL",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Alu",r:"FIL AR2V1X120TGL",n:"AR2V ALU 1X120 TGL",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X35TGL",n:"R2V CU 1X35 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X50TGL",n:"R2V CU 1X50 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X70TGL",n:"R2V CU 1X70 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Tronçon Cuivre",r:"FIL R2V1X95TGL",n:"R2V CU 1X95 TGL",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 92194",n:"DETECTEUR PD3-1C-AP SAILLIE",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 92197",n:"DETECTEUR PD3-1C-FP ENCASTRE",u:"Pièce",stock:false},
   {c:"Équipement Commun",s:"Detecteur",r:"BE4 91101",n:"LC CLICK DETECTEUR 140DEG BLANC",u:"Pièce",stock:false},
@@ -634,12 +634,12 @@ const CATALOG = [
   {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G50TGL",n:"Câble U1000 R2V CU 4G50 TGL",u:"Pièce",stock:false},
   {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"Pièce",stock:false},
   {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"Pièce",stock:false}
-];const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺","Câbles":"🔌"};
+];const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺"};
 
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
 const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
 const font = "'Outfit','Segoe UI',sans-serif";
-const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"}};
+const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"}};
 
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
@@ -756,6 +756,8 @@ export default function App() {
   const [dynCatalog, setDynCatalog] = useState(CATALOG);
   const [dynCatIcons, setDynCatIcons] = useState(CAT_ICONS);
   const [dynEquipCats, setDynEquipCats] = useState(EQUIP_CATS);
+  const [dynCatOrder, setDynCatOrder] = useState([]);
+  const [receptionOrder, setReceptionOrder] = useState(null);
   const [dynEmailAchats, setDynEmailAchats] = useState(EMAIL_ACHATS);
 
   // ─── ADMIN STATES ───
@@ -824,6 +826,7 @@ export default function App() {
         if(d.emailAchats) setDynEmailAchats(d.emailAchats);
         if(d.equipCategories) setDynEquipCats(d.equipCategories);
         if(d.catIcons) setDynCatIcons(d.catIcons);
+        if(d.catOrder) setDynCatOrder(d.catOrder);
       }
     });
     return () => unsub();
@@ -857,8 +860,17 @@ export default function App() {
       // Only show equip cats that actually exist in catalog
       return dynEquipCats.filter(c => allCategories.includes(c));
     }
-    return allCategories.filter(c => !dynEquipCats.includes(c));
-  }, [orderType, allCategories, dynEquipCats]);
+    const cats = allCategories.filter(c => !dynEquipCats.includes(c));
+    if (dynCatOrder.length > 0) {
+      return [...cats].sort((a,b) => {
+        const ia = dynCatOrder.indexOf(a); const ib = dynCatOrder.indexOf(b);
+        if(ia===-1 && ib===-1) return a.localeCompare(b);
+        if(ia===-1) return 1; if(ib===-1) return -1;
+        return ia - ib;
+      });
+    }
+    return cats;
+  }, [orderType, allCategories, dynEquipCats, dynCatOrder]);
 
   const filteredProducts = useMemo(() => {
     let items = dynCatalog;
@@ -935,64 +947,55 @@ export default function App() {
     <table><thead><tr><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Référence</th><th style="background:#f0f1f3;padding:5px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Désignation</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Qté</th><th style="background:#f0f1f3;padding:5px 8px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border-bottom:1px solid #ddd">Unité</th></tr></thead><tbody>${rows}</tbody></table>
     <div style="background:#3d3d3d;color:#fff;padding:8px 14px;border-radius:4px;display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin-top:8px"><span>Total</span><span>${totalQty} articles — ${items.length} références</span></div>
     <div style="margin-top:20px;padding-top:10px;border-top:2px solid #eee;display:flex;justify-content:space-between;font-size:9px;color:#8C8C8C"><div>EPJ — Électricité Générale<br/>Commande générée le ${order.date}</div><div style="text-align:right">Document interne — ${order.num}<br/>Statut : ${order.statut}</div></div>
-    <div style="margin-top:30px;text-align:center"><button onclick="window.print()" style="background:#00A3E0;color:#fff;border:none;padding:12px 30px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button></div>
-    </body></html>`;
+    <div style="margin-top:30px;text-align:center">
+      <button id="dlBtn" onclick="downloadPDF()" style="background:linear-gradient(135deg,#00A3E0,#A8C536);color:#fff;border:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;width:100%;max-width:400px">📥 Télécharger le PDF</button>
+      <div id="dlMsg" style="margin-top:10px;font-size:13px;color:#2E7D32;font-weight:600;display:none">✅ PDF téléchargé !</div>
+    </div>
+    </body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+    async function downloadPDF(){
+      const btn=document.getElementById('dlBtn');const msg=document.getElementById('dlMsg');
+      btn.textContent='⏳ Génération...';btn.disabled=true;
+      try{
+        const canvas=await html2canvas(document.body,{scale:2,useCORS:true,backgroundColor:'#ffffff',ignoreElements:e=>e.id==='dlBtn'||e.id==='dlMsg'});
+        const imgData=canvas.toDataURL('image/png');
+        const {jsPDF}=window.jspdf;
+        const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+        const pW=pdf.internal.pageSize.getWidth();
+        const pH=pdf.internal.pageSize.getHeight();
+        const imgW=pW-20;
+        const imgH=imgW*(canvas.height/canvas.width);
+        let remaining=imgH;let srcOffset=0;
+        while(remaining>0){
+          const sliceH=Math.min(pH-20,remaining);
+          const sc=document.createElement('canvas');
+          const scale=canvas.width/imgW;
+          sc.width=canvas.width;sc.height=Math.round(sliceH*scale);
+          const sctx=sc.getContext('2d');
+          sctx.drawImage(canvas,0,Math.round(srcOffset*scale),canvas.width,sc.height,0,0,canvas.width,sc.height);
+          pdf.addImage(sc.toDataURL('image/png'),'PNG',10,10,imgW,sliceH);
+          remaining-=sliceH;srcOffset+=sliceH;
+          if(remaining>0)pdf.addPage();
+        }
+        const fname='Commande_'+document.title.replace('Commande EPJ ','')+'_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.pdf';
+        pdf.save(fname);
+        btn.textContent='✅ Téléchargé !';msg.style.display='block';
+      }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;console.error(e);}
+    }
+    </script>
+    </html>`;
 
     const w = window.open('', '_blank');
     if(w) { w.document.write(html); w.document.close(); }
     else { showT("⚠️ Autorisez les popups pour télécharger le PDF"); }
   };
 
-  const generateReceptionSheet = (order) => {
-    const items = order.items||[];
-    const rows = items.map(it=>`<tr><td style="padding:8px;border:1px solid #ddd;font-size:12px">${it.r}</td><td style="padding:8px;border:1px solid #ddd;font-size:12px">${it.n}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;font-size:14px">${it.qty}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:12px">${it.u||'Pièce'}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;width:50px"><input type="checkbox" style="width:20px;height:20px"></td></tr>`).join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Réception ${order.num}</title>
-    <style>@media print{.no-print{display:none !important}canvas{border:1px solid #000 !important}} body{font-family:Arial,sans-serif;margin:0;padding:15px;color:#3d3d3d}</style></head><body>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
-      <div><div style="font-size:22px;font-weight:900;color:#3d3d3d">EPJ</div><div style="font-size:9px;color:#8C8C8C">Électricité Générale</div></div>
-      <div style="text-align:right"><div style="font-size:16px;font-weight:800;color:#00A3E0">FEUILLE DE RÉCEPTION</div><div style="font-size:11px;color:#8C8C8C">${order.num} — ${order.date}</div></div>
-    </div>
-    <div style="height:4px;background:linear-gradient(90deg,#00A3E0,#A8C536,#F5841F);margin-bottom:15px"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px">
-      <div style="background:#f8f9fa;border-radius:6px;padding:10px;border-left:3px solid #00A3E0"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Bénéficiaire</div><div style="font-size:14px;font-weight:700">${order.salarie||order.user}</div></div>
-      <div style="background:#f8f9fa;border-radius:6px;padding:10px;border-left:3px solid #A8C536"><div style="font-size:9px;text-transform:uppercase;color:#8C8C8C;font-weight:700">Date de remise</div><div style="font-size:14px;font-weight:700">${new Date().toLocaleDateString('fr-FR')}</div></div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-      <thead><tr><th style="background:#f0f1f3;padding:6px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border:1px solid #ddd">Réf.</th><th style="background:#f0f1f3;padding:6px;text-align:left;font-size:9px;text-transform:uppercase;color:#8C8C8C;border:1px solid #ddd">Désignation</th><th style="background:#f0f1f3;padding:6px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border:1px solid #ddd">Qté</th><th style="background:#f0f1f3;padding:6px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border:1px solid #ddd">Unité</th><th style="background:#f0f1f3;padding:6px;text-align:center;font-size:9px;text-transform:uppercase;color:#8C8C8C;border:1px solid #ddd">Reçu</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:15px">
-      <div style="font-size:12px;font-weight:700;margin-bottom:8px">📝 Observations :</div>
-      <div style="min-height:60px;border:1px dashed #ccc;border-radius:6px;padding:8px" contenteditable="true"></div>
-    </div>
-    <div style="background:#fff;border:2px solid #3d3d3d;border-radius:10px;padding:16px;margin-bottom:15px">
-      <div style="font-size:12px;font-weight:700;margin-bottom:4px">✍️ Signature du bénéficiaire : ${order.salarie||order.user}</div>
-      <div style="font-size:10px;color:#8C8C8C;margin-bottom:8px">Signez ci-dessous avec le doigt ou la souris</div>
-      <canvas id="signCanvas" width="460" height="150" style="border:1px solid #ccc;border-radius:6px;width:100%;touch-action:none;cursor:crosshair"></canvas>
-      <div style="display:flex;gap:8px;margin-top:8px" class="no-print">
-        <button onclick="clearSign()" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:12px">Effacer</button>
-      </div>
-    </div>
-    <div style="text-align:center;margin-top:20px" class="no-print">
-      <button onclick="window.print()" style="background:#00A3E0;color:#fff;border:none;padding:14px 40px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>
-    </div>
-    <div style="margin-top:15px;font-size:9px;color:#8C8C8C;text-align:center">EPJ — Électricité Générale • Feuille de réception ${order.num} • ${order.date}</div>
-    <script>
-    const c=document.getElementById('signCanvas'),ctx=c.getContext('2d');
-    let drawing=false,lastX=0,lastY=0;
-    function getPos(e){const r=c.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return[(t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height)]}
-    c.addEventListener('mousedown',e=>{drawing=true;[lastX,lastY]=getPos(e)});
-    c.addEventListener('mousemove',e=>{if(!drawing)return;const[x,y]=getPos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(x,y);ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();lastX=x;lastY=y});
-    c.addEventListener('mouseup',()=>drawing=false);
-    c.addEventListener('mouseleave',()=>drawing=false);
-    c.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lastX,lastY]=getPos(e)},{passive:false});
-    c.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=getPos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(x,y);ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();lastX=x;lastY=y},{passive:false});
-    c.addEventListener('touchend',()=>drawing=false);
-    function clearSign(){ctx.clearRect(0,0,c.width,c.height)}
-    </script></body></html>`;
-    const w = window.open('', '_blank');
-    if(w) { w.document.write(html); w.document.close(); }
-    else { showT("⚠️ Autorisez les popups"); }
+  const openReceptionSheet = (order) => {
+    if(order.signatureData) { showT("✅ Déjà réceptionnée"); return; }
+    setReceptionOrder(order);
+    setView('reception');
   };
 
   const sendOrder = async () => {
@@ -1135,6 +1138,98 @@ export default function App() {
     </div>
   ) : null;
 
+  // ═══ RÉCEPTION SIGNÉE (inline React, pas de popup) ═══
+  if(view==='reception' && receptionOrder) {
+    const o = receptionOrder;
+    const alreadySigned = !!o.signatureData;
+    return (
+      <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
+        <style>{css}</style>
+        <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
+        <div style={{padding:'12px 16px'}}>
+          {/* Infos commande */}
+          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Bénéficiaire</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{o.salarie||o.user}</div></div>
+              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Date de remise</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{new Date().toLocaleDateString('fr-FR')}</div></div>
+            </div>
+            <div style={{fontSize:10,color:EPJ.gray}}>Commande {o.num} • {o.date}</div>
+          </div>
+          {/* Articles */}
+          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',marginBottom:8}}>Articles ({o.items?.length||0} réf.)</div>
+            {(o.items||[]).map((it,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<(o.items.length-1)?`1px solid ${EPJ.grayLight}`:'none'}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.n}</div>
+                  <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
+                </div>
+                <div style={{marginLeft:8,background:EPJ.blue,color:'#fff',borderRadius:8,padding:'2px 10px',fontWeight:700,fontSize:13}}>×{it.qty}</div>
+              </div>
+            ))}
+          </div>
+          {alreadySigned ? (
+            /* Vue si déjà réceptionnée */
+            <div style={{background:'#E8F5E9',borderRadius:14,padding:20,textAlign:'center',border:'2px solid #4CAF50'}}>
+              <div style={{fontSize:32,marginBottom:8}}>✅</div>
+              <div style={{fontSize:16,fontWeight:700,color:'#2E7D32',marginBottom:4}}>Réception confirmée</div>
+              <div style={{fontSize:12,color:'#388E3C',marginBottom:16}}>Signée le {o.dateReception||o.date}</div>
+              <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:100,objectFit:'contain',border:'1px solid #ccc',borderRadius:8,background:'#fff',padding:4}}/>
+              <button className="epj-btn" onClick={()=>setView('history')} style={{width:'100%',marginTop:16,background:EPJ.dark,color:'#fff',padding:'12px'}}>← Retour historique</button>
+            </div>
+          ) : (
+            /* Zone signature */
+            <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${EPJ.dark}`}}>
+              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>✍️ Signature de {o.salarie||o.user}</div>
+              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10}}>Signez avec le doigt ci-dessous, puis appuyez sur Enregistrer</div>
+              <canvas
+                id="receptionCanvas"
+                width={460} height={160}
+                style={{width:'100%',border:`1px solid ${EPJ.gray}`,borderRadius:10,touchAction:'none',cursor:'crosshair',background:'#fafafa',display:'block'}}
+                ref={el => {
+                  if(!el) return;
+                  if(el._epjInited) return;
+                  el._epjInited = true;
+                  const ctx = el.getContext('2d');
+                  ctx.fillStyle = '#fafafa'; ctx.fillRect(0,0,el.width,el.height);
+                  let drawing = false, lx = 0, ly = 0;
+                  const getPos = (e) => { const r=el.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return [(t.clientX-r.left)*(el.width/r.width),(t.clientY-r.top)*(el.height/r.height)]; };
+                  const draw = (x,y) => { ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.stroke();lx=x;ly=y; };
+                  el.addEventListener('mousedown',e=>{drawing=true;[lx,ly]=getPos(e)});
+                  el.addEventListener('mousemove',e=>{if(!drawing)return;const[x,y]=getPos(e);draw(x,y)});
+                  el.addEventListener('mouseup',()=>drawing=false);
+                  el.addEventListener('mouseleave',()=>drawing=false);
+                  el.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=getPos(e)},{passive:false});
+                  el.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=getPos(e);draw(x,y)},{passive:false});
+                  el.addEventListener('touchend',()=>drawing=false);
+                }}
+              />
+              <button onClick={()=>{const c=document.getElementById('receptionCanvas');const ctx=c.getContext('2d');ctx.fillStyle='#fafafa';ctx.fillRect(0,0,c.width,c.height);}} style={{width:'100%',marginTop:8,padding:'8px',border:`1px solid ${EPJ.gray}`,borderRadius:8,background:'#fff',cursor:'pointer',fontSize:12,color:EPJ.gray}}>🗑 Effacer et recommencer</button>
+            </div>
+          )}
+          {!alreadySigned && (
+            <button className="epj-btn" style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:16,fontWeight:700,borderRadius:14}} onClick={async()=>{
+              const c = document.getElementById('receptionCanvas');
+              if(!c){showT('❌ Erreur canvas');return;}
+              const sigData = c.toDataURL('image/png');
+              // Check not blank
+              const blank = document.createElement('canvas'); blank.width=c.width; blank.height=c.height;
+              const bctx=blank.getContext('2d'); bctx.fillStyle='#fafafa'; bctx.fillRect(0,0,blank.width,blank.height);
+              if(sigData === blank.toDataURL('image/png')){showT('⚠️ Veuillez signer avant de valider');return;}
+              try{
+                const dateAuj = new Date().toLocaleDateString('fr-FR');
+                await updateDoc(doc(db,'commandes',o._id),{signatureData:sigData,dateReceptionEffective:dateAuj,statut:'Réceptionnée'});
+                setReceptionOrder({...o,signatureData:sigData,dateReceptionEffective:dateAuj,statut:'Réceptionnée'});
+                showT('✅ Réception enregistrée !');
+              }catch(e){showT('❌ Erreur: '+e.message);}
+            }}>✅ Enregistrer la réception</button>
+          )}
+        </div>
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+      </div>
+    );
+  }
+
   // ═══ LOGIN ═══
   if(view==="login") return (
     <div style={{fontFamily:font,background:`linear-gradient(135deg,${EPJ.dark} 0%,#2a2a2a 100%)`,minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20}}>
@@ -1229,7 +1324,7 @@ export default function App() {
                   <Thumb cat={p.c} imageUrl={p.img}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:600,color:EPJ.dark,lineHeight:1.3}}>{p.n}</div>
-                    <div style={{fontSize:10,color:EPJ.gray,marginTop:2,fontFamily:'monospace'}}>{p.r} • {p.u||'Pièce'} {p.stock===false?'• ⚠️ Hors stock':''}</div>
+                    <div style={{fontSize:10,color:EPJ.gray,marginTop:2,fontFamily:'monospace'}}>{p.r} • {p.u||'Pièce'} <span style={{display:'inline-block',marginLeft:4,padding:'1px 6px',borderRadius:8,fontSize:9,fontWeight:700,background:p.stock===false?'#FFF3E0':'#E8F5E9',color:p.stock===false?'#E65100':'#2E7D32'}}>{p.stock===false?'⚠️ Hors stock':'📦 En stock'}</span></div>
                   </div>
                   {cart[p.r] ? <QtyControl r={p.r} value={cart[p.r]} compact={true}/> : <button onClick={()=>addToCart(p.r)} style={{width:36,height:36,borderRadius:10,border:'none',background:EPJ.blue,color:'#fff',fontSize:20,cursor:'pointer',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>}
                 </div>
@@ -1428,7 +1523,14 @@ export default function App() {
         <a href={mailtoUrl} style={{textDecoration:'none'}}>
           <div className="epj-btn" style={{background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,color:'#fff',padding:'16px',fontSize:15,width:'100%',textAlign:'center'}}>✉️ Envoyer par email</div>
         </a>
-        {o&&o.type==='equipement'&&<button className="epj-btn" onClick={()=>generateReceptionSheet(o)} style={{background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>✍️ Feuille de réception + Signature</button>}
+        {o&&o.type==='equipement'&&(
+          o.signatureData
+            ? <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+                <span style={{fontSize:24}}>✅</span>
+                <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+              </div>
+            : <button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>✍️ Feuille de réception + Signature</button>
+        )}
       </div>}
 
       {/* Aperçu rapide */}
@@ -1568,7 +1670,7 @@ export default function App() {
               <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>Articles par fournisseur</div>
               {/* Bouton re-générer PDF */}
               <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:EPJ.blue,color:'#fff',padding:'6px 14px',fontSize:11}}>📄 PDF</button>
-              {o.type==='equipement'&&<button className="epj-btn" onClick={()=>generateReceptionSheet(o)} style={{background:EPJ.green,color:'#fff',padding:'6px 14px',fontSize:11}}>✍️ Réception</button>}
+              {o.type==='equipement'&&(o.signatureData?<span style={{fontSize:11,color:'#2E7D32',fontWeight:700}}>✅ Réceptionnée</span>:<button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:EPJ.green,color:'#fff',padding:'6px 14px',fontSize:11}}>✍️ Réception</button>)}
             </div>
             {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
               <div key={code} style={{marginBottom:12}}>
@@ -1736,8 +1838,21 @@ export default function App() {
 
     // ─── Admin: Catégories & Sous-catégories ───
     if(adminSection==='categories'){
-      const cats = [...new Set(dynCatalog.map(p=>p.c))].sort();
+      const allCatsRaw = [...new Set(dynCatalog.map(p=>p.c))];
+      const cats = dynCatOrder.length > 0
+        ? [...allCatsRaw].sort((a,b)=>{const ia=dynCatOrder.indexOf(a),ib=dynCatOrder.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return -1;return ia-ib;})
+        : [...allCatsRaw].sort();
       const subcats = selectedCat ? [...new Set(dynCatalog.filter(p=>p.c===selectedCat).map(p=>p.s))].sort() : [];
+      const EMOJI_QUICK = ['🧱','🔧','🏗️','🔌','📦','⚡','🔗','🏢','🏠','📡','🔔','💡','🔩','🛠️','📎','👔','🦺','🚪','🔑','💧','🌡️','🪛','🔋','📏','🗜️','🪝','🔦','🧰','🪜','🏷️'];
+      const moveCat = async (idx, dir) => {
+        const newOrder = [...cats];
+        const swapIdx = idx + dir;
+        if(swapIdx < 0 || swapIdx >= newOrder.length) return;
+        [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+        setDynCatOrder(newOrder);
+        await setDoc(doc(db,'config','settings'),{catOrder:newOrder},{merge:true});
+        showT('✅ Ordre sauvegardé');
+      };
       return(
       <div style={{fontFamily:font,background:EPJ.grayLight,minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
         <style>{css}</style>
@@ -1762,25 +1877,40 @@ export default function App() {
                 }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
               </div>
             </div>}
-            {cats.map(cat=>(
-              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:12}}>
-                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
+            {cats.map((cat,idx)=>(
+              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  <button onClick={()=>moveCat(idx,-1)} disabled={idx===0} style={{background:idx===0?'#eee':EPJ.dark,color:idx===0?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===0?'default':'pointer',lineHeight:1}}>↑</button>
+                  <button onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?'#eee':EPJ.dark,color:idx===cats.length-1?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
+                </div>
+                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
                   <span style={{fontSize:24}}>{dynCatIcons[cat]||'📦'}</span>
                   <div>
-                    <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{cat}</div>
-                    <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} articles • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.</div>
+                    <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{cat}</div>
+                    <div style={{fontSize:10,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
                   </div>
                 </div>
-                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
-                <button onClick={async()=>{if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;setAdminSaving(true);const toDelete=dynCatalog.filter(p=>p.c===cat);for(const p of toDelete){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+cat.replace(/\s/g,'_'));try{await deleteDoc(doc(db,"catalogue",docId))}catch(e){}}const newIcons={...dynCatIcons};delete newIcons[cat];await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});setAdminSaving(false);showT("🗑️ Catégorie supprimée")}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>
+                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>✏️</button>
+                <button onClick={async()=>{if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;setAdminSaving(true);const toDelete=dynCatalog.filter(p=>p.c===cat);for(const p of toDelete){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+cat.replace(/\s/g,'_'));try{await deleteDoc(doc(db,"catalogue",docId))}catch(e){}}const newIcons={...dynCatIcons};delete newIcons[cat];const newOrder=dynCatOrder.filter(c=>c!==cat);await setDoc(doc(db,"config","settings"),{catIcons:newIcons,catOrder:newOrder},{merge:true});setAdminSaving(false);showT("🗑️ Catégorie supprimée")}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>🗑️</button>
               </div>
             ))}
             {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
-              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Modifier la catégorie</div>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✏️ Modifier la catégorie</div>
               <div style={{display:'flex',gap:8,marginBottom:8}}>
                 <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <input className="epj-input" placeholder="Icône" value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:60,padding:'8px',fontSize:20,textAlign:'center'}}/>
+                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,cursor:'pointer',background:'#f8f9fa'}} onClick={()=>setAdminForm(p=>({...p,showEmojiPicker:!p.showEmojiPicker}))}>{adminForm.icon||'📦'}</div>
               </div>
+              {adminForm.showEmojiPicker&&<div style={{background:'#f8f9fa',borderRadius:10,padding:10,marginBottom:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,marginBottom:6}}>CHOISIR UNE ICÔNE</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {EMOJI_QUICK.map(em=>(
+                    <button key={em} onClick={()=>setAdminForm(p=>({...p,icon:em,showEmojiPicker:false}))} style={{width:38,height:38,borderRadius:8,border:adminForm.icon===em?`2px solid ${EPJ.blue}`:'2px solid transparent',background:adminForm.icon===em?'#E3F2FD':'#fff',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{em}</button>
+                  ))}
+                </div>
+                <div style={{marginTop:8,display:'flex',gap:6,alignItems:'center'}}>
+                  <input className="epj-input" placeholder="Ou coller un émoji..." value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{flex:1,padding:'6px 8px',fontSize:18,textAlign:'center'}}/>
+                </div>
+              </div>}
               <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
                 <input type="checkbox" checked={adminForm.isEquip||false} onChange={e=>setAdminForm(p=>({...p,isEquip:e.target.checked}))} style={{width:18,height:18}}/>
                 <div><div style={{fontSize:13,fontWeight:600}}>Équipement Salarié</div><div style={{fontSize:10,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
@@ -1790,16 +1920,14 @@ export default function App() {
                 <button className="epj-btn" onClick={async()=>{
                   if(!adminForm.nom||!adminForm.oldNom)return;
                   setAdminSaving(true);
-                  // Rename: update all articles in this category
                   const toUpdate=dynCatalog.filter(p=>p.c===adminForm.oldNom);
                   for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{...p,c:adminForm.nom},{merge:true})}catch(e){}}
-                  // Update icon
                   const newIcons={...dynCatIcons};delete newIcons[adminForm.oldNom];newIcons[adminForm.nom]=adminForm.icon||'📦';
-                  // Update equipCategories
                   let newEquip=[...dynEquipCats].filter(c=>c!==adminForm.oldNom);
                   if(adminForm.isEquip) newEquip.push(adminForm.nom);
-                  await setDoc(doc(db,"config","settings"),{catIcons:newIcons,equipCategories:newEquip},{merge:true});
-                  setDynEquipCats(newEquip);
+                  const newOrder=dynCatOrder.map(c=>c===adminForm.oldNom?adminForm.nom:c);
+                  await setDoc(doc(db,"config","settings"),{catIcons:newIcons,equipCategories:newEquip,catOrder:newOrder},{merge:true});
+                  setDynEquipCats(newEquip);setDynCatOrder(newOrder);
                   setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie mise à jour");
                 }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Enregistrer'}</button>
               </div>
