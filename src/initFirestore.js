@@ -39,14 +39,16 @@ const CHANTIERS_INIT = [
   { num:"002256", nom:"CROIX BLANCHE", conducteur:"Thibaut FRASCA", emailConducteur:"t.frasca@epj-electricite.com", adresse:"", statut:"Actif" },
 ];
 
-export async function initEPJData() {
+export async function initEPJData(forceReinit = false) {
   const results = { users: 0, chantiers: 0, catalog: 0, errors: [] };
   
   try {
     // Check if already initialized
-    const usersSnap = await getDocs(collection(db, "utilisateurs"));
-    if (usersSnap.size > 0) {
-      return { ...results, message: "Base déjà initialisée (" + usersSnap.size + " utilisateurs trouvés). Supprimez les collections pour réinitialiser." };
+    if (!forceReinit) {
+      const usersSnap = await getDocs(collection(db, "utilisateurs"));
+      if (usersSnap.size > 0) {
+        return { ...results, message: "Base déjà initialisée (" + usersSnap.size + " utilisateurs trouvés). Utilisez forceReinit pour réinitialiser." };
+      }
     }
 
     // Upload Users
@@ -61,14 +63,11 @@ export async function initEPJData() {
       results.chantiers++;
     }
 
-    // Upload Catalog — we need to read from the embedded data
-    // The catalog will be uploaded separately via uploadCatalog()
-    
-    // Upload config
+    // Upload config with NEW categories
     await setDoc(doc(db, "config", "settings"), {
       emailAchats: "achat@epj-electricite.com",
-      equipCategories: ["Outillage"],
-      catIcons: {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Câbles":"🔌"}
+      equipCategories: ["Outillage","Habillé","EPI"],
+      catIcons: {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Habillé":"👔","EPI":"🦺","Câbles":"🔌"}
     });
 
     results.message = `Initialisation terminée : ${results.users} utilisateurs, ${results.chantiers} chantiers.`;
