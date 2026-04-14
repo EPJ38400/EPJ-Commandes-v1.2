@@ -417,8 +417,7 @@ const CATALOG = [
   {c:"Lustrerie",s:"Spot Led",r:"RES 963240",n:"MIKS 1185lm CCT ANNEAU FIXE ROND BLANC",u:"Pièce"},
   {c:"Lustrerie",s:"Spot Led",r:"RES 963222",n:"MIKS 506lm CCT B.LUM RD/RD BLANC REFLECTEUR BLANC",u:"Pièce"},
   {c:"Lustrerie",s:"Spot Led",r:"RES 9633252",n:"MIKS 1043lm CCT B.LUM RD/RD BLANC REFLECTEUR BLANC",u:"Pièce"},
-  {c:"Lustrerie",s:"Spot Led",r:"RES 
-963226",n:"MIKS 412lm CCT B.LUM RD/RD NOIR REFLECTEUR NOIR",u:"Pièce"},
+  {c:"Lustrerie",s:"Spot Led",r:"RES 963226",n:"MIKS 412lm CCT B.LUM RD/RD NOIR REFLECTEUR NOIR",u:"Pièce"},
   {c:"Lustrerie",s:"Exterieur",r:"NOL 623180",n:"Bassi hub. GRAPH. E27/CFL",u:"Pièce"},
   {c:"Lustrerie",s:"Exterieur",r:"RES 946532",n:"MARKIZ E27 NOIR + LAMPE E27",u:"Pièce"},
   {c:"Lustrerie",s:"Exterieur",r:"RES 946533",n:"MARKIZ E27 BLANC + LAMPE E27",u:"Pièce"},
