@@ -521,36 +521,36 @@ const CATALOG = [
   {c:"Divers",s:"Général",r:"VIN 1060399",n:"CRAYON GRAPHITE PICA DRY WILMART",u:"Pièce"},
   {c:"Divers",s:"Général",r:"VIN 1100007",n:"MINE RECHARGE PICA DRY 10 UNI WILMART",u:"Pièce"},
   {c:"Divers",s:"Général",r:"VIN 264987",n:"SCIE EGOINE 152MM PANN PLATRE",u:"Pièce"},
-  {c:"Habillé",s:"Pantalon",r:"VIN 360505",n:"PANTALON MULTIPOCHES NOIR     T38",u:"Pièce"},
-  {c:"Habillé",s:"Pantalon",r:"VIN 361084",n:"PANTALON MULTIPOCHES NOIR     T40",u:"Pièce"},
-  {c:"Habillé",s:"Pantalon",r:"VIN 361085",n:"PANTALON MULTIPOCHES NOIR     T42",u:"Pièce"},
-  {c:"Habillé",s:"Pantalon",r:"VIN 361086",n:"PANTALON MULTIPOCHES NOIR     T44",u:"Pièce"},
-  {c:"Habillé",s:"Pantalon",r:"VIN 361087",n:"PANTALON MULTIPOCHES NOIR     T46",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT NOIR M",n:"T-SHIRT NOIR TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT NOIR L",n:"T-SHIRT NOIR TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT NOIR XL",n:"T-SHIRT NOIR TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT BLEU M",n:"T-SHIRT BLEU TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT BLEU L",n:"T-SHIRT BLEU TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT BLEU XL",n:"T-SHIRT BLEU TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT ORANGE M",n:"T-SHIRT ORANGE TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT ORANGE L",n:"T-SHIRT ORANGE TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"T-Shirt",r:"TEX T-SHIRT ORANGE XL",n:"T-SHIRT ORANGE TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE M",n:"SWEET A CAPUCHE TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE L",n:"SWEET A CAPUCHE TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE XL",n:"SWEET A CAPUCHE TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL M",n:"VESTE SOFTSHELL TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL L",n:"VESTE SOFTSHELL TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL XL",n:"VESTE SOFTSHELL TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"Gilet Polaire",r:"TEX GILET POLAIRE S",n:"VESTE SOFTSHELL TAILLE M",u:"Pièce"},
-  {c:"Habillé",s:"Gilet Polaire",r:"TEX GILET POLAIRE M",n:"VESTE SOFTSHELL TAILLE L",u:"Pièce"},
-  {c:"Habillé",s:"Gilet Polaire",r:"TEX GILET POLAIRE  L",n:"VESTE SOFTSHELL TAILLE XL",u:"Pièce"},
-  {c:"Habillé",s:"Bonnet / Casquette",r:"TEX BONNETG",n:"BONNET GRIS",u:"Pièce"},
-  {c:"Habillé",s:"Bonnet / Casquette",r:"TEX BONNET N",n:"BONNET NOIR",u:"Pièce"},
-  {c:"Habillé",s:"Bonnet / Casquette",r:"TEX CASQUETTE",n:"CAQUETTE DE SECURITE",u:"Pièce"},
-  {c:"Habillé",s:"Botte De Securite",r:"VIN 362357",n:"BOTTE SECURITE FOURREES ZEUS T42 K702",u:"Pièce"},
-  {c:"Habillé",s:"Botte De Securite",r:"VIN 362358",n:"BOTTE SECURITE FOURREES ZEUS  T43 K702",u:"Pièce"},
-  {c:"Habillé",s:"Botte De Securite",r:"VIN 362353",n:"BOTTE SECURITE FOURREES ZEUS  T44 K702",u:"Pièce"},
-  {c:"Habillé",s:"Botte De Securite",r:"VIN 362360",n:"BOTTE SECURITE FOURREES ZEUS  T45 K702",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Pantalon",r:"VIN 360505",n:"PANTALON MULTIPOCHES NOIR     T38",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361084",n:"PANTALON MULTIPOCHES NOIR     T40",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361085",n:"PANTALON MULTIPOCHES NOIR     T42",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361086",n:"PANTALON MULTIPOCHES NOIR     T44",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Pantalon",r:"VIN 361087",n:"PANTALON MULTIPOCHES NOIR     T46",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR M",n:"T-SHIRT NOIR TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR L",n:"T-SHIRT NOIR TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT NOIR XL",n:"T-SHIRT NOIR TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU M",n:"T-SHIRT BLEU TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU L",n:"T-SHIRT BLEU TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT BLEU XL",n:"T-SHIRT BLEU TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE M",n:"T-SHIRT ORANGE TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE L",n:"T-SHIRT ORANGE TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"T-Shirt",r:"TEX T-SHIRT ORANGE XL",n:"T-SHIRT ORANGE TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE M",n:"SWEET A CAPUCHE TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE L",n:"SWEET A CAPUCHE TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Sweet A Capuche",r:"TEX SWEET A CAPUCHE XL",n:"SWEET A CAPUCHE TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL M",n:"VESTE SOFTSHELL TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL L",n:"VESTE SOFTSHELL TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Veste Softshell",r:"TEX VESTE SOFTSHELL XL",n:"VESTE SOFTSHELL TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Gilet Polaire",r:"TEX GILET POLAIRE S",n:"VESTE SOFTSHELL TAILLE M",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Gilet Polaire",r:"TEX GILET POLAIRE M",n:"VESTE SOFTSHELL TAILLE L",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Gilet Polaire",r:"TEX GILET POLAIRE  L",n:"VESTE SOFTSHELL TAILLE XL",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Bonnet / Casquette",r:"TEX BONNETG",n:"BONNET GRIS",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Bonnet / Casquette",r:"TEX BONNET N",n:"BONNET NOIR",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Bonnet / Casquette",r:"TEX CASQUETTE",n:"CAQUETTE DE SECURITE",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362357",n:"BOTTE SECURITE FOURREES ZEUS T42 K702",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362358",n:"BOTTE SECURITE FOURREES ZEUS  T43 K702",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362353",n:"BOTTE SECURITE FOURREES ZEUS  T44 K702",u:"Pièce"},
+  {c:"Vêtements de travail",s:"Botte De Securite",r:"VIN 362360",n:"BOTTE SECURITE FOURREES ZEUS  T45 K702",u:"Pièce"},
   {c:"EPI",s:"Général",r:"VIN 360351",n:"CASQUE CHANTIER + LUNETTE KARA   BLANC",u:"Pièce"},
   {c:"EPI",s:"Général",r:"VIN 360471",n:"GARNITURE SANI CONTOURE CASQUE KARA",u:"Pièce"},
   {c:"EPI",s:"Général",r:"VIN 361660",n:"GANT CHAUD NOIR SNOWFLEX T9/  T10/T11",u:"Pièce"},
@@ -629,7 +629,7 @@ const CATALOG = [
   {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"Pièce"},
   {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"Pièce"}
 ];
-const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Habillé":"👔","EPI":"🦺","Câbles":"🔌"};
+const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺","Câbles":"🔌"};
 
 
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
@@ -639,7 +639,7 @@ const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",
 
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
-const EQUIP_CATS = ["Outillage","Habillé","EPI","Vêtements de travail"];
+const EQUIP_CATS = ["Outillage","EPI","Vêtements de travail"];
 
 // ─── PDF COMPONENT (React natif, pas d'iframe) ───
 const PdfView = ({order, onClose}) => {
@@ -846,7 +846,13 @@ export default function App() {
   const selectedChantierObj = useMemo(() => dynChantiers.find(c=>c.nom===chantier), [chantier, dynChantiers]);
 
   const allCategories = useMemo(() => [...new Set(dynCatalog.map(p=>p.c))], [dynCatalog]);
-  const availableCategories = useMemo(() => orderType==="equipement" ? dynEquipCats : allCategories, [orderType, allCategories, dynEquipCats]);
+  const availableCategories = useMemo(() => {
+    if (orderType==="equipement") {
+      // Only show equip cats that actually exist in catalog
+      return dynEquipCats.filter(c => allCategories.includes(c));
+    }
+    return allCategories;
+  }, [orderType, allCategories, dynEquipCats]);
 
   const filteredProducts = useMemo(() => {
     let items = dynCatalog;
@@ -1820,6 +1826,7 @@ export default function App() {
                 <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s}</div>
               </div>
               <button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p,_origRef:p.r})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
+              <button onClick={()=>{const docId=p.r.replace(/[\/\s]/g,'_');adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>
             </div>
           ))}
           {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
