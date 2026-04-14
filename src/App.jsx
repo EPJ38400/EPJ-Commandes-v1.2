@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc } from "firebase/firestore";
-import { initEPJData, uploadCatalog } from "./initFirestore";
+import { initEPJData, uploadCatalog, deleteCategoryByQuery } from "./initFirestore";
 
 /* ═══════════════════════════════════════════════════
    EPJ — Application de Commande de Matériel V1.3
@@ -1733,17 +1733,15 @@ export default function App() {
             <div style={{fontSize:11,color:EPJ.gray,textAlign:'center',marginBottom:12}}>Charge les données par défaut (utilisateurs, chantiers, catalogue) dans Firebase</div>
             <button className="epj-btn" onClick={async()=>{
               const validCats = new Set(CATALOG.map(p=>p.c));
-              const allDocs = dynCatalog;
-              const orphans = allDocs.filter(p=>p.r && !validCats.has(p.c));
-              if(orphans.length===0){showT('✅ Aucune catégorie parasite');return;}
-              if(!confirm(`Supprimer ${orphans.length} articles de catégories parasites (Câbles, Câble Colonne, anciennes données) ?`))return;
+              const orphanCats = [...new Set(dynCatalog.filter(p=>p.r && !validCats.has(p.c)).map(p=>p.c))];
+              if(orphanCats.length===0){showT('✅ Aucune catégorie parasite');return;}
+              if(!confirm(`Supprimer les catégories parasites : ${orphanCats.join(', ')} ?`))return;
               setAdminSaving(true);
-              let deleted=0;
-              for(const p of orphans){
-                const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+String(p.c).replace(/\s/g,'_'));
-                try{await deleteDoc(doc(db,'catalogue',docId));deleted++;}catch(e){}
+              let total=0;
+              for(const cat of orphanCats){
+                try{ total += await deleteCategoryByQuery(cat); }catch(e){}
               }
-              setAdminSaving(false);showT(`🗑️ ${deleted} articles parasites supprimés`);
+              setAdminSaving(false);showT(`🗑️ ${total} articles parasites supprimés`);
             }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>
               🧹 Nettoyer catégories parasites Firebase
             </button>
@@ -1899,7 +1897,19 @@ export default function App() {
                   </div>
                 </div>
                 <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>✏️</button>
-                <button onClick={async()=>{if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;setAdminSaving(true);const toDelete=dynCatalog.filter(p=>p.c===cat);for(const p of toDelete){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+cat.replace(/\s/g,'_'));try{await deleteDoc(doc(db,"catalogue",docId))}catch(e){}}const newIcons={...dynCatIcons};delete newIcons[cat];const newOrder=dynCatOrder.filter(c=>c!==cat);await setDoc(doc(db,"config","settings"),{catIcons:newIcons,catOrder:newOrder},{merge:true});setAdminSaving(false);showT("🗑️ Catégorie supprimée")}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>🗑️</button>
+                <button onClick={async()=>{
+                  if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;
+                  setAdminSaving(true);
+                  try {
+                    // Suppression fiable par requête Firestore (pas par ID deviné)
+                    const deleted = await deleteCategoryByQuery(cat);
+                    const newIcons={...dynCatIcons};delete newIcons[cat];
+                    const newOrder=dynCatOrder.filter(c=>c!==cat);
+                    await setDoc(doc(db,"config","settings"),{catIcons:newIcons,catOrder:newOrder},{merge:true});
+                    showT(`🗑️ ${deleted} articles supprimés`);
+                  } catch(e) { showT("❌ Erreur: "+e.message); }
+                  setAdminSaving(false);
+                }} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>🗑️</button>
               </div>
             ))}
             {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
