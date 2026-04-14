@@ -3,7 +3,7 @@
 // Accédez à votre app avec ?init=true pour l'exécuter
 
 import { db } from "./firebase";
-import { collection, doc, setDoc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, writeBatch, query, where, deleteDoc } from "firebase/firestore";
 
 // ─── DONNÉES INITIALES ───
 
@@ -43,7 +43,6 @@ export async function initEPJData(forceReinit = false) {
   const results = { users: 0, chantiers: 0, catalog: 0, errors: [] };
   
   try {
-    // Check if already initialized
     if (!forceReinit) {
       const usersSnap = await getDocs(collection(db, "utilisateurs"));
       if (usersSnap.size > 0) {
@@ -51,24 +50,28 @@ export async function initEPJData(forceReinit = false) {
       }
     }
 
-    // Upload Users
     for (const u of USERS_INIT) {
       await setDoc(doc(db, "utilisateurs", u.id), u);
       results.users++;
     }
 
-    // Upload Chantiers
     for (const ch of CHANTIERS_INIT) {
       await setDoc(doc(db, "chantiers", ch.num), ch);
       results.chantiers++;
     }
 
-    // Upload config with NEW categories
+    // Config : catIcons sans Câbles ni Câble Colonne
     await setDoc(doc(db, "config", "settings"), {
       emailAchats: "achat@epj-electricite.com",
       equipCategories: ["Outillage","Vêtements de travail","EPI"],
-      catIcons: {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺","Câbles":"🔌"}
-    });
+      catIcons: {
+        "Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️",
+        "Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Équipement Commun":"🏢",
+        "Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔",
+        "Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎",
+        "Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺"
+      }
+    }, {merge: false});
 
     results.message = `Initialisation terminée : ${results.users} utilisateurs, ${results.chantiers} chantiers.`;
   } catch (err) {
@@ -79,21 +82,22 @@ export async function initEPJData(forceReinit = false) {
   return results;
 }
 
+// ── Upload catalogue complet avec stock ──────────────────────────────────────
 export async function uploadCatalog(catalogArray) {
   let count = 0;
-  // Use batched writes (max 500 per batch)
   const batchSize = 450;
   for (let i = 0; i < catalogArray.length; i += batchSize) {
     const batch = writeBatch(db);
     const chunk = catalogArray.slice(i, i + batchSize);
     for (const item of chunk) {
-      const docId = item.r.replace(/[\/\s]/g, '_'); // Safe doc ID
+      const docId = item.r.replace(/[\/\s]/g, '_');
       batch.set(doc(db, "catalogue", docId), {
         c: item.c || '',
         s: item.s || '',
         r: item.r || '',
         n: item.n || '',
         u: item.u || 'Pièce',
+        stock: item.stock === true,   // ← champ stock correctement sauvegardé
         img: item.img || ''
       });
       count++;
@@ -101,4 +105,19 @@ export async function uploadCatalog(catalogArray) {
     await batch.commit();
   }
   return count;
+}
+
+// ── Supprimer tous les articles d'une catégorie par requête Firestore ─────────
+// (fiable même si les IDs de documents ne correspondent pas à la référence)
+export async function deleteCategoryByQuery(catName) {
+  const q = query(collection(db, "catalogue"), where("c", "==", catName));
+  const snap = await getDocs(q);
+  const batchSize = 450;
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + batchSize).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return docs.length;
 }
