@@ -567,69 +567,74 @@ const CATALOG = [
   {c:"Divers",s:"Divers",r:"AGI 398419",n:"Tête de guidage flexible à sertir",u:"Pièce",stock:false},
   {c:"Divers",s:"Divers",r:"AGI 398421",n:"Oeillet de tirage à sertir",u:"Pièce",stock:false},
   {c:"Divers",s:"Divers",r:"AGI 398607",n:"Pince à sertir",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"ACO R7295AST",n:"CABLE 4P CAT6A F/FTP LSOH DCA",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"ACO R8596AT5",n:"2X4P F/FTP CAT.6A LSOH- CCA-T500",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5VJC100",n:"Fil H07VU 1,5 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5RGC100",n:"Fil H07VU 1,5 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5BEC100",n:"Fil H07VU 1,5 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5GRC100",n:"Fil H07VU 1,5 Gris C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5IVC100",n:"Fil H07VU 1,5 Ivoire C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5NRC100",n:"Fil H07VU 1,5 Noir C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5ORC100",n:"Fil H07VU 1,5 Orange C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5MNC100",n:"Fil H07VU 1,5 Marron C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU1,5VIC100",n:"Fil H07VU 1,5 Violet C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5VJC100",n:"Fil H07VU 2,5 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5RGC100",n:"Fil H07VU 2,5 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5BEC100",n:"Fil H07VU 2,5 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5GRC100",n:"Fil H07VU 2,5 Gris C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5IVC100",n:"Fil H07VU 2,5 Ivoire C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5NRC100",n:"Fil H07VU 2,5 Noir C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5ORC100",n:"Fil H07VU 2,5 Orange C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5MNC100",n:"Fil H07VU 2,5 Marron C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5VIC100",n:"Fil H07VU 2,5 Violet C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VU2,5BAC100",n:"Fil H07VU 2,5 Blanc C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6VJC100",n:"Fil H07VR 6 Vert/Jaune C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6RGC100",n:"Fil H07VR 6 Rouge C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6BEC100",n:"Fil H07VR 6 Bleu C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6NRC100",n:"Fil H07VR 6 Noir C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL H07VR6MNC100",n:"Fil H07VR 6 Marron C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X1,5C100",n:"Câble U1000 R2V CU 2X1,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G1,5C100",n:"Câble U1000 R2V CU 3G1,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G1,5C100",n:"Câble U1000 R2V CU 4G1,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G1,5C100",n:"Câble U1000 R2V CU 5G1,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G2,5C100",n:"Câble U1000 R2V CU 3G2,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G2,5C100",n:"Câble U1000 R2V CU 4G2,5 C100M",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G2,5C100",n:"Câble U1000 R2V CU 5G2,5 C100M",u:"Pièce",stock:true},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V7G2,5TGL",n:"Câble U1000 R2V CU 7G2,5 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G4TGL",n:"Câble U1000 R2V CU 3G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G4TGL",n:"Câble U1000 R2V CU 4G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G4TGL",n:"Câble U1000 R2V CU 5G4 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G6TGL",n:"Câble U1000 R2V CU 3G6 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G6TGL",n:"Câble U1000 R2V CU 5G6 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G10TGL",n:"Câble U1000 R2V CU 3G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G10TGL",n:"Câble U1000 R2V CU 4G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X10TGL",n:"Câble U1000 R2V CU 4X10 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G10TGL",n:"Câble U1000 R2V CU 5G10 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X16TGL",n:"Câble U1000 R2V CU 2X16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V3G16TGL",n:"Câble U1000 R2V CU 3G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G16TGL",n:"Câble U1000 R2V CU 4G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X16TGL",n:"Câble U1000 R2V CU 4X16 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G16TGL",n:"Câble U1000 R2V CU 5G16 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X25TGL",n:"Câble U1000 R2V CU 2X25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G25TGL",n:"Câble U1000 R2V CU 4G25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X25TGL",n:"Câble U1000 R2V CU 4X25 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G25TGL",n:"Câble U1000 R2V CU 5G25 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X35TGL",n:"Câble U1000 R2V CU 2X35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G35TGL",n:"Câble U1000 R2V CU 4G35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X35TGL",n:"Câble U1000 R2V CU 4X35 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G35TGL",n:"Câble U1000 R2V CU 5G35 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V1X50TGL",n:"Câble U1000 R2V CU 1X50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V2X50TGL",n:"Câble U1000 R2V CU 2X50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4G50TGL",n:"Câble U1000 R2V CU 4G50 TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"Pièce",stock:false},
-  {c:"Fils / Câbles",s:"Général",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"Pièce",stock:false}
-];
-const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺","Câbles":"🔌"};
+  {c:"Fils / Câbles",s:"Câbles réseaux",r:"ACO R7295AST",n:"CABLE 4P CAT6A F/FTP LSOH DCA",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Câbles réseaux",r:"ACO R8596AT5",n:"2X4P F/FTP CAT.6A LSOH- CCA-T500",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"Interphone",r:"FIL SYT15PAWG20GRTGL",n:"SYT1 5 paires AWG20 Gris TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Interphone",r:"FIL SYT12PAWG20GRTGL",n:"SYT1 2 paires AWG20 Gris TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Incendie",r:"FIL SYT11PAWG20RGAEGTGL",n:"SYT1 1 paire AWG20 Rouge AE Gris TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Incendie",r:"FIL SYT11PAWG20RGSETGL",n:"SYT1 1 paire AWG20 Rouge SE TGL",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Incendie",r:"FIL CR1C1NA2X1,5RONDTGL",n:"CR1-C1 2x1,5 Rond TGL Sécurité incendie",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"Câbles coaxiaux (antenne, vidéo)",r:"FIL 17VATCC100B",n:"Câble coaxial 17 VATC C100M",u:"ML",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5VJC100",n:"Fil H07VU 1,5 Vert/Jaune C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5RGC100",n:"Fil H07VU 1,5 Rouge C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5BEC100",n:"Fil H07VU 1,5 Bleu C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5GRC100",n:"Fil H07VU 1,5 Gris C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5IVC100",n:"Fil H07VU 1,5 Ivoire C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5NRC100",n:"Fil H07VU 1,5 Noir C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5ORC100",n:"Fil H07VU 1,5 Orange C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5MNC100",n:"Fil H07VU 1,5 Marron C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU1,5VIC100",n:"Fil H07VU 1,5 Violet C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5VJC100",n:"Fil H07VU 2,5 Vert/Jaune C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5RGC100",n:"Fil H07VU 2,5 Rouge C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5BEC100",n:"Fil H07VU 2,5 Bleu C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5GRC100",n:"Fil H07VU 2,5 Gris C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5IVC100",n:"Fil H07VU 2,5 Ivoire C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5NRC100",n:"Fil H07VU 2,5 Noir C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5ORC100",n:"Fil H07VU 2,5 Orange C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5MNC100",n:"Fil H07VU 2,5 Marron C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5VIC100",n:"Fil H07VU 2,5 Violet C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VU2,5BAC100",n:"Fil H07VU 2,5 Blanc C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6VJC100",n:"Fil H07VR 6 Vert/Jaune C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6RGC100",n:"Fil H07VR 6 Rouge C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6BEC100",n:"Fil H07VR 6 Bleu C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6NRC100",n:"Fil H07VR 6 Noir C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"FILS",r:"FIL H07VR6MNC100",n:"Fil H07VR 6 Marron C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X1,5C100",n:"Câble U1000 R2V CU 2X1,5 C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G1,5C100",n:"Câble U1000 R2V CU 3G1,5 C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G1,5C100",n:"Câble U1000 R2V CU 4G1,5 C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G1,5C100",n:"Câble U1000 R2V CU 5G1,5 C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G2,5C100",n:"Câble U1000 R2V CU 3G2,5 C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G2,5C100",n:"Câble U1000 R2V CU 4G2,5 C100M",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G2,5C100",n:"Câble U1000 R2V CU 5G2,5 C100M",u:"Pièce",stock:true},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V7G2,5TGL",n:"Câble U1000 R2V CU 7G2,5 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G4TGL",n:"Câble U1000 R2V CU 3G4 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G4TGL",n:"Câble U1000 R2V CU 4G4 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G4TGL",n:"Câble U1000 R2V CU 5G4 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G6TGL",n:"Câble U1000 R2V CU 3G6 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G6TGL",n:"Câble U1000 R2V CU 5G6 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G10TGL",n:"Câble U1000 R2V CU 3G10 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G10TGL",n:"Câble U1000 R2V CU 4G10 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X10TGL",n:"Câble U1000 R2V CU 4X10 SVJ TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G10TGL",n:"Câble U1000 R2V CU 5G10 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X16TGL",n:"Câble U1000 R2V CU 2X16 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V3G16TGL",n:"Câble U1000 R2V CU 3G16 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G16TGL",n:"Câble U1000 R2V CU 4G16 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X16TGL",n:"Câble U1000 R2V CU 4X16 SVJ TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G16TGL",n:"Câble U1000 R2V CU 5G16 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X25TGL",n:"Câble U1000 R2V CU 2X25 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G25TGL",n:"Câble U1000 R2V CU 4G25 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X25TGL",n:"Câble U1000 R2V CU 4X25 SVJ TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G25TGL",n:"Câble U1000 R2V CU 5G25 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X35TGL",n:"Câble U1000 R2V CU 2X35 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G35TGL",n:"Câble U1000 R2V CU 4G35 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X35TGL",n:"Câble U1000 R2V CU 4X35 SVJ TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G35TGL",n:"Câble U1000 R2V CU 5G35 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V1X50TGL",n:"Câble U1000 R2V CU 1X50 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V2X50TGL",n:"Câble U1000 R2V CU 2X50 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4G50TGL",n:"Câble U1000 R2V CU 4G50 TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V4X50TGL",n:"Câble U1000 R2V CU 4X50 SVJ TGL",u:"Pièce",stock:false},
+  {c:"Fils / Câbles",s:"CABLES",r:"FIL R2V5G50TGL",n:"Câble U1000 R2V CU 5G50 TGL",u:"Pièce",stock:false}
+];const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Câble Colonne":"🔗","Équipement Commun":"🏢","Équipement Logement":"🏠","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺","Câbles":"🔌"};
 
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
 const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
@@ -758,6 +763,8 @@ export default function App() {
   const [adminEdit, setAdminEdit] = useState(null); // item being edited
   const [adminForm, setAdminForm] = useState({});
   const [adminSaving, setAdminSaving] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState([]); // refs selected for bulk edit
+  const [bulkMode, setBulkMode] = useState(false);
 
   // ─── FIREBASE : écoute temps réel des commandes ───
   useEffect(() => {
@@ -1805,10 +1812,13 @@ export default function App() {
               <div style={{display:'flex',gap:8}}>
                 <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
                 <button className="epj-btn" onClick={async()=>{
-                  if(!adminForm.nom) return;
-                  await setDoc(doc(db,"catalogue","__sub_"+selectedCat.replace(/\s/g,'_')+"_"+adminForm.nom.replace(/\s/g,'_')),{c:selectedCat,s:adminForm.nom,r:'',n:'(sous-catégorie vide)',u:'',img:''});
-                  setAdminEdit(null);setAdminForm({});showT("✅ Sous-catégorie ajoutée");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
+                  const nom = (adminForm.nom||'').trim();
+                  if(!nom) return;
+                  try {
+                    await setDoc(doc(db,"catalogue","__sub_"+selectedCat.replace(/[\/\s]/g,'_')+"_"+nom.replace(/[\/\s]/g,'_')),{c:selectedCat,s:nom,r:'',n:'(sous-catégorie vide)',u:'',img:'',stock:true});
+                    setAdminEdit(null);setAdminForm({});showT("✅ Sous-catégorie ajoutée");
+                  } catch(e) { showT("❌ Erreur: "+e.message); }
+                }} disabled={adminSaving||!(adminForm.nom||'').trim()} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
               </div>
             </div>}
             {subcats.map(sub=>(
@@ -1844,16 +1854,60 @@ export default function App() {
           <input className="epj-input" placeholder="Rechercher..." value={adminSearch||''} onChange={e=>setSearch(e.target.value)} style={{fontSize:12,padding:'8px'}}/>
         </div>
         <div style={{padding:12}}>
-          <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Ajouter un article</button>
+          <div style={{display:'flex',gap:6,marginBottom:12}}>
+            <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:'',stock:true})}} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px',fontSize:13}}>+ Ajouter</button>
+            <button className="epj-btn" onClick={()=>{setBulkMode(!bulkMode);setBulkSelected([])}} style={{background:bulkMode?EPJ.orange:'#eee',color:bulkMode?'#fff':EPJ.dark,padding:'10px',fontSize:13}}>{bulkMode?'✓ Sélection':'☐ Sélection bloc'}</button>
+          </div>
+          {bulkMode&&bulkSelected.length>0&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.orange}`}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>{bulkSelected.length} article(s) sélectionné(s)</div>
+            <div style={{marginBottom:6}}>
+              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Déplacer vers catégorie :</label>
+              <select className="epj-input" id="bulkCat" style={{padding:'6px',fontSize:12}}><option value="">--</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
+            </div>
+            <div style={{marginBottom:8}}>
+              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Sous-catégorie :</label>
+              <input className="epj-input" id="bulkSub" placeholder="Optionnel" style={{padding:'6px',fontSize:12}}/>
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button className="epj-btn" onClick={()=>setBulkSelected([])} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'8px',fontSize:12}}>Tout désélectionner</button>
+              <button className="epj-btn" onClick={async()=>{
+                const newCat=document.getElementById('bulkCat').value;
+                const newSub=document.getElementById('bulkSub').value;
+                if(!newCat){showT('Choisissez une catégorie');return}
+                setAdminSaving(true);
+                for(const ref of bulkSelected){
+                  const docId=ref.replace(/[\/\s]/g,'_');
+                  const updates={c:newCat};
+                  if(newSub) updates.s=newSub;
+                  try{await setDoc(doc(db,'catalogue',docId),updates,{merge:true})}catch(e){}
+                }
+                setAdminSaving(false);setBulkSelected([]);setBulkMode(false);
+                showT(`✅ ${bulkSelected.length} articles déplacés`);
+              }} disabled={adminSaving} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'8px',fontSize:12}}>{adminSaving?'⏳':'📦 Déplacer'}</button>
+            </div>
+          </div>}
           {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
             <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
             <div style={{marginBottom:8}}>
               <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>CATÉGORIE</label>
-              <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
+              <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value,s:''}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
             </div>
-            {['s','r','n','u','img'].map(f=>(
+            <div style={{marginBottom:8}}>
+              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>SOUS-CATÉGORIE</label>
+              {(()=>{const subs=[...new Set(dynCatalog.filter(p=>p.c===adminForm.c).map(p=>p.s))].sort();return subs.length>0?(
+                <div style={{display:'flex',gap:6}}>
+                  <select className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} style={{flex:1,padding:'8px',fontSize:13}}>
+                    <option value="">-- Choisir --</option>
+                    {subs.map(s=><option key={s} value={s}>{s}</option>)}
+                    <option value="__new__">+ Nouvelle...</option>
+                  </select>
+                  {adminForm.s==='__new__'&&<input className="epj-input" placeholder="Nom" value={adminForm._newSub||''} onChange={e=>setAdminForm(p=>({...p,_newSub:e.target.value,s:'__new__'}))} style={{flex:1,padding:'8px',fontSize:13}}/>}
+                </div>
+              ):(<input className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie" style={{padding:'8px 10px',fontSize:13}}/>)})()}
+            </div>
+            {['r','n','u','img'].map(f=>(
               <div key={f} style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='s'?'SOUS-CATÉGORIE':f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':f==='u'?'UNITÉ':'URL IMAGE'}</label>
+                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':f==='u'?'UNITÉ':'URL IMAGE'}</label>
                 <input className="epj-input" value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))} style={{padding:'8px 10px',fontSize:13}}/>
               </div>
             ))}
@@ -1867,7 +1921,8 @@ export default function App() {
               <button className="epj-btn" onClick={async()=>{
                 const newDocId = adminForm.r ? adminForm.r.replace(/[\/\s]/g,'_') : 'art_'+Date.now();
                 const origDocId = adminForm._origRef ? adminForm._origRef.replace(/[\/\s]/g,'_') : null;
-                const saveData = {c:adminForm.c,s:adminForm.s,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',stock:adminForm.stock!==false};
+                const subCat = adminForm.s==='__new__' ? (adminForm._newSub||'Général') : (adminForm.s||'Général');
+                const saveData = {c:adminForm.c,s:subCat,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',stock:adminForm.stock!==false};
                 // If ref changed, delete old doc first
                 if(origDocId && origDocId !== newDocId) {
                   try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){}
@@ -1878,14 +1933,15 @@ export default function App() {
           </div>}
           <div style={{fontSize:12,color:EPJ.gray,marginBottom:8}}>{filtered.length} article(s)</div>
           {filtered.slice(0,50).map(p=>(
-            <div key={p.r} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px'}}>
+            <div key={p.r} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.includes(p.r)?'#E3F2FD':'#fff'}}>
+              {bulkMode&&<input type="checkbox" checked={bulkSelected.includes(p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,p.r]);else setBulkSelected(s=>s.filter(r=>r!==p.r))}} style={{width:18,height:18,flexShrink:0}}/>}
               {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<div style={{width:36,height:36,borderRadius:6,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{dynCatIcons[p.c]||'📦'}</div>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
-                <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s}</div>
+                <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
               </div>
-              <button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p,_origRef:p.r})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>
-              <button onClick={()=>{const docId=p.r.replace(/[\/\s]/g,'_');adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>
+              {!bulkMode&&<button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p,_origRef:p.r})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>}
+              {!bulkMode&&<button onClick={()=>{const docId=p.r.replace(/[\/\s]/g,'_');adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>}
             </div>
           ))}
           {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
