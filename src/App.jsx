@@ -1537,16 +1537,14 @@ export default function App() {
       setAdminSaving(false);
     };
     const adminInitAll = async () => {
-      if(!confirm("Initialiser la base avec les données par défaut ? (utilisateurs + chantiers + config)")) return;
+      if(!confirm("Réinitialiser la base complète ? (utilisateurs + chantiers + catalogue 583 articles)")) return;
       setAdminSaving(true);
-      const r = await initEPJData();
+      const r = await initEPJData(true);
       showT(r.message);
-      if(r.users > 0) {
-        // Also upload catalog
-        showT("⏳ Chargement du catalogue...");
-        const catCount = await uploadCatalog(CATALOG);
-        showT(`✅ ${catCount} articles chargés`);
-      }
+      // Always upload catalog
+      showT("⏳ Chargement du catalogue (583 articles)...");
+      const catCount = await uploadCatalog(CATALOG);
+      showT(`✅ ${catCount} articles chargés`);
       setAdminSaving(false);
     };
 
@@ -1569,7 +1567,7 @@ export default function App() {
           ))}
           <div style={{marginTop:20,borderTop:`1px solid #ddd`,paddingTop:16}}>
             <button className="epj-btn" onClick={adminInitAll} disabled={adminSaving} style={{width:'100%',background:'#555',color:'#fff',padding:'14px',fontSize:14,marginBottom:8}}>
-              {adminSaving?'⏳ En cours...':'🔄 Initialiser Firebase (première fois)'}
+              {adminSaving?'⏳ En cours...':'🔄 Réinitialiser Firebase (583 articles)'}
             </button>
             <div style={{fontSize:11,color:EPJ.gray,textAlign:'center'}}>Charge les données par défaut (utilisateurs, chantiers, catalogue) dans Firebase</div>
           </div>
