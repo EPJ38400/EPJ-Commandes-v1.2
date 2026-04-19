@@ -1,9 +1,7 @@
-
 // ═══════════════════════════════════════════════════════════════
 //  App.jsx — Routeur racine de l'EPJ App Globale
-//  Responsabilités :
-//   - fournit AuthContext + DataContext + ToastContext à toute l'app
-//   - aiguille entre LoginPage / HomePage / Modules / Dashboards / Admin
+//  - Bouton ⚙ Admin accessible depuis le Layout (header)
+//  - Tuile Dashboard → dashboard correspondant au rôle de l'user
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 
@@ -12,6 +10,7 @@ import { AuthProvider, useAuth } from "./core/AuthContext";
 import { ToastProvider } from "./core/components/Toast";
 import { Layout } from "./core/Layout";
 import { FullPageSpinner } from "./core/components/Spinner";
+import { can } from "./core/permissions";
 
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
@@ -34,17 +33,20 @@ export default function App() {
 function Router() {
   const { user } = useAuth();
   const { allLoaded } = useData();
-
-  // "route" interne simple : 'home' | 'module:commandes' | 'dashboard:xxx' | 'admin'
   const [route, setRoute] = useState("home");
 
-  // Attente du chargement initial des données Firestore pour pouvoir se connecter
   if (!allLoaded) return <FullPageSpinner label="Chargement de l'application…"/>;
-
-  // Pas connecté → page de login (pas de Layout, pas de header)
   if (!user) return <LoginPage/>;
 
-  // Connecté : détermine le label affiché dans le header en fonction de la route
+  // Détermine quel dashboard ouvrir selon le rôle de l'utilisateur
+  // Priorité : Direction > Conducteur > Public
+  const openBestDashboard = () => {
+    if (can(user, "_dashboards", "direction")) setRoute("dashboard:direction");
+    else if (can(user, "_dashboards", "conducteur")) setRoute("dashboard:conducteur");
+    else if (can(user, "_dashboards", "public")) setRoute("dashboard:public");
+  };
+
+  // Label affiché dans le header selon la route
   const currentModule = (() => {
     if (route === "home")                  return "Accueil";
     if (route === "module:commandes")      return "Commandes";
@@ -56,12 +58,15 @@ function Router() {
   })();
 
   return (
-    <Layout currentModule={currentModule} onHome={() => setRoute("home")}>
+    <Layout
+      currentModule={currentModule}
+      onHome={() => setRoute("home")}
+      onOpenAdmin={() => setRoute("admin")}
+    >
       {route === "home" && (
         <HomePage
           onOpenModule={(mod) => setRoute(`module:${mod}`)}
-          onOpenDashboard={(dash) => setRoute(`dashboard:${dash}`)}
-          onOpenAdmin={() => setRoute("admin")}
+          onOpenDashboard={openBestDashboard}
         />
       )}
 
@@ -69,14 +74,20 @@ function Router() {
         <CommandesModule onExitModule={() => setRoute("home")}/>
       )}
 
-      {/* Placeholders pour les futurs modules / dashboards / admin global du Socle */}
-      {route.startsWith("dashboard:") && <PlaceholderScreen title="Dashboard" onBack={() => setRoute("home")}/>}
-      {route === "admin" && <PlaceholderScreen title="Administration (Socle)" onBack={() => setRoute("home")}/>}
+      {/* Dashboards (placeholders pour l'instant — construits en livraison 6) */}
+      {route.startsWith("dashboard:") && (
+        <PlaceholderScreen title={currentModule} onBack={() => setRoute("home")}/>
+      )}
+
+      {/* Administration (écran Socle — construit en livraison 2) */}
+      {route === "admin" && (
+        <PlaceholderScreen title="Administration" onBack={() => setRoute("home")}/>
+      )}
     </Layout>
   );
 }
 
-// ─── Placeholder temporaire pour les zones pas encore implémentées ──
+// ─── Placeholder pour les écrans pas encore implémentés ─────────
 function PlaceholderScreen({ title, onBack }) {
   return (
     <div style={{ padding: "32px 8px", textAlign: "center" }}>
