@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════
 //  HomePage — page de garde de l'EPJ App Globale
-//  Grille de 5 tuiles modules + accès aux dashboards et à l'admin
-//  Règle UX : tuile masquée si l'utilisateur n'a pas le droit d'accès.
+//  6 tuiles (5 modules + 1 Dashboard) en 3 lignes de 2
+//  Pas de section Pilotage ni Administration séparée (dans le header)
 // ═══════════════════════════════════════════════════════════════
 import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { can } from "../core/permissions";
 
-// Définition des 5 modules métier (ordre logique métier EPJ)
+// 5 modules métier
 const MODULES_META = [
   {
     id: "commandes",
@@ -15,7 +15,7 @@ const MODULES_META = [
     subtitle: "Matériel et équipement",
     icon: "📦",
     accent: EPJ.blue,
-    enabled: true,      // seul module implémenté à ce stade
+    enabled: true,
   },
   {
     id: "avancement",
@@ -51,25 +51,40 @@ const MODULES_META = [
   },
 ];
 
-const DASHBOARDS_META = [
-  { id: "direction",  title: "Dashboard Direction",  icon: "📊" },
-  { id: "conducteur", title: "Dashboard Conducteur", icon: "📈" },
-];
+// Tuile Dashboard (6ᵉ tuile, accent cyan EPJ)
+const DASHBOARD_TILE = {
+  id: "dashboard",
+  title: "Dashboard",
+  subtitle: "Vue de pilotage",
+  icon: "📊",
+  accent: EPJ.blue,
+  enabled: true,
+};
 
-export function HomePage({ onOpenModule, onOpenDashboard, onOpenAdmin }) {
+export function HomePage({ onOpenModule, onOpenDashboard }) {
   const { user } = useAuth();
   if (!user) return null;
 
+  // Filtre des modules selon les droits (tuile masquée si pas d'accès)
   const visibleModules = MODULES_META.filter(m => can(user, m.id, "_access"));
-  const visibleDashboards = DASHBOARDS_META.filter(d => can(user, "_dashboards", d.id));
-  const showAdmin = can(user, "_admin");
+
+  // Dashboard visible si l'utilisateur a accès à au moins un dashboard
+  const showDashboard =
+    can(user, "_dashboards", "direction") ||
+    can(user, "_dashboards", "conducteur") ||
+    can(user, "_dashboards", "public");
+
+  // Liste finale (modules + éventuellement la tuile Dashboard à la fin)
+  const allTiles = showDashboard
+    ? [...visibleModules, DASHBOARD_TILE]
+    : visibleModules;
 
   return (
-    <div style={{ paddingTop: 24, paddingBottom: 24 }}>
-      {/* Accroche : petite phrase éditoriale pour humaniser */}
-      <div style={{ marginBottom: 24 }}>
+    <div style={{ paddingTop: 16, paddingBottom: 20 }}>
+      {/* Accroche éditoriale */}
+      <div style={{ marginBottom: 18 }}>
         <div style={{
-          fontFamily: font.display, fontSize: 28, fontWeight: 400,
+          fontFamily: font.display, fontSize: 26, fontWeight: 400,
           color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.1,
         }}>
           Bonjour, <span style={{ fontStyle: "italic" }}>{user.prenom}</span>.
@@ -77,23 +92,27 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenAdmin }) {
         <div style={{
           fontSize: 13, color: EPJ.gray500, marginTop: 4, fontWeight: 400,
         }}>
-          Que souhaitez-vous faire aujourd'hui ?
+          Que souhaitez-vous faire aujourd'hui&nbsp;?
         </div>
       </div>
 
-      {/* Grille 5 tuiles modules (2 colonnes, la 5ᵉ prend toute la largeur) */}
-      {visibleModules.length > 0 ? (
+      {/* Grille de tuiles (2 colonnes) — 5 modules + 1 dashboard si droit */}
+      {allTiles.length > 0 ? (
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: 10,
         }}>
-          {visibleModules.map((mod, i) => (
+          {allTiles.map((tile, i) => (
             <Tile
-              key={mod.id}
-              meta={mod}
-              onClick={() => mod.enabled && onOpenModule(mod.id)}
-              isFullWidth={visibleModules.length % 2 === 1 && i === visibleModules.length - 1}
+              key={tile.id}
+              meta={tile}
+              onClick={() => {
+                if (!tile.enabled) return;
+                if (tile.id === "dashboard") onOpenDashboard(user);
+                else onOpenModule(tile.id);
+              }}
+              isFullWidth={allTiles.length % 2 === 1 && i === allTiles.length - 1}
               index={i}
             />
           ))}
@@ -107,66 +126,11 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenAdmin }) {
           Aucun module ne vous est accessible pour l'instant. Contactez votre administrateur.
         </div>
       )}
-
-      {/* Dashboards (si droit) */}
-      {visibleDashboards.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <SectionTitle>Pilotage</SectionTitle>
-          {visibleDashboards.map(d => (
-            <DashboardRow
-              key={d.id}
-              meta={d}
-              onClick={() => onOpenDashboard(d.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Administration (si droit) */}
-      {showAdmin && (
-        <div style={{ marginTop: 28 }}>
-          <SectionTitle>Système</SectionTitle>
-          <div
-            className="epj-card clickable"
-            onClick={onOpenAdmin}
-            style={{
-              display: "flex", alignItems: "center", gap: 14,
-              padding: "14px 16px",
-            }}
-          >
-            <div style={{
-              width: 36, height: 36, borderRadius: 8, background: EPJ.gray900,
-              color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
-            }}>⚙</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: EPJ.gray900 }}>Administration</div>
-              <div style={{ fontSize: 12, color: EPJ.gray500 }}>
-                Utilisateurs, chantiers, droits, catalogue
-              </div>
-            </div>
-            <span style={{ color: EPJ.gray300, fontSize: 18 }}>→</span>
-          </div>
-        </div>
-      )}
-
-      {/* Note d'information si un seul module dispo (stade actuel de dev) */}
-      {visibleModules.length === 1 && visibleModules[0].id === "commandes" && (
-        <div style={{
-          marginTop: 24, padding: "12px 14px",
-          background: `${EPJ.blue}08`, border: `1px solid ${EPJ.blue}22`,
-          borderRadius: 12, fontSize: 12, color: EPJ.gray700, lineHeight: 1.5,
-        }}>
-          <strong style={{ color: EPJ.blue }}>Environnement de développement</strong> — les 4 autres
-          modules seront ajoutés au fur et à mesure. Vous pouvez dès à présent tester
-          le module Commandes comme avant.
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Tuile d'un module ─────────────────────────────────────────
+// ─── Tuile d'un module ou du dashboard ────────────────────────
 function Tile({ meta, onClick, isFullWidth, index }) {
   const accent = meta.accent;
   return (
@@ -206,41 +170,6 @@ function Tile({ meta, onClick, isFullWidth, index }) {
           {meta.subtitle}
         </div>
       </div>
-    </div>
-  );
-}
-
-function DashboardRow({ meta, onClick }) {
-  return (
-    <div
-      className="epj-card clickable"
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 14,
-        padding: "14px 16px", marginBottom: 8,
-      }}
-    >
-      <div style={{
-        width: 36, height: 36, borderRadius: 8, background: `${EPJ.blue}1A`,
-        color: EPJ.blue, display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 16,
-      }}>{meta.icon}</div>
-      <div style={{ flex: 1, fontWeight: 600, fontSize: 14, color: EPJ.gray900 }}>
-        {meta.title}
-      </div>
-      <span style={{ color: EPJ.gray300, fontSize: 18 }}>→</span>
-    </div>
-  );
-}
-
-function SectionTitle({ children }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 600, color: EPJ.gray500,
-      letterSpacing: 1.2, textTransform: "uppercase",
-      marginBottom: 10, paddingLeft: 4,
-    }}>
-      {children}
     </div>
   );
 }
