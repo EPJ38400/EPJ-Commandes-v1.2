@@ -29,7 +29,8 @@ export function AdminOutillage({ onBack }) {
   const [filter, setFilter] = useState("");
   const [catFilter, setCatFilter] = useState("");
   const [importing, setImporting] = useState(null); // null | "outils" | "categories" | "pannes"
-  const fileInputRef = useRef(null);
+  const fileInputLibraryRef = useRef(null);
+  const fileInputCameraRef = useRef(null);
 
   if (!canGererCatalogue(user)) {
     return (
@@ -233,7 +234,8 @@ export function AdminOutillage({ onBack }) {
       toast("❌ Échec : " + (err.message || "upload"));
     } finally {
       setUploadingPhoto(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (fileInputLibraryRef.current) fileInputLibraryRef.current.value = "";
+      if (fileInputCameraRef.current) fileInputCameraRef.current.value = "";
     }
   };
 
@@ -281,22 +283,82 @@ export function AdminOutillage({ onBack }) {
                   width: "100%", maxHeight: 240, objectFit: "cover",
                   borderRadius: 10, border: `1px solid ${EPJ.gray200}`,
                 }}/>
-                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                  <button onClick={() => fileInputRef.current?.click()} disabled={!!uploadingPhoto} style={photoBtnStyle(EPJ.gray100, EPJ.gray700)}>📷 Remplacer</button>
-                  <button onClick={handleRemovePhoto} style={photoBtnStyle(`${EPJ.red}15`, EPJ.red)}>🗑 Supprimer</button>
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => fileInputLibraryRef.current?.click()}
+                    disabled={!!uploadingPhoto}
+                    style={photoBtnStyle(EPJ.gray100, EPJ.gray700)}
+                  >🖼 Bibliothèque</button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputCameraRef.current?.click()}
+                    disabled={!!uploadingPhoto}
+                    style={photoBtnStyle(EPJ.gray100, EPJ.gray700)}
+                  >📷 Caméra</button>
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    style={photoBtnStyle(`${EPJ.red}15`, EPJ.red)}
+                  >🗑 Supprimer</button>
                 </div>
               </div>
             ) : (
-              <button onClick={() => fileInputRef.current?.click()} disabled={!!uploadingPhoto} style={{
-                width: "100%", padding: "24px 12px", border: `2px dashed ${EPJ.gray300}`,
-                borderRadius: 10, background: EPJ.gray50,
-                color: EPJ.gray500, fontSize: 13, fontWeight: 600,
-                cursor: uploadingPhoto ? "wait" : "pointer", fontFamily: font.body,
-              }}>{uploadingPhoto ? `📤 ${uploadingPhoto}` : "📷 Ajouter une photo"}</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                {uploadingPhoto ? (
+                  <div style={{
+                    width: "100%", padding: "24px 12px", border: `2px dashed ${EPJ.orange}`,
+                    borderRadius: 10, background: `${EPJ.orange}08`,
+                    color: EPJ.orange, fontSize: 13, fontWeight: 600,
+                    textAlign: "center",
+                  }}>📤 Téléversement en cours… ({uploadingPhoto})</div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileInputLibraryRef.current?.click()}
+                      disabled={!!uploadingPhoto}
+                      style={{
+                        width: "100%", padding: "18px 12px", border: `2px dashed ${EPJ.gray300}`,
+                        borderRadius: 10, background: EPJ.gray50,
+                        color: EPJ.gray700, fontSize: 13, fontWeight: 600,
+                        cursor: "pointer", fontFamily: font.body,
+                      }}
+                    >🖼 Choisir depuis la bibliothèque</button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputCameraRef.current?.click()}
+                      disabled={!!uploadingPhoto}
+                      style={{
+                        width: "100%", padding: "18px 12px", border: `2px dashed ${EPJ.gray300}`,
+                        borderRadius: 10, background: EPJ.gray50,
+                        color: EPJ.gray700, fontSize: 13, fontWeight: 600,
+                        cursor: "pointer", fontFamily: font.body,
+                      }}
+                    >📷 Prendre une photo (mobile)</button>
+                  </>
+                )}
+              </div>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} style={{ display: "none" }}/>
-            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 4, lineHeight: 1.4 }}>
-              L'image sera compressée (max 1024 px). Sur mobile, prise de photo directe possible.
+            {/* Input pour bibliothèque (pas de capture → laisse iOS proposer le choix) */}
+            <input
+              ref={fileInputLibraryRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              style={{ display: "none" }}
+            />
+            {/* Input pour caméra forcée */}
+            <input
+              ref={fileInputCameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoSelect}
+              style={{ display: "none" }}
+            />
+            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 6, lineHeight: 1.4 }}>
+              L'image sera compressée (max 1024 px) avant envoi.
             </div>
           </div>
 
@@ -316,28 +378,28 @@ export function AdminOutillage({ onBack }) {
           </FormRow>
 
           <FormRow>
-            <label style={labelStyle}>Catégorie</label>
+            <label style={labelStyle}>Catégorie <span style={{ color: EPJ.red }}>*</span></label>
             {outillageCategories.length === 0 ? (
               <div style={{ fontSize: 12, color: EPJ.red, padding: "6px 0" }}>
                 ⚠ Aucune catégorie. Importe d'abord les catégories initiales ou crée-les dans Admin → Catégories outillage.
               </div>
             ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {outillageCategories.filter(c => c.actif !== false).map(cat => (
-                  <button key={cat.id} type="button"
-                    onClick={() => setForm(f => ({ ...f, categorieId: cat.id }))}
-                    style={{
-                      padding: "6px 10px", borderRadius: 999,
-                      border: `1px solid ${form.categorieId === cat.id ? EPJ.gray900 : EPJ.gray200}`,
-                      background: form.categorieId === cat.id ? `${EPJ.gray900}08` : EPJ.white,
-                      color: form.categorieId === cat.id ? EPJ.gray900 : EPJ.gray600,
-                      fontSize: 11, fontWeight: 600, cursor: "pointer",
-                      fontFamily: font.body,
-                    }}>
-                    {cat.icon} {cat.label}
-                  </button>
-                ))}
-              </div>
+              <select
+                className="epj-input"
+                value={form.categorieId || ""}
+                onChange={e => setForm(f => ({ ...f, categorieId: e.target.value }))}
+                style={{ width: "100%" }}
+              >
+                <option value="">— Sélectionner une catégorie —</option>
+                {outillageCategories
+                  .filter(c => c.actif !== false)
+                  .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+                  .map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.label}
+                    </option>
+                  ))}
+              </select>
             )}
           </FormRow>
 
@@ -576,13 +638,35 @@ export function AdminOutillage({ onBack }) {
             placeholder="🔍 Rechercher (référence, nom, marque, code-barres…)"
             style={{ marginBottom: 8 }}/>
 
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
-            <button onClick={() => setCatFilter("")} style={filterChipStyle(catFilter === "")}>Toutes</button>
-            {outillageCategories.filter(c => c.actif !== false).map(cat => (
-              <button key={cat.id} onClick={() => setCatFilter(cat.id)} style={filterChipStyle(catFilter === cat.id)}>
-                {cat.icon} {cat.label}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+            <select
+              value={catFilter}
+              onChange={e => setCatFilter(e.target.value)}
+              className="epj-input"
+              style={{ flex: 1, fontSize: 12, padding: "8px 12px" }}
+            >
+              <option value="">📁 Toutes les catégories</option>
+              {outillageCategories
+                .filter(c => c.actif !== false)
+                .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+                .map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.label}
+                  </option>
+                ))}
+            </select>
+            {catFilter && (
+              <button
+                onClick={() => setCatFilter("")}
+                style={{
+                  background: EPJ.gray100, border: "none", borderRadius: 6,
+                  padding: "8px 10px", fontSize: 12, fontWeight: 600,
+                  color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
+                  flexShrink: 0,
+                }}
+                title="Effacer le filtre"
+              >✕</button>
+            )}
           </div>
         </>
       )}
