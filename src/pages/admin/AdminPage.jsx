@@ -13,6 +13,8 @@ import { AdminOutillage } from "./AdminOutillage";
 import { AdminCategoriesOutillage } from "./AdminCategoriesOutillage";
 import { AdminPannes } from "./AdminPannes";
 import { AdminSmsTemplates } from "./AdminSmsTemplates";
+import { AdminReserves } from "./AdminReserves";
+import { AdminChantiersReception } from "./AdminChantiersReception";
 
 export function AdminPage({ onExit }) {
   const [section, setSection] = useState(null);
@@ -42,6 +44,8 @@ export function AdminPage({ onExit }) {
   if (section === "categories-outillage") return <AdminCategoriesOutillage onBack={() => setSection(null)}/>;
   if (section === "pannes") return <AdminPannes onBack={() => setSection(null)}/>;
   if (section === "sms") return <AdminSmsTemplates onBack={() => setSection(null)}/>;
+  if (section === "reserves-config") return <AdminReserves onBack={() => setSection(null)}/>;
+  if (section === "chantiers-reception") return <AdminChantiersReception onBack={() => setSection(null)}/>;
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 24 }}>
@@ -86,6 +90,14 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="⚠️" accent="#E53935" title="Pannes récurrentes"
         subtitle="Types de pannes au retour d'un outil abîmé"
         onClick={() => setSection("pannes")}/>
+
+      <GroupTitle>Réserves & garanties</GroupTitle>
+      <AdminSection icon="📝" accent="#8E44AD" title="Config réserves"
+        subtitle="Catégories, émetteurs, retards, garanties GPA/biennale"
+        onClick={() => setSection("reserves-config")}/>
+      <AdminSection icon="📅" accent={EPJ.green} title="Réceptions & garanties"
+        subtitle="Saisir les dates de PV de réception par chantier"
+        onClick={() => setSection("chantiers-reception")}/>
 
       <GroupTitle>Communication</GroupTitle>
       <AdminSection icon="📱" accent={EPJ.green} title="Modèles SMS"
