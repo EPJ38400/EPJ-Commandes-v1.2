@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- Viewport avec safe-area iOS (notch, Dynamic Island, home indicator) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA / Mode standalone iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Couleur du thème (barre de statut sur iPhone / Android) -->
+    <meta name="theme-color" content="#F5F5F7" />
+
+    <!-- Manifest PWA -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Icônes -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!-- Titre de l'app -->
+    <title>EPJ — Application interne</title>
+    <meta name="description" content="Application interne EPJ Électricité Générale — gestion des commandes, chantiers, parc machines." />
+
+    <!-- Empêche la traduction auto Safari sur les textes de l'app -->
+    <meta name="google" content="notranslate" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
