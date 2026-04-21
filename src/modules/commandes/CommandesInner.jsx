@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../../firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { initEPJData, uploadCatalog, deleteCategoryByQuery } from "../../initFirestore";
 import { useAuth } from "../../core/AuthContext";
+import { uploadPhotoToFolder, deletePhotoByPath } from "../parc-machines/parcUtils";
+import { EmojiPicker } from "../../core/components/EmojiPicker";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -761,6 +763,9 @@ export function CommandesInner({ onExitModule }) {
   const [adminEdit, setAdminEdit] = useState(null); // item being edited
   const [adminForm, setAdminForm] = useState({});
   const [adminSaving, setAdminSaving] = useState(false);
+  const [artPhotoUploading, setArtPhotoUploading] = useState(null);
+  const artFileInputLibraryRef = useRef(null);
+  const artFileInputCameraRef = useRef(null);
   const [bulkSelected, setBulkSelected] = useState([]); // refs selected for bulk edit
   const [bulkMode, setBulkMode] = useState(false);
 
@@ -1765,6 +1770,41 @@ export function CommandesInner({ onExitModule }) {
       } catch(e) { showT("❌ Erreur: "+e.message); }
       setAdminSaving(false);
     };
+    // ─── Upload photo article vers Firebase Storage ───
+    const handleArticlePhotoSelect = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) { showT("❌ Choisissez une image"); return; }
+      if (file.size > 10 * 1024 * 1024) { showT("❌ Image trop lourde (max 10 Mo)"); return; }
+      const idForUpload = adminForm.r || `art_${Date.now()}`;
+      try {
+        const oldPath = adminForm.imgPath;
+        setArtPhotoUploading("upload");
+        const { url, path } = await uploadPhotoToFolder(
+          "articles",
+          idForUpload,
+          file,
+          (step) => setArtPhotoUploading(step)
+        );
+        setAdminForm(f => ({ ...f, img: url, imgPath: path }));
+        if (oldPath) await deletePhotoByPath(oldPath);
+        showT("✓ Photo téléversée");
+      } catch (err) {
+        console.error(err);
+        showT("❌ Échec : " + (err.message || "upload"));
+      } finally {
+        setArtPhotoUploading(null);
+        if (artFileInputLibraryRef.current) artFileInputLibraryRef.current.value = "";
+        if (artFileInputCameraRef.current) artFileInputCameraRef.current.value = "";
+      }
+    };
+    const handleArticlePhotoRemove = async () => {
+      if (!confirm("Supprimer la photo ?")) return;
+      const oldPath = adminForm.imgPath;
+      setAdminForm(f => ({ ...f, img: "", imgPath: "" }));
+      if (oldPath) await deletePhotoByPath(oldPath);
+      showT("Photo supprimée");
+    };
     const adminInitAll = async () => {
       if(!confirm("Réinitialiser la base complète ? (utilisateurs + chantiers + catalogue 583 articles)")) return;
       setAdminSaving(true);
@@ -1828,7 +1868,6 @@ export function CommandesInner({ onExitModule }) {
         ? [...allCatsRaw].sort((a,b)=>{const ia=dynCatOrder.indexOf(a),ib=dynCatOrder.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return -1;return ia-ib;})
         : [...allCatsRaw].sort();
       const subcats = selectedCat ? [...new Set(dynCatalog.filter(p=>p.c===selectedCat).map(p=>p.s))].sort() : [];
-      const EMOJI_QUICK = ['🧱','🔧','🏗️','🔌','📦','⚡','🔗','🏢','🏠','📡','🔔','💡','🔩','🛠️','📎','👔','🦺','🚪','🔑','💧','🌡️','🪛','🔋','📏','🗜️','🪝','🔦','🧰','🪜','🏷️'];
       const moveCat = async (idx, dir) => {
         const newOrder = [...cats];
         const swapIdx = idx + dir;
@@ -1846,9 +1885,16 @@ export function CommandesInner({ onExitModule }) {
           {!selectedCat ? (<>
             <button className="epj-btn" onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle catégorie</button>
             {adminEdit==='newCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-              <div style={{display:'flex',gap:8,marginBottom:8}}>
+              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
                 <input className="epj-input" placeholder="Nom de la catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <input className="epj-input" placeholder="Icône" value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:60,padding:'8px',fontSize:20,textAlign:'center'}}/>
+                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
+                  {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    : <span>{adminForm.icon||'📦'}</span>}
+                </div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
               </div>
               <div style={{display:'flex',gap:8}}>
                 <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
@@ -1893,37 +1939,17 @@ export function CommandesInner({ onExitModule }) {
             ))}
             {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
               <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✏️ Modifier la catégorie</div>
-              <div style={{display:'flex',gap:8,marginBottom:8}}>
+              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
                 <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,cursor:'pointer',background:'#f8f9fa',overflow:'hidden'}} onClick={()=>setAdminForm(p=>({...p,showEmojiPicker:!p.showEmojiPicker}))}>
+                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
                   {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
                     ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
                     : <span>{adminForm.icon||'📦'}</span>}
                 </div>
               </div>
-              {adminForm.showEmojiPicker&&<div style={{background:'#f8f9fa',borderRadius:10,padding:10,marginBottom:8}}>
-                <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,marginBottom:6}}>CHOISIR UNE ICÔNE</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                  {EMOJI_QUICK.map(em=>(
-                    <button key={em} onClick={()=>setAdminForm(p=>({...p,icon:em,showEmojiPicker:false}))} style={{width:38,height:38,borderRadius:8,border:adminForm.icon===em?`2px solid ${EPJ.blue}`:'2px solid transparent',background:adminForm.icon===em?'#E3F2FD':'#fff',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{em}</button>
-                  ))}
-                </div>
-                <div style={{marginTop:10,borderTop:`1px solid #ddd`,paddingTop:10}}>
-                  <div style={{fontSize:10,fontWeight:700,color:EPJ.gray,marginBottom:4}}>OU COLLER UN ÉMOJI / URL D'IMAGE</div>
-                  <input className="epj-input" placeholder="Émoji ou URL https://..." value={adminForm.icon||''} onChange={e=>setAdminForm(p=>({...p,icon:e.target.value}))} style={{width:'100%',padding:'6px 8px',fontSize:14,boxSizing:'border-box'}}/>
-                  <div style={{marginTop:8}}>
-                    <div style={{fontSize:10,fontWeight:700,color:EPJ.gray,marginBottom:4}}>📸 OU UPLOADER UNE IMAGE</div>
-                    <input type="file" accept="image/*" style={{fontSize:12}} onChange={e=>{
-                      const file=e.target.files[0]; if(!file)return;
-                      if(file.size>200000){showT('⚠️ Image trop lourde (max 200KB)');return;}
-                      const reader=new FileReader();
-                      reader.onload=ev=>setAdminForm(p=>({...p,icon:ev.target.result,showEmojiPicker:false}));
-                      reader.readAsDataURL(file);
-                    }}/>
-                    <div style={{fontSize:9,color:EPJ.gray,marginTop:2}}>Max 200KB — JPG, PNG, SVG recommandé</div>
-                  </div>
-                </div>
-              </div>}
+              <div style={{marginBottom:10}}>
+                <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
+              </div>
               <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
                 <input type="checkbox" checked={adminForm.isEquip||false} onChange={e=>setAdminForm(p=>({...p,isEquip:e.target.checked}))} style={{width:18,height:18}}/>
                 <div><div style={{fontSize:13,fontWeight:600}}>Équipement Salarié</div><div style={{fontSize:10,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
@@ -1933,9 +1959,14 @@ export function CommandesInner({ onExitModule }) {
                 <button className="epj-btn" onClick={async()=>{
                   if(!adminForm.nom||!adminForm.oldNom)return;
                   setAdminSaving(true);
-                  const toUpdate=dynCatalog.filter(p=>p.c===adminForm.oldNom);
-                  for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{...p,c:adminForm.nom},{merge:true})}catch(e){}}
-                  const newIcons={...dynCatIcons};delete newIcons[adminForm.oldNom];newIcons[adminForm.nom]=adminForm.icon||'📦';
+                  // Si le nom a changé : déplacer les articles vers le nouveau nom de catégorie
+                  if(adminForm.nom !== adminForm.oldNom) {
+                    const toUpdate=dynCatalog.filter(p=>p.c===adminForm.oldNom);
+                    for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{c:adminForm.nom},{merge:true})}catch(e){}}
+                  }
+                  const newIcons={...dynCatIcons};
+                  if(adminForm.nom !== adminForm.oldNom) delete newIcons[adminForm.oldNom];
+                  newIcons[adminForm.nom]=adminForm.icon||'📦';
                   let newEquip=[...dynEquipCats].filter(c=>c!==adminForm.oldNom);
                   if(adminForm.isEquip) newEquip.push(adminForm.nom);
                   const newOrder=dynCatOrder.map(c=>c===adminForm.oldNom?adminForm.nom:c);
@@ -2046,13 +2077,38 @@ export function CommandesInner({ onExitModule }) {
                 </div>
               ):(<input className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie" style={{padding:'8px 10px',fontSize:13}}/>)})()}
             </div>
-            {['r','n','u','img'].map(f=>(
+            {['r','n','u'].map(f=>(
               <div key={f} style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':f==='u'?'UNITÉ':'URL IMAGE'}</label>
+                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':'UNITÉ'}</label>
                 <input className="epj-input" value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))} style={{padding:'8px 10px',fontSize:13}}/>
               </div>
             ))}
-            {adminForm.img&&<div style={{marginBottom:8}}><img src={adminForm.img} alt="" style={{width:60,height:60,objectFit:'cover',borderRadius:8}} onError={e=>{e.target.style.display='none'}}/></div>}
+            {/* ─── Photo de l'article ─── */}
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>PHOTO</label>
+              {adminForm.img ? (
+                <div>
+                  <img src={adminForm.img} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:8,border:'1px solid #ddd',display:'block',marginBottom:6}} onError={e=>{e.target.style.display='none'}}/>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🖼 Bibliothèque</button>
+                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>📷 Caméra</button>
+                    <button type="button" onClick={handleArticlePhotoRemove} style={{background:'#fde7e7',color:EPJ.red,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🗑 Supprimer</button>
+                  </div>
+                </div>
+              ) : (
+                artPhotoUploading ? (
+                  <div style={{width:'100%',padding:'18px 10px',border:`2px dashed ${EPJ.orange}`,borderRadius:8,background:`${EPJ.orange}14`,color:EPJ.orange,fontSize:13,fontWeight:600,textAlign:'center'}}>📤 Téléversement en cours… ({artPhotoUploading})</div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>🖼 Choisir depuis la bibliothèque</button>
+                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>📷 Prendre une photo (mobile)</button>
+                  </div>
+                )
+              )}
+              <input ref={artFileInputLibraryRef} type="file" accept="image/*" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
+              <input ref={artFileInputCameraRef} type="file" accept="image/*" capture="environment" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
+              <div style={{fontSize:10,color:EPJ.gray,marginTop:4}}>L'image sera compressée (max 1024 px) avant envoi.</div>
+            </div>
             <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,cursor:"pointer",padding:"8px 10px",background:adminForm.stock!==false?"#E8F5E9":"#FFF3E0",borderRadius:8,border:adminForm.stock!==false?"2px solid #4CAF50":"2px solid #FF9800"}}>
               <input type="checkbox" checked={adminForm.stock!==false} onChange={e=>setAdminForm(p=>({...p,stock:e.target.checked}))} style={{width:18,height:18}}/>
               <div><div style={{fontSize:13,fontWeight:600}}>{adminForm.stock!==false?"📦 En stock":"⚠️ Hors stock"}</div><div style={{fontSize:10,color:EPJ.gray}}>Article tenu en stock au dépôt</div></div>
@@ -2063,7 +2119,7 @@ export function CommandesInner({ onExitModule }) {
                 const newDocId = adminForm.r ? adminForm.r.replace(/[\/\s]/g,'_') : 'art_'+Date.now();
                 const origDocId = adminForm._origRef ? adminForm._origRef.replace(/[\/\s]/g,'_') : null;
                 const subCat = adminForm.s==='__new__' ? (adminForm._newSub||'Général') : (adminForm.s||'Général');
-                const saveData = {c:adminForm.c,s:subCat,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',stock:adminForm.stock!==false};
+                const saveData = {c:adminForm.c,s:subCat,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',imgPath:adminForm.imgPath||'',stock:adminForm.stock!==false};
                 // If ref changed, delete old doc first
                 if(origDocId && origDocId !== newDocId) {
                   try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){}
