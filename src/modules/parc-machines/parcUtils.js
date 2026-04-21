@@ -136,6 +136,32 @@ export async function uploadOutilPhoto(outilId, file, onProgress) {
   return { url, path };
 }
 
+// ─── Upload générique vers un dossier quelconque de Storage ────
+// folder : ex "articles", "commandes", "reserves" …
+// itemId : identifiant utilisé comme préfixe du fichier
+export async function uploadPhotoToFolder(folder, itemId, file, onProgress) {
+  if (onProgress) onProgress("Compression…");
+  const blob = await compressImage(file, 1024, 0.85);
+  if (onProgress) onProgress("Téléversement…");
+  const safeId = String(itemId || "item").replace(/[\/\s]/g, "_");
+  const path = `${folder}/${safeId}_${Date.now()}.jpg`;
+  const fileRef = ref(storage, path);
+  await uploadBytes(fileRef, blob, { contentType: "image/jpeg" });
+  if (onProgress) onProgress("Finalisation…");
+  const url = await getDownloadURL(fileRef);
+  return { url, path };
+}
+
+export async function deletePhotoByPath(path) {
+  if (!path) return;
+  try {
+    const fileRef = ref(storage, path);
+    await deleteObject(fileRef);
+  } catch (e) {
+    console.warn("deletePhotoByPath (non bloquant):", e.message);
+  }
+}
+
 export async function deleteOutilPhoto(path) {
   if (!path) return;
   try {
