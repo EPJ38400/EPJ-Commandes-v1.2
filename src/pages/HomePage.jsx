@@ -90,7 +90,8 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
     // Retards réserves : non levées + en retard (RDV non pris J+2 OU date limite dépassée)
     // On ne compte que celles attribuées à l'utilisateur courant ou (si admin/vue "all") toutes
     const canSeeAll = can(user, "reserves-quitus", "view", rolesConfig) === "all";
-    const myReserves = reserves.filter(r => {
+    const safeReserves = reserves || [];
+    const myReserves = safeReserves.filter(r => {
       if (["levee","quitus_signe","cloturee"].includes(r.statut)) return false;
       if (canSeeAll) return true;
       return r.affecteAUserId === user._id;
