@@ -40,12 +40,12 @@ const MODULES_META = [
     enabled: true,
   },
   {
-    id: "reserves-quitus",
+    id: "reserves",
     title: "Réserves & quitus",
-    subtitle: "Contrôles et livraisons",
-    icon: "✍️",
+    subtitle: "Suivi SAV & garantie",
+    icon: "📝",
     accent: "#8E44AD",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "suivi-esabora",
@@ -68,10 +68,14 @@ const DASHBOARD_TILE = {
 
 export function HomePage({ onOpenModule, onOpenDashboard }) {
   const { user } = useAuth();
-  const { rolesConfig, outillageSorties, avancementValidations, chantiers } = useData();
+  const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves } = useData();
   if (!user) return null;
 
-  const visibleModules = MODULES_META.filter(m => can(user, m.id, "_access", rolesConfig));
+  const visibleModules = MODULES_META.filter(m => {
+    // Le module Réserves utilise la clé permissions "reserves-quitus"
+    const permKey = m.id === "reserves" ? "reserves-quitus" : m.id;
+    return can(user, permKey, "_access", rolesConfig);
+  });
   const showDashboard =
     can(user, "_dashboards", "direction", rolesConfig) ||
     can(user, "_dashboards", "conducteur", rolesConfig) ||
@@ -82,12 +86,35 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
     : visibleModules;
 
   // ─── Calcul des notifications ───
-  const notifications = useMemo(() => ({
-    "parc-machines": computeParcNotifications(outillageSorties),
-    "avancement": computeAvancementNotifications({
-      avancementValidations, chantiers, user,
-    }),
-  }), [outillageSorties, avancementValidations, chantiers, user]);
+  const notifications = useMemo(() => {
+    // Retards réserves : non levées + en retard (RDV non pris J+2 OU date limite dépassée)
+    // On ne compte que celles attribuées à l'utilisateur courant ou (si admin/vue "all") toutes
+    const canSeeAll = can(user, "reserves-quitus", "view", rolesConfig) === "all";
+    const myReserves = reserves.filter(r => {
+      if (["levee","quitus_signe","cloturee"].includes(r.statut)) return false;
+      if (canSeeAll) return true;
+      return r.affecteAUserId === user._id;
+    });
+    const retards = myReserves.filter(r => {
+      // Soit RDV non pris depuis 2+ jours
+      if (r.statut === "attribuee" && !r.rdvPris && r.dateAffectation) {
+        const days = Math.round((new Date() - new Date(r.dateAffectation)) / (1000*60*60*24));
+        if (days >= 2) return true;
+      }
+      // Soit date limite dépassée
+      if (r.dateLimite && new Date(r.dateLimite) < new Date()) return true;
+      return false;
+    });
+    return {
+      "parc-machines": computeParcNotifications(outillageSorties),
+      "avancement": computeAvancementNotifications({
+        avancementValidations, chantiers, user,
+      }),
+      "reserves": retards.length > 0
+        ? { count: retards.length, label: `${retards.length} en retard` }
+        : null,
+    };
+  }, [outillageSorties, avancementValidations, chantiers, user, reserves, rolesConfig]);
 
   const showRappelAvancement = isRappelAvancementActif()
     && (notifications.avancement?.count || 0) > 0;
@@ -130,6 +157,33 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
             </div>
             <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
               Tape ici pour voir la liste et envoyer les SMS de rappel.
+            </div>
+          </div>
+          <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
+        </div>
+      )}
+
+      {/* Bannière rappel réserves en retard */}
+      {(notifications.reserves?.count || 0) > 0 && (
+        <div
+          onClick={() => onOpenModule("reserves")}
+          style={{
+            marginBottom: 10, padding: "12px 14px",
+            background: `${EPJ.red}10`,
+            border: `1px solid ${EPJ.red}40`,
+            borderLeft: `3px solid ${EPJ.red}`,
+            borderRadius: 10,
+            cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 22 }}>📝</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
+              {notifications.reserves.count} réserve{notifications.reserves.count > 1 ? "s" : ""} en retard
+            </div>
+            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
+              Tape ici pour voir les réserves non traitées dans les délais.
             </div>
           </div>
           <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
