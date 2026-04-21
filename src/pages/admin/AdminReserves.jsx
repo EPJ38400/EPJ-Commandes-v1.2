@@ -16,7 +16,13 @@ import {
 } from "../../modules/reserves/reservesUtils";
 
 export function AdminReserves({ onBack }) {
-  const { reservesCategories, reservesEmetteurs, reserves, users, chantiers, smsTemplates } = useData();
+  const data = useData();
+  const reservesCategories = data.reservesCategories || [];
+  const reservesEmetteurs = data.reservesEmetteurs || [];
+  const reserves = data.reserves || [];
+  const users = data.users || [];
+  const chantiers = data.chantiers || [];
+  const smsTemplates = data.smsTemplates || [];
   const [tab, setTab] = useState("categories");
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
