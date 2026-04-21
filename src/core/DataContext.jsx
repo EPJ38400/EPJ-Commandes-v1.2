@@ -21,11 +21,15 @@ export function DataProvider({ children }) {
   const [outillagePannes, setOutillagePannes] = useState([]);
   const [smsTemplates, setSmsTemplates] = useState([]);
   const [avancementValidations, setAvancementValidations] = useState([]);
+  const [reserves, setReserves] = useState([]);
+  const [reservesCategories, setReservesCategories] = useState([]);
+  const [reservesEmetteurs, setReservesEmetteurs] = useState([]);
   const [loaded, setLoaded] = useState({
     users: false, chantiers: false, config: false, rolesConfig: false,
     tasksConfig: false, outils: false, outillageSorties: false,
     outillageCategories: false, outillagePannes: false, smsTemplates: false,
     avancementValidations: false,
+    reserves: false, reservesCategories: false, reservesEmetteurs: false,
   });
 
   // ── Utilisateurs ──
@@ -177,16 +181,61 @@ export function DataProvider({ children }) {
     return () => unsub();
   }, []);
 
+  // ── Réserves (module 4) ──
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "reserves"),
+      snap => {
+        setReserves(snap.docs.map(d => ({ ...d.data(), _id: d.id })));
+        setLoaded(l => ({ ...l, reserves: true }));
+      },
+      err => { console.error("Firestore reserves:", err); setLoaded(l => ({ ...l, reserves: true })); }
+    );
+    return () => unsub();
+  }, []);
+
+  // ── Catégories de réserves (configurables) ──
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "reservesCategories"),
+      snap => {
+        const cats = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+        cats.sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+        setReservesCategories(cats);
+        setLoaded(l => ({ ...l, reservesCategories: true }));
+      },
+      err => { console.error("Firestore reservesCategories:", err); setLoaded(l => ({ ...l, reservesCategories: true })); }
+    );
+    return () => unsub();
+  }, []);
+
+  // ── Émetteurs de réserves (configurables) ──
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "reservesEmetteurs"),
+      snap => {
+        const emt = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+        emt.sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+        setReservesEmetteurs(emt);
+        setLoaded(l => ({ ...l, reservesEmetteurs: true }));
+      },
+      err => { console.error("Firestore reservesEmetteurs:", err); setLoaded(l => ({ ...l, reservesEmetteurs: true })); }
+    );
+    return () => unsub();
+  }, []);
+
   const allLoaded = loaded.users && loaded.chantiers && loaded.config
     && loaded.rolesConfig && loaded.tasksConfig && loaded.outils && loaded.outillageSorties
     && loaded.outillageCategories && loaded.outillagePannes && loaded.smsTemplates
-    && loaded.avancementValidations;
+    && loaded.avancementValidations
+    && loaded.reserves && loaded.reservesCategories && loaded.reservesEmetteurs;
 
   return (
     <DataContext.Provider value={{
       users, chantiers, config, rolesConfig, tasksConfig,
       outils, outillageSorties, outillageCategories, outillagePannes, smsTemplates,
       avancementValidations,
+      reserves, reservesCategories, reservesEmetteurs,
       loaded, allLoaded,
     }}>
       {children}
