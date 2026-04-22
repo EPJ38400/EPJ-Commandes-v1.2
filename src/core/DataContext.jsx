@@ -13,6 +13,7 @@ export function DataProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [chantiers, setChantiers] = useState([]);
   const [config, setConfig] = useState({});
+  const [company, setCompany] = useState({});
   const [rolesConfig, setRolesConfig] = useState({}); // { "Admin": {...}, "Direction": {...}, ... }
   const [tasksConfig, setTasksConfig] = useState(null); // modèle global d'avancement
   const [outils, setOutils] = useState([]);
@@ -25,7 +26,7 @@ export function DataProvider({ children }) {
   const [reservesCategories, setReservesCategories] = useState([]);
   const [reservesEmetteurs, setReservesEmetteurs] = useState([]);
   const [loaded, setLoaded] = useState({
-    users: false, chantiers: false, config: false, rolesConfig: false,
+    users: false, chantiers: false, config: false, company: false, rolesConfig: false,
     tasksConfig: false, outils: false, outillageSorties: false,
     outillageCategories: false, outillagePannes: false, smsTemplates: false,
     avancementValidations: false,
@@ -67,6 +68,19 @@ export function DataProvider({ children }) {
         setLoaded(l => ({ ...l, config: true }));
       },
       err => { console.error("Firestore config:", err); setLoaded(l => ({ ...l, config: true })); }
+    );
+    return () => unsub();
+  }, []);
+
+  // ── Config société (infos EPJ + papier en-tête pour quitus) ──
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, "config", "company"),
+      snap => {
+        setCompany(snap.exists() ? snap.data() : {});
+        setLoaded(l => ({ ...l, company: true }));
+      },
+      err => { console.error("Firestore company:", err); setLoaded(l => ({ ...l, company: true })); }
     );
     return () => unsub();
   }, []);
@@ -224,7 +238,7 @@ export function DataProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const allLoaded = loaded.users && loaded.chantiers && loaded.config
+  const allLoaded = loaded.users && loaded.chantiers && loaded.config && loaded.company
     && loaded.rolesConfig && loaded.tasksConfig && loaded.outils && loaded.outillageSorties
     && loaded.outillageCategories && loaded.outillagePannes && loaded.smsTemplates
     && loaded.avancementValidations
@@ -232,7 +246,7 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      users, chantiers, config, rolesConfig, tasksConfig,
+      users, chantiers, config, company, rolesConfig, tasksConfig,
       outils, outillageSorties, outillageCategories, outillagePannes, smsTemplates,
       avancementValidations,
       reserves, reservesCategories, reservesEmetteurs,
