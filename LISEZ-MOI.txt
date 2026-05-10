@@ -1,299 +1,236 @@
-# 📋 EPJ App — Livraison v10.G.2
+# 📋 EPJ App — Livraison v10.H
 
 **Date** : 10 mai 2026
-**Type** : ajout fonctionnel sur la v10.G.1
+**Type** : ajout fonctionnel — Module SMS automatique
 **Charte qualité** : Option D appliquée
 
 ---
 
 ## 🎯 Objet de cette livraison
 
-**Permettre la modification d'une commande déjà envoyée**, tant qu'elle n'est
-pas encore passée en statut "Commandée".
+**Activer l'envoi automatique de SMS via Brevo** pour notifier le conducteur de
+travaux quand une commande est créée ou modifiée sur un de ses chantiers.
 
-### Le problème terrain identifié
-
-Aujourd'hui : un monteur passe une commande, oublie un article → il en passe
-une nouvelle. Résultat : 2-3 petites commandes au lieu d'une grosse, ce qui
-encombre l'historique et complique le travail des achats.
-
-### La solution
-
-Bouton **"✏️ Modifier"** sur la fiche d'une commande, visible si :
-- Statut ∈ {En attente de validation, Validée, Envoyée aux achats}
-- Utilisateur = demandeur de la commande OU Admin/Direction
-
-L'écran de panier s'ouvre pré-rempli avec les articles de la commande, le user
-modifie, sauvegarde. Les anciens articles deviennent les nouveaux. Aucune
-nouvelle commande n'est créée.
+L'app n'envoie pas elle-même les SMS : elle écrit dans une **queue Firestore**
+(`smsQueue`), que **Make** lit toutes les minutes pour appeler **Brevo** qui
+envoie réellement le SMS.
 
 ---
 
-## ⚙️ Comportement détaillé
+## 📋 Périmètre fonctionnel
 
-### Statut après édition
+### 🟢 Inclus dans cette livraison v10.H
 
-- Si le demandeur a `directAchat: true` (Admin / Direction)
-  → **Le statut est conservé** (pas de revalidation requise)
-- Si le demandeur a `directAchat: false` (Monteurs / Chefs / Conducteurs sans flag)
-  → **La commande repasse en "En attente de validation"** automatiquement
-  → Le conducteur du chantier devra revalider
+- **Module Commandes** : SMS au conducteur quand une commande est créée OU modifiée
+  - Création : si demandeur sans `directAchat` (= statut "En attente de validation")
+  - Modification : si la commande repasse en "En attente de validation"
+  - **Pas de SMS** si Admin/Direction crée/modifie (ils sont en directAchat=true)
+- **Templates SMS éditables** depuis Admin → Modèles SMS
+- **Kill switch par template** : tu peux désactiver un type de SMS sans toucher au code
 
-### Notification Direction si statut était "Envoyée aux achats"
+### 🟡 Préparé mais à activer ultérieurement (cron Make quotidien)
 
-Si la commande modifiée était déjà envoyée aux achats par email, une entrée
-est créée dans la collection Firestore `notificationsPending` avec un message
-prêt-à-envoyer pour la Direction. Comme le système SMS Brevo n'est pas encore
-branché côté code (à brancher en v10.H ou v10.I via Make), pour l'instant
-l'avertissement passe par :
+- **Module Parc machines** : SMS si outil en retard
+- **Module Avancement** : SMS rappel validation mensuelle
+- **Module Réserves** : SMS si réserve en retard
 
-1. Un toast à l'écran lors de la modification : "✏️ Commande modifiée — la
-   Direction est notifiée (achats à re-prévenir)"
-2. Une bannière sur l'écran de récap pendant l'édition
-3. Un document dans `notificationsPending` que Make pourra traiter une fois
-   branché à Brevo
+Les **templates SMS sont prêts**, le code Firestore aussi. Il manque juste le
+2e scénario Make "cron quotidien" à configurer côté Make. Procédure dans
+`PROCEDURE_MAKE_SMS.md` (étape 5).
 
-### Trace des modifications
+### ❌ Volontairement exclu
 
-Chaque édition ajoute une entrée dans le tableau `editHistory[]` du document
-Firestore de la commande. Format :
-
-```javascript
-{
-  by: "Joseph BILARDO",
-  at: "2026-05-12T14:30:00Z",
-  previousStatut: "Envoyée aux achats",
-  newStatut: "En attente de validation",
-  summary: "2 articles ajoutés, 1 qté modifiée"
-}
-```
-
-L'historique s'affiche dans une carte dédiée sur la fiche commande (dans
-l'historique des commandes), avec le format :
-```
-📝 Historique des modifications (2)
-• 12/05/2026 14:30 — Joseph BILARDO : 2 articles ajoutés
-  statut : Envoyée aux achats → En attente de validation
-• 12/05/2026 15:00 — Mickael COURTEAU : Date de réception
-  statut : En attente de validation → En attente de validation
-```
-
-### Champs modifiables
-
-| Champ | Modifiable ? |
-|---|---|
-| Articles (ajout, retrait, quantité) | ✅ |
-| Date de réception souhaitée | ✅ |
-| Urgent (✓/✗) | ✅ |
-| Remarques | ✅ |
-| Email supplémentaire | ✅ |
-| Chantier | ❌ (immuable, sinon traçabilité cassée) |
-| Demandeur | ❌ (immuable) |
-| Numéro de commande | ❌ (immuable) |
-| Type (Chantier / Équipement) | ❌ (immuable) |
+- Pas de SMS au demandeur (il consulte son historique dans l'app)
+- Pas de SMS à la Direction "X commandes à envoyer aux achats"
+  (l'automatisation Esabora qui suit règlera ce flux)
+- Pas de quiet hours (envoi 24/7)
+- Pas de log des SMS envoyés (économie Firestore — choix Pierre-Julien)
 
 ---
 
-## 📁 Fichiers modifiés
+## 📁 Fichiers modifiés / créés
 
 ```
-src/modules/commandes/CommandesInner.jsx       ← MODIFIÉ
-  • Nouveau state editingOrder.editMode = 'rework' (distinct du flow validation)
-  • Fonction canEditOrder(order) : règles d'autorisation
-  • Fonction beginEditOrder(order) : démarre l'édition
-  • Fonction buildEditSummary(...) : génère un résumé humain
-  • Fonction saveEditedOrder(...) : sauvegarde via updateDoc + editHistory
-  • sendOrder() bifurque en mode rework si editingOrder.editMode='rework'
-  • Bouton "✏️ Modifier" sur la fiche commande (carte orange)
-  • Bandeau d'historique des modifications (carte grise)
-  • Vue confirm : affiche numéro existant + bandeau d'avertissement en mode édition
-  • Vue cart : libellé bouton final adapté ("💾 Enregistrer les modifications")
+src/core/smsService.js                      ← NOUVEAU
+  • normalizePhone(raw) : normalise en format +33...
+  • findActiveTemplate(templates, code) : lookup avec respect du kill switch
+  • queueSms({...}) : écrit un doc dans smsQueue Firestore
+  • smsCommandeCreee({...}) : helper pour le cas création commande
+  • smsCommandeModifiee({...}) : helper pour le cas édition commande
+  • findConducteur(chObj, users) : trouve l'objet user du conducteur
 
-src/modules/commandes/orderEdit.test.js        ← NOUVEAU
-  • 29 tests unitaires sur la logique pure
-  • buildEditSummary, canEditOrder, computeNewStatut
+src/core/smsService.test.js                 ← NOUVEAU
+  • 28 tests unitaires sur normalizePhone, findActiveTemplate, rendu
 
-package.json                                    ← MODIFIÉ (v1.10.8)
-  • script test:unit étendu aux 2 fichiers de tests
+src/modules/commandes/CommandesInner.jsx    ← MODIFIÉ
+  • Import smsService + useData (pour smsTemplates)
+  • sendOrder() : appelle smsCommandeCreee après addDoc
+  • saveEditedOrder() : appelle smsCommandeModifiee, REMPLACE l'ancien
+    notificationsPending de v10.G.2 par le vrai envoi via smsService
 
-Firestore — nouvelles données stockées :
-  • commandes/{id}.editHistory[] : tableau des modifications
-  • notificationsPending/{auto} : queue de notifications à envoyer
-    (collection nouvellement utilisée, pas besoin de la créer manuellement)
+src/pages/admin/AdminSmsTemplates.jsx       ← MODIFIÉ
+  • DEFAULT_TEMPLATES enrichi : commande_creee, commande_modifiee,
+    avancement_rappel_validation, reserve_retard
+  • Le flag `actif` est déjà géré par le composant existant
+
+PROCEDURE_MAKE_SMS.md                       ← NOUVEAU (à la racine)
+  • Procédure complète Brevo + Make en 4 étapes
+  • Tests, dépannage, coûts, maintenance
+
+package.json                                 ← MODIFIÉ (v1.10.9)
+  • test:unit étendu à smsService.test.js
 ```
 
 ---
 
 ## 🚀 Procédure de déploiement
 
-1. Décompresse le ZIP
-2. GitHub → Add file → Upload files
-3. Drag-and-drop le contenu du dossier
-4. Commit : `v10.G.2 — Édition d'une commande déjà envoyée`
-5. Vercel redéploie (~2 min)
+### Étape 1 — Pousser le code sur GitHub
 
-**Aucune action de migration nécessaire** : les commandes existantes n'ont pas
-de champ `editHistory`, le code gère ce cas (tableau vide).
+1. Décompresse `EPJ_app_v10H.zip`
+2. GitHub → Add file → Upload files → drag-and-drop
+3. Commit : `v10.H — Module SMS automatique via Brevo + Make`
+4. Vercel redéploie (~2 min)
+
+### Étape 2 — Importer les nouveaux templates dans l'app
+
+1. Connecte-toi en Admin
+2. **Admin → 💬 Modèles SMS**
+3. Clique **"Importer les modèles par défaut"**
+4. Tu vois apparaître les 4 nouveaux templates :
+   - `commande_creee`
+   - `commande_modifiee`
+   - `avancement_rappel_validation`
+   - `reserve_retard`
+5. Personnalise les textes si tu veux (sinon les valeurs par défaut conviennent)
+
+### Étape 3 — Configurer Brevo + Make
+
+**📖 Suis le fichier `PROCEDURE_MAKE_SMS.md` livré dans le ZIP**.
+
+C'est la grosse partie. Compte ~30 min en tout :
+- Création compte Brevo + clé API + sender (5-10 min)
+- Création scénario Make (15-20 min)
+- Tests (5-10 min)
+
+### Étape 4 — Vérification
+
+- Crée une commande de test avec un compte monteur sur un chantier dont **toi** tu es conducteur
+- Tu dois recevoir un SMS dans la minute qui suit
+- Si pas de SMS, voir la section "Dépannage" de `PROCEDURE_MAKE_SMS.md`
+
+---
+
+## 🐛 Risques identifiés et atténuations
+
+### 1. Make tombe en panne ou est désactivé
+- **Risque** : les SMS s'accumulent dans `smsQueue` mais ne partent pas
+- **Atténuation** : pas de perte de données, tout est dans Firestore. Une fois
+  Make réactivé, les SMS partent dans l'ordre.
+- **Surveillance** : vérifier `smsQueue` régulièrement (doc en `status:pending`
+  depuis > 1h = alerte)
+
+### 2. Brevo refuse un numéro de téléphone
+- **Risque** : SMS jamais envoyé
+- **Atténuation** : Make passe le doc en `status:failed` avec `errorMessage`,
+  on peut le diagnostiquer manuellement. La normalisation côté app
+  (`normalizePhone`) accepte les formats français courants.
+
+### 3. Crédit Brevo épuisé
+- **Risque** : SMS plus envoyés
+- **Atténuation** : Brevo envoie une alerte mail à <20% restant. Recharger
+  via leur interface (~10 min).
+
+### 4. Limite d'opérations Make atteinte
+- **Risque** : scénario s'arrête mi-mois
+- **Atténuation** : à 220 SMS/mois et 4 ops/SMS = 880 ops/mois (sous le seuil
+  gratuit de 1000). Si dépassement : passer au plan Core (~10€/mois).
+
+### 5. Fuite de la clé API Brevo
+- **Risque** : usage frauduleux par tiers
+- **Atténuation** : la clé est dans Make uniquement, jamais dans GitHub. En
+  cas de fuite supposée : régénérer la clé dans Brevo, mettre à jour Make.
+
+### 6. Template désactivé par erreur
+- **Risque** : plus de SMS d'un certain type sans s'en rendre compte
+- **Atténuation** : la console développeur logue un warning quand un template
+  est désactivé. À surveiller au démarrage de la livraison.
+
+### 7. Conducteur sans téléphone
+- **Risque** : pas de SMS envoyé pour ce conducteur
+- **Atténuation** : `queueSms` retourne `{queued: false, reason}` et logue
+  un warning. Vérifier que tous les conducteurs ont leur téléphone dans Admin
+  → Utilisateurs.
+
+### 8. Coût qui dérape
+- **Risque** : bug d'app qui boucle et envoie 1000 SMS d'un coup
+- **Atténuation** : surveiller les coûts Brevo. Pas de garde-fou côté code
+  (choix Pierre-Julien). En cas d'urgence : désactiver le template via Admin
+  → Modèles SMS.
 
 ---
 
 ## 📊 Récap qualité (Charte Option D)
 
 ```
-🧪 Tests unitaires           : 86/86 OK
-   • catalogImporter.test.js : 57/57 (v10.G/v10.G.1)
+🧪 Tests unitaires           : 114/114 OK
+   • catalogImporter.test.js : 57/57 (v10.G/G.1)
    • orderEdit.test.js       : 29/29 (v10.G.2)
-🔎 Revue adversariale        : 8 risques identifiés (voir ci-dessous)
-☑️ Checklist livrée          : intégrée à TESTS.md (cas 26 à 35 ajoutés)
-🛠️ Validation syntaxique     : 1/1 fichier OK (esbuild)
-📚 Notice utilisateur        : à mettre à jour en v1.2
+   • smsService.test.js      : 28/28 (v10.H)
+🔎 Revue adversariale        : 8 risques identifiés
+🛠️ Validation syntaxique     : 3/3 fichiers OK (esbuild)
+📚 Procédure config          : PROCEDURE_MAKE_SMS.md complet
 ```
-
----
-
-## 🐛 Risques identifiés et atténuations
-
-### 1. Concurrence : 2 personnes éditent la même commande
-- **Risque** : la dernière sauvegarde gagne, l'autre perd ses modifs
-- **Atténuation** : aucune dans cette livraison. En pratique, EPJ étant une
-  petite équipe, ce cas devrait être rare. À reprendre si besoin avec un
-  système de "verrou" Firestore.
-
-### 2. SMS Direction non branché
-- **Risque** : la Direction n'est PAS notifiée via SMS quand une commande
-  envoyée est modifiée
-- **Atténuation** : la notification est enregistrée dans
-  `notificationsPending` avec tous les éléments nécessaires. Le toast
-  pendant l'édition affirme que "la Direction est notifiée" — techniquement
-  c'est vrai (la queue Firestore est remplie), mais le SMS lui-même ne part
-  pas pour l'instant. À brancher en v10.H/I via Make + Brevo.
-
-### 3. Annulation au milieu d'une édition
-- **Risque** : l'utilisateur clique "✏️ Modifier", change le panier, puis
-  ferme l'app. Le panier garde l'état pour la prochaine session, mais
-  `editingOrder` est dans un useState (perdu au rechargement)
-- **Atténuation** : au prochain démarrage, le draft localStorage restaure le
-  panier, mais on est dans un état "création nouvelle commande" pas "édition".
-  Conséquence : si l'utilisateur "Envoie" cette commande, il créera un doublon.
-  À corriger en v10.G.3 si ça pose problème : sauvegarder editingOrder dans
-  localStorage aussi.
-
-### 4. Suppression d'un article qui n'existe plus dans le catalogue
-- **Risque** : si une commande contient un article qui a été supprimé du
-  catalogue depuis, on l'affiche quand même (snapshot dans la commande)
-- **Atténuation** : l'item est conservé dans le panier pendant l'édition.
-  Pas de problème.
-
-### 5. Statut "Validée" éditable
-- **Risque** : si un conducteur a validé, et que le demandeur réedite, la
-  commande repasse en "En attente". Le conducteur perd sa validation.
-- **Atténuation** : c'est le comportement voulu. La nouvelle version doit
-  être revalidée. L'historique trace qui a fait quoi.
-
-### 6. Email supplémentaire intentionnel modifié
-- **Risque** : un user pourrait éditer pour ajouter son email perso et
-  recevoir une copie du PDF lors de l'envoi aux achats
-- **Atténuation** : faible risque (déjà existant en mode création), trace
-  dans editHistory.
-
-### 7. Quantité passée à 0
-- **Risque** : si l'utilisateur met 0 dans le panier, l'article est-il
-  retiré ?
-- **Atténuation** : `cartItems` filtre déjà sur `q > 0` (filter), donc oui
-  l'article sort de la commande. Comportement cohérent avec la création.
-
-### 8. Édition d'une commande "Envoyée aux achats" puis envoi mail
-- **Risque** : la Direction modifie la commande. Statut reste "Envoyée aux
-  achats". Mais le mail aux achats a été envoyé avec l'ancienne version.
-- **Atténuation** : la trace `notificationsPending` est créée, qui rappelle
-  que la version aux achats est obsolète. La Direction sait qu'elle doit
-  renvoyer le mail (manuellement pour l'instant, ou via Make plus tard).
 
 ---
 
 ## 🎯 Notes pour la mémoire externe (conv suivante)
 
 ```markdown
-## v10.G.2 — Édition commande envoyée (10/05/2026)
+## v10.H — Module SMS automatique via Brevo + Make (10/05/2026)
 
-**Apport** : bouton "✏️ Modifier" sur fiche commande (statut < Commandée)
-- Demandeur OU Admin/Direction
-- Si directAchat=false → repasse en "En attente de validation"
-- editHistory[] dans Firestore avec auteur, date, résumé, transitions de statut
-- Notification Direction queue dans `notificationsPending` (pas encore SMS)
+**Apport** : SMS conducteur automatique via Firestore queue → Make → Brevo
+- Création commande : SMS si demandeur sans directAchat
+- Modification commande (v10.G.2) : SMS si statut repasse en attente
+- Pas de SMS pour Admin/Direction (directAchat=true)
+- Pas de quiet hours, pas de log
 
-**À brancher en v10.H ou v10.I** :
-- Bridge Make/Brevo pour vraiment envoyer les SMS depuis notificationsPending
-- Verrou éventuel anti-concurrence (faible priorité)
-- Persistance editingOrder dans localStorage si annulation par fermeture app
+**Architecture** :
+- Collection Firestore `smsQueue` (créée à la première écriture)
+- Make scénario "EPJ — SMS Queue → Brevo" qui poll toutes les 1 min
+- Templates dans Admin → Modèles SMS (kill switch par template)
 
-**Tests** : 86 OK / 0 KO (catalogImporter + orderEdit)
+**À configurer côté Pierre-Julien** :
+1. Compte Brevo (clé API + sender "EPJ" + crédits SMS)
+2. Scénario Make selon PROCEDURE_MAKE_SMS.md
+
+**À faire en v10.H+1 ou v10.I** :
+- 2e scénario Make "Cron quotidien" pour les modules Parc / Avancement / Réserves
+  (templates déjà préparés : avancement_rappel_validation, reserve_retard)
+- Cf. PROCEDURE_MAKE_SMS.md étape 5
+
+**Prochaine étape métier** : automatisation Esabora (génération auto des
+commandes Esabora depuis l'app).
+
+**Tests** : 114 OK / 0 KO total
 ```
 
 ---
 
-## 🎯 Tests à dérouler (à ajouter à TESTS.md)
+## 💡 Ce que tu peux faire en parallèle pendant que tu déploies
 
-```
-☐ TEST 26 — Bouton ✏️ Modifier visible si demandeur
-  - Connecte-toi en Bartoli (monteur)
-  - Crée une commande Chantier (statut "En attente de validation")
-  - Reviens dans Historique → ouvre la fiche
-  - Attendu : bouton "✏️ Modifier" visible (carte orange)
+Pendant que Vercel redéploie, tu peux :
 
-☐ TEST 27 — Bouton invisible si autre user
-  - Reste connecté en Bartoli
-  - Va dans Historique d'un autre user (impossible normalement, mais via Admin)
-  - Si tu vois la fiche, le bouton ✏️ ne doit PAS apparaître
-  - Connecte-toi en Admin → toutes les commandes éditables
+1. **Créer ton compte Brevo** (étape 1 de PROCEDURE_MAKE_SMS.md)
+2. **Acheter 100 crédits SMS** (~6,50€)
+3. **Récupérer la clé API**
+4. **Configurer le sender "EPJ"**
 
-☐ TEST 28 — Bouton invisible si Commandée
-  - Trouve une commande au statut "Commandée"
-  - Attendu : bouton ✏️ Modifier ABSENT
-
-☐ TEST 29 — Modification simple (ajout d'un article)
-  - Bouton ✏️ Modifier sur une commande "En attente"
-  - Le panier s'ouvre avec les articles existants
-  - Ajoute un nouvel article (depuis le catalogue)
-  - Reviens au panier → 2 articles
-  - Récapitulatif → "Enregistrer les modifications"
-  - Attendu : retour à l'écran de confirmation, statut inchangé
-
-☐ TEST 30 — Modification d'un monteur repasse en attente
-  - Connecte-toi en Bartoli
-  - Modifie une commande "Validée"
-  - Sauvegarde
-  - Attendu : statut repasse à "En attente de validation"
-
-☐ TEST 31 — Admin garde le statut
-  - Connecte-toi en Admin (directAchat=true)
-  - Modifie une commande "Envoyée aux achats"
-  - Sauvegarde
-  - Attendu : statut RESTE "Envoyée aux achats"
-
-☐ TEST 32 — Historique des modifications affiché
-  - Modifie une commande, puis ouvre sa fiche
-  - Attendu : carte "📝 Historique des modifications" présente avec
-    l'auteur, la date, le résumé
-
-☐ TEST 33 — Notification Direction sur édition d'une "Envoyée aux achats"
-  - Modifie une commande déjà "Envoyée aux achats" (en preprod)
-  - Va dans Firebase Console → Firestore → collection notificationsPending
-  - Attendu : un nouveau doc avec type=ORDER_EDITED_AFTER_SENT,
-    handled=false, message rempli
-
-☐ TEST 34 — Bandeau d'avertissement
-  - Modifie une commande "Envoyée aux achats"
-  - Sur l'écran de récap, vérifie qu'il y a un bandeau orange
-    "Cette commande a déjà été envoyée aux achats..."
-
-☐ TEST 35 — Édition annule (retour arrière)
-  - Clique "✏️ Modifier" → tu es au panier
-  - Clique "🏠 Accueil" (pour quitter sans sauvegarder)
-  - Reviens dans la fiche commande
-  - Attendu : la commande a son contenu original, pas de modif sauvegardée
-```
+Comme ça quand Vercel a fini, tu peux enchaîner sur la création du scénario Make.
 
 ---
 
-**Bonne livraison v10.G.2 ! 🚀**
+**Bonne livraison v10.H ! 🚀**
+
+PS : Une fois cette v10.H validée, on passe à l'**automatisation Esabora**
+comme convenu.

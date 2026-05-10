@@ -3,6 +3,7 @@ import { db } from "../../firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs } from "firebase/firestore";
 import { initEPJData, uploadCatalog, deleteCategoryByQuery, buildCatalogueDocId } from "../../initFirestore";
 import { useAuth } from "../../core/AuthContext";
+import { useData } from "../../core/DataContext";
 import { uploadPhotoToFolder, deletePhotoByPath } from "../parc-machines/parcUtils";
 import { EmojiPicker } from "../../core/components/EmojiPicker";
 import { CATALOG_SEED } from "./catalogSeed";
@@ -11,6 +12,8 @@ import {
   parseCatalogAoa, findDuplicateRefs, compareCatalogues, articlesToAoa,
   countMultiCategoryArticles,
 } from "./catalogImporter";
+// v10.H — Module SMS automatique via Brevo + Make
+import { smsCommandeCreee, smsCommandeModifiee, findConducteur } from "../../core/smsService";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -125,6 +128,8 @@ const PdfView = ({order, onClose}) => {
 // ═══ MODULE COMMANDES ═══
 export function CommandesInner({ onExitModule }) {
   const { user } = useAuth();
+  // v10.H — récupère smsTemplates depuis DataContext (pour envoi SMS conducteur)
+  const { smsTemplates = [] } = useData();
   // Le Socle ne monte ce composant que si l'utilisateur est connecté.
 
   // ─── v10.E — B2/B3 : Persistance du brouillon de commande ───
@@ -603,12 +608,40 @@ export function CommandesInner({ onExitModule }) {
     };
 
     try {
-      await addDoc(collection(db, "commandes"), orderData);
+      const docRef = await addDoc(collection(db, "commandes"), orderData);
       const newCount = cmdCounter + 1;
       setCmdCounter(newCount);
       await setDoc(doc(db, "config", "compteur"), { value: newCount });
 
-      const localOrder = {...orderData, chantierObj:chObj};
+      // ─── v10.H — SMS conducteur si la commande nécessite validation ───
+      // Règle : on n'envoie un SMS QUE si needsValidation === true (= demandeur
+      // sans directAchat, sur un chantier). Si admin/direction crée une commande
+      // (directAchat=true), pas de SMS car pas besoin de validation.
+      if (needsValidation && chObj && orderType === 'chantier') {
+        try {
+          const conducteur = findConducteur(chObj, dynUsers);
+          if (conducteur) {
+            const result = await smsCommandeCreee({
+              smsTemplates: smsTemplates || [],
+              conducteur,
+              demandeurNom: `${user.prenom} ${user.nom}`,
+              numCmd: cmd,
+              chantier: chObj.nom || orderData.chantier,
+              orderId: docRef.id,
+            });
+            if (!result.queued) {
+              console.warn("[v10.H] SMS conducteur non envoyé:", result.reason);
+            }
+          } else {
+            console.warn("[v10.H] Conducteur introuvable pour le chantier", chObj.nom);
+          }
+        } catch(smsErr) {
+          // Erreur SMS non bloquante : la commande est créée, c'est l'essentiel
+          console.warn("[v10.H] Échec queueing SMS conducteur (non bloquant):", smsErr);
+        }
+      }
+
+      const localOrder = {...orderData, chantierObj:chObj, _id: docRef.id};
       setLastSentOrder(localOrder);
       if(!needsValidation) { setPdfOrder(localOrder); }
 
@@ -840,28 +873,41 @@ export function CommandesInner({ onExitModule }) {
 
       await updateDoc(doc(db, "commandes", editingOrder._id), payload);
 
-      // ─── Notification Direction si statut était "Envoyée aux achats" ───
-      // v10.G.2 : Le système SMS Brevo n'est pas encore branché côté code
-      // (cf. ETAT_PROJET — module sms_templates existe mais pas l'envoi).
-      // Donc pour l'instant on enregistre la notification à traiter dans une
-      // collection Firestore "notificationsPending" que Make pourra polluer
-      // (à brancher en v10.H ou v10.I quand le pont SMS sera en place).
-      if (editingOrder._originalStatut === "Envoyée aux achats") {
+      // ─── v10.H — SMS au conducteur du chantier ───
+      // Règle : on n'envoie un SMS QUE si la commande repasse en attente de
+      // validation (donc demandeur sans directAchat). Pour Admin/Direction
+      // qui éditent (directAchat=true), pas de SMS car pas besoin de
+      // revalidation par un conducteur.
+      // Note : remplace l'ancien "notificationsPending" de v10.G.2.
+      if (newStatut === "En attente de validation"
+          && editingOrder.type === 'chantier'
+          && editingOrder.chantier) {
         try {
-          await addDoc(collection(db, "notificationsPending"), {
-            type: "ORDER_EDITED_AFTER_SENT",
-            orderNum: editingOrder.num,
-            orderId: editingOrder._id,
-            chantier: editingOrder.chantier || '',
-            editedBy: `${user.prenom||""} ${user.nom||""}`.trim(),
-            editedAt: new Date().toISOString(),
-            summary,
-            target: "Direction",
-            channel: "sms",  // Brevo SMS quand branché
-            message: `[EPJ] Commande ${editingOrder.num} (${editingOrder.chantier||''}) modifiée par ${user.prenom} ${user.nom}. Déjà envoyée aux achats — à renvoyer.`,
-            handled: false,
-          });
-        } catch(e) { console.warn("Notification queue échouée:", e); }
+          // Trouve l'objet chantier puis son conducteur
+          const chObj = dynChantiers.find(c =>
+            c.nom === editingOrder.chantier
+            || (c.num && (c.num === editingOrder.numAffaire || c.num === editingOrder.chantierNum))
+          );
+          const conducteur = chObj ? findConducteur(chObj, dynUsers) : null;
+          if (conducteur) {
+            const result = await smsCommandeModifiee({
+              smsTemplates: smsTemplates || [],
+              conducteur,
+              modifieParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+              numCmd: editingOrder.num,
+              chantier: editingOrder.chantier,
+              orderId: editingOrder._id,
+            });
+            if (!result.queued) {
+              console.warn("[v10.H] SMS conducteur (édition) non envoyé:", result.reason);
+            }
+          } else {
+            console.warn("[v10.H] Conducteur introuvable pour chantier édité:", editingOrder.chantier);
+          }
+        } catch(smsErr) {
+          // Erreur SMS non bloquante : la modification est sauvegardée, c'est l'essentiel
+          console.warn("[v10.H] Échec queueing SMS conducteur après édition (non bloquant):", smsErr);
+        }
       }
 
       return { ...editingOrder, ...payload, _id: editingOrder._id };

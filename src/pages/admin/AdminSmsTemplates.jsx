@@ -39,6 +39,41 @@ const DEFAULT_TEMPLATES = [
     variables: ["{prenom}", "{ref}", "{nom}", "{dateRetour}"],
     actif: true,
   },
+  // ─── v10.H — Templates Commandes (envoi automatique via Brevo + Make) ───
+  {
+    id: "commande_creee",
+    module: "commandes",
+    label: "Commande créée — notification conducteur",
+    body: "Bonjour {prenom}, nouvelle commande {numCmd} de {demandeur} sur {chantier} à valider sur l'app EPJ.",
+    variables: ["{prenom}", "{numCmd}", "{demandeur}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "commande_modifiee",
+    module: "commandes",
+    label: "Commande modifiée — notification conducteur",
+    body: "Bonjour {prenom}, la commande {numCmd} a été modifiée par {modifiePar}. À revoir sur l'app EPJ.",
+    variables: ["{prenom}", "{numCmd}", "{modifiePar}", "{chantier}"],
+    actif: true,
+  },
+  // ─── v10.H — Templates Avancement (cron quotidien Make) ───
+  {
+    id: "avancement_rappel_validation",
+    module: "avancement",
+    label: "Rappel validation avancement (mensuel)",
+    body: "Bonjour {prenom}, n'oublie pas de valider l'avancement de tes chantiers pour {moisLabel}. {nbChantiers} chantier(s) en attente.",
+    variables: ["{prenom}", "{moisLabel}", "{nbChantiers}"],
+    actif: true,
+  },
+  // ─── v10.H — Templates Réserves (cron quotidien Make) ───
+  {
+    id: "reserve_retard",
+    module: "reserves-quitus",
+    label: "Réserve en retard",
+    body: "Bonjour {prenom}, la réserve {refReserve} sur {chantier} n'a pas été levée depuis {nbJours} jours. Merci d'intervenir.",
+    variables: ["{prenom}", "{refReserve}", "{chantier}", "{nbJours}"],
+    actif: true,
+  },
 ];
 
 export function AdminSmsTemplates({ onBack }) {
