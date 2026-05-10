@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../../firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs } from "firebase/firestore";
-import { initEPJData, uploadCatalog, deleteCategoryByQuery } from "../../initFirestore";
+import { initEPJData, uploadCatalog, deleteCategoryByQuery, buildCatalogueDocId } from "../../initFirestore";
 import { useAuth } from "../../core/AuthContext";
 import { uploadPhotoToFolder, deletePhotoByPath } from "../parc-machines/parcUtils";
 import { EmojiPicker } from "../../core/components/EmojiPicker";
@@ -9,6 +9,7 @@ import { CATALOG_SEED } from "./catalogSeed";
 import * as XLSX from "xlsx";
 import {
   parseCatalogAoa, findDuplicateRefs, compareCatalogues, articlesToAoa,
+  countMultiCategoryArticles,
 } from "./catalogImporter";
 
 /* ═══════════════════════════════════════════════════
@@ -182,7 +183,13 @@ export function CommandesInner({ onExitModule }) {
   const [fbLoading, setFbLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [lastSentOrder, setLastSentOrder] = useState(null);
-  // v10.D.2 — édition commande par conducteur avant validation
+  // ─── v10.D.2 — édition commande par conducteur avant validation ───
+  // ─── v10.G.2 — étendu : édition commande déjà envoyée par demandeur/admin ─
+  // Contient la commande en cours d'édition. Selon le contexte :
+  //   - En v10.D.2 (validation par conducteur) : utilisé dans la vue 'validateEdit'
+  //   - En v10.G.2 (édition par demandeur/admin) : initialisé via beginEditOrder()
+  //     et utilisé dans les vues 'cart' et 'details' pour distinguer création vs édition.
+  // Le booléen editingOrder.editMode === 'rework' indique le mode v10.G.2.
   const [editingOrder, setEditingOrder] = useState(null);
   const [editingItems, setEditingItems] = useState([]);
 
@@ -210,7 +217,7 @@ export function CommandesInner({ onExitModule }) {
   const [artPhotoUploading, setArtPhotoUploading] = useState(null);
   const artFileInputLibraryRef = useRef(null);
   const artFileInputCameraRef = useRef(null);
-  const [bulkSelected, setBulkSelected] = useState([]); // refs selected for bulk edit
+  const [bulkSelected, setBulkSelected] = useState([]); // v10.G.1 : array de {c, r}
   const [bulkMode, setBulkMode] = useState(false);
 
   // ─── FIREBASE : écoute temps réel des commandes ───
@@ -526,6 +533,59 @@ export function CommandesInner({ onExitModule }) {
   const sendOrder = async () => {
     if(sending) return;
     setSending(true);
+
+    // ─── v10.G.2 — Mode édition (rework) d'une commande existante ─────
+    // Si editingOrder est en mode 'rework', on n'appelle pas addDoc (sinon
+    // on créerait une nouvelle commande), on appelle saveEditedOrder() qui
+    // fait un updateDoc sur le doc Firestore existant.
+    if (editingOrder && editingOrder.editMode === 'rework') {
+      try {
+        const newCartItems = cartItems.map(it=>({
+          r:it.r, n:it.n, c:it.c, s:it.s, u:it.u||'Pièce',
+          qty:parseInt(it.qty)||1, img:it.img||''
+        }));
+        const newOrderData = {
+          urgent, dateReception, remarques, extraEmail,
+        };
+        const updated = await saveEditedOrder(newCartItems, newOrderData);
+        if (!updated) { setSending(false); return; }
+
+        setLastSentOrder(updated);
+        setPdfOrder(updated);
+
+        // Reset propre du panier et du draft
+        try {
+          setCart({});
+          setOrderType("");
+          setChantier(""); setNewChantier(""); setShowNewChantier(false);
+          setTargetSalarie("");
+          setUrgent(false); setDateReception(""); setRemarques(""); setExtraEmail("");
+          setSelectedCat(null); setSearch("");
+          if (typeof draftKey === "string" && draftKey) {
+            localStorage.removeItem(draftKey);
+          }
+        } catch(e) { console.warn("v10.G.2: clear panier post-édition échoué (non bloquant):", e); }
+
+        // Sortir du mode édition
+        const wasSent = editingOrder._originalStatut === "Envoyée aux achats";
+        setEditingOrder(null);
+
+        setSending(false);
+        setView("done");
+        if (wasSent) {
+          showT(`✏️ Commande modifiée — la Direction est notifiée (achats à re-prévenir)`);
+        } else {
+          showT(`✏️ Commande modifiée${updated.statut === "En attente de validation" ? " — repassée en validation" : ""}`);
+        }
+      } catch(err) {
+        console.error("Erreur sauvegarde édition:", err);
+        setSending(false);
+        showT("❌ Erreur : " + (err.message||"vérifiez votre connexion"));
+      }
+      return;
+    }
+
+    // ─── Mode normal : création d'une nouvelle commande ────────────────
     const cmd = numCmd();
     const chObj = selectedChantierObj;
     const needsValidation = orderType==='chantier' && !user.directAchat;
@@ -632,6 +692,182 @@ export function CommandesInner({ onExitModule }) {
     } catch(err) {
       console.error("Erreur validation:", err);
       showT("❌ Erreur — réessayez");
+      return null;
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // v10.G.2 — Édition d'une commande déjà envoyée
+  // ═══════════════════════════════════════════════════════════
+  // Conditions pour pouvoir éditer (vérifiées dans canEditOrder ci-dessous) :
+  //   - Statut ∈ {En attente de validation, Validée, Envoyée aux achats}
+  //   - User est le demandeur OU est Admin/Direction
+  //
+  // Mécanique :
+  //   1. beginEditOrder(o) charge la commande dans le panier (cart, orderType,
+  //      chantier, etc.) et marque editingOrder.editMode='rework'
+  //   2. L'utilisateur modifie via les écrans cart/details normaux
+  //   3. Au submit, on détecte editingOrder.editMode==='rework' et on fait
+  //      updateDoc au lieu de addDoc + on ajoute une entrée dans editHistory
+  //   4. Si l'utilisateur a directAchat=false → la commande repasse en
+  //      "En attente de validation" (le conducteur revalidera)
+  //      Si directAchat=true → on garde le statut courant
+  //   5. Si le statut avant édition était "Envoyée aux achats", on note dans
+  //      le toast et la trace que les achats devront être re-prévenus
+  //      (la Direction reçoit l'info via le statut qui repasse en "Validée"
+  //      → bannière "À envoyer aux achats" ré-apparaît côté Direction)
+
+  const canEditOrder = (o) => {
+    if (!o || !user) return false;
+    // Statut bloquant
+    if (o.statut === "Commandée" || o.statut === "Réceptionnée"
+        || o.statut === "Refusée") return false;
+    // Demandeur lui-même OU Admin/Direction
+    const isOwner = o.user === `${user.prenom} ${user.nom}`.trim();
+    const isDirectionOrAdmin = user.fonction === "Admin"
+        || user.fonction === "Direction"
+        || (Array.isArray(user.roles) && user.roles.includes("Direction"));
+    return isOwner || isDirectionOrAdmin;
+  };
+
+  const beginEditOrder = (o) => {
+    if (!o || !canEditOrder(o)) {
+      showT("Impossible de modifier cette commande");
+      return;
+    }
+    // Charger les items dans le panier
+    const newCart = {};
+    (o.items || []).forEach(it => {
+      newCart[it.r] = it.qty || 1;
+    });
+    setCart(newCart);
+    setOrderType(o.type || 'chantier');
+    setChantier(o.chantier || '');
+    setTargetSalarie(o.salarie || '');
+    setUrgent(!!o.urgent);
+    setDateReception(o.dateReception || '');
+    setRemarques(o.remarques || '');
+    setExtraEmail(o.extraEmail || '');
+    setSelectedCat(null);
+    setSearch('');
+    // Marquer le mode édition
+    setEditingOrder({
+      ...o,
+      editMode: 'rework',           // distingue du flow validation conducteur
+      _originalStatut: o.statut,    // pour notification SMS si statut était "Envoyée aux achats"
+      _originalItems: o.items || [],
+    });
+    // Aller directement au panier
+    setView('cart');
+    showT(`✏️ Modification de ${o.num}`);
+  };
+
+  // Compose un résumé "humain" des modifications faites à une commande
+  const buildEditSummary = (originalItems, newItems, originalOther, newOther) => {
+    const parts = [];
+    const oRefs = new Set((originalItems||[]).map(i => i.r));
+    const nRefs = new Set((newItems||[]).map(i => i.r));
+    let added = 0, removed = 0, qtyChanged = 0;
+    for (const r of nRefs) if (!oRefs.has(r)) added++;
+    for (const r of oRefs) if (!nRefs.has(r)) removed++;
+    for (const it of (newItems||[])) {
+      const orig = (originalItems||[]).find(x => x.r === it.r);
+      if (orig && orig.qty !== it.qty) qtyChanged++;
+    }
+    if (added > 0) parts.push(`${added} article${added>1?'s':''} ajouté${added>1?'s':''}`);
+    if (removed > 0) parts.push(`${removed} retiré${removed>1?'s':''}`);
+    if (qtyChanged > 0) parts.push(`${qtyChanged} qté modifiée${qtyChanged>1?'s':''}`);
+    if (originalOther.dateReception !== newOther.dateReception) parts.push("date réception");
+    if (!!originalOther.urgent !== !!newOther.urgent) parts.push(newOther.urgent ? "passée urgente" : "urgent retiré");
+    if ((originalOther.remarques||'') !== (newOther.remarques||'')) parts.push("remarques modifiées");
+    if ((originalOther.extraEmail||'') !== (newOther.extraEmail||'')) parts.push("email supplémentaire modifié");
+    return parts.length === 0 ? "Aucune modification visible" : parts.join(", ");
+  };
+
+  // Sauvegarde une commande en mode édition (v10.G.2)
+  const saveEditedOrder = async (newCartItems, newOrderData) => {
+    if (!editingOrder || !editingOrder._id) return null;
+    try {
+      // Calcule le nouveau statut selon directAchat
+      const myDirectAchat = user.directAchat === true;
+      let newStatut;
+      if (myDirectAchat) {
+        // Admin/Direction : on garde le statut courant SAUF si la commande
+        // était déjà refusée (impossible vu canEditOrder, mais sécurité)
+        newStatut = editingOrder._originalStatut;
+      } else {
+        // Demandeur normal : on repasse en attente de validation
+        newStatut = "En attente de validation";
+      }
+
+      // Construit l'entrée d'historique
+      const summary = buildEditSummary(
+        editingOrder._originalItems,
+        newCartItems,
+        { dateReception: editingOrder.dateReception, urgent: editingOrder.urgent,
+          remarques: editingOrder.remarques, extraEmail: editingOrder.extraEmail },
+        { dateReception: newOrderData.dateReception, urgent: newOrderData.urgent,
+          remarques: newOrderData.remarques, extraEmail: newOrderData.extraEmail }
+      );
+      const newHistEntry = {
+        by: `${user.prenom||""} ${user.nom||""}`.trim() || user.id,
+        at: new Date().toISOString(),
+        previousStatut: editingOrder._originalStatut,
+        newStatut,
+        summary,
+      };
+      const editHistory = Array.isArray(editingOrder.editHistory)
+        ? [...editingOrder.editHistory, newHistEntry]
+        : [newHistEntry];
+
+      // Payload de mise à jour (on ne touche PAS aux champs immuables :
+      // num, user, type, chantier, numAffaire, salarie, date, signatureData...)
+      const payload = {
+        items: newCartItems,
+        urgent: !!newOrderData.urgent,
+        dateReception: newOrderData.dateReception || '',
+        remarques: newOrderData.remarques || '',
+        extraEmail: newOrderData.extraEmail || '',
+        statut: newStatut,
+        editHistory,
+      };
+      // Si statut repasse en "En attente de validation", on efface validePar
+      // et dateEnvoiAchats (sinon on garde un historique cohérent)
+      if (newStatut === "En attente de validation") {
+        payload.validePar = "";
+        payload.dateValidation = "";
+      }
+
+      await updateDoc(doc(db, "commandes", editingOrder._id), payload);
+
+      // ─── Notification Direction si statut était "Envoyée aux achats" ───
+      // v10.G.2 : Le système SMS Brevo n'est pas encore branché côté code
+      // (cf. ETAT_PROJET — module sms_templates existe mais pas l'envoi).
+      // Donc pour l'instant on enregistre la notification à traiter dans une
+      // collection Firestore "notificationsPending" que Make pourra polluer
+      // (à brancher en v10.H ou v10.I quand le pont SMS sera en place).
+      if (editingOrder._originalStatut === "Envoyée aux achats") {
+        try {
+          await addDoc(collection(db, "notificationsPending"), {
+            type: "ORDER_EDITED_AFTER_SENT",
+            orderNum: editingOrder.num,
+            orderId: editingOrder._id,
+            chantier: editingOrder.chantier || '',
+            editedBy: `${user.prenom||""} ${user.nom||""}`.trim(),
+            editedAt: new Date().toISOString(),
+            summary,
+            target: "Direction",
+            channel: "sms",  // Brevo SMS quand branché
+            message: `[EPJ] Commande ${editingOrder.num} (${editingOrder.chantier||''}) modifiée par ${user.prenom} ${user.nom}. Déjà envoyée aux achats — à renvoyer.`,
+            handled: false,
+          });
+        } catch(e) { console.warn("Notification queue échouée:", e); }
+      }
+
+      return { ...editingOrder, ...payload, _id: editingOrder._id };
+    } catch (err) {
+      console.error("saveEditedOrder échouée:", err);
+      showT("❌ Erreur sauvegarde : " + (err.message || "voir console"));
       return null;
     }
   };
@@ -1147,7 +1383,23 @@ export function CommandesInner({ onExitModule }) {
         <Header title="Confirmation" back={true} backView="details" showCart={false}/>
         <div style={{padding:12}}>
           <div className="epj-card" style={{marginBottom:10}}>
-            <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:12}}>{numCmd()}</div>
+            {/* v10.G.2 : en mode édition, on affiche le numéro existant + bandeau */}
+            {editingOrder?.editMode === 'rework' && (
+              <div style={{background:'#E3F2FD',borderLeft:`4px solid ${EPJ.blue}`,padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:12,color:EPJ.dark}}>
+                ✏️ <strong>Modification de la commande {editingOrder.num}</strong>
+                {editingOrder._originalStatut === "Envoyée aux achats" && (
+                  <div style={{marginTop:6,fontSize:11,color:'#E65100'}}>
+                    ⚠️ Cette commande a déjà été envoyée aux achats. La modification les rendra incohérents — la Direction sera notifiée.
+                  </div>
+                )}
+                {!user.directAchat && (
+                  <div style={{marginTop:6,fontSize:11,color:EPJ.gray}}>
+                    Après enregistrement, la commande repassera en attente de validation par le conducteur.
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:12}}>{editingOrder?.editMode==='rework' ? editingOrder.num : numCmd()}</div>
             {urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
             {needsVal&&<div style={{background:'#FFF3E0',color:'#E65100',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>⏳ Soumise à validation ({selectedChantierObj?.conducteur})</div>}
             <div style={{background:EPJ.grayLight,borderRadius:10,padding:12,fontSize:13,lineHeight:1.8,color:EPJ.dark}}>
@@ -1173,7 +1425,13 @@ export function CommandesInner({ onExitModule }) {
         </div>
         <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
           <button className="epj-btn" onClick={()=>setView('details')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Modifier</button>
-          <button className="epj-btn" onClick={sendOrder} disabled={sending} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>{sending?'⏳ Envoi en cours...':needsVal?'📤 Soumettre':'✉️ Envoyer + PDF'}</button>
+          {/* v10.G.2 — Libellé adapté en mode édition d'une commande existante */}
+          <button className="epj-btn" onClick={sendOrder} disabled={sending} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>
+            {sending
+              ? (editingOrder?.editMode==='rework' ? '⏳ Sauvegarde...' : '⏳ Envoi en cours...')
+              : (editingOrder?.editMode==='rework' ? '💾 Enregistrer les modifications' : (needsVal ? '📤 Soumettre' : '✉️ Envoyer + PDF'))
+            }
+          </button>
         </div>
       </div>
     );
@@ -1754,6 +2012,55 @@ export function CommandesInner({ onExitModule }) {
             </div>
           )}
 
+          {/* ─── v10.G.2 — Bouton "Modifier" sur les commandes encore éditables ─── */}
+          {canEditOrder(o) && (
+            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.orange}`}}>
+              <div style={{fontSize:12,fontWeight:700,color:EPJ.orange,marginBottom:8}}>
+                ✏️ MODIFIER CETTE COMMANDE
+              </div>
+              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                {o.statut === "Envoyée aux achats"
+                  ? "Cette commande a été envoyée aux achats. La modifier déclenchera une notification à la Direction (à renvoyer aux achats)."
+                  : (!user.directAchat && o.statut !== "En attente de validation")
+                    ? "Après enregistrement, la commande repassera en attente de validation."
+                    : "Tu peux ajouter, retirer ou modifier la quantité des articles."}
+              </div>
+              <button
+                className="epj-btn"
+                onClick={() => beginEditOrder(o)}
+                style={{
+                  width:'100%',
+                  background:EPJ.orange,
+                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
+                }}
+              >✏️ Modifier les articles ou les détails</button>
+            </div>
+          )}
+
+          {/* ─── v10.G.2 — Historique des modifications ─── */}
+          {Array.isArray(o.editHistory) && o.editHistory.length > 0 && (
+            <div className="epj-card" style={{marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8}}>
+                📝 Historique des modifications ({o.editHistory.length})
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {o.editHistory.slice().reverse().map((h, i) => (
+                  <div key={i} style={{fontSize:11,padding:8,background:EPJ.grayLight,borderRadius:6,lineHeight:1.4}}>
+                    <div style={{fontWeight:600,color:EPJ.dark}}>
+                      {h.by} • {new Date(h.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+                    </div>
+                    <div style={{color:EPJ.gray,marginTop:2}}>{h.summary}</div>
+                    {h.previousStatut !== h.newStatut && (
+                      <div style={{fontSize:10,color:EPJ.gray,fontStyle:'italic',marginTop:2}}>
+                        statut : {h.previousStatut} → {h.newStatut}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="epj-card">
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>Articles par fournisseur</div>
@@ -1886,24 +2193,32 @@ export function CommandesInner({ onExitModule }) {
           return;
         }
 
-        // Détection doublons dans le fichier
+        // ─── v10.G.1 — Détection des VRAIS doublons (même cat+ref) ──
+        // Un article qui apparaît dans plusieurs catégories n'est PAS un doublon.
         const dups = findDuplicateRefs(articles);
         if (dups.length > 0) {
-          const list = dups.slice(0, 10).map(d => `• ${d.ref} (${d.count}×)`).join("\n");
+          const list = dups.slice(0, 10).map(d => `• ${d.ref} en "${d.cat}" (${d.count}×)`).join("\n");
           const ok = confirm(
-            `⚠️ ${dups.length} référence(s) en doublon dans le fichier :\n\n${list}` +
+            `⚠️ ${dups.length} vrai(s) doublon(s) (même catégorie + même référence) dans le fichier :\n\n${list}` +
             (dups.length > 10 ? `\n... et ${dups.length - 10} autre(s)` : "") +
             "\n\nLa dernière ligne gagnera. Continuer ?"
           );
           if (!ok) return;
         }
 
+        // ─── v10.G.1 — Stats multi-catégories ─────────────────────
+        const multiStats = countMultiCategoryArticles(articles);
+
         // Comparaison avant/après pour rapport de pré-import
         const cmp = compareCatalogues(dynCatalog, articles);
         let preImportMsg = `📊 Rapport de pré-import\n\n`;
         preImportMsg += `Mode : ${mode === "replace" ? "REMPLACER (efface tout puis charge)" : "Fusionner (upsert)"}\n\n`;
-        preImportMsg += `Articles dans le fichier : ${articles.length}\n`;
-        preImportMsg += `Articles actuels Firestore : ${dynCatalog.length}\n\n`;
+        preImportMsg += `Lignes dans le fichier : ${articles.length}\n`;
+        preImportMsg += `Articles physiques distincts : ${multiStats.uniqueRefs}\n`;
+        if (multiStats.multiCategoryCount > 0) {
+          preImportMsg += `Articles classés dans plusieurs catégories : ${multiStats.multiCategoryCount}\n`;
+        }
+        preImportMsg += `\nArticles actuels Firestore : ${dynCatalog.length}\n\n`;
         preImportMsg += `→ ${cmp.newCount} nouveau(x)\n`;
         preImportMsg += `→ ${cmp.updatedCount} mis à jour\n`;
         if (mode === "replace") {
@@ -2193,8 +2508,23 @@ export function CommandesInner({ onExitModule }) {
                   setAdminSaving(true);
                   // Si le nom a changé : déplacer les articles vers le nouveau nom de catégorie
                   if(adminForm.nom !== adminForm.oldNom) {
+                    // ─── v10.G.1 — Renommage catégorie ─────────────────
+                    // Le docId est désormais composite {catégorie}__{référence}.
+                    // Renommer la catégorie change donc le docId : il faut
+                    // supprimer l'ancien doc et créer le nouveau (pas de merge).
                     const toUpdate=dynCatalog.filter(p=>p.c===adminForm.oldNom);
-                    for(const p of toUpdate){const docId=(p.r||'').replace(/[\/\s]/g,'_')||('__cat_'+adminForm.oldNom.replace(/\s/g,'_'));try{await setDoc(doc(db,"catalogue",docId),{c:adminForm.nom},{merge:true})}catch(e){}}
+                    for(const p of toUpdate){
+                      try {
+                        const oldDocId = buildCatalogueDocId(adminForm.oldNom, p.r);
+                        const newDocId = buildCatalogueDocId(adminForm.nom, p.r);
+                        // Crée le nouveau doc avec toutes les propriétés de l'ancien + c modifiée
+                        await setDoc(doc(db,"catalogue",newDocId), { ...p, c: adminForm.nom });
+                        // Supprime l'ancien doc (sauf si oldDocId === newDocId, cas improbable)
+                        if (oldDocId !== newDocId) {
+                          await deleteDoc(doc(db,"catalogue",oldDocId));
+                        }
+                      } catch(e) { console.warn("Renommage cat: échec sur", p.r, e); }
+                    }
                   }
                   const newIcons={...dynCatIcons};
                   if(adminForm.nom !== adminForm.oldNom) delete newIcons[adminForm.oldNom];
@@ -2279,14 +2609,27 @@ export function CommandesInner({ onExitModule }) {
                 const newSub=document.getElementById('bulkSub').value;
                 if(!newCat){showT('Choisissez une catégorie');return}
                 setAdminSaving(true);
-                for(const ref of bulkSelected){
-                  const docId=ref.replace(/[\/\s]/g,'_');
-                  const updates={c:newCat};
-                  if(newSub) updates.s=newSub;
-                  try{await setDoc(doc(db,'catalogue',docId),updates,{merge:true})}catch(e){}
+                // ─── v10.G.1 — Déplacement en bloc ───────────────────
+                // Le docId est composite {catégorie}__{référence}. Changer la
+                // catégorie → changer le docId → delete+create.
+                let moved = 0;
+                for(const sel of bulkSelected){
+                  try {
+                    const oldDocId = buildCatalogueDocId(sel.c, sel.r);
+                    const newDocId = buildCatalogueDocId(newCat, sel.r);
+                    if (oldDocId === newDocId) continue; // déjà dans la bonne cat
+                    // Récupérer l'article complet pour préserver toutes ses propriétés
+                    const orig = dynCatalog.find(x => x.c === sel.c && x.r === sel.r);
+                    if (!orig) continue;
+                    const newData = { ...orig, c: newCat };
+                    if (newSub) newData.s = newSub;
+                    await setDoc(doc(db,'catalogue',newDocId), newData);
+                    await deleteDoc(doc(db,'catalogue',oldDocId));
+                    moved++;
+                  } catch(e) { console.warn("Bulk move échec:", sel, e); }
                 }
                 setAdminSaving(false);setBulkSelected([]);setBulkMode(false);
-                showT(`✅ ${bulkSelected.length} articles déplacés`);
+                showT(`✅ ${moved} article(s) déplacé(s)`);
               }} disabled={adminSaving} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'8px',fontSize:12}}>{adminSaving?'⏳':'📦 Déplacer'}</button>
             </div>
           </div>}
@@ -2348,13 +2691,17 @@ export function CommandesInner({ onExitModule }) {
             <div style={{display:'flex',gap:8}}>
               <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
               <button className="epj-btn" onClick={async()=>{
-                const newDocId = adminForm.r ? adminForm.r.replace(/[\/\s]/g,'_') : 'art_'+Date.now();
-                const origDocId = adminForm._origRef ? adminForm._origRef.replace(/[\/\s]/g,'_') : null;
+                // ─── v10.G.1 — Sauvegarde article ───────────────────
+                // docId composite {catégorie}__{référence}.
+                const newDocId = adminForm.r ? buildCatalogueDocId(adminForm.c, adminForm.r) : 'art_'+Date.now();
+                const origDocId = (adminForm._origRef && adminForm._origCat)
+                  ? buildCatalogueDocId(adminForm._origCat, adminForm._origRef)
+                  : null;
                 const subCat = adminForm.s==='__new__' ? (adminForm._newSub||'Général') : (adminForm.s||'Général');
-                const saveData = {c:adminForm.c,s:subCat,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',imgPath:adminForm.imgPath||'',stock:adminForm.stock!==false};
-                // If ref changed, delete old doc first
+                const saveData = {c:adminForm.c,s:subCat,r:adminForm.r,n:adminForm.n,u:adminForm.u||'Pièce',img:adminForm.img||'',imgPath:adminForm.imgPath||'',stock:adminForm.stock!==false,fournisseur:adminForm.fournisseur||'',codeEsabora:adminForm.codeEsabora||''};
+                // Si la catégorie OU la référence a changé, l'ancien docId est obsolète → on supprime
                 if(origDocId && origDocId !== newDocId) {
-                  try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){}
+                  try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){ console.warn("Suppression ancien docId échouée:", e); }
                 }
                 adminSave('catalogue',newDocId,saveData);
               }} disabled={adminSaving||!adminForm.r||!adminForm.n} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Sauvegarder'}</button>
@@ -2362,15 +2709,15 @@ export function CommandesInner({ onExitModule }) {
           </div>}
           <div style={{fontSize:12,color:EPJ.gray,marginBottom:8}}>{filtered.length} article(s)</div>
           {filtered.slice(0,50).map(p=>(
-            <div key={p.r} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.includes(p.r)?'#E3F2FD':'#fff'}}>
-              {bulkMode&&<input type="checkbox" checked={bulkSelected.includes(p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,p.r]);else setBulkSelected(s=>s.filter(r=>r!==p.r))}} style={{width:18,height:18,flexShrink:0}}/>}
+            <div key={p._docId||(p.c+'__'+p.r)} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.some(x=>x.c===p.c&&x.r===p.r)?'#E3F2FD':'#fff'}}>
+              {bulkMode&&<input type="checkbox" checked={bulkSelected.some(x=>x.c===p.c&&x.r===p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,{c:p.c,r:p.r}]);else setBulkSelected(s=>s.filter(x=>!(x.c===p.c&&x.r===p.r)))}} style={{width:18,height:18,flexShrink:0}}/>}
               {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
                 <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
               </div>
-              {!bulkMode&&<button onClick={()=>{setAdminEdit('edit_'+p.r);setAdminForm({...p,_origRef:p.r})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>}
-              {!bulkMode&&<button onClick={()=>{const docId=p.r.replace(/[\/\s]/g,'_');adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>}
+              {!bulkMode&&<button onClick={()=>{setAdminEdit('edit_'+p.c+'__'+p.r);setAdminForm({...p,_origRef:p.r,_origCat:p.c})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>}
+              {!bulkMode&&<button onClick={()=>{const docId=buildCatalogueDocId(p.c,p.r);adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>}
             </div>
           ))}
           {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}

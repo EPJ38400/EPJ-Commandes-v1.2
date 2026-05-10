@@ -111,24 +111,57 @@ export function parseCatalogAoa(aoa) {
 }
 
 // ─── Détection de doublons ────────────────────────────────────
+// v10.G.1 : un "vrai doublon" = même CATÉGORIE + même RÉFÉRENCE.
+// Un article qui apparaît dans plusieurs catégories n'est PAS un doublon
+// (c'est un classement multi-catégories voulu).
 /**
- * Détecte les références en doublon dans une liste d'articles.
+ * Détecte les vrais doublons (même catégorie + même référence) dans un fichier.
  * @param {Array} articles
- * @returns {Array<{ref: string, count: number}>}
+ * @returns {Array<{ref: string, cat: string, count: number}>}
  */
 export function findDuplicateRefs(articles) {
   const counts = {};
   for (const a of articles) {
     const r = (a.r || "").trim();
+    const c = (a.c || "").trim();
     if (!r) continue;
-    counts[r] = (counts[r] || 0) + 1;
+    const key = `${c}__${r}`;
+    if (!counts[key]) counts[key] = { ref: r, cat: c, count: 0 };
+    counts[key].count++;
   }
-  return Object.entries(counts)
-    .filter(([, c]) => c > 1)
-    .map(([ref, count]) => ({ ref, count }));
+  return Object.values(counts).filter(x => x.count > 1);
+}
+
+/**
+ * Compte combien d'articles distincts (par référence physique) sont dans
+ * l'import. Utile pour informer l'utilisateur : "583 lignes mais seulement
+ * 565 articles physiques — 18 sont classés dans plusieurs catégories".
+ * @param {Array} articles
+ * @returns {{ totalLines: number, uniqueRefs: number, multiCategoryCount: number }}
+ */
+export function countMultiCategoryArticles(articles) {
+  const byRef = new Map();
+  for (const a of articles) {
+    const r = (a.r || "").trim();
+    if (!r) continue;
+    if (!byRef.has(r)) byRef.set(r, new Set());
+    byRef.get(r).add((a.c || "").trim());
+  }
+  let multiCategoryCount = 0;
+  for (const cats of byRef.values()) {
+    if (cats.size > 1) multiCategoryCount++;
+  }
+  return {
+    totalLines: articles.filter(a => a.r).length,
+    uniqueRefs: byRef.size,
+    multiCategoryCount,
+  };
 }
 
 // ─── Comparaison avant/après pour rapport de pré-import ──────
+// v10.G.1 : la "clé d'identité" d'un article est désormais (catégorie, référence),
+// pas juste la référence. Cela permet de gérer correctement les articles
+// classés dans plusieurs catégories.
 /**
  * Compare le catalogue actuel (Firestore) au catalogue à importer.
  * Sert au rapport de pré-import affiché à l'utilisateur.
@@ -145,19 +178,21 @@ export function findDuplicateRefs(articles) {
  * }}
  */
 export function compareCatalogues(current, incoming) {
-  const currentByRef = new Map();
-  for (const a of current) currentByRef.set(a.r, a);
-  const incomingByRef = new Map();
-  for (const a of incoming) incomingByRef.set(a.r, a);
+  const keyOf = (a) => `${(a.c || "").trim()}__${(a.r || "").trim()}`;
+
+  const currentByKey = new Map();
+  for (const a of current) currentByKey.set(keyOf(a), a);
+  const incomingByKey = new Map();
+  for (const a of incoming) incomingByKey.set(keyOf(a), a);
 
   let newCount = 0, updatedCount = 0;
-  for (const [ref] of incomingByRef) {
-    if (currentByRef.has(ref)) updatedCount++;
+  for (const [key] of incomingByKey) {
+    if (currentByKey.has(key)) updatedCount++;
     else newCount++;
   }
   let removedCount = 0;
-  for (const [ref] of currentByRef) {
-    if (!incomingByRef.has(ref)) removedCount++;
+  for (const [key] of currentByKey) {
+    if (!incomingByKey.has(key)) removedCount++;
   }
 
   const currentCategories = [...new Set(current.map(a => a.c).filter(Boolean))].sort();

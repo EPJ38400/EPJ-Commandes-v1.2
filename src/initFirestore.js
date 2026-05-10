@@ -82,9 +82,31 @@ export async function initEPJData(forceReinit = false) {
   return results;
 }
 
+// ─── v10.G.1 — Helper de construction du docId pour la collection "catalogue"
+// ─────────────────────────────────────────────────────────────
+// Avant la v10.G.1 : docId = r.replace(/[\/\s]/g, '_')
+//   Conséquence : si une même référence apparaissait dans 2 catégories,
+//   le 2e import écrasait le 1er → impossible de classer un article dans
+//   plusieurs catégories.
+//
+// Depuis la v10.G.1 : docId = {c}__{r} (avec échappement des caractères réservés)
+//   Conséquence : un même article (référence physique) peut exister sous plusieurs
+//   docs Firestore, un par catégorie où il apparaît. Le panier (côté UI)
+//   continue d'utiliser la référence comme clé unique → l'utilisateur ne
+//   voit qu'un seul article même s'il existe dans 2 catégories, et la quantité
+//   cumule logiquement.
+//
+// Caractères interdits dans un docId Firestore : / et chaîne vide.
+// On échappe aussi les espaces pour la lisibilité.
+export function buildCatalogueDocId(c, r) {
+  const safeC = (c || '_').replace(/[\/\s]/g, '_').replace(/_{2,}/g, '_');
+  const safeR = (r || '').replace(/[\/\s]/g, '_').replace(/_{2,}/g, '_');
+  return `${safeC}__${safeR}`;
+}
+
 // ── Upload catalogue complet (avec stock + fournisseur + codeEsabora) ────
-// v10.G : ajout des champs `fournisseur` (nom lisible) et `codeEsabora` (code court)
-// pour permettre le routage des commandes par fournisseur dans Esabora.
+// v10.G   : ajout des champs `fournisseur` (nom lisible) et `codeEsabora`
+// v10.G.1 : docId désormais composite {catégorie}__{référence}
 export async function uploadCatalog(catalogArray) {
   let count = 0;
   const batchSize = 450;
@@ -92,7 +114,7 @@ export async function uploadCatalog(catalogArray) {
     const batch = writeBatch(db);
     const chunk = catalogArray.slice(i, i + batchSize);
     for (const item of chunk) {
-      const docId = item.r.replace(/[\/\s]/g, '_');
+      const docId = buildCatalogueDocId(item.c, item.r);
       batch.set(doc(db, "catalogue", docId), {
         c: item.c || '',
         s: item.s || '',

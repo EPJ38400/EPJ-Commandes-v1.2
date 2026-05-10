@@ -8,6 +8,7 @@
 import {
   parseCatalogAoa,
   findDuplicateRefs,
+  countMultiCategoryArticles,
   compareCatalogues,
   articlesToAoa,
   EXPECTED_HEADERS,
@@ -121,38 +122,76 @@ function assertTrue(cond, name) {
   assertEq(r.articles[0].fournisseur, "SONEPAR", "null/undefined : autres champs OK");
 }
 
-// ─── Test 9 : findDuplicateRefs ─────────────────────────────
+// ─── Test 9 : findDuplicateRefs — VRAIS doublons (même cat+ref) ──
+// v10.G.1 : un article dans 2 catégories différentes n'est PAS un doublon
 {
   const articles = [
-    { r: "REF1" }, { r: "REF2" }, { r: "REF1" }, { r: "REF3" }, { r: "REF1" }, { r: "REF2" },
+    { c: "Cat1", r: "REF1" },
+    { c: "Cat1", r: "REF2" },
+    { c: "Cat2", r: "REF1" }, // pas un doublon : autre catégorie
+    { c: "Cat3", r: "REF3" },
+    { c: "Cat1", r: "REF1" }, // VRAI doublon : même cat+ref que la 1ère
+    { c: "Cat1", r: "REF2" }, // VRAI doublon : même cat+ref
   ];
   const dups = findDuplicateRefs(articles);
-  assertEq(dups.length, 2, "findDuplicateRefs : 2 références en doublon");
-  const ref1 = dups.find(d => d.ref === "REF1");
-  const ref2 = dups.find(d => d.ref === "REF2");
-  assertEq(ref1?.count, 3, "REF1 apparaît 3 fois");
-  assertEq(ref2?.count, 2, "REF2 apparaît 2 fois");
+  assertEq(dups.length, 2, "findDuplicateRefs : 2 vrais doublons (cat+ref)");
+  const d1 = dups.find(d => d.ref === "REF1" && d.cat === "Cat1");
+  const d2 = dups.find(d => d.ref === "REF2" && d.cat === "Cat1");
+  assertEq(d1?.count, 2, "REF1 en Cat1 → 2 fois");
+  assertEq(d2?.count, 2, "REF2 en Cat1 → 2 fois");
+}
+
+// ─── Test 9b : findDuplicateRefs — multi-catégories OK ──
+{
+  // Un article classé dans 3 catégories différentes : aucun doublon
+  const articles = [
+    { c: "Cat1", r: "TUBE" },
+    { c: "Cat2", r: "TUBE" },
+    { c: "Cat3", r: "TUBE" },
+  ];
+  assertEq(findDuplicateRefs(articles), [], "Multi-catégories : pas de doublon");
+}
+
+// ─── Test 9c : countMultiCategoryArticles ───────────────────
+{
+  const articles = [
+    { c: "C1", r: "A" },
+    { c: "C2", r: "A" },  // A est dans 2 catégories
+    { c: "C1", r: "B" },
+    { c: "C1", r: "C" },
+    { c: "C2", r: "C" },  // C est dans 2 catégories
+    { c: "C3", r: "C" },  // C est dans 3 catégories
+  ];
+  const stats = countMultiCategoryArticles(articles);
+  assertEq(stats.totalLines, 6, "Total lignes : 6");
+  assertEq(stats.uniqueRefs, 3, "Références uniques : 3 (A, B, C)");
+  assertEq(stats.multiCategoryCount, 2, "Multi-catégories : 2 (A et C)");
 }
 
 // ─── Test 10 : findDuplicateRefs — pas de doublons ──────────
 {
-  const articles = [{ r: "A" }, { r: "B" }, { r: "C" }];
+  const articles = [
+    { c: "C", r: "A" }, { c: "C", r: "B" }, { c: "C", r: "C" },
+  ];
   assertEq(findDuplicateRefs(articles), [], "findDuplicateRefs : 0 doublon");
 }
 
 // ─── Test 11 : findDuplicateRefs — refs vides ignorées ───────
 {
-  const articles = [{ r: "" }, { r: "" }, { r: null }, { r: "X" }];
+  const articles = [
+    { c: "C", r: "" }, { c: "C", r: "" }, { c: "C", r: null }, { c: "C", r: "X" },
+  ];
   assertEq(findDuplicateRefs(articles), [], "findDuplicateRefs : refs vides ignorées");
 }
 
-// ─── Test 12 : compareCatalogues — cas nominal ──────────────
+// ─── Test 12 : compareCatalogues — cas nominal (clé cat+ref) ──
+// v10.G.1 : la clé est désormais (catégorie, référence)
 {
   const current = [
     { r: "A", c: "Cat1" }, { r: "B", c: "Cat1" }, { r: "C", c: "Cat2" },
   ];
   const incoming = [
-    { r: "A", c: "Cat1" }, // mis à jour
+    { r: "A", c: "Cat1" }, // mis à jour (même cat+ref)
     { r: "D", c: "Cat3" }, // nouveau
     { r: "B", c: "Cat1" }, // mis à jour
   ];
@@ -162,6 +201,22 @@ function assertTrue(cond, name) {
   assertEq(cmp.removedCount, 1, "compareCatalogues : 1 supprimé");
   assertEq(cmp.newCategories, ["Cat3"], "compareCatalogues : nouvelle catégorie Cat3");
   assertEq(cmp.removedCategories, ["Cat2"], "compareCatalogues : catégorie supprimée Cat2");
+}
+
+// ─── Test 12b : compareCatalogues — multi-catégories ─────────
+// v10.G.1 : un article qui change de catégorie est comptabilisé comme nouveau+supprimé
+{
+  const current = [
+    { r: "TUBE", c: "Conduit" },
+  ];
+  const incoming = [
+    { r: "TUBE", c: "Conduit" }, // pareil → mis à jour
+    { r: "TUBE", c: "Béton" },   // même réf, autre catégorie → nouveau
+  ];
+  const cmp = compareCatalogues(current, incoming);
+  assertEq(cmp.updatedCount, 1, "compareCatalogues multi-cat : TUBE en Conduit conservé");
+  assertEq(cmp.newCount, 1, "compareCatalogues multi-cat : TUBE en Béton ajouté");
+  assertEq(cmp.removedCount, 0, "compareCatalogues multi-cat : 0 supprimé");
 }
 
 // ─── Test 13 : compareCatalogues — listes vides ─────────────

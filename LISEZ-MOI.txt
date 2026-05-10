@@ -1,179 +1,299 @@
-# 📋 EPJ App — Livraison v10.G
+# 📋 EPJ App — Livraison v10.G.2
 
-**Date** : 7 mai 2026
-**De** : Conv 3 (Claude)
-**Pour** : Pierre-Julien YVER
+**Date** : 10 mai 2026
+**Type** : ajout fonctionnel sur la v10.G.1
 **Charte qualité** : Option D appliquée
 
 ---
 
-## 🎯 Périmètre de la livraison
+## 🎯 Objet de cette livraison
 
-Cette livraison v10.G fait le ménage et ajoute la gestion du catalogue par Excel.
+**Permettre la modification d'une commande déjà envoyée**, tant qu'elle n'est
+pas encore passée en statut "Commandée".
 
-### Ce qui est livré
+### Le problème terrain identifié
 
-1. **🐛 Bug fix panier (Frasca / CMD-2026-0028)**
-   Le panier ne se vidait plus si tu fermais l'app après un envoi. Désormais, `clearOrder()` est appelé immédiatement après que la commande soit enregistrée dans Firestore. Plus de risque de réenvoi en doublon.
+Aujourd'hui : un monteur passe une commande, oublie un article → il en passe
+une nouvelle. Résultat : 2-3 petites commandes au lieu d'une grosse, ce qui
+encombre l'historique et complique le travail des achats.
 
-2. **🧹 Suppression des données en dur dans le code**
-   - Les **7 utilisateurs** (avec emails et mots de passe) ne sont plus dans le code source GitHub
-   - Les **19 chantiers** non plus
-   - **Source unique de vérité** : Firestore. Plus de risque d'incohérence entre code et base.
+### La solution
 
-3. **📦 Catalogue déplacé dans `catalogSeed.js`**
-   - Les 583 articles ne sont plus dans `CommandesInner.jsx` (~1300 lignes en moins)
-   - Maintenant ils sont enrichis avec **2 nouvelles colonnes** : `fournisseur` et `codeEsabora`
-   - 582 / 583 articles ont leur fournisseur principal pré-rempli (99,8%)
-   - En **v10.G+1** ce fichier seed sera supprimé une fois la prod Firestore stable
+Bouton **"✏️ Modifier"** sur la fiche d'une commande, visible si :
+- Statut ∈ {En attente de validation, Validée, Envoyée aux achats}
+- Utilisateur = demandeur de la commande OU Admin/Direction
 
-4. **📊 Import / Export Excel du catalogue (NOUVEAU)**
-   Dans le module Commandes → Administration → Admin Catalogue, 3 nouveaux boutons :
-   - **📥 Importer (fusionner)** : ajoute / met à jour. Articles non listés dans l'Excel sont conservés.
-   - **🗑️ Importer (remplacer)** : efface tout puis recharge depuis l'Excel. Confirmation requise par saisie de "EFFACER".
-   - **📤 Exporter en Excel** : télécharge le catalogue Firestore au format à plat 9 colonnes.
-   - Avant chaque import, un **rapport de pré-import** s'affiche (combien d'articles ajoutés/mis à jour/supprimés, nouvelles catégories, doublons éventuels).
-
-5. **🔒 Bouton "🔄 Réinitialiser Firebase" sécurisé**
-   - Avant : 1 seul confirm() avant d'écraser toute la base
-   - Maintenant : il faut **taper "RÉINITIALISER"** puis confirmer
-   - Plus aucun risque de clic accidentel destructeur
-
-6. **🧭 Refonte de la navigation à 3 niveaux**
-
-   | Bouton | Position | Comportement |
-   |---|---|---|
-   | **🏠 Accueil** | Header global (en haut, fond noir) | Toujours retour à l'accueil de l'app |
-   | **← Commandes** | Sub-header de section (visible quand on est ailleurs que sur l'accueil du module) | Retour à l'accueil du module Commandes |
-   | **← (flèche contrastée)** | Sub-header, à droite du bouton Module | Retour à l'écran précédent dans le module |
-   | **← Retour** | Footer du catalogue, à côté du panier | Retour à la liste des catégories (page précédente) |
-
-   Les modules **Parc machines, Réserves, Avancement** ont été harmonisés via un nouveau composant partagé `ModuleSubHeader.jsx`.
+L'écran de panier s'ouvre pré-rempli avec les articles de la commande, le user
+modifie, sauvegarde. Les anciens articles deviennent les nouveaux. Aucune
+nouvelle commande n'est créée.
 
 ---
 
-## 📁 Fichiers livrés
+## ⚙️ Comportement détaillé
+
+### Statut après édition
+
+- Si le demandeur a `directAchat: true` (Admin / Direction)
+  → **Le statut est conservé** (pas de revalidation requise)
+- Si le demandeur a `directAchat: false` (Monteurs / Chefs / Conducteurs sans flag)
+  → **La commande repasse en "En attente de validation"** automatiquement
+  → Le conducteur du chantier devra revalider
+
+### Notification Direction si statut était "Envoyée aux achats"
+
+Si la commande modifiée était déjà envoyée aux achats par email, une entrée
+est créée dans la collection Firestore `notificationsPending` avec un message
+prêt-à-envoyer pour la Direction. Comme le système SMS Brevo n'est pas encore
+branché côté code (à brancher en v10.H ou v10.I via Make), pour l'instant
+l'avertissement passe par :
+
+1. Un toast à l'écran lors de la modification : "✏️ Commande modifiée — la
+   Direction est notifiée (achats à re-prévenir)"
+2. Une bannière sur l'écran de récap pendant l'édition
+3. Un document dans `notificationsPending` que Make pourra traiter une fois
+   branché à Brevo
+
+### Trace des modifications
+
+Chaque édition ajoute une entrée dans le tableau `editHistory[]` du document
+Firestore de la commande. Format :
+
+```javascript
+{
+  by: "Joseph BILARDO",
+  at: "2026-05-12T14:30:00Z",
+  previousStatut: "Envoyée aux achats",
+  newStatut: "En attente de validation",
+  summary: "2 articles ajoutés, 1 qté modifiée"
+}
+```
+
+L'historique s'affiche dans une carte dédiée sur la fiche commande (dans
+l'historique des commandes), avec le format :
+```
+📝 Historique des modifications (2)
+• 12/05/2026 14:30 — Joseph BILARDO : 2 articles ajoutés
+  statut : Envoyée aux achats → En attente de validation
+• 12/05/2026 15:00 — Mickael COURTEAU : Date de réception
+  statut : En attente de validation → En attente de validation
+```
+
+### Champs modifiables
+
+| Champ | Modifiable ? |
+|---|---|
+| Articles (ajout, retrait, quantité) | ✅ |
+| Date de réception souhaitée | ✅ |
+| Urgent (✓/✗) | ✅ |
+| Remarques | ✅ |
+| Email supplémentaire | ✅ |
+| Chantier | ❌ (immuable, sinon traçabilité cassée) |
+| Demandeur | ❌ (immuable) |
+| Numéro de commande | ❌ (immuable) |
+| Type (Chantier / Équipement) | ❌ (immuable) |
+
+---
+
+## 📁 Fichiers modifiés
 
 ```
-src/
-├── core/
-│   ├── Layout.jsx                              ← MODIFIÉ (🏠 Accueil)
-│   └── components/
-│       └── ModuleSubHeader.jsx                 ← NOUVEAU (composant partagé)
-├── modules/
-│   ├── commandes/
-│   │   ├── CommandesInner.jsx                  ← MODIFIÉ (bug fix, navigation, import Excel)
-│   │   ├── catalogSeed.js                      ← NOUVEAU (583 articles)
-│   │   ├── catalogImporter.js                  ← NOUVEAU (parseur Excel)
-│   │   └── catalogImporter.test.js             ← NOUVEAU (50 tests unitaires)
-│   ├── parc-machines/
-│   │   └── ParcMachinesModule.jsx              ← MODIFIÉ (header)
-│   ├── reserves/
-│   │   └── ReservesInner.jsx                   ← MODIFIÉ (header)
-│   └── avancement/
-│       └── AvancementModule.jsx                ← MODIFIÉ (header)
-├── pages/
-│   └── DashboardDirection.jsx                  ← MODIFIÉ (bouton ← Accueil supprimé)
-├── initFirestore.js                            ← MODIFIÉ (uploadCatalog gère fournisseur)
-package.json                                    ← MODIFIÉ (xlsx ajoutée, version 1.10.7)
+src/modules/commandes/CommandesInner.jsx       ← MODIFIÉ
+  • Nouveau state editingOrder.editMode = 'rework' (distinct du flow validation)
+  • Fonction canEditOrder(order) : règles d'autorisation
+  • Fonction beginEditOrder(order) : démarre l'édition
+  • Fonction buildEditSummary(...) : génère un résumé humain
+  • Fonction saveEditedOrder(...) : sauvegarde via updateDoc + editHistory
+  • sendOrder() bifurque en mode rework si editingOrder.editMode='rework'
+  • Bouton "✏️ Modifier" sur la fiche commande (carte orange)
+  • Bandeau d'historique des modifications (carte grise)
+  • Vue confirm : affiche numéro existant + bandeau d'avertissement en mode édition
+  • Vue cart : libellé bouton final adapté ("💾 Enregistrer les modifications")
+
+src/modules/commandes/orderEdit.test.js        ← NOUVEAU
+  • 29 tests unitaires sur la logique pure
+  • buildEditSummary, canEditOrder, computeNewStatut
+
+package.json                                    ← MODIFIÉ (v1.10.8)
+  • script test:unit étendu aux 2 fichiers de tests
+
+Firestore — nouvelles données stockées :
+  • commandes/{id}.editHistory[] : tableau des modifications
+  • notificationsPending/{auto} : queue de notifications à envoyer
+    (collection nouvellement utilisée, pas besoin de la créer manuellement)
 ```
 
 ---
 
 ## 🚀 Procédure de déploiement
 
-### Étape 1 — Recevoir le ZIP, l'extraire et installer xlsx
+1. Décompresse le ZIP
+2. GitHub → Add file → Upload files
+3. Drag-and-drop le contenu du dossier
+4. Commit : `v10.G.2 — Édition d'une commande déjà envoyée`
+5. Vercel redéploie (~2 min)
 
-Dans ton repo GitHub, **NE PAS DRAG-AND-DROPER UN FICHIER PAR UN FICHIER**. Suis cette procédure :
-
-1. Sur ton ordinateur, télécharge le ZIP `EPJ_app_v10G.zip`
-2. Décompresse-le
-3. Va sur GitHub → ton repo → bouton vert **"Code"** → onglet **"Upload files"**
-4. Glisse-dépose **TOUS les fichiers décompressés** d'un coup (drag-and-drop)
-5. Vercel redéploie automatiquement
-
-⚠️ **Important** : `xlsx` est une nouvelle dépendance. Vercel l'installera automatiquement au premier `npm install` après ton push (lit `package.json`).
-
-### Étape 2 — Tester en preprod
-
-Suis le fichier **TESTS.md** livré avec le ZIP : ~25 cas à cocher.
-
-### Étape 3 — Vérification manuelle de Frasca
-
-Comme demandé dans la mémoire conv 2 :
-1. Va dans **Admin → Utilisateurs → Frasca**
-2. Vérifie la case **"Achats directs"** : elle doit être **décochée**
-3. Si elle est cochée, décoche-la et enregistre
-
-### Étape 4 — Premier import du nouveau catalogue
-
-Une fois la v10.G en preprod et validée :
-1. Va dans **Module Commandes → Administration → Admin Catalogue**
-2. Clique **📥 Importer (fusionner)**
-3. Sélectionne le fichier `BASE_Catalogue_APP_EPJ.xlsx` (que tu m'as envoyé)
-4. Lis le rapport de pré-import : tu devrais voir ~583 articles à mettre à jour
-5. Confirme l'import
-
-C'est l'occasion de **propager les nouvelles colonnes fournisseur + codeEsabora** dans Firestore pour 582 articles d'un coup.
-
-### Étape 5 — Passer le repo GitHub en privé (recommandé)
-
-Comme on en a discuté, le repo `EPJ38400/EPJ-Commandes-v1.2` est public. Maintenant qu'on a sorti les données sensibles (USERS, CHANTIERS) du code, c'est moins critique, mais le seed du catalogue (`catalogSeed.js`) y est encore.
-
-Pour passer le repo en privé :
-1. GitHub → ton repo → **Settings**
-2. Scroll en bas → **Danger Zone**
-3. **Change repository visibility** → **Make private**
-4. Confirme avec le nom du repo
-
-Vercel continuera à fonctionner normalement (intégration GitHub déjà autorisée).
-
----
-
-## 🐛 Risques connus / à tester en priorité
-
-### 1. Premier chargement (~200ms)
-Au démarrage, les listes utilisateurs et chantiers sont vides pendant le temps que Firestore réponde. Effet visible : si tu cliques très vite sur "Nouvelle commande", la liste des chantiers peut apparaître vide une fraction de seconde. Pas un problème en pratique, mais à confirmer en prod.
-
-### 2. Import Excel volumineux
-On a testé avec 583 articles, ça doit passer sans problème. Si un jour tu as un catalogue 5000+, il faudra peut-être paginer.
-
-### 3. Catégories renommées via Excel
-Si tu renommes "Plexo" en "Plexo extérieur" dans l'Excel :
-- Tous les articles passeront sous le nouveau nom dans Firestore
-- L'icône 🔌 et l'ordre configurés pour "Plexo" ne suivront pas automatiquement
-- Le rapport de pré-import te prévient
-- Tu corriges via **Admin → Catégories** dans le module Commandes (écran existant)
-
-### 4. Bouton "🔄 Réinitialiser Firebase"
-Conserve ses données par défaut (USERS_INIT, CHANTIERS_INIT, CATALOG_SEED). Il efface Firestore avant de recharger.
-**Risque résiduel** : si tu cliques par mégarde ET tape "RÉINITIALISER" ET cliques OK sur le confirm, tu perds tes ajouts récents (nouveaux users, nouveaux chantiers, modifs catalogue).
-La double confirmation devrait suffire mais à manier avec prudence.
-
-### 5. Permissions `_canSyncEsabora` (hors scope v10.G)
-La mémoire externe (ETAT_PROJET conv 2) mentionne cette permission ajoutée en v10.F, mais elle est **absente du code source GitHub**. À reprendre en v10.H.
+**Aucune action de migration nécessaire** : les commandes existantes n'ont pas
+de champ `editHistory`, le code gère ce cas (tableau vide).
 
 ---
 
 ## 📊 Récap qualité (Charte Option D)
 
 ```
-🧪 Tests unitaires   : 50/50 OK (catalogImporter.test.js)
-🔎 Revue adversariale : 8 risques identifiés (voir ci-dessus)
-☑️ Checklist livrée  : ~25 cas de test (voir TESTS.md)
-🛠️ Validation syntaxique : 10/10 fichiers OK (esbuild)
-📚 Notice mise à jour : NOTICE_UTILISATEUR.md v1.1
+🧪 Tests unitaires           : 86/86 OK
+   • catalogImporter.test.js : 57/57 (v10.G/v10.G.1)
+   • orderEdit.test.js       : 29/29 (v10.G.2)
+🔎 Revue adversariale        : 8 risques identifiés (voir ci-dessous)
+☑️ Checklist livrée          : intégrée à TESTS.md (cas 26 à 35 ajoutés)
+🛠️ Validation syntaxique     : 1/1 fichier OK (esbuild)
+📚 Notice utilisateur        : à mettre à jour en v1.2
 ```
 
 ---
 
-## 📝 À mettre à jour côté ETAT_PROJET pour la conv suivante
+## 🐛 Risques identifiés et atténuations
 
-- Version en prod : **v10.G** (à passer après déploiement)
-- Catalogue : **583 articles**, source unique = Firestore
-- Nouveaux fichiers : `catalogSeed.js`, `catalogImporter.js`, `catalogImporter.test.js`, `ModuleSubHeader.jsx`
-- À faire en v10.H : intégration Esabora complète + finaliser l'écran Admin Esabora (manquant en v10.F GitHub vs documenté)
+### 1. Concurrence : 2 personnes éditent la même commande
+- **Risque** : la dernière sauvegarde gagne, l'autre perd ses modifs
+- **Atténuation** : aucune dans cette livraison. En pratique, EPJ étant une
+  petite équipe, ce cas devrait être rare. À reprendre si besoin avec un
+  système de "verrou" Firestore.
+
+### 2. SMS Direction non branché
+- **Risque** : la Direction n'est PAS notifiée via SMS quand une commande
+  envoyée est modifiée
+- **Atténuation** : la notification est enregistrée dans
+  `notificationsPending` avec tous les éléments nécessaires. Le toast
+  pendant l'édition affirme que "la Direction est notifiée" — techniquement
+  c'est vrai (la queue Firestore est remplie), mais le SMS lui-même ne part
+  pas pour l'instant. À brancher en v10.H/I via Make + Brevo.
+
+### 3. Annulation au milieu d'une édition
+- **Risque** : l'utilisateur clique "✏️ Modifier", change le panier, puis
+  ferme l'app. Le panier garde l'état pour la prochaine session, mais
+  `editingOrder` est dans un useState (perdu au rechargement)
+- **Atténuation** : au prochain démarrage, le draft localStorage restaure le
+  panier, mais on est dans un état "création nouvelle commande" pas "édition".
+  Conséquence : si l'utilisateur "Envoie" cette commande, il créera un doublon.
+  À corriger en v10.G.3 si ça pose problème : sauvegarder editingOrder dans
+  localStorage aussi.
+
+### 4. Suppression d'un article qui n'existe plus dans le catalogue
+- **Risque** : si une commande contient un article qui a été supprimé du
+  catalogue depuis, on l'affiche quand même (snapshot dans la commande)
+- **Atténuation** : l'item est conservé dans le panier pendant l'édition.
+  Pas de problème.
+
+### 5. Statut "Validée" éditable
+- **Risque** : si un conducteur a validé, et que le demandeur réedite, la
+  commande repasse en "En attente". Le conducteur perd sa validation.
+- **Atténuation** : c'est le comportement voulu. La nouvelle version doit
+  être revalidée. L'historique trace qui a fait quoi.
+
+### 6. Email supplémentaire intentionnel modifié
+- **Risque** : un user pourrait éditer pour ajouter son email perso et
+  recevoir une copie du PDF lors de l'envoi aux achats
+- **Atténuation** : faible risque (déjà existant en mode création), trace
+  dans editHistory.
+
+### 7. Quantité passée à 0
+- **Risque** : si l'utilisateur met 0 dans le panier, l'article est-il
+  retiré ?
+- **Atténuation** : `cartItems` filtre déjà sur `q > 0` (filter), donc oui
+  l'article sort de la commande. Comportement cohérent avec la création.
+
+### 8. Édition d'une commande "Envoyée aux achats" puis envoi mail
+- **Risque** : la Direction modifie la commande. Statut reste "Envoyée aux
+  achats". Mais le mail aux achats a été envoyé avec l'ancienne version.
+- **Atténuation** : la trace `notificationsPending` est créée, qui rappelle
+  que la version aux achats est obsolète. La Direction sait qu'elle doit
+  renvoyer le mail (manuellement pour l'instant, ou via Make plus tard).
 
 ---
 
-**Bonne livraison ! 🚀**
+## 🎯 Notes pour la mémoire externe (conv suivante)
+
+```markdown
+## v10.G.2 — Édition commande envoyée (10/05/2026)
+
+**Apport** : bouton "✏️ Modifier" sur fiche commande (statut < Commandée)
+- Demandeur OU Admin/Direction
+- Si directAchat=false → repasse en "En attente de validation"
+- editHistory[] dans Firestore avec auteur, date, résumé, transitions de statut
+- Notification Direction queue dans `notificationsPending` (pas encore SMS)
+
+**À brancher en v10.H ou v10.I** :
+- Bridge Make/Brevo pour vraiment envoyer les SMS depuis notificationsPending
+- Verrou éventuel anti-concurrence (faible priorité)
+- Persistance editingOrder dans localStorage si annulation par fermeture app
+
+**Tests** : 86 OK / 0 KO (catalogImporter + orderEdit)
+```
+
+---
+
+## 🎯 Tests à dérouler (à ajouter à TESTS.md)
+
+```
+☐ TEST 26 — Bouton ✏️ Modifier visible si demandeur
+  - Connecte-toi en Bartoli (monteur)
+  - Crée une commande Chantier (statut "En attente de validation")
+  - Reviens dans Historique → ouvre la fiche
+  - Attendu : bouton "✏️ Modifier" visible (carte orange)
+
+☐ TEST 27 — Bouton invisible si autre user
+  - Reste connecté en Bartoli
+  - Va dans Historique d'un autre user (impossible normalement, mais via Admin)
+  - Si tu vois la fiche, le bouton ✏️ ne doit PAS apparaître
+  - Connecte-toi en Admin → toutes les commandes éditables
+
+☐ TEST 28 — Bouton invisible si Commandée
+  - Trouve une commande au statut "Commandée"
+  - Attendu : bouton ✏️ Modifier ABSENT
+
+☐ TEST 29 — Modification simple (ajout d'un article)
+  - Bouton ✏️ Modifier sur une commande "En attente"
+  - Le panier s'ouvre avec les articles existants
+  - Ajoute un nouvel article (depuis le catalogue)
+  - Reviens au panier → 2 articles
+  - Récapitulatif → "Enregistrer les modifications"
+  - Attendu : retour à l'écran de confirmation, statut inchangé
+
+☐ TEST 30 — Modification d'un monteur repasse en attente
+  - Connecte-toi en Bartoli
+  - Modifie une commande "Validée"
+  - Sauvegarde
+  - Attendu : statut repasse à "En attente de validation"
+
+☐ TEST 31 — Admin garde le statut
+  - Connecte-toi en Admin (directAchat=true)
+  - Modifie une commande "Envoyée aux achats"
+  - Sauvegarde
+  - Attendu : statut RESTE "Envoyée aux achats"
+
+☐ TEST 32 — Historique des modifications affiché
+  - Modifie une commande, puis ouvre sa fiche
+  - Attendu : carte "📝 Historique des modifications" présente avec
+    l'auteur, la date, le résumé
+
+☐ TEST 33 — Notification Direction sur édition d'une "Envoyée aux achats"
+  - Modifie une commande déjà "Envoyée aux achats" (en preprod)
+  - Va dans Firebase Console → Firestore → collection notificationsPending
+  - Attendu : un nouveau doc avec type=ORDER_EDITED_AFTER_SENT,
+    handled=false, message rempli
+
+☐ TEST 34 — Bandeau d'avertissement
+  - Modifie une commande "Envoyée aux achats"
+  - Sur l'écran de récap, vérifie qu'il y a un bandeau orange
+    "Cette commande a déjà été envoyée aux achats..."
+
+☐ TEST 35 — Édition annule (retour arrière)
+  - Clique "✏️ Modifier" → tu es au panier
+  - Clique "🏠 Accueil" (pour quitter sans sauvegarder)
+  - Reviens dans la fiche commande
+  - Attendu : la commande a son contenu original, pas de modif sauvegardée
+```
+
+---
+
+**Bonne livraison v10.G.2 ! 🚀**
