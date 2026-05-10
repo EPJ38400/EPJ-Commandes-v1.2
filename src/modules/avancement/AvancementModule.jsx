@@ -7,6 +7,7 @@ import { EPJ, font } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { AvancementChantier } from "./AvancementChantier";
 import { overallProgress, DEFAULT_BUILDING_CONFIG } from "./avancementTasks";
 import {
@@ -57,41 +58,13 @@ export function AvancementModule({ onExitModule }) {
   // Vue liste
   return (
     <div style={{ paddingTop: 12, paddingBottom: 24 }}>
-      {/* En-tête avec bouton retour Accueil */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <button
-          onClick={onExitModule}
-          style={{
-            background: EPJ.gray100, border: "none", borderRadius: 10,
-            padding: "9px 14px", fontSize: 13, fontWeight: 600,
-            color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-            display: "flex", alignItems: "center", gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          ← Accueil
-        </button>
-        <div style={{
-          fontSize: 10, fontWeight: 600, color: EPJ.gray500,
-          letterSpacing: 0.8, textTransform: "uppercase",
-        }}>
-          Module
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <div style={{
-          fontFamily: font.display, fontSize: 26, fontWeight: 400,
-          color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.1,
-        }}>
-          Avancement chantier
-        </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 4 }}>
-          {viewScope === "all"
-            ? "Tous les chantiers actifs."
-            : "Chantiers sur lesquels vous êtes affecté."}
-        </div>
-      </div>
+      {/* En-tête module — v10.G */}
+      <ModuleSubHeader
+        moduleName="Avancement"
+        title="Avancement chantier"
+        subtitle="Module"
+        onBackToModuleHome={null}
+      />
 
       {visibleChantiers.length === 0 ? (
         <div className="epj-card" style={{ padding: 20, textAlign: "center" }}>

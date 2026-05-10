@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { EPJ, font } from "../../core/theme";
 import { useData } from "../../core/DataContext";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { ParcDashboard } from "./ParcDashboard";
 import { ParcMateriels } from "./ParcMateriels";
 import { ParcHistorique } from "./ParcHistorique";
@@ -62,25 +63,14 @@ function ParcMachinesInner({ onExitModule }) {
         ? "calc(90px + env(safe-area-inset-bottom))"
         : "calc(24px + env(safe-area-inset-bottom))",
     }}>
-      {/* En-tête */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <button onClick={onExitModule} style={{
-          background: EPJ.gray100, border: "none", borderRadius: 10,
-          padding: "9px 14px", fontSize: 13, fontWeight: 600,
-          color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-          whiteSpace: "nowrap", flexShrink: 0,
-        }}>← Accueil</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: font.display, fontSize: 22, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.15,
-          }}>Parc machines</div>
-          <div style={{
-            fontSize: 10, color: EPJ.gray500, letterSpacing: 0.3,
-            textTransform: "uppercase", fontWeight: 600, marginTop: 1,
-          }}>Outillage et matériel</div>
-        </div>
-      </div>
+      {/* En-tête module — v10.G : pas de bouton "← Module" car on EST déjà
+          sur l'accueil du module. Le 🏠 Accueil est dans le header global. */}
+      <ModuleSubHeader
+        moduleName="Parc machines"
+        title="Parc machines"
+        subtitle="Outillage et matériel"
+        onBackToModuleHome={null}
+      />
 
       {/* Onglets */}
       <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>

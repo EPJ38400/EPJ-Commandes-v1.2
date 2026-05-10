@@ -1,11 +1,13 @@
 // ═══════════════════════════════════════════════════════════════
-//  Layout — shell global de l'application — v10.E
-//  - Header refondu (Schéma C) :
-//      • Flèche retour blanche grosse sur fond contrasté (à gauche)
+//  Layout — shell global de l'application — v10.G
+//  - Header en 3 niveaux pour clarifier la navigation :
+//      • Bouton "🏠 Accueil" (à gauche) — toujours retour à l'accueil de l'app
 //      • Bouton Déconnexion ROUGE explicite avec confirmation (à droite)
 //      • Bouton Admin gris à côté
-//  - Le bouton retour s'affiche uniquement si onBack est passé par App.jsx
+//  - Le bouton 🏠 Accueil ne s'affiche que si onBack est passé par App.jsx
 //    (= on est dans un module ou un dashboard, pas sur la home).
+//  - Le bouton du milieu (← {nomModule}) et le bouton du bas (← Retour)
+//    sont gérés par chaque module individuellement.
 //  - L'utilisateur peut TOUJOURS cliquer sur le logo pour revenir à l'accueil.
 // ═══════════════════════════════════════════════════════════════
 import { EPJ, font, globalCss } from "./theme";
@@ -104,7 +106,12 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
         padding: "10px 12px",
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        {/* ─── BOUTON RETOUR (gauche) — gros, blanc sur fond contrasté ─── */}
+        {/* ─── BOUTON 🏠 ACCUEIL (gauche) — v10.G ─────────────────────
+            Avant : flèche ← seule, fond noir.
+            Maintenant : maison + mot "Accueil" pour clarifier que ce bouton
+            ramène TOUJOURS à l'accueil de l'application (pas à la page
+            précédente, qui est gérée par le bouton "← Retour" en bas dans
+            chaque module). ───────────────────────────────────────────── */}
         {showBack && (
           <button
             onClick={onBack}
@@ -113,17 +120,22 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
               border: "none",
               color: "#fff",
               borderRadius: 10,
-              width: 44, height: 44,
-              fontSize: 24, fontWeight: 700, lineHeight: 1,
+              height: 44,
+              padding: "0 14px",
+              fontSize: 13, fontWeight: 700, lineHeight: 1,
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 6,
               flexShrink: 0,
               boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+              fontFamily: font.body,
+              letterSpacing: 0.2,
             }}
-            title="Retour"
-            aria-label="Retour"
+            title="Retour à l'accueil de l'application"
+            aria-label="Retour à l'accueil de l'application"
           >
-            ←
+            <span style={{ fontSize: 16, lineHeight: 1 }}>🏠</span>
+            <span>Accueil</span>
           </button>
         )}
 

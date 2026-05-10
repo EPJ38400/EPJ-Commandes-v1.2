@@ -82,7 +82,9 @@ export async function initEPJData(forceReinit = false) {
   return results;
 }
 
-// ── Upload catalogue complet avec stock ──────────────────────────────────────
+// ── Upload catalogue complet (avec stock + fournisseur + codeEsabora) ────
+// v10.G : ajout des champs `fournisseur` (nom lisible) et `codeEsabora` (code court)
+// pour permettre le routage des commandes par fournisseur dans Esabora.
 export async function uploadCatalog(catalogArray) {
   let count = 0;
   const batchSize = 450;
@@ -97,7 +99,9 @@ export async function uploadCatalog(catalogArray) {
         r: item.r || '',
         n: item.n || '',
         u: item.u || 'Pièce',
-        stock: item.stock === true,   // ← champ stock correctement sauvegardé
+        stock: item.stock === true,
+        fournisseur: item.fournisseur || '',
+        codeEsabora: item.codeEsabora || '',
         img: item.img || ''
       });
       count++;

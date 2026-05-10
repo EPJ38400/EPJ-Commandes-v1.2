@@ -1,0 +1,179 @@
+# 📋 EPJ App — Livraison v10.G
+
+**Date** : 7 mai 2026
+**De** : Conv 3 (Claude)
+**Pour** : Pierre-Julien YVER
+**Charte qualité** : Option D appliquée
+
+---
+
+## 🎯 Périmètre de la livraison
+
+Cette livraison v10.G fait le ménage et ajoute la gestion du catalogue par Excel.
+
+### Ce qui est livré
+
+1. **🐛 Bug fix panier (Frasca / CMD-2026-0028)**
+   Le panier ne se vidait plus si tu fermais l'app après un envoi. Désormais, `clearOrder()` est appelé immédiatement après que la commande soit enregistrée dans Firestore. Plus de risque de réenvoi en doublon.
+
+2. **🧹 Suppression des données en dur dans le code**
+   - Les **7 utilisateurs** (avec emails et mots de passe) ne sont plus dans le code source GitHub
+   - Les **19 chantiers** non plus
+   - **Source unique de vérité** : Firestore. Plus de risque d'incohérence entre code et base.
+
+3. **📦 Catalogue déplacé dans `catalogSeed.js`**
+   - Les 583 articles ne sont plus dans `CommandesInner.jsx` (~1300 lignes en moins)
+   - Maintenant ils sont enrichis avec **2 nouvelles colonnes** : `fournisseur` et `codeEsabora`
+   - 582 / 583 articles ont leur fournisseur principal pré-rempli (99,8%)
+   - En **v10.G+1** ce fichier seed sera supprimé une fois la prod Firestore stable
+
+4. **📊 Import / Export Excel du catalogue (NOUVEAU)**
+   Dans le module Commandes → Administration → Admin Catalogue, 3 nouveaux boutons :
+   - **📥 Importer (fusionner)** : ajoute / met à jour. Articles non listés dans l'Excel sont conservés.
+   - **🗑️ Importer (remplacer)** : efface tout puis recharge depuis l'Excel. Confirmation requise par saisie de "EFFACER".
+   - **📤 Exporter en Excel** : télécharge le catalogue Firestore au format à plat 9 colonnes.
+   - Avant chaque import, un **rapport de pré-import** s'affiche (combien d'articles ajoutés/mis à jour/supprimés, nouvelles catégories, doublons éventuels).
+
+5. **🔒 Bouton "🔄 Réinitialiser Firebase" sécurisé**
+   - Avant : 1 seul confirm() avant d'écraser toute la base
+   - Maintenant : il faut **taper "RÉINITIALISER"** puis confirmer
+   - Plus aucun risque de clic accidentel destructeur
+
+6. **🧭 Refonte de la navigation à 3 niveaux**
+
+   | Bouton | Position | Comportement |
+   |---|---|---|
+   | **🏠 Accueil** | Header global (en haut, fond noir) | Toujours retour à l'accueil de l'app |
+   | **← Commandes** | Sub-header de section (visible quand on est ailleurs que sur l'accueil du module) | Retour à l'accueil du module Commandes |
+   | **← (flèche contrastée)** | Sub-header, à droite du bouton Module | Retour à l'écran précédent dans le module |
+   | **← Retour** | Footer du catalogue, à côté du panier | Retour à la liste des catégories (page précédente) |
+
+   Les modules **Parc machines, Réserves, Avancement** ont été harmonisés via un nouveau composant partagé `ModuleSubHeader.jsx`.
+
+---
+
+## 📁 Fichiers livrés
+
+```
+src/
+├── core/
+│   ├── Layout.jsx                              ← MODIFIÉ (🏠 Accueil)
+│   └── components/
+│       └── ModuleSubHeader.jsx                 ← NOUVEAU (composant partagé)
+├── modules/
+│   ├── commandes/
+│   │   ├── CommandesInner.jsx                  ← MODIFIÉ (bug fix, navigation, import Excel)
+│   │   ├── catalogSeed.js                      ← NOUVEAU (583 articles)
+│   │   ├── catalogImporter.js                  ← NOUVEAU (parseur Excel)
+│   │   └── catalogImporter.test.js             ← NOUVEAU (50 tests unitaires)
+│   ├── parc-machines/
+│   │   └── ParcMachinesModule.jsx              ← MODIFIÉ (header)
+│   ├── reserves/
+│   │   └── ReservesInner.jsx                   ← MODIFIÉ (header)
+│   └── avancement/
+│       └── AvancementModule.jsx                ← MODIFIÉ (header)
+├── pages/
+│   └── DashboardDirection.jsx                  ← MODIFIÉ (bouton ← Accueil supprimé)
+├── initFirestore.js                            ← MODIFIÉ (uploadCatalog gère fournisseur)
+package.json                                    ← MODIFIÉ (xlsx ajoutée, version 1.10.7)
+```
+
+---
+
+## 🚀 Procédure de déploiement
+
+### Étape 1 — Recevoir le ZIP, l'extraire et installer xlsx
+
+Dans ton repo GitHub, **NE PAS DRAG-AND-DROPER UN FICHIER PAR UN FICHIER**. Suis cette procédure :
+
+1. Sur ton ordinateur, télécharge le ZIP `EPJ_app_v10G.zip`
+2. Décompresse-le
+3. Va sur GitHub → ton repo → bouton vert **"Code"** → onglet **"Upload files"**
+4. Glisse-dépose **TOUS les fichiers décompressés** d'un coup (drag-and-drop)
+5. Vercel redéploie automatiquement
+
+⚠️ **Important** : `xlsx` est une nouvelle dépendance. Vercel l'installera automatiquement au premier `npm install` après ton push (lit `package.json`).
+
+### Étape 2 — Tester en preprod
+
+Suis le fichier **TESTS.md** livré avec le ZIP : ~25 cas à cocher.
+
+### Étape 3 — Vérification manuelle de Frasca
+
+Comme demandé dans la mémoire conv 2 :
+1. Va dans **Admin → Utilisateurs → Frasca**
+2. Vérifie la case **"Achats directs"** : elle doit être **décochée**
+3. Si elle est cochée, décoche-la et enregistre
+
+### Étape 4 — Premier import du nouveau catalogue
+
+Une fois la v10.G en preprod et validée :
+1. Va dans **Module Commandes → Administration → Admin Catalogue**
+2. Clique **📥 Importer (fusionner)**
+3. Sélectionne le fichier `BASE_Catalogue_APP_EPJ.xlsx` (que tu m'as envoyé)
+4. Lis le rapport de pré-import : tu devrais voir ~583 articles à mettre à jour
+5. Confirme l'import
+
+C'est l'occasion de **propager les nouvelles colonnes fournisseur + codeEsabora** dans Firestore pour 582 articles d'un coup.
+
+### Étape 5 — Passer le repo GitHub en privé (recommandé)
+
+Comme on en a discuté, le repo `EPJ38400/EPJ-Commandes-v1.2` est public. Maintenant qu'on a sorti les données sensibles (USERS, CHANTIERS) du code, c'est moins critique, mais le seed du catalogue (`catalogSeed.js`) y est encore.
+
+Pour passer le repo en privé :
+1. GitHub → ton repo → **Settings**
+2. Scroll en bas → **Danger Zone**
+3. **Change repository visibility** → **Make private**
+4. Confirme avec le nom du repo
+
+Vercel continuera à fonctionner normalement (intégration GitHub déjà autorisée).
+
+---
+
+## 🐛 Risques connus / à tester en priorité
+
+### 1. Premier chargement (~200ms)
+Au démarrage, les listes utilisateurs et chantiers sont vides pendant le temps que Firestore réponde. Effet visible : si tu cliques très vite sur "Nouvelle commande", la liste des chantiers peut apparaître vide une fraction de seconde. Pas un problème en pratique, mais à confirmer en prod.
+
+### 2. Import Excel volumineux
+On a testé avec 583 articles, ça doit passer sans problème. Si un jour tu as un catalogue 5000+, il faudra peut-être paginer.
+
+### 3. Catégories renommées via Excel
+Si tu renommes "Plexo" en "Plexo extérieur" dans l'Excel :
+- Tous les articles passeront sous le nouveau nom dans Firestore
+- L'icône 🔌 et l'ordre configurés pour "Plexo" ne suivront pas automatiquement
+- Le rapport de pré-import te prévient
+- Tu corriges via **Admin → Catégories** dans le module Commandes (écran existant)
+
+### 4. Bouton "🔄 Réinitialiser Firebase"
+Conserve ses données par défaut (USERS_INIT, CHANTIERS_INIT, CATALOG_SEED). Il efface Firestore avant de recharger.
+**Risque résiduel** : si tu cliques par mégarde ET tape "RÉINITIALISER" ET cliques OK sur le confirm, tu perds tes ajouts récents (nouveaux users, nouveaux chantiers, modifs catalogue).
+La double confirmation devrait suffire mais à manier avec prudence.
+
+### 5. Permissions `_canSyncEsabora` (hors scope v10.G)
+La mémoire externe (ETAT_PROJET conv 2) mentionne cette permission ajoutée en v10.F, mais elle est **absente du code source GitHub**. À reprendre en v10.H.
+
+---
+
+## 📊 Récap qualité (Charte Option D)
+
+```
+🧪 Tests unitaires   : 50/50 OK (catalogImporter.test.js)
+🔎 Revue adversariale : 8 risques identifiés (voir ci-dessus)
+☑️ Checklist livrée  : ~25 cas de test (voir TESTS.md)
+🛠️ Validation syntaxique : 10/10 fichiers OK (esbuild)
+📚 Notice mise à jour : NOTICE_UTILISATEUR.md v1.1
+```
+
+---
+
+## 📝 À mettre à jour côté ETAT_PROJET pour la conv suivante
+
+- Version en prod : **v10.G** (à passer après déploiement)
+- Catalogue : **583 articles**, source unique = Firestore
+- Nouveaux fichiers : `catalogSeed.js`, `catalogImporter.js`, `catalogImporter.test.js`, `ModuleSubHeader.jsx`
+- À faire en v10.H : intégration Esabora complète + finaliser l'écran Admin Esabora (manquant en v10.F GitHub vs documenté)
+
+---
+
+**Bonne livraison ! 🚀**

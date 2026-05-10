@@ -206,11 +206,9 @@ export function DashboardDirection({ onBack, onGoto }) {
       <style>{dashboardCss}</style>
       <div className="dash-root">
 
-        {/* HEADER */}
+        {/* HEADER — v10.G : bouton "← Accueil" supprimé car redondant avec
+            le bouton 🏠 Accueil du header global. */}
         <div className="dash-header">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
-            <button onClick={onBack} className="back-btn">← Accueil</button>
-          </div>
           <div className="dash-title-row">
             <div>
               <div className="dash-salutation">

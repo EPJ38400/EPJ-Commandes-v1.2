@@ -6,6 +6,7 @@ import { EPJ, font } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import {
   RESERVE_STATUTS, RESERVE_PRIORITES,
   formatDate, isReserveEnRetard, isRdvEnRetard,
@@ -109,21 +110,13 @@ export function ReservesInner({ onCreate, onSelect, onExitModule }) {
 
   return (
     <div style={{ paddingTop: 12, paddingBottom: 40 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onExitModule} style={{
-          background: "transparent", border: "none", color: EPJ.gray700,
-          fontSize: 14, cursor: "pointer", fontFamily: font.body, padding: "6px 10px",
-        }}>← Accueil</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: font.display, fontSize: 24, color: EPJ.gray900, letterSpacing: "-0.02em" }}>
-            Réserves & quitus
-          </div>
-          <div style={{ fontSize: 10, color: EPJ.gray500, letterSpacing: 0.8, textTransform: "uppercase" }}>
-            Suivi SAV & garantie
-          </div>
-        </div>
-      </div>
+      {/* Header — v10.G */}
+      <ModuleSubHeader
+        moduleName="Réserves"
+        title="Réserves & quitus"
+        subtitle="Suivi SAV & garantie"
+        onBackToModuleHome={null}
+      />
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
