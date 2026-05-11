@@ -22,6 +22,7 @@ export function AdminSettings({ onBack }) {
     ocrArEnabled: false,
     esaboraEnabled: false,         // v10.L
     esaboraWebhookUrl: "",         // v10.L
+    esaboraTvaDefault: 20,         // v10.L.1
   });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -190,6 +191,37 @@ export function AdminSettings({ onBack }) {
           <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 4 }}>
             Récupère cette URL dans Zapier → Edit Zap → Trigger « Catch Hook » →
             « Your Webhook URL ».
+          </div>
+        </div>
+
+        {/* v10.L.1 — TVA par défaut */}
+        <div style={{ marginTop: 14 }}>
+          <label style={{
+            display: "block", fontSize: 11, fontWeight: 700,
+            color: EPJ.gray500, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4,
+          }}>TVA par défaut (entête commande Esabora)</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={settings.esaboraTvaDefault}
+              onChange={(e) => setSettings(s => ({ ...s, esaboraTvaDefault: Number(e.target.value) || 0 }))}
+              onBlur={(e) => save({ esaboraTvaDefault: Number(e.target.value) || 0 })}
+              style={{
+                width: 80, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+                border: `1px solid ${EPJ.gray300}`, borderRadius: 8,
+                fontFamily: font.body, color: EPJ.gray900, textAlign: "center",
+              }}
+            />
+            <span style={{ fontSize: 14, color: EPJ.gray900, fontWeight: 600 }}>%</span>
+          </div>
+          <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 4, lineHeight: 1.4 }}>
+            Taux TVA appliqué automatiquement à toutes les lignes du draft
+            Esabora. <b>20 %</b> pour neuf, <b>10 %</b> pour rénovation,
+            <b> 5,5 %</b> pour rénovation énergétique / logement social.
+            Si besoin de taux différents par commande, on étoffera plus tard.
           </div>
         </div>
 

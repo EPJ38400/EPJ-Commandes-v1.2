@@ -94,9 +94,14 @@ export function groupItemsByEsaboraCode(items, catalog) {
  * @param {object} group - { codeEsabora, items }
  * @param {object} order - la commande EPJ (avec num, chantier, dateReception, etc.)
  * @param {object} chantier - le chantier (avec numAffaire, adresse, etc.) ou null
+ * @param {object} opts - { tvaDefault } : taux TVA par défaut (v10.L.1)
  * @returns {Blob} - le fichier .xlsx prêt à envoyer
  */
-export function buildEsaboraExcel(group, order, chantier) {
+export function buildEsaboraExcel(group, order, chantier, opts) {
+  // v10.L.1 — TVA par défaut sur l'entête (Esabora a besoin de cette info
+  // pour calculer les montants). Les colonnes TVA des lignes d'articles
+  // restent vides : Esabora applique automatiquement la TVA d'entête.
+  const tvaDefault = (opts && opts.tvaDefault != null) ? opts.tvaDefault : 20;
   // ── Feuille 1 : INFORMATIONS GÉNÉRALES ──
   const headerGen = [
     "Titre",                     // A
@@ -136,7 +141,7 @@ export function buildEsaboraExcel(group, order, chantier) {
     group.codeEsabora,                           // C Code fournisseur
     "", "",                                      // D-E interlocuteur
     todayFR(),                                   // F Date création
-    "", "", "", "",                              // G-J TVA
+    tvaDefault, "", "", "",                      // G-J TVA (v10.L.1 : TVA 1 = défaut)
     "EPJ — Électricité Générale",                // K Adresse cmd titre
     "3 rue Georges Pérec", "", "",               // L-N
     "38400",                                     // O
@@ -235,7 +240,7 @@ export async function sendFileToZapier(webhookUrl, fileBlob, filename, meta) {
  *
  * @returns {Promise<{ok: bool, results: Array, ignored: Array, error?: string}>}
  */
-export async function sendOrderToEsabora({ order, catalog, chantier, user, webhookUrl }) {
+export async function sendOrderToEsabora({ order, catalog, chantier, user, webhookUrl, tvaDefault }) {
   if (!order || !order._id) {
     return { ok: false, error: "Commande invalide", results: [], ignored: [] };
   }
@@ -266,7 +271,7 @@ export async function sendOrderToEsabora({ order, catalog, chantier, user, webho
   // Envoi 1 fichier par groupe
   const results = [];
   for (const group of groups) {
-    const blob = buildEsaboraExcel(group, order, chantier);
+    const blob = buildEsaboraExcel(group, order, chantier, { tvaDefault });
     const filename = `EPJ_${order.num || "CMD"}_${group.codeEsabora}.xlsx`;
     const res = await sendFileToZapier(webhookUrl, blob, filename, {
       orderNum: order.num || "",

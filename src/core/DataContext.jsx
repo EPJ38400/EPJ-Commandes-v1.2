@@ -270,6 +270,13 @@ export function DataProvider({ children }) {
     // v10.L — Intégration Esabora via Zapier
     esaboraEnabled: config?.esaboraEnabled === true,
     esaboraWebhookUrl: config?.esaboraWebhookUrl || "",
+    // v10.L.1 — TVA par défaut envoyée dans l'entête du fichier Esabora.
+    // Esabora calcule les montants à partir de cette TVA d'entête ; les
+    // colonnes TVA des lignes d'articles restent vides (le taux d'entête
+    // est appliqué par défaut à toutes les lignes du draft).
+    esaboraTvaDefault: typeof config?.esaboraTvaDefault === "number"
+      ? config.esaboraTvaDefault
+      : 20,
   };
 
   return (

@@ -2425,6 +2425,7 @@ export function CommandesInner({ onExitModule }) {
                         chantier: chObj || null,
                         user,
                         webhookUrl: featureFlags.esaboraWebhookUrl,
+                        tvaDefault: featureFlags.esaboraTvaDefault, // v10.L.1
                       });
                       if (res.ok) {
                         const ignored = res.ignored?.length || 0;
