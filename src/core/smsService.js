@@ -459,6 +459,62 @@ export async function smsOutillagePanne({
   });
 }
 
+/**
+ * v10.K — Rappel automatique de retour outil (à J : date prévue dépassée).
+ * Envoyé une seule fois par sortie (idempotence garantie côté code app).
+ * Si le monteur prolonge la date, le flag est réinitialisé et le cycle redémarre.
+ */
+export async function smsOutillageRappelRetour({
+  smsTemplates, emprunteur, refOutil, nomOutil, dateRetour, sortieId,
+}) {
+  if (!emprunteur) return { queued: false, reason: "emprunteur introuvable" };
+  return queueSms({
+    type: "TOOL_RAPPEL_J",
+    templateCode: "outillage_rappel_retour",
+    smsTemplates,
+    recipient: {
+      userId: extractUid(emprunteur),
+      name: `${emprunteur.prenom||""} ${emprunteur.nom||""}`.trim(),
+      phone: emprunteur.telephone || emprunteur.tel || "",
+    },
+    variables: {
+      prenom: emprunteur.prenom || "",
+      ref: refOutil || "",
+      nom: nomOutil || "",
+      dateRetour: dateRetour || "",
+    },
+    context: { module: "parc-machines", sortieId: sortieId || "", ref: refOutil || "" },
+  });
+}
+
+/**
+ * v10.K — Demande manuelle de retour outil par Admin/Direction/Responsable parc.
+ * Le demandeur clique "Demander le retour" sur la fiche outil → SMS au monteur.
+ */
+export async function smsOutillageDemandeRetour({
+  smsTemplates, emprunteur, demandeur, refOutil, nomOutil, sortieId,
+}) {
+  if (!emprunteur) return { queued: false, reason: "emprunteur introuvable" };
+  return queueSms({
+    type: "TOOL_DEMANDE_RETOUR",
+    templateCode: "outillage_demande_retour",
+    smsTemplates,
+    recipient: {
+      userId: extractUid(emprunteur),
+      name: `${emprunteur.prenom||""} ${emprunteur.nom||""}`.trim(),
+      phone: emprunteur.telephone || emprunteur.tel || "",
+    },
+    variables: {
+      prenom: emprunteur.prenom || "",
+      ref: refOutil || "",
+      nom: nomOutil || "",
+      demandeurPrenom: demandeur?.prenom || "",
+      demandeurNom: demandeur ? `${demandeur.prenom||""} ${demandeur.nom||""}`.trim() : "",
+    },
+    context: { module: "parc-machines", sortieId: sortieId || "", ref: refOutil || "" },
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  RECHERCHE DE DESTINATAIRES
 // ═══════════════════════════════════════════════════════════════

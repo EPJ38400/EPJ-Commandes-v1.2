@@ -29,6 +29,8 @@ import { CommandesModule } from "./modules/commandes/CommandesModule";
 import { AvancementModule } from "./modules/avancement/AvancementModule";
 import { ParcMachinesModule } from "./modules/parc-machines/ParcMachinesModule";
 import { ReservesModule } from "./modules/reserves/ReservesModule";
+// v10.K — Watcher invisible : rappel SMS J + anomalie J+2 sur les sorties d'outils
+import { OutillageRappelWatcher } from "./modules/parc-machines/OutillageRappelWatcher";
 
 const ROUTE_STORAGE_KEY = "epj_last_route";
 
@@ -125,6 +127,9 @@ function Router() {
       onOpenAdmin={() => setRoute("admin")}
       fullWidth={useFullWidth}
     >
+      {/* v10.K — Watcher invisible : SMS rappel J + anomalie J+2 sur outils */}
+      <OutillageRappelWatcher/>
+
       {route === "home" && (
         <HomePage
           onOpenModule={(mod) => setRoute(`module:${mod}`)}

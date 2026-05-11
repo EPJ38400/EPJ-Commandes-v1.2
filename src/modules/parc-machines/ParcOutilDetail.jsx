@@ -18,6 +18,13 @@ import {
 import { ParcOutilSortie } from "./ParcOutilSortie";
 import { ParcOutilRetour } from "./ParcOutilRetour";
 import { ParcOutilTransfert } from "./ParcOutilTransfert";
+// v10.K — Prolongation +7j et demande de retour manuelle
+import {
+  canProlonger, canDemanderRetour, buildProlongationPayload,
+} from "./outillageRappel";
+import { db } from "../../firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { smsOutillageDemandeRetour, findUserByUid } from "../../core/smsService";
 
 export function ParcOutilDetail({ outil, onBack }) {
   const { user } = useAuth();
@@ -280,17 +287,104 @@ export function ParcOutilDetail({ outil, onBack }) {
             }}>💬 {sortieEnCours.commentaireSortie}</div>
           )}
 
-          {/* Bouton SMS rappel si en retard */}
-          {isLate(sortieEnCours.dateRetourPrevue) && (
-            <button onClick={handleCopySms} style={{
-              width: "100%", marginTop: 10,
-              padding: "10px 12px", borderRadius: 8,
-              background: `${EPJ.red}12`, color: EPJ.red,
-              border: `1px solid ${EPJ.red}40`,
-              fontSize: 12, fontWeight: 700, cursor: "pointer",
-              fontFamily: font.body,
-            }}>📱 Copier SMS rappel & ouvrir Messages</button>
+          {/* v10.K — Indicateur prolongation */}
+          {sortieEnCours.prolonge && (
+            <div style={{
+              marginTop: 10, padding: "8px 12px", borderRadius: 6,
+              background: `${EPJ.orange}12`, border: `1px solid ${EPJ.orange}40`,
+              fontSize: 11, color: EPJ.gray900, lineHeight: 1.4,
+            }}>
+              <b style={{color: EPJ.orange}}>📅 Sortie prolongée</b>
+              {sortieEnCours.dateRetourPrevueOriginale && (
+                <> — date initiale : {formatDate(sortieEnCours.dateRetourPrevueOriginale)}</>
+              )}
+              {sortieEnCours.prolongeParNom && (
+                <> par {sortieEnCours.prolongeParNom}</>
+              )}
+            </div>
           )}
+
+          {/* v10.K — Anomalie J+2 (sortie en retard > 2 jours) */}
+          {sortieEnCours.anomalieJ2 && (
+            <div style={{
+              marginTop: 10, padding: "8px 12px", borderRadius: 6,
+              background: `${EPJ.red}12`, border: `1px solid ${EPJ.red}80`,
+              fontSize: 11, color: EPJ.red, fontWeight: 600,
+            }}>
+              ⚠️ ANOMALIE — outil en retard de plus de 2 jours
+            </div>
+          )}
+
+          {/* v10.K — Actions automatiques rappel */}
+          <div style={{display: "flex", flexDirection: "column", gap: 8, marginTop: 10}}>
+
+            {/* Prolonger +7j */}
+            {canProlonger(sortieEnCours, user) && (
+              <button onClick={async () => {
+                const newPayload = buildProlongationPayload(sortieEnCours, user, { days: 7 });
+                if (!confirm(`Prolonger la date de retour de 7 jours ?\n\nNouvelle date : ${formatDate(newPayload.dateRetourPrevue)}`)) return;
+                try {
+                  await updateDoc(doc(db, "outillageSorties", sortieEnCours._id || sortieEnCours.id), newPayload);
+                  toast(`✓ Prolongation enregistrée — nouvelle date : ${formatDate(newPayload.dateRetourPrevue)}`);
+                } catch(e) {
+                  toast("❌ Erreur : " + e.message);
+                }
+              }} style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8,
+                background: `${EPJ.orange}12`, color: EPJ.orange,
+                border: `1px solid ${EPJ.orange}40`,
+                fontSize: 12, fontWeight: 700, cursor: "pointer",
+                fontFamily: font.body,
+              }}>📅 Prolonger le retour de 7 jours{sortieEnCours.prolonge ? " (re-prolongation)" : ""}</button>
+            )}
+
+            {/* Demander le retour (SMS au monteur) */}
+            {canDemanderRetour(sortieEnCours, user) && (
+              <button onClick={async () => {
+                if (!confirm(`Envoyer un SMS à ${emprunteur?.prenom || ""} ${emprunteur?.nom || ""} pour demander le retour de ${outil.ref} ?`)) return;
+                try {
+                  const empUser = findUserByUid(sortieEnCours.emprunteurId, users);
+                  if (!empUser || (!empUser.telephone && !empUser.tel)) {
+                    toast("❌ Pas de numéro de téléphone pour l'emprunteur");
+                    return;
+                  }
+                  const res = await smsOutillageDemandeRetour({
+                    smsTemplates,
+                    emprunteur: empUser,
+                    demandeur: user,
+                    refOutil: outil.ref,
+                    nomOutil: outil.nom,
+                    sortieId: sortieEnCours._id || sortieEnCours.id,
+                  });
+                  if (res?.queued) {
+                    toast(`✓ SMS demande de retour envoyé à ${empUser.prenom}`);
+                  } else {
+                    toast(`⚠️ SMS non envoyé : ${res?.reason || "raison inconnue"}`);
+                  }
+                } catch(e) {
+                  toast("❌ Erreur : " + e.message);
+                }
+              }} style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8,
+                background: `${EPJ.blue}12`, color: EPJ.blue,
+                border: `1px solid ${EPJ.blue}40`,
+                fontSize: 12, fontWeight: 700, cursor: "pointer",
+                fontFamily: font.body,
+              }}>📱 Demander le retour (SMS)</button>
+            )}
+
+            {/* Ancien bouton "Copier SMS" : conservé en backup mais discret */}
+            {isLate(sortieEnCours.dateRetourPrevue) && (
+              <button onClick={handleCopySms} style={{
+                width: "100%",
+                padding: "8px 12px", borderRadius: 8,
+                background: "transparent", color: EPJ.gray500,
+                border: `1px dashed ${EPJ.gray300}`,
+                fontSize: 11, fontWeight: 500, cursor: "pointer",
+                fontFamily: font.body,
+              }}>📋 Copier SMS rappel (ouvrir Messages manuellement)</button>
+            )}
+          </div>
         </div>
       )}
 

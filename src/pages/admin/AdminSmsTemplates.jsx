@@ -174,6 +174,23 @@ const DEFAULT_TEMPLATES = [
     variables: ["{prenom}", "{ref}", "{nom}", "{pannes}", "{signaleePar}", "{bloquante}"],
     actif: true,
   },
+  // ─── v10.K — Rappels & demandes manuelles outillage ───
+  {
+    id: "outillage_rappel_retour",
+    module: "parc-machines",
+    label: "Rappel retour outil (jour J automatique)",
+    body: "Bonjour {prenom}, rappel EPJ : l'outil {ref} ({nom}) devait être rendu aujourd'hui. Merci de le ramener à l'atelier ou de prolonger depuis l'app. — EPJ Electricité",
+    variables: ["{prenom}", "{ref}", "{nom}", "{dateRetour}"],
+    actif: true,
+  },
+  {
+    id: "outillage_demande_retour",
+    module: "parc-machines",
+    label: "Demande manuelle de retour outil",
+    body: "Bonjour {prenom}, {demandeurNom} te demande de ramener l'outil {ref} ({nom}) à l'atelier dès que possible. — EPJ Electricité",
+    variables: ["{prenom}", "{ref}", "{nom}", "{demandeurPrenom}", "{demandeurNom}"],
+    actif: true,
+  },
 ];
 
 export function AdminSmsTemplates({ onBack }) {

@@ -30,6 +30,7 @@ export function AdminUsers({ onBack, onEditRights }) {
       fonction: "",
       canSortirOutil: false,
       directAchat: false,
+      responsableParc: false, // v10.K
     });
     setEditing("new");
   };
@@ -46,6 +47,7 @@ export function AdminUsers({ onBack, onEditRights }) {
       fonction: u.fonction || "",
       canSortirOutil: u.canSortirOutil === true,
       directAchat: u.directAchat === true,
+      responsableParc: u.responsableParc === true, // v10.K
     });
     setEditing(u.id);
   };
@@ -97,6 +99,7 @@ export function AdminUsers({ onBack, onEditRights }) {
         permissionsOverride: existing?.permissionsOverride || {},
         directAchat: form.directAchat === true,
         canSortirOutil: form.canSortirOutil === true,
+        responsableParc: form.responsableParc === true, // v10.K
         // Signature utilisateur (pour quitus) — conservée si existe
         signatureUrl: existing?.signatureUrl || "",
         signaturePath: existing?.signaturePath || "",
@@ -258,6 +261,30 @@ export function AdminUsers({ onBack, onEditRights }) {
                 <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
                   Si coché, les commandes de cet utilisateur partent directement aux achats.
                   Sinon, elles passent par "En attente de validation". À réserver à la Direction.
+                </div>
+              </label>
+            </div>
+            {/* v10.K — Flag responsableParc : reçoit les alertes parc machines */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "8px 4px", marginTop: 4,
+              borderTop: `1px solid ${EPJ.gray200}`,
+            }}>
+              <input
+                type="checkbox"
+                id="responsableParc"
+                checked={form.responsableParc === true}
+                onChange={e => setForm(f => ({ ...f, responsableParc: e.target.checked }))}
+                style={{ width: 18, height: 18, cursor: "pointer", accentColor: EPJ.blue }}
+              />
+              <label htmlFor="responsableParc" style={{
+                fontSize: 13, color: EPJ.gray900, cursor: "pointer", flex: 1, lineHeight: 1.4,
+              }}>
+                <b>🛠 Responsable parc machines</b>
+                <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
+                  Reçoit les SMS d'alerte (panne signalée au retour d'un outil)
+                  et peut envoyer manuellement une demande de retour.
+                  Si non coché, ces alertes vont à la Direction par défaut.
                 </div>
               </label>
             </div>
