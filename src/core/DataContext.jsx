@@ -267,6 +267,9 @@ export function DataProvider({ children }) {
     // activé depuis Admin → Paramètres, les dates de livraison annoncées
     // par les fournisseurs sont affichées et la bannière retard les utilise.
     ocrArEnabled: config?.ocrArEnabled === true,
+    // v10.L — Intégration Esabora via Zapier
+    esaboraEnabled: config?.esaboraEnabled === true,
+    esaboraWebhookUrl: config?.esaboraWebhookUrl || "",
   };
 
   return (

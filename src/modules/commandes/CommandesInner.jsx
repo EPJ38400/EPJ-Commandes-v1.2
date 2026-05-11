@@ -2324,6 +2324,144 @@ export function CommandesInner({ onExitModule }) {
             </div>
           )}
 
+          {/* ─── v10.L — Intégration Esabora (Zapier) ─── */}
+          {/* Visible si esaboraEnabled === true ET statut = Envoyée aux achats / Commandée */}
+          {featureFlags.esaboraEnabled
+            && (o.statut === "Envoyée aux achats" || o.statut === "Commandée")
+            && (() => {
+            const st = o.esaboraStatus || "pending";
+            const isSynced = st === "synced";
+            const isPartial = st === "partial";
+            const isError = st === "error";
+            const isInProgress = st === "pending" && o.esaboraStartedAt
+              && (Date.now() - new Date(o.esaboraStartedAt).getTime() < 30000);
+            return (
+              <div className="epj-card" style={{
+                marginBottom:10,
+                borderLeft:`3px solid ${isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue}`,
+              }}>
+                <div style={{fontSize:12,fontWeight:700,
+                  color: isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue,
+                  marginBottom:8}}>
+                  🔗 SYNCHRONISATION ESABORA
+                </div>
+
+                {/* Statut */}
+                {isSynced && (
+                  <div style={{
+                    background:`${EPJ.green}12`,padding:'8px 10px',borderRadius:6,
+                    fontSize:11,color:'#1B5E20',marginBottom:8,lineHeight:1.5,
+                  }}>
+                    ✅ Synchronisée le {o.esaboraSyncedAt ? new Date(o.esaboraSyncedAt).toLocaleString('fr-FR') : ''}
+                    {o.esaboraSyncedBy ? ` par ${o.esaboraSyncedBy}` : ''}
+                    {Array.isArray(o.esaboraResults) && (
+                      <div style={{marginTop:4,fontSize:10}}>
+                        {o.esaboraResults.length} fournisseur(s) :
+                        {o.esaboraResults.map(r => ` ${r.codeEsabora}✓`).join(",")}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isPartial && (
+                  <div style={{
+                    background:`${EPJ.orange}12`,padding:'8px 10px',borderRadius:6,
+                    fontSize:11,color:EPJ.orange,marginBottom:8,lineHeight:1.5,
+                  }}>
+                    ⚠️ Synchronisation partielle — certains fournisseurs ont échoué.
+                    {Array.isArray(o.esaboraResults) && o.esaboraResults
+                      .filter(r => !r.ok)
+                      .map((r,i) => (
+                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                          • {r.codeEsabora} : {r.error || 'erreur inconnue'}
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {isError && (
+                  <div style={{
+                    background:`${EPJ.red}12`,padding:'8px 10px',borderRadius:6,
+                    fontSize:11,color:EPJ.red,marginBottom:8,lineHeight:1.5,
+                  }}>
+                    ❌ Échec de synchronisation
+                    {Array.isArray(o.esaboraResults) && o.esaboraResults
+                      .filter(r => !r.ok)
+                      .map((r,i) => (
+                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                          • {r.codeEsabora} : {r.error || 'erreur'}
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {!isSynced && !isPartial && !isError && (
+                  <div style={{fontSize:11,color:EPJ.gray,marginBottom:8,lineHeight:1.4}}>
+                    Cette commande peut être envoyée dans Esabora.
+                    L'app va générer un fichier Excel par fournisseur (basé sur
+                    le code Esabora de chaque article) et le pousser via Zapier.
+                  </div>
+                )}
+
+                {/* Bouton envoi / resync */}
+                <button
+                  disabled={isInProgress || !featureFlags.esaboraWebhookUrl}
+                  onClick={async () => {
+                    if (!featureFlags.esaboraWebhookUrl) {
+                      showT("❌ URL Zapier non configurée — voir Admin → Paramètres");
+                      return;
+                    }
+                    const cmd = isSynced
+                      ? `Re-synchroniser ${o.num} avec Esabora ? (ça créera de nouveaux drafts)`
+                      : `Envoyer ${o.num} dans Esabora ?`;
+                    if (!confirm(cmd)) return;
+                    try {
+                      const { sendOrderToEsabora } = await import("./esaboraUtils");
+                      const chObj = dynChantiers.find(c => c.nom === o.chantier);
+                      showT("🚀 Envoi en cours…");
+                      const res = await sendOrderToEsabora({
+                        order: o,
+                        catalog: dynCatalog,
+                        chantier: chObj || null,
+                        user,
+                        webhookUrl: featureFlags.esaboraWebhookUrl,
+                      });
+                      if (res.ok) {
+                        const ignored = res.ignored?.length || 0;
+                        showT(`✅ ${res.results.length} fournisseur(s) envoyé(s)${ignored ? ` — ${ignored} article(s) sans code ignoré(s)` : ''}`);
+                      } else {
+                        showT(`❌ ${res.error || 'Échec partiel ou complet'}`);
+                      }
+                      // Rafraîchit la vue (le doc Firestore a été update par sendOrderToEsabora)
+                      setSelectedOrder(prev => prev ? { ...prev } : prev);
+                    } catch (err) {
+                      console.error("[esabora] erreur:", err);
+                      showT("❌ Erreur : " + (err.message || err));
+                    }
+                  }}
+                  style={{
+                    width:'100%',
+                    background: isSynced
+                      ? `${EPJ.gray500}20`
+                      : isError || isPartial
+                        ? `linear-gradient(135deg,${EPJ.orange},${EPJ.red})`
+                        : `linear-gradient(135deg,${EPJ.blue},#0077B6)`,
+                    color: isSynced ? EPJ.gray900 : '#fff',
+                    padding:'12px',fontSize:14,fontWeight:700,
+                    border: isSynced ? `1px solid ${EPJ.gray300}` : 'none',
+                    cursor: isInProgress ? 'wait' : 'pointer',
+                    opacity: isInProgress ? 0.6 : 1,
+                  }}
+                >
+                  {isInProgress ? "⏳ Envoi en cours…" :
+                   isSynced ? "🔄 Re-synchroniser" :
+                   isError || isPartial ? "🔄 Réessayer" :
+                   "🚀 Envoyer dans Esabora"}
+                </button>
+              </div>
+            );
+          })()}
+
           {/* ─── v10.J — Réception type chantier ─── */}
           {/* Affiché si type='chantier', statut Commandée OU Envoyée aux achats,
               et pas encore réceptionnée. Mode hybride : "Tout reçu" + option détailler. */}

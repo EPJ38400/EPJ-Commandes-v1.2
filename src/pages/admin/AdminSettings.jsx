@@ -20,7 +20,11 @@ export function AdminSettings({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     ocrArEnabled: false,
+    esaboraEnabled: false,         // v10.L
+    esaboraWebhookUrl: "",         // v10.L
   });
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -122,7 +126,129 @@ export function AdminSettings({ onBack }) {
         </div>
       </div>
 
-      {/* Espace pour futurs flags (Esabora, push, etc.) */}
+      {/* ─── v10.L — Bloc Intégration Esabora (Zapier) ─── */}
+      <div className="epj-card" style={{ padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: `${EPJ.blue}1A`, color: EPJ.blue,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, flexShrink: 0,
+          }}>🔗</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 15, color: EPJ.gray900 }}>
+              Synchronisation Esabora (via Zapier)
+            </div>
+            <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 4, lineHeight: 1.5 }}>
+              Quand activé, un bouton « 🚀 Envoyer dans Esabora » apparaît dans
+              le détail de chaque commande au statut « Envoyée aux achats ».
+              L'app génère un fichier Excel par fournisseur (basé sur le code
+              Esabora de chaque article) et le POSTe directement au webhook
+              Zapier configuré ci-dessous.
+              <br/><br/>
+              Côté Zapier : 1 Zap = « Webhooks by Zapier — Catch Hook » →
+              « Esabora — Create Order ». Copie l'URL du Catch Hook ici.
+            </div>
+          </div>
+        </div>
+
+        {/* Toggle activé */}
+        <div style={{
+          marginTop: 14, display: "flex", alignItems: "center",
+          justifyContent: "space-between", padding: "10px 12px",
+          background: settings.esaboraEnabled ? `${EPJ.green}10` : `${EPJ.gray500}10`,
+          borderRadius: 10, border: `1px solid ${settings.esaboraEnabled ? EPJ.green : EPJ.gray300}`,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: EPJ.gray900 }}>
+            {settings.esaboraEnabled ? "✅ Synchronisation activée" : "⚪️ Synchronisation désactivée"}
+          </div>
+          <ToggleSwitch
+            checked={settings.esaboraEnabled}
+            disabled={saving}
+            onChange={(v) => save({ esaboraEnabled: v })}
+          />
+        </div>
+
+        {/* URL Webhook */}
+        <div style={{ marginTop: 14 }}>
+          <label style={{
+            display: "block", fontSize: 11, fontWeight: 700,
+            color: EPJ.gray500, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4,
+          }}>URL Webhook Zapier (Catch Hook)</label>
+          <input
+            type="text"
+            placeholder="https://hooks.zapier.com/hooks/catch/123456/abcdef/"
+            value={settings.esaboraWebhookUrl}
+            onChange={(e) => setSettings(s => ({ ...s, esaboraWebhookUrl: e.target.value }))}
+            onBlur={(e) => save({ esaboraWebhookUrl: e.target.value.trim() })}
+            style={{
+              width: "100%", padding: "10px 12px", fontSize: 13,
+              border: `1px solid ${EPJ.gray300}`, borderRadius: 8,
+              fontFamily: font.body, color: EPJ.gray900, boxSizing: "border-box",
+            }}
+          />
+          <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 4 }}>
+            Récupère cette URL dans Zapier → Edit Zap → Trigger « Catch Hook » →
+            « Your Webhook URL ».
+          </div>
+        </div>
+
+        {/* Bouton test */}
+        <button
+          disabled={testing || !settings.esaboraWebhookUrl}
+          onClick={async () => {
+            setTesting(true);
+            setTestResult(null);
+            try {
+              const fd = new FormData();
+              const testBlob = new Blob(
+                ["Test EPJ\nCeci est un test de connectivite vers Zapier."],
+                { type: "text/plain" }
+              );
+              fd.append("file", testBlob, "EPJ_test.txt");
+              fd.append("test", "true");
+              fd.append("source", "EPJ App Admin");
+              const res = await fetch(settings.esaboraWebhookUrl, {
+                method: "POST",
+                body: fd,
+              });
+              setTestResult({
+                ok: res.ok,
+                status: res.status,
+                text: res.ok
+                  ? "✓ Zapier a reçu le test (HTTP 200). Vérifie dans Zapier → Run History."
+                  : `✗ Zapier a renvoyé HTTP ${res.status}`,
+              });
+            } catch (e) {
+              setTestResult({ ok: false, text: "✗ Erreur réseau : " + (e.message || e) });
+            }
+            setTesting(false);
+          }}
+          style={{
+            marginTop: 14,
+            width: "100%", padding: "10px 12px", borderRadius: 8,
+            background: testing ? `${EPJ.gray300}` : `${EPJ.blue}12`,
+            color: EPJ.blue, border: `1px solid ${EPJ.blue}40`,
+            fontSize: 13, fontWeight: 700,
+            cursor: (testing || !settings.esaboraWebhookUrl) ? "not-allowed" : "pointer",
+            opacity: (testing || !settings.esaboraWebhookUrl) ? 0.6 : 1,
+            fontFamily: font.body,
+          }}
+        >🧪 {testing ? "Test en cours…" : "Tester l'URL Zapier"}</button>
+
+        {testResult && (
+          <div style={{
+            marginTop: 10, padding: "8px 12px", borderRadius: 6,
+            background: testResult.ok ? `${EPJ.green}12` : `${EPJ.red}12`,
+            color: testResult.ok ? EPJ.green : EPJ.red,
+            fontSize: 12, lineHeight: 1.4,
+          }}>
+            {testResult.text}
+          </div>
+        )}
+      </div>
+
+      {/* Espace pour futurs flags (push, etc.) */}
       <div style={{
         marginTop: 24, padding: 14, borderRadius: 10,
         background: `${EPJ.blue}08`, border: `1px dashed ${EPJ.gray300}`,

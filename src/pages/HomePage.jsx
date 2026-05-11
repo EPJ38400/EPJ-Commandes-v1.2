@@ -178,6 +178,18 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
       isMyCommande(cmd) && isOrderLate(cmd, { featureFlags })
     );
 
+    // v10.L — Commandes À ENVOYER DANS ESABORA
+    // Affiché uniquement si esaboraEnabled === true
+    // Compte les commandes "Envoyée aux achats" pas encore syncées (esaboraStatus !== "synced")
+    const commandesAEsabora = featureFlags.esaboraEnabled
+      ? safeCommandes.filter(cmd =>
+          (cmd.statut === "Envoyée aux achats" || cmd.statut === "Commandée")
+          && cmd.esaboraStatus !== "synced"
+          && cmd.esaboraStatus !== "partial"
+          && isMyCommande(cmd)
+        )
+      : [];
+
     return {
       "parc-machines": computeParcNotifications(outillageSorties),
       "avancement": computeAvancementNotifications({
@@ -200,6 +212,9 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
         : null,
       "commandesEnRetard": commandesEnRetard.length > 0
         ? { count: commandesEnRetard.length }
+        : null,
+      "commandesAEsabora": commandesAEsabora.length > 0
+        ? { count: commandesAEsabora.length }
         : null,
     };
   }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig, featureFlags]);
@@ -329,6 +344,33 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
             </div>
           </div>
           <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
+        </div>
+      )}
+
+      {/* v10.L — Bannière COMMANDES À ENVOYER DANS ESABORA */}
+      {(notifications.commandesAEsabora?.count || 0) > 0 && (
+        <div
+          onClick={() => onOpenModule("commandes")}
+          style={{
+            marginBottom: 10, padding: "12px 14px",
+            background: `${EPJ.blue}10`,
+            border: `1px solid ${EPJ.blue}40`,
+            borderLeft: `3px solid ${EPJ.blue}`,
+            borderRadius: 10,
+            cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 22 }}>🔗</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
+              {notifications.commandesAEsabora.count} commande{notifications.commandesAEsabora.count > 1 ? "s" : ""} à envoyer dans Esabora
+            </div>
+            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
+              Pas encore synchronisée avec l'ERP.
+            </div>
+          </div>
+          <span style={{ color: EPJ.blue, fontSize: 18, fontWeight: 700 }}>→</span>
         </div>
       )}
 
