@@ -99,8 +99,13 @@ export function groupItemsByEsaboraCode(items, catalog) {
  */
 export function buildEsaboraExcel(group, order, chantier, opts) {
   // v10.L.1 — TVA par défaut sur l'entête (Esabora a besoin de cette info
-  // pour calculer les montants). Les colonnes TVA des lignes d'articles
-  // restent vides : Esabora applique automatiquement la TVA d'entête.
+  // pour calculer les montants globaux).
+  // v10.L.2 — La TVA est aussi injectée sur CHAQUE ligne d'article
+  // (colonne F de la feuille "CONTENU DU DOCUMENT"). Esabora exige cette
+  // valeur par ligne pour calculer les sous-totaux. La TVA est codée en
+  // dur depuis l'app : on ne stocke pas de TVA par article dans le
+  // catalogue (rester simple). Le taux global est modifiable depuis
+  // Admin → Paramètres → 🔗 Synchronisation Esabora.
   const tvaDefault = (opts && opts.tvaDefault != null) ? opts.tvaDefault : 20;
   // ── Feuille 1 : INFORMATIONS GÉNÉRALES ──
   const headerGen = [
@@ -182,7 +187,7 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
     Number(it.qty || it.qte || 0),
     "",                          // Prix unitaire (vide à l'import)
     order.dateReception || "",
-    "",                          // TVA
+    tvaDefault,                  // v10.L.2 — TVA injectée sur CHAQUE ligne (Esabora exige)
     "", "",                      // Ventilations
     it.u || it.unite || "Pièce",
   ]);
