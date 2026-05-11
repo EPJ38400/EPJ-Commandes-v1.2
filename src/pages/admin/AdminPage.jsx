@@ -17,6 +17,7 @@ import { AdminReserves } from "./AdminReserves";
 import { AdminChantiersReception } from "./AdminChantiersReception";
 import { AdminCompany } from "./AdminCompany";
 import { AdminUserSignatures } from "./AdminUserSignatures";
+import { AdminSettings } from "./AdminSettings"; // v10.J
 
 export function AdminPage({ onExit }) {
   const [section, setSection] = useState(null);
@@ -50,6 +51,7 @@ export function AdminPage({ onExit }) {
   if (section === "chantiers-reception") return <AdminChantiersReception onBack={() => setSection(null)}/>;
   if (section === "company") return <AdminCompany onBack={() => setSection(null)}/>;
   if (section === "signatures") return <AdminUserSignatures onBack={() => setSection(null)}/>;
+  if (section === "settings") return <AdminSettings onBack={() => setSection(null)}/>; // v10.J
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 24 }}>
@@ -115,6 +117,11 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="📱" accent={EPJ.green} title="Modèles SMS"
         subtitle="Textes de rappels/relances pour tous les modules"
         onClick={() => setSection("sms")}/>
+
+      <GroupTitle>Paramètres généraux</GroupTitle>
+      <AdminSection icon="⚙️" accent="#455A64" title="Paramètres & intégrations"
+        subtitle="Activer/désactiver les briques en place (Make, OCR, Esabora…)"
+        onClick={() => setSection("settings")}/>
     </div>
   );
 }

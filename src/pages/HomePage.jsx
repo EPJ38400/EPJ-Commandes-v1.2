@@ -12,6 +12,8 @@ import {
   computeParcNotifications, computeAvancementNotifications,
   isRappelAvancementActif, currentMonthLabel,
 } from "../core/notificationsUtils";
+// v10.J — bannière "commandes en retard" basée sur la date pertinente
+import { isOrderLate } from "../modules/commandes/orderDates";
 
 // 5 modules métier
 const MODULES_META = [
@@ -68,7 +70,7 @@ const DASHBOARD_TILE = {
 
 export function HomePage({ onOpenModule, onOpenDashboard }) {
   const { user } = useAuth();
-  const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes } = useData();
+  const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes, featureFlags = {} } = useData();
   if (!user) return null;
 
   const visibleModules = MODULES_META.filter(m => {
@@ -166,13 +168,15 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
       cmd.statut === "Validée" && isMyCommande(cmd)
     );
 
-    // Commandes EN RETARD de réception
-    const commandesEnRetard = safeCommandes.filter(cmd => {
-      if (!["Envoyée aux achats", "Commandée"].includes(cmd.statut)) return false;
-      if (!cmd.dateReception) return false;
-      const d = new Date(cmd.dateReception);
-      return !isNaN(d.getTime()) && d.getTime() < now.getTime() && isMyCommande(cmd);
-    });
+    // v10.J — Commandes EN RETARD de réception
+    // On utilise isOrderLate centralisé :
+    //   - exclut En attente / Validée / Refusée / Réceptionnée
+    //   - exclut les commandes déjà signées (signatureData posée)
+    //   - utilise la date AR fournisseur si OCR activé + datelivraison présente,
+    //     sinon retombe sur la date de réception souhaitée
+    const commandesEnRetard = safeCommandes.filter(cmd =>
+      isMyCommande(cmd) && isOrderLate(cmd, { featureFlags })
+    );
 
     return {
       "parc-machines": computeParcNotifications(outillageSorties),
@@ -198,7 +202,7 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
         ? { count: commandesEnRetard.length }
         : null,
     };
-  }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig]);
+  }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig, featureFlags]);
 
   const showRappelAvancement = isRappelAvancementActif()
     && (notifications.avancement?.count || 0) > 0;

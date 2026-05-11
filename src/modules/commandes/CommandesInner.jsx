@@ -21,6 +21,11 @@ import {
   deleteSentSmsQueueDocs,
 } from "../../core/smsService";
 import { can } from "../../core/permissions";
+// v10.J — helpers réception (chantier) + dates (souhaitée/fournisseur)
+import {
+  buildReceptionPayload, computeReliquatItems, validateReceivedQuantities, normalizeQty,
+} from "./orderReceive";
+import { getExpectedDeliveryDate, formatDateFR } from "./orderDates";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -59,7 +64,7 @@ const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
 const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
 const font = "'Inter','Segoe UI',-apple-system,sans-serif";
-const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"}};
+const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"}};
 
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
@@ -137,7 +142,8 @@ export function CommandesInner({ onExitModule }) {
   const { user } = useAuth();
   // v10.H — smsTemplates pour SMS conducteur
   // v10.I — rolesConfig pour gardes UI propres via can()
-  const { smsTemplates = [], rolesConfig = {} } = useData();
+  // v10.J — featureFlags.ocrArEnabled pour affichage date fournisseur (AR/BL)
+  const { smsTemplates = [], rolesConfig = {}, featureFlags = {} } = useData();
   // Le Socle ne monte ce composant que si l'utilisateur est connecté.
 
   // ─── v10.E — B2/B3 : Persistance du brouillon de commande ───
@@ -205,6 +211,12 @@ export function CommandesInner({ onExitModule }) {
   // Le booléen editingOrder.editMode === 'rework' indique le mode v10.G.2.
   const [editingOrder, setEditingOrder] = useState(null);
   const [editingItems, setEditingItems] = useState([]);
+
+  // ─── v10.J — Réception inline pour commande type "chantier" ───
+  // L'utilisateur clique "Réceptionner" dans le détail → état rec:{ orderId, mode, qties }
+  // mode = "choice" | "detail"
+  // qties = map { [itemIndex]: qty } pour le mode détail
+  const [reception, setReception] = useState({ orderId: null, mode: "choice", qties: {} });
 
   // ─── DONNÉES DYNAMIQUES (chargées depuis Firestore ou fallback) ───
   // ─── DONNÉES DYNAMIQUES (chargées depuis Firestore) ───
@@ -792,8 +804,9 @@ export function CommandesInner({ onExitModule }) {
 
   const canEditOrder = (o) => {
     if (!o || !user) return false;
-    // Statut bloquant
+    // Statut bloquant (v10.J — ajout "Réceptionnée partiellement")
     if (o.statut === "Commandée" || o.statut === "Réceptionnée"
+        || o.statut === "Réceptionnée partiellement"
         || o.statut === "Refusée") return false;
     // Demandeur lui-même OU Admin/Direction
     const isOwner = o.user === `${user.prenom} ${user.nom}`.trim();
@@ -806,12 +819,14 @@ export function CommandesInner({ onExitModule }) {
   // ─── v10.I — Fix 1 : peut supprimer cette commande ? ───
   // Combine la permission générique can() avec la règle métier :
   // suppression bloquée une fois "Commandée" / "Réceptionnée" / "Refusée"
-  // (mais autorisée sur "En attente de validation", "Validée", "Envoyée aux achats").
+  // v10.J — extension : "Réceptionnée partiellement" est aussi un statut final.
+  // (Suppression autorisée sur "En attente de validation", "Validée", "Envoyée aux achats".)
   // can() renvoie le scope ("all" | "own_chantiers" | "own_items" | false).
   const canDeleteThisOrder = (o) => {
     if (!o || !user) return false;
     // Règle métier : bloque sur statuts finaux
     if (o.statut === "Commandée" || o.statut === "Réceptionnée"
+        || o.statut === "Réceptionnée partiellement"
         || o.statut === "Refusée") return false;
     const scope = can(user, "commandes", "delete", rolesConfig);
     if (!scope) return false;
@@ -1088,6 +1103,100 @@ export function CommandesInner({ onExitModule }) {
     } catch(err) {
       console.error("Erreur marquage commandée:", err);
       showT("❌ Erreur — réessayez");
+    }
+  };
+
+  // ─── v10.J — Réception d'une commande type "chantier" ───
+  // Deux modes :
+  //   - quick = true  → "Tout reçu" : un clic, statut "Réceptionnée"
+  //   - quick = false → article par article via receivedByIndex { idx: qty }
+  // En cas de quantités < commandées, on génère un reliquat automatique :
+  // une nouvelle commande Firestore avec les lignes manquantes, statut
+  // "Envoyée aux achats" (le besoin est déjà acté → pas besoin de re-validation),
+  // et un lien parentOrderId vers la commande mère.
+  // SMS commande_recue envoyé au demandeur initial (non bloquant).
+  const performReceptionChantier = async (order, { quick, receivedByIndex }) => {
+    if (!order || !order._id) return false;
+    try {
+      const todayFR = new Date().toLocaleDateString('fr-FR');
+      const payload = buildReceptionPayload(order, receivedByIndex, {
+        user,
+        todayISO: todayFR,
+        detailMode: !quick,
+      });
+      if (!payload.statut) {
+        showT("ℹ️ Aucune quantité reçue saisie");
+        return false;
+      }
+      await updateDoc(doc(db, "commandes", order._id), payload);
+
+      // Reliquat : créer une nouvelle commande Firestore avec les lignes manquantes
+      let reliquatNum = "";
+      if (payload.reliquatItems && payload.reliquatItems.length > 0) {
+        try {
+          // Génère un nouveau numéro de commande (suite des CMD-2026-XXXX existants)
+          const year = new Date().getFullYear();
+          const existing = history
+            .map(h => h.num || "")
+            .filter(n => n.startsWith(`CMD-${year}-`))
+            .map(n => parseInt(n.split("-")[2], 10))
+            .filter(n => !isNaN(n));
+          const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
+          reliquatNum = `CMD-${year}-${String(nextNum).padStart(4, "0")}`;
+          const reliquatPayload = {
+            num: reliquatNum,
+            date: todayFR,
+            statut: "Envoyée aux achats",
+            type: order.type || "chantier",
+            chantier: order.chantier || "",
+            numAffaire: order.numAffaire || order.chantierNum || "",
+            chantierNum: order.chantierNum || order.numAffaire || "",
+            user: order.user || "",
+            userId: order.userId || "",
+            livraison: order.livraison || "",
+            dateReception: order.dateReception || "",
+            urgent: !!order.urgent,
+            remarques: `Reliquat automatique de ${order.num}${order.remarques ? " — "+order.remarques : ""}`,
+            items: payload.reliquatItems,
+            parentOrderId: order._id,
+            parentOrderNum: order.num,
+            createdByReliquat: true,
+            dateEnvoiAchats: new Date().toISOString(),
+          };
+          const ref = await addDoc(collection(db, "commandes"), reliquatPayload);
+          console.log(`[v10.J] Reliquat créé : ${reliquatNum} (id=${ref.id})`);
+        } catch (relErr) {
+          console.warn("[v10.J] Échec création reliquat (réception OK quand même):", relErr);
+          showT("⚠️ Reliquat non créé, à recréer manuellement");
+        }
+      }
+
+      // SMS au demandeur initial : "ta commande a été réceptionnée"
+      try {
+        const demandeur = findUserByUid(order.userId, dynUsers);
+        if (demandeur) {
+          await smsCommandeRecue({
+            smsTemplates,
+            demandeur,
+            numCmd: order.num,
+            chantier: order.chantier || "",
+            orderId: order._id,
+          });
+        }
+      } catch (smsErr) {
+        console.warn("[v10.J] SMS réception non bloquant:", smsErr);
+      }
+
+      if (payload.statut === "Réceptionnée") {
+        showT(`✅ Commande ${order.num} réceptionnée`);
+      } else {
+        showT(`✅ Réception partielle — reliquat ${reliquatNum || "à recréer"}`);
+      }
+      return true;
+    } catch (e) {
+      console.error("[v10.J] Échec réception:", e);
+      showT("❌ Erreur — réessayez");
+      return false;
     }
   };
 
@@ -2126,7 +2235,18 @@ export function CommandesInner({ onExitModule }) {
               {o.chantier&&<><strong>Chantier :</strong> [{o.numAffaire}] {o.chantier}<br/></>}
               {o.type==='equipement'&&<><strong>Destinataire :</strong> {o.salarie}<br/></>}
               {o.livraison&&<><strong>Livraison :</strong> {o.livraison}<br/></>}
-              <strong>Réception :</strong> {o.dateReception||'Non précisée'}<br/>
+              {/* v10.J — Date réception : souhaitée + fournisseur (si OCR activé) côte à côte */}
+              <strong>Réception souhaitée :</strong> {o.dateReception||'Non précisée'}<br/>
+              {featureFlags.ocrArEnabled && o.datelivraison && (() => {
+                const { date: dFournisseur } = getExpectedDeliveryDate(o, { featureFlags });
+                return dFournisseur ? (
+                  <span style={{background:'#E3F2FD',padding:'2px 6px',borderRadius:4,fontSize:12}}>
+                    <strong style={{color:'#1565C0'}}>📨 Livraison annoncée fournisseur :</strong> {formatDateFR(dFournisseur)}
+                    {o.fournisseur ? <span style={{color:'#1565C0'}}> ({o.fournisseur})</span> : null}
+                  </span>
+                ) : null;
+              })()}
+              {featureFlags.ocrArEnabled && o.datelivraison && <br/>}
               {o.remarques&&<><strong>Remarques :</strong> {o.remarques}<br/></>}
               {o.validePar&&<><strong>Validée par :</strong> {o.validePar}<br/></>}
               {o.dateEnvoiAchats&&<><strong>Envoyée le :</strong> {new Date(o.dateEnvoiAchats).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}<br/></>}
@@ -2201,6 +2321,160 @@ export function CommandesInner({ onExitModule }) {
                   color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
                 }}
               >🛒 Marquer comme commandée</button>
+            </div>
+          )}
+
+          {/* ─── v10.J — Réception type chantier ─── */}
+          {/* Affiché si type='chantier', statut Commandée OU Envoyée aux achats,
+              et pas encore réceptionnée. Mode hybride : "Tout reçu" + option détailler. */}
+          {o.type === "chantier"
+            && (o.statut === "Commandée" || o.statut === "Envoyée aux achats")
+            && (() => {
+            const isOpen = reception.orderId === o._id;
+            const detailMode = isOpen && reception.mode === "detail";
+            const items = o.items || [];
+            const validation = detailMode
+              ? validateReceivedQuantities(items, reception.qties)
+              : { valid: true, errors: [] };
+            return (
+              <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.green}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#2E7D32',marginBottom:8}}>
+                  📦 RÉCEPTIONNER LA COMMANDE
+                </div>
+
+                {!isOpen && (
+                  <>
+                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                      Marque cette commande comme reçue sur le chantier.
+                      Si une partie manque, choisis « Détailler article par article » :
+                      un reliquat sera créé automatiquement pour les manquants.
+                    </div>
+                    <button
+                      className="epj-btn"
+                      onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
+                      style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'14px',fontSize:14,fontWeight:700}}
+                    >📦 Réceptionner cette commande</button>
+                  </>
+                )}
+
+                {isOpen && reception.mode === "choice" && (
+                  <>
+                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                      Choisis le mode de réception :
+                    </div>
+                    <button
+                      className="epj-btn"
+                      onClick={async () => {
+                        if (!confirm(`Confirmer que la commande ${o.num} a été entièrement reçue ?`)) return;
+                        const ok = await performReceptionChantier(o, { quick: true });
+                        if (ok) {
+                          setReception({ orderId: null, mode: "choice", qties: {} });
+                          setSelectedOrder({...o, statut: "Réceptionnée", dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
+                        }
+                      }}
+                      style={{width:'100%',background:EPJ.green,color:'#fff',padding:'14px',fontSize:14,fontWeight:700,marginBottom:8}}
+                    >✅ Tout réceptionné</button>
+                    <button
+                      onClick={() => {
+                        // Pré-remplit chaque ligne avec la quantité commandée
+                        const initQties = {};
+                        items.forEach((it, idx) => { initQties[idx] = normalizeQty(it.qty || it.qte); });
+                        setReception({ orderId: o._id, mode: "detail", qties: initQties });
+                      }}
+                      style={{width:'100%',background:'#fff',color:EPJ.green,border:`2px solid ${EPJ.green}`,padding:'12px',fontSize:13,fontWeight:600,borderRadius:8,cursor:'pointer',fontFamily:font}}
+                    >📝 Détailler article par article</button>
+                    <button
+                      onClick={() => setReception({ orderId: null, mode: "choice", qties: {} })}
+                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
+                    >Annuler</button>
+                  </>
+                )}
+
+                {isOpen && reception.mode === "detail" && (
+                  <>
+                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                      Saisis pour chaque article la quantité <b>réellement reçue</b>.
+                      Les manquants seront mis en reliquat.
+                    </div>
+                    <div style={{maxHeight:280,overflowY:'auto',background:'#fafafa',borderRadius:8,padding:8,marginBottom:10}}>
+                      {items.map((it, idx) => {
+                        const ordered = normalizeQty(it.qty || it.qte);
+                        const received = normalizeQty(reception.qties[idx]);
+                        return (
+                          <div key={idx} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,paddingBottom:6,borderBottom:'1px solid #eee'}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                                {it.r || it.ref || ""}
+                              </div>
+                              <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                                {it.n || it.designation || ""}
+                              </div>
+                              <div style={{fontSize:10,color:EPJ.gray}}>
+                                Commandé : <b>{ordered}</b> {it.u || "Pièce"}
+                              </div>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              max={ordered}
+                              value={received}
+                              onChange={e => {
+                                const v = normalizeQty(e.target.value);
+                                setReception(r => ({ ...r, qties: { ...r.qties, [idx]: v }}));
+                              }}
+                              style={{
+                                width:60,padding:'6px',fontSize:14,fontWeight:700,
+                                border:`2px solid ${received === ordered ? EPJ.green : received === 0 ? EPJ.red : EPJ.orange}`,
+                                borderRadius:6,textAlign:'center',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!validation.valid && (
+                      <div style={{background:'#FFEBEE',color:'#C62828',padding:8,borderRadius:6,fontSize:11,marginBottom:8}}>
+                        {validation.errors.map((err, i) => <div key={i}>⚠️ {err}</div>)}
+                      </div>
+                    )}
+                    <button
+                      className="epj-btn"
+                      disabled={!validation.valid}
+                      onClick={async () => {
+                        if (!validation.valid) return;
+                        const ok = await performReceptionChantier(o, { quick: false, receivedByIndex: reception.qties });
+                        if (ok) {
+                          setReception({ orderId: null, mode: "choice", qties: {} });
+                          // Refresh la vue sélectionnée avec le nouveau statut
+                          const newStatut = computeReliquatItems(items, reception.qties).length > 0
+                            ? "Réceptionnée partiellement" : "Réceptionnée";
+                          setSelectedOrder({...o, statut: newStatut, dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
+                        }
+                      }}
+                      style={{width:'100%',background:validation.valid?EPJ.green:'#ccc',color:'#fff',padding:'14px',fontSize:14,fontWeight:700,cursor:validation.valid?'pointer':'not-allowed'}}
+                    >✅ Valider la réception détaillée</button>
+                    <button
+                      onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
+                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
+                    >← Retour</button>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Affichage statut réceptionnée pour chantier (sans bouton) */}
+          {o.type === "chantier"
+            && (o.statut === "Réceptionnée" || o.statut === "Réceptionnée partiellement")
+            && (
+            <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',marginBottom:10,display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+              <span style={{fontSize:24}}>{o.statut === "Réceptionnée" ? "✅" : "📦"}</span>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>{o.statut}</div>
+                <div style={{fontSize:11,color:'#388E3C'}}>
+                  Le {o.dateReceptionEffective||o.date}{o.receptionParNom ? ` par ${o.receptionParNom}` : ''}
+                </div>
+              </div>
             </div>
           )}
 

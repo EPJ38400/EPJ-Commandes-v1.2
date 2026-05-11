@@ -258,6 +258,17 @@ export function DataProvider({ children }) {
     && loaded.avancementValidations
     && loaded.reserves && loaded.reservesCategories && loaded.reservesEmetteurs;
 
+  // v10.J — Feature flags extraits de config/settings (avec valeurs par défaut sûres)
+  // Chaque flag est consommé via useData().featureFlags.<nom>. Ajouter ici tout
+  // nouveau flag pour qu'il soit accessible partout dans l'app sans bricoler.
+  const featureFlags = {
+    // OCR Make/OpenAI pour AR/BL fournisseur : par défaut DÉSACTIVÉ tant
+    // que le scénario Make n'est pas en place chez Pierre-Julien. Une fois
+    // activé depuis Admin → Paramètres, les dates de livraison annoncées
+    // par les fournisseurs sont affichées et la bannière retard les utilise.
+    ocrArEnabled: config?.ocrArEnabled === true,
+  };
+
   return (
     <DataContext.Provider value={{
       users, chantiers, config, company, rolesConfig, tasksConfig,
@@ -265,6 +276,7 @@ export function DataProvider({ children }) {
       avancementValidations,
       reserves, reservesCategories, reservesEmetteurs,
       commandes,
+      featureFlags, // v10.J
       loaded, allLoaded,
     }}>
       {children}
