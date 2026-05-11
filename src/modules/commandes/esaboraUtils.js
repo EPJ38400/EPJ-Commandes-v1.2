@@ -98,14 +98,17 @@ export function groupItemsByEsaboraCode(items, catalog) {
  * @returns {Blob} - le fichier .xlsx prêt à envoyer
  */
 export function buildEsaboraExcel(group, order, chantier, opts) {
-  // v10.L.1 — TVA par défaut sur l'entête (Esabora a besoin de cette info
-  // pour calculer les montants globaux).
-  // v10.L.2 — La TVA est aussi injectée sur CHAQUE ligne d'article
-  // (colonne F de la feuille "CONTENU DU DOCUMENT"). Esabora exige cette
-  // valeur par ligne pour calculer les sous-totaux. La TVA est codée en
-  // dur depuis l'app : on ne stocke pas de TVA par article dans le
-  // catalogue (rester simple). Le taux global est modifiable depuis
-  // Admin → Paramètres → 🔗 Synchronisation Esabora.
+  // v10.L.1 — TVA d'entête : le pourcentage (ex: 20) va dans la colonne G
+  //           (TVA 1) de "INFORMATIONS GÉNÉRALES". Modifiable depuis
+  //           Admin → Paramètres → 🔗 Synchronisation Esabora.
+  // v10.L.3 — TVA des lignes d'articles : Esabora attend un INDEX entre
+  //           0 et 4 dans la colonne F des articles. Cet index pointe
+  //           vers une des 4 colonnes TVA de l'entête (TVA 1 / 2 / 3 / 4).
+  //           On envoie "1" partout → toutes les lignes utilisent la
+  //           TVA 1 de l'entête (= tvaDefault).
+  //           Si plus tard tu veux multi-taux par article, il faudra
+  //           remplir TVA 1, TVA 2, TVA 3, TVA 4 dans l'entête et faire
+  //           pointer chaque ligne sur le bon index.
   const tvaDefault = (opts && opts.tvaDefault != null) ? opts.tvaDefault : 20;
   // ── Feuille 1 : INFORMATIONS GÉNÉRALES ──
   const headerGen = [
@@ -187,7 +190,10 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
     Number(it.qty || it.qte || 0),
     "",                          // Prix unitaire (vide à l'import)
     order.dateReception || "",
-    tvaDefault,                  // v10.L.2 — TVA injectée sur CHAQUE ligne (Esabora exige)
+    1,                           // v10.L.3 — INDEX TVA (1 = pointe vers TVA 1 de l'entête)
+                                 //          Esabora exige une valeur entre 0 et 4, PAS le pourcentage.
+                                 //          Le pourcentage réel est défini dans la colonne G de l'entête
+                                 //          (TVA 1 = tvaDefault, soit 20 % par défaut).
     "", "",                      // Ventilations
     it.u || it.unite || "Pièce",
   ]);
