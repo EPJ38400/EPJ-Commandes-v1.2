@@ -13,10 +13,12 @@ import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { SignaturePad } from "../../core/components/SignaturePad";
 import { todayISO, formatDate, getCategorieIcon } from "./parcUtils";
+// v10.I — SMS au responsable parc si panne signalée
+import { smsOutillagePanne, findResponsableParc } from "../../core/smsService";
 
 export function ParcOutilRetour({ outil, sortie, onBack, onDone }) {
   const { user } = useAuth();
-  const { users, outillagePannes, outillageCategories } = useData();
+  const { users, outillagePannes, outillageCategories, smsTemplates = [] } = useData();
   const toast = useToast();
 
   const [etatRetour, setEtatRetour] = useState("bon"); // "bon" | "abime"
@@ -78,6 +80,32 @@ export function ParcOutilRetour({ outil, sortie, onBack, onDone }) {
       } else {
         toast(`✓ ${outil.ref} retourné`);
       }
+
+      // v10.I — SMS au responsable parc si au moins une panne signalée (bloquante ou non)
+      if (etatRetour === "abime" && selectedPanneIds.length > 0) {
+        try {
+          const responsable = findResponsableParc(users);
+          if (responsable) {
+            const pannesLabels = selectedPanneIds.map(code => {
+              const p = outillagePannes.find(x => x.code === code || x._id === code);
+              return p?.label || p?.code || code;
+            }).join(", ");
+            await smsOutillagePanne({
+              smsTemplates,
+              responsable,
+              refOutil: outil.ref,
+              nomOutil: outil.nom,
+              pannesLabel: pannesLabels,
+              signaleeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+              bloquante: hasBloquante,
+              sortieId: sortie._id,
+            });
+          }
+        } catch(smsErr) {
+          console.warn("[v10.I] SMS panne outil non bloquant:", smsErr);
+        }
+      }
+
       onDone?.();
     } catch (e) {
       console.error(e);

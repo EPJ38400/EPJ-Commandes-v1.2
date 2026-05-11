@@ -56,7 +56,10 @@ export const DEFAULT_PERMISSIONS = {
     _admin: false,
   },
   "Conducteur travaux": {
-    commandes:         { _access:"all", view:"own_chantiers", create:"all", edit:"own_items", delete:false, validate:"own_chantiers", export:"own_chantiers" },
+    // v10.I — Fix 1 : delete autorisé sur ses chantiers (y compris statut
+    // "Envoyée aux achats"). La règle métier "pas après Commandée" est dans
+    // CommandesInner.canDeleteOrder().
+    commandes:         { _access:"all", view:"own_chantiers", create:"all", edit:"own_items", delete:"own_chantiers", validate:"own_chantiers", export:"own_chantiers" },
     "parc-machines":   { _access:"all", view:"all", create:"all", edit:"own_chantiers", delete:false, export:"own_chantiers" },
     avancement:        { _access:"all", view:"own_chantiers", create:"own_chantiers", edit:"own_chantiers", delete:false, validate:"own_chantiers", export:"own_chantiers" },
     "reserves-quitus": { _access:"all", view:"own_chantiers", create:"own_chantiers", edit:"own_chantiers", delete:false, validate:"own_chantiers", export:"own_chantiers" },
@@ -74,7 +77,8 @@ export const DEFAULT_PERMISSIONS = {
     _admin: false,
   },
   "Chef chantier": {
-    commandes:         { _access:"all", view:"own_chantiers", create:"all", edit:"own_items", delete:false, validate:false, export:false },
+    // v10.I — Fix 1 : delete autorisé sur ses chantiers.
+    commandes:         { _access:"all", view:"own_chantiers", create:"all", edit:"own_items", delete:"own_chantiers", validate:false, export:false },
     "parc-machines":   { _access:"all", view:"own_chantiers", create:"own_chantiers", edit:"own_chantiers", delete:false, export:false },
     avancement:        { _access:"all", view:"own_chantiers", create:"own_chantiers", edit:"own_chantiers", delete:false, validate:false, export:false },
     "reserves-quitus": { _access:"all", view:"own_chantiers", create:"own_chantiers", edit:"own_chantiers", delete:false, validate:false, export:false },

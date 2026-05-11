@@ -166,6 +166,120 @@ assertEq(findActiveTemplate(templates, null), null, "Code null → null");
     "Rendu multi-variables");
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  v10.I — Tests fix recipientUserId (extractUid) + nouveaux helpers
+// ═══════════════════════════════════════════════════════════════
+
+// Reproduction de extractUid (privé dans smsService.js)
+function extractUid(u) {
+  if (!u || typeof u !== "object") return "";
+  return u._id || u.id || u.uid || "";
+}
+
+// Reproduction de findAssistanteAchats
+function findAssistanteAchats(users) {
+  if (!Array.isArray(users)) return null;
+  const byRole = users.find(u => {
+    const roles = Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []);
+    return roles.some(r => (r || "").toLowerCase().includes("assist"));
+  });
+  if (byRole) return byRole;
+  return users.find(u => (u.fonction || "").toLowerCase().includes("assist")) || null;
+}
+
+// Reproduction de findResponsableParc
+function findResponsableParc(users) {
+  if (!Array.isArray(users)) return null;
+  const flagged = users.find(u => u.responsableParc === true);
+  if (flagged) return flagged;
+  const direction = users.find(u => {
+    const roles = Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []);
+    return roles.includes("Direction");
+  });
+  if (direction) return direction;
+  return users.find(u => {
+    const roles = Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []);
+    return roles.includes("Admin");
+  }) || null;
+}
+
+// Reproduction de findUserByUid
+function findUserByUid(uid, users) {
+  if (!uid || !Array.isArray(users)) return null;
+  return users.find(u =>
+    u._id === uid || u.id === uid || u.uid === uid
+  ) || null;
+}
+
+// ─── Test : extractUid (fix bug recipientUserId) ────────────
+assertEq(extractUid({ _id: "abc123", nom: "Yver" }), "abc123",
+  "extractUid privilégie _id");
+assertEq(extractUid({ id: "abc123", nom: "Yver" }), "abc123",
+  "extractUid prend id si pas de _id");
+assertEq(extractUid({ uid: "abc123", nom: "Yver" }), "abc123",
+  "extractUid prend uid si pas de _id ni id");
+assertEq(extractUid({ nom: "Yver" }), "",
+  "extractUid retourne '' si aucun champ ID (bug v10.H corrigé)");
+assertEq(extractUid(null), "", "extractUid résiste à null");
+assertEq(extractUid(undefined), "", "extractUid résiste à undefined");
+assertEq(extractUid("Yver"), "", "extractUid résiste à une string (ancien bug)");
+
+// ─── Test : findAssistanteAchats ─────────────────────────────
+{
+  const users = [
+    { prenom: "Joseph", nom: "BILARDO", roles: ["Monteur"] },
+    { prenom: "Marie", nom: "DUPONT", roles: ["Assistante"] },
+    { prenom: "Paul", nom: "MARTIN", roles: ["Direction"] },
+  ];
+  const a = findAssistanteAchats(users);
+  assertEq(a?.nom, "DUPONT", "Trouve assistante via rôle 'Assistante'");
+}
+{
+  const users = [
+    { prenom: "Joseph", nom: "BILARDO", fonction: "Monteur" },
+    { prenom: "Marie", nom: "DUPONT", fonction: "Assistante achats" },
+  ];
+  const a = findAssistanteAchats(users);
+  assertEq(a?.nom, "DUPONT", "Trouve assistante via ancien champ fonction");
+}
+assertEq(findAssistanteAchats([{ nom: "Yver", roles: ["Direction"] }]), null,
+  "Pas d'assistante → null");
+assertEq(findAssistanteAchats(null), null, "findAssistanteAchats résiste à null");
+
+// ─── Test : findResponsableParc ─────────────────────────────
+{
+  const users = [
+    { prenom: "Joseph", nom: "BILARDO", roles: ["Monteur"] },
+    { prenom: "Paul", nom: "MARTIN", roles: ["Direction"] },
+    { prenom: "Alex", nom: "REPARO", roles: ["Monteur"], responsableParc: true },
+  ];
+  const r = findResponsableParc(users);
+  assertEq(r?.nom, "REPARO", "Flag responsableParc prioritaire sur Direction");
+}
+{
+  const users = [
+    { prenom: "Joseph", nom: "BILARDO", roles: ["Monteur"] },
+    { prenom: "Paul", nom: "MARTIN", roles: ["Direction"] },
+  ];
+  const r = findResponsableParc(users);
+  assertEq(r?.nom, "MARTIN", "Fallback Direction si pas de flag");
+}
+
+// ─── Test : findUserByUid ────────────────────────────────────
+{
+  const users = [
+    { _id: "abc", nom: "A" },
+    { id: "def", nom: "B" },
+    { uid: "ghi", nom: "C" },
+  ];
+  assertEq(findUserByUid("abc", users)?.nom, "A", "findUserByUid via _id");
+  assertEq(findUserByUid("def", users)?.nom, "B", "findUserByUid via id");
+  assertEq(findUserByUid("ghi", users)?.nom, "C", "findUserByUid via uid");
+  assertEq(findUserByUid("xxx", users), null, "findUserByUid retourne null si absent");
+  assertEq(findUserByUid("", users), null, "findUserByUid résiste à uid vide");
+  assertEq(findUserByUid("abc", null), null, "findUserByUid résiste à users null");
+}
+
 // ─── Récap ───────────────────────────────────────────────────
 console.log("\n────────────────────────────────────────");
 console.log(`Tests smsService : ${pass} OK, ${fail} KO`);

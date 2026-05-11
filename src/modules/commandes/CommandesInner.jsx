@@ -13,7 +13,14 @@ import {
   countMultiCategoryArticles,
 } from "./catalogImporter";
 // v10.H — Module SMS automatique via Brevo + Make
-import { smsCommandeCreee, smsCommandeModifiee, findConducteur } from "../../core/smsService";
+// v10.I — Helpers étendus (validation/passage/réception/suppression) + delete queue
+import {
+  smsCommandeCreee, smsCommandeModifiee,
+  smsCommandeValidee, smsCommandePassee, smsCommandeRecue, smsCommandeSupprimee,
+  findConducteur, findAssistanteAchats, findUserByUid,
+  deleteSentSmsQueueDocs,
+} from "../../core/smsService";
+import { can } from "../../core/permissions";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -128,8 +135,9 @@ const PdfView = ({order, onClose}) => {
 // ═══ MODULE COMMANDES ═══
 export function CommandesInner({ onExitModule }) {
   const { user } = useAuth();
-  // v10.H — récupère smsTemplates depuis DataContext (pour envoi SMS conducteur)
-  const { smsTemplates = [] } = useData();
+  // v10.H — smsTemplates pour SMS conducteur
+  // v10.I — rolesConfig pour gardes UI propres via can()
+  const { smsTemplates = [], rolesConfig = {} } = useData();
   // Le Socle ne monte ce composant que si l'utilisateur est connecté.
 
   // ─── v10.E — B2/B3 : Persistance du brouillon de commande ───
@@ -243,14 +251,28 @@ export function CommandesInner({ onExitModule }) {
   }, []);
 
   // ─── FIREBASE : écoute temps réel des utilisateurs ───
+  // v10.I — Fix bug recipientUserId : on injecte le doc ID Firestore comme `_id`
+  // (et aussi `id` pour rétro-compatibilité avec le reste du code qui utilise u.id).
+  // Avant v10.I, `snap.docs.map(d => d.data())` perdait l'UID, ce qui causait
+  // le bug "Yver" dans le champ recipientUserId du doc smsQueue.
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "utilisateurs"), (snap) => {
       if (snap.size > 0) {
-        setDynUsers(snap.docs.map(d => d.data()));
+        setDynUsers(snap.docs.map(d => ({ ...d.data(), _id: d.id, id: d.data().id || d.id })));
         console.log("Firebase: " + snap.size + " utilisateur(s)");
       }
     });
     return () => unsub();
+  }, []);
+
+  // ─── v10.I — Purge périodique de smsQueue (docs déjà envoyés par Make) ───
+  // Contexte : Make ne supprime pas les docs après envoi (problème path
+  // Firestore côté Make). On nettoie nous-mêmes : au montage + toutes les 5 min.
+  // Make doit passer `status: "sent"` pour qu'on identifie les docs à purger.
+  useEffect(() => {
+    deleteSentSmsQueueDocs(); // au montage
+    const itv = setInterval(() => { deleteSentSmsQueueDocs(); }, 5 * 60 * 1000);
+    return () => clearInterval(itv);
   }, []);
 
   // ─── FIREBASE : écoute temps réel des chantiers ───
@@ -721,6 +743,24 @@ export function CommandesInner({ onExitModule }) {
       setPdfOrder(updated);
       setLastSentOrder(updated);
       showT(sendImmediately ? "✅ Validée — envoi du mail..." : "💾 Validée — à envoyer plus tard");
+      // v10.I — SMS à l'assistante achats : "nouvelle commande à traiter"
+      try {
+        const assistante = findAssistanteAchats(dynUsers);
+        if (assistante) {
+          await smsCommandeValidee({
+            smsTemplates,
+            assistante,
+            validateurNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+            numCmd: editingOrder.num,
+            chantier: editingOrder.chantier || "",
+            orderId: editingOrder._id,
+          });
+        } else {
+          console.warn("[v10.I] Aucune assistante achats trouvée — SMS validation non envoyé");
+        }
+      } catch(smsErr) {
+        console.warn("[v10.I] SMS validation non bloquant:", smsErr);
+      }
       return updated;
     } catch(err) {
       console.error("Erreur validation:", err);
@@ -761,6 +801,92 @@ export function CommandesInner({ onExitModule }) {
         || user.fonction === "Direction"
         || (Array.isArray(user.roles) && user.roles.includes("Direction"));
     return isOwner || isDirectionOrAdmin;
+  };
+
+  // ─── v10.I — Fix 1 : peut supprimer cette commande ? ───
+  // Combine la permission générique can() avec la règle métier :
+  // suppression bloquée une fois "Commandée" / "Réceptionnée" / "Refusée"
+  // (mais autorisée sur "En attente de validation", "Validée", "Envoyée aux achats").
+  // can() renvoie le scope ("all" | "own_chantiers" | "own_items" | false).
+  const canDeleteThisOrder = (o) => {
+    if (!o || !user) return false;
+    // Règle métier : bloque sur statuts finaux
+    if (o.statut === "Commandée" || o.statut === "Réceptionnée"
+        || o.statut === "Refusée") return false;
+    const scope = can(user, "commandes", "delete", rolesConfig);
+    if (!scope) return false;
+    if (scope === "all") return true;
+    if (scope === "own_chantiers") {
+      // Le chantier doit être sous la responsabilité de l'utilisateur
+      const fullName = `${user.prenom||""} ${user.nom||""}`.trim();
+      const ch = dynChantiers.find(c => c.nom === o.chantier);
+      if (!ch) return false;
+      // Conducteur du chantier OU chef chantier affecté
+      if (ch.conducteur === fullName) return true;
+      if (ch.chefChantier === fullName) return true;
+      // Fallback : créateur de la commande sur ce chantier
+      if (o.user === fullName) return true;
+      return false;
+    }
+    if (scope === "own_items") {
+      return o.user === `${user.prenom||""} ${user.nom||""}`.trim();
+    }
+    return false;
+  };
+
+  // ─── v10.I — Fix 2 : peut marquer "Commandée" ? ───
+  // Réservé à Admin + Direction + Assistante (décision Pierre-Julien Q2=1).
+  // Implémenté via les rôles plutôt que via can() car c'est une action métier
+  // très spécifique (= "passer la commande chez le fournisseur") qui n'est pas
+  // bien capturée par les 6 actions génériques view/create/edit/delete/validate/export.
+  const canMarkAsCommandee = () => {
+    if (!user) return false;
+    const roles = Array.isArray(user.roles) ? user.roles
+                : (user.role ? [user.role] : []);
+    const fonction = user.fonction || "";
+    // Test : Admin
+    if (roles.includes("Admin") || fonction === "Admin") return true;
+    // Test : Direction
+    if (roles.includes("Direction") || fonction === "Direction") return true;
+    // Test : Assistante (nouveau rôle)
+    if (roles.some(r => (r||"").toLowerCase().includes("assist"))) return true;
+    if ((fonction||"").toLowerCase().includes("assist")) return true;
+    return false;
+  };
+
+  // ─── v10.I — Helper : suppression d'une commande avec SMS si pertinent ───
+  // Centralise la logique deleteDoc + SMS (pour éviter de la dupliquer entre
+  // les 2 boutons "Supprimer tout" et "Supprimer" individuel).
+  const performDeleteOrder = async (h, withConfirm = true) => {
+    if (!h || !h._id) return false;
+    if (withConfirm && !confirm(`Supprimer ${h.num} ?`)) return false;
+    try {
+      // SMS conducteur AVANT delete (sinon on perd les données du chantier)
+      // Uniquement si la commande était déjà envoyée aux achats (sinon pas d'enjeu)
+      if (h.statut === "Envoyée aux achats" || h.statut === "Validée") {
+        try {
+          const chObj = dynChantiers.find(c => c.nom === h.chantier);
+          const conducteur = chObj ? findConducteur(chObj, dynUsers) : null;
+          if (conducteur) {
+            await smsCommandeSupprimee({
+              smsTemplates,
+              conducteur,
+              supprimeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+              numCmd: h.num,
+              chantier: chObj?.nom || h.chantier,
+              orderId: h._id,
+            });
+          }
+        } catch (smsErr) {
+          console.warn("[v10.I] SMS suppression non bloquant:", smsErr);
+        }
+      }
+      await deleteDoc(doc(db, "commandes", h._id));
+      return true;
+    } catch (e) {
+      console.warn("Échec deleteDoc:", e);
+      return false;
+    }
   };
 
   const beginEditOrder = (o) => {
@@ -944,6 +1070,21 @@ export function CommandesInner({ onExitModule }) {
         dateCommande: new Date().toISOString(),
       });
       showT("🛒 Commande passée chez le fournisseur");
+      // v10.I — SMS au demandeur initial : "ta commande a été passée"
+      try {
+        const demandeur = findUserByUid(order.userId, dynUsers);
+        if (demandeur) {
+          await smsCommandePassee({
+            smsTemplates,
+            demandeur,
+            numCmd: order.num,
+            chantier: order.chantier || "",
+            orderId: order._id,
+          });
+        }
+      } catch(smsErr) {
+        console.warn("[v10.I] SMS commande passée non bloquant:", smsErr);
+      }
     } catch(err) {
       console.error("Erreur marquage commandée:", err);
       showT("❌ Erreur — réessayez");
@@ -1192,6 +1333,21 @@ export function CommandesInner({ onExitModule }) {
                 await updateDoc(doc(db,'commandes',o._id),{signatureData:sigData,dateReceptionEffective:dateAuj,statut:'Réceptionnée'});
                 setReceptionOrder({...o,signatureData:sigData,dateReceptionEffective:dateAuj,statut:'Réceptionnée'});
                 showT('✅ Réception enregistrée !');
+                // v10.I — SMS au demandeur initial : "ta commande a été réceptionnée"
+                try {
+                  const demandeur = findUserByUid(o.userId, dynUsers);
+                  if (demandeur) {
+                    await smsCommandeRecue({
+                      smsTemplates,
+                      demandeur,
+                      numCmd: o.num,
+                      chantier: o.chantier || "",
+                      orderId: o._id,
+                    });
+                  }
+                } catch(smsErr) {
+                  console.warn("[v10.I] SMS réception non bloquant:", smsErr);
+                }
               }catch(e){showT('❌ Erreur: '+e.message);}
             }}>✅ Enregistrer la réception</button>
           )}
@@ -1914,7 +2070,22 @@ export function CommandesInner({ onExitModule }) {
           <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{Object.keys(STATUS_COLORS).map(s=><option key={s} value={s}>{s}</option>)}</select>
           <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
-        {user.fonction==="Admin"&&myHistory.length>0&&<button className="epj-btn" onClick={async()=>{if(!confirm(`Supprimer les ${myHistory.length} commandes affichées ?`))return;for(const h of myHistory){if(h._id){try{await deleteDoc(doc(db,"commandes",h._id))}catch(e){}}}showT(`🗑️ ${myHistory.length} commandes supprimées`)}} style={{width:'100%',marginTop:6,background:EPJ.red,color:'#fff',padding:'8px',fontSize:12}}>🗑️ Supprimer tout ({myHistory.length})</button>}
+        {(() => {
+          // v10.I — Fix 1 : "Supprimer tout" affiché si au moins 1 commande supprimable
+          const deletables = myHistory.filter(h => canDeleteThisOrder(h));
+          if (deletables.length === 0) return null;
+          return (
+            <button className="epj-btn" onClick={async()=>{
+              if(!confirm(`Supprimer les ${deletables.length} commande(s) supprimable(s) parmi celles affichées ?`))return;
+              let okCount = 0;
+              for(const h of deletables){
+                const ok = await performDeleteOrder(h, false);
+                if (ok) okCount++;
+              }
+              showT(`🗑️ ${okCount} commande(s) supprimée(s)`);
+            }} style={{width:'100%',marginTop:6,background:EPJ.red,color:'#fff',padding:'8px',fontSize:12}}>🗑️ Supprimer ({deletables.length})</button>
+          );
+        })()}
       </div>
       <div style={{padding:12}}>
         {myHistory.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
@@ -1924,7 +2095,11 @@ export function CommandesInner({ onExitModule }) {
               <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
               <div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:STATUS_COLORS[h.statut]?.bg||'#eee',color:STATUS_COLORS[h.statut]?.color||'#333'}}>{STATUS_COLORS[h.statut]?.icon||''} {h.statut||'—'}</div></div>
             </div>
-            {user.fonction==="Admin"&&<button onClick={async(e)=>{e.stopPropagation();if(!confirm(`Supprimer ${h.num} ?`))return;if(h._id){try{await deleteDoc(doc(db,"commandes",h._id));showT("🗑️ Supprimée")}catch(e){showT("❌ Erreur")}}}} style={{marginTop:6,width:'100%',background:'#fee',color:EPJ.red,border:'none',borderRadius:6,padding:'4px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
+            {canDeleteThisOrder(h)&&<button onClick={async(e)=>{
+              e.stopPropagation();
+              const ok = await performDeleteOrder(h, true);
+              if (ok) showT("🗑️ Supprimée"); else showT("❌ Erreur");
+            }} style={{marginTop:6,width:'100%',background:'#fee',color:EPJ.red,border:'none',borderRadius:6,padding:'4px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
           </div>
         ))}
       </div>
@@ -2002,7 +2177,8 @@ export function CommandesInner({ onExitModule }) {
             </div>
           )}
 
-          {o.statut === "Envoyée aux achats" && (
+          {/* v10.I — Fix 2 : bouton "Marquer commandée" réservé Admin/Direction/Assistante */}
+          {o.statut === "Envoyée aux achats" && canMarkAsCommandee() && (
             <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid #6A1B9A`}}>
               <div style={{fontSize:12,fontWeight:700,color:'#6A1B9A',marginBottom:8}}>
                 🛒 COMMANDE PASSÉE CHEZ LE FOURNISSEUR ?

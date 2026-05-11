@@ -14,6 +14,8 @@ import {
 } from "./reservesUtils";
 import { PhotoDropZone } from "./PhotoDropZone";
 import { AttachmentsManager } from "./AttachmentsManager";
+// v10.I — SMS au conducteur du chantier à la création d'une réserve
+import { smsReserveCreee, findConducteur } from "../../core/smsService";
 
 export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
   const { user } = useAuth();
@@ -24,6 +26,7 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
   const reservesEmetteurs = data.reservesEmetteurs || [];
   const users = data.users || [];
   const rolesConfig = data.rolesConfig;
+  const smsTemplates = data.smsTemplates || []; // v10.I — pour SMS conducteur
 
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(null);
@@ -175,6 +178,22 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
       };
 
       await setDoc(doc(db, "reserves", id), data);
+      // v10.I — SMS au conducteur du chantier (non bloquant)
+      try {
+        const conducteur = chantier ? findConducteur(chantier, users) : null;
+        if (conducteur) {
+          await smsReserveCreee({
+            smsTemplates,
+            conducteur,
+            creeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+            refReserve: numReserve,
+            chantier: chantier?.nom || chantierNum,
+            reserveId: id,
+          });
+        }
+      } catch(smsErr) {
+        console.warn("[v10.I] SMS réserve créée non bloquant:", smsErr);
+      }
       onDone(id);
     } catch (err) {
       console.error(err);

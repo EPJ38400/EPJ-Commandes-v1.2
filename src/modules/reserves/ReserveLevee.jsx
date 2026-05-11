@@ -16,6 +16,8 @@ import {
 } from "./reservesUtils";
 import { PhotoDropZone } from "./PhotoDropZone";
 import { SignaturePad } from "./SignaturePad";
+// v10.I — SMS au demandeur initial après levée
+import { smsReserveLevee, findUserByUid } from "../../core/smsService";
 
 const QUALITES = [
   "Client final",
@@ -31,6 +33,8 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
   const users = data.users || [];
   const reserves = data.reserves || [];
   const company = data.company || {};
+  const smsTemplates = data.smsTemplates || []; // v10.I
+  const chantiers = data.chantiers || []; // v10.I (pour info chantier dans SMS)
   const reserve = reserves.find(r => r._id === reserveId);
 
   // Cherche la signature actuelle de l'utilisateur connecté
@@ -134,6 +138,23 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
         clientSignataireNom: (clientNom || "").trim(),
         clientSignataireQualite: clientQualite || "",
       });
+      // v10.I — SMS au demandeur initial (celui qui a créé la réserve)
+      // Si l'auteur initial n'est pas un user EPJ (ex: locataire, MOE), on ne fait rien.
+      try {
+        const demandeur = findUserByUid(reserve.creePar, users);
+        if (demandeur) {
+          await smsReserveLevee({
+            smsTemplates,
+            demandeur,
+            leveeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
+            refReserve: reserve.numReserve || "",
+            chantier: reserve.chantierNom || reserve.chantierNum || "",
+            reserveId: reserve._id,
+          });
+        }
+      } catch(smsErr) {
+        console.warn("[v10.I] SMS réserve levée non bloquant:", smsErr);
+      }
       onDone();
     } catch (err) {
       console.error(err);

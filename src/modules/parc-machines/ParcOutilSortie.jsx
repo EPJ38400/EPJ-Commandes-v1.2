@@ -13,10 +13,12 @@ import { SignaturePad } from "../../core/components/SignaturePad";
 import {
   generateId, todayISO, canGererCatalogue, getCategorieIcon,
 } from "./parcUtils";
+// v10.I — SMS récap au monteur après sortie d'outil
+import { smsOutillageSortie } from "../../core/smsService";
 
 export function ParcOutilSortie({ outil, onBack, onDone }) {
   const { user } = useAuth();
-  const { users, chantiers, outillageCategories } = useData();
+  const { users, chantiers, outillageCategories, smsTemplates = [] } = useData();
   const toast = useToast();
 
   // Si l'utilisateur n'est pas autorisé, il ne sort QUE pour lui-même
@@ -92,6 +94,30 @@ export function ParcOutilSortie({ outil, onBack, onDone }) {
 
       await setDoc(doc(db, "outillageSorties", id), payload);
       toast(`✓ ${outil.ref} sorti pour ${emprunteur.prenom} ${emprunteur.nom}`);
+      // v10.I — SMS récap au monteur emprunteur (sauf s'il sort pour lui-même)
+      const isSelfCheckout = emprunteurId === user.id || emprunteurId === user._id;
+      if (!isSelfCheckout) {
+        try {
+          // Chantier label : préfère "[num] nom" si possible
+          const ch = chantierNum ? chantiers.find(c => c.num === chantierNum) : null;
+          const chantierLabel = ch ? `[${ch.num}] ${ch.nom||""}`.trim() : "";
+          // Date au format FR (JJ/MM)
+          const dateRetourFR = dateRetourPrevue
+            ? new Date(dateRetourPrevue).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
+            : "";
+          await smsOutillageSortie({
+            smsTemplates,
+            emprunteur,
+            refOutil: outil.ref,
+            nomOutil: outil.nom,
+            dateRetour: dateRetourFR,
+            chantier: chantierLabel,
+            sortieId: id,
+          });
+        } catch(smsErr) {
+          console.warn("[v10.I] SMS sortie outil non bloquant:", smsErr);
+        }
+      }
       onDone?.();
     } catch (e) {
       console.error(e);

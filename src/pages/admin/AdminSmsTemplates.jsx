@@ -22,6 +22,7 @@ const MODULE_OPTIONS = [
 ];
 
 // Modèles pré-définis proposés au premier import
+// v10.I — Ajout de 13 nouveaux modèles (4 Commandes étendues + 4 Réserves + 4 Outillage + 1 Avancement déjà présent)
 const DEFAULT_TEMPLATES = [
   {
     id: "outillage_rappel_retour",
@@ -56,6 +57,39 @@ const DEFAULT_TEMPLATES = [
     variables: ["{prenom}", "{numCmd}", "{modifiePar}", "{chantier}"],
     actif: true,
   },
+  // ─── v10.I — Templates Commandes étendus ───
+  {
+    id: "commande_validee",
+    module: "commandes",
+    label: "Commande validée — notification assistante achats",
+    body: "Bonjour {prenom}, la commande {numCmd} ({chantier}) a été validée par {validateur}. À passer aux fournisseurs.",
+    variables: ["{prenom}", "{numCmd}", "{validateur}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "commande_passee",
+    module: "commandes",
+    label: "Commande passée fournisseur — notification demandeur",
+    body: "Bonjour {prenom}, ta commande {numCmd} ({chantier}) a été passée chez le fournisseur. Tu seras informé(e) de la réception.",
+    variables: ["{prenom}", "{numCmd}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "commande_recue",
+    module: "commandes",
+    label: "Commande réceptionnée — notification demandeur",
+    body: "Bonjour {prenom}, ta commande {numCmd} ({chantier}) a été réceptionnée. Tu peux la récupérer.",
+    variables: ["{prenom}", "{numCmd}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "commande_supprimee",
+    module: "commandes",
+    label: "Commande supprimée — notification conducteur",
+    body: "Bonjour {prenom}, la commande {numCmd} ({chantier}) a été supprimée par {supprimePar}.",
+    variables: ["{prenom}", "{numCmd}", "{supprimePar}", "{chantier}"],
+    actif: true,
+  },
   // ─── v10.H — Templates Avancement (cron quotidien Make) ───
   {
     id: "avancement_rappel_validation",
@@ -72,6 +106,72 @@ const DEFAULT_TEMPLATES = [
     label: "Réserve en retard",
     body: "Bonjour {prenom}, la réserve {refReserve} sur {chantier} n'a pas été levée depuis {nbJours} jours. Merci d'intervenir.",
     variables: ["{prenom}", "{refReserve}", "{chantier}", "{nbJours}"],
+    actif: true,
+  },
+  // ─── v10.I — Templates Réserves étendus ───
+  {
+    id: "reserve_creee",
+    module: "reserves-quitus",
+    label: "Réserve créée — notification conducteur",
+    body: "Bonjour {prenom}, nouvelle réserve {refReserve} créée par {creePar} sur {chantier}. À traiter sur l'app EPJ.",
+    variables: ["{prenom}", "{refReserve}", "{creePar}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "reserve_levee",
+    module: "reserves-quitus",
+    label: "Réserve levée — notification demandeur",
+    body: "Bonjour {prenom}, la réserve {refReserve} ({chantier}) a été levée par {leveePar}. Quitus en cours de préparation.",
+    variables: ["{prenom}", "{refReserve}", "{leveePar}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "quitus_signe",
+    module: "reserves-quitus",
+    label: "Quitus signé — notification conducteur",
+    body: "Bonjour {prenom}, le quitus de la réserve {refReserve} ({chantier}) a été signé et le PDF est disponible : {quitusUrl}",
+    variables: ["{prenom}", "{refReserve}", "{chantier}", "{quitusUrl}"],
+    actif: true,
+  },
+  {
+    id: "quitus_express_signe",
+    module: "reserves-quitus",
+    label: "Quitus express signé sur place — notification conducteur",
+    body: "Bonjour {prenom}, quitus express signé sur place par {technicien} pour la réserve {refReserve} ({chantier}). PDF : {quitusUrl}",
+    variables: ["{prenom}", "{refReserve}", "{chantier}", "{technicien}", "{quitusUrl}"],
+    actif: true,
+  },
+  // ─── v10.I — Templates Outillage étendus ───
+  {
+    id: "outillage_sortie",
+    module: "parc-machines",
+    label: "Sortie d'outil — récap au monteur",
+    body: "Bonjour {prenom}, sortie EPJ : {ref} ({nom}) jusqu'au {dateRetour} pour {chantier}. Merci de respecter la date de retour.",
+    variables: ["{prenom}", "{ref}", "{nom}", "{dateRetour}", "{chantier}"],
+    actif: true,
+  },
+  {
+    id: "outillage_retard_retour",
+    module: "parc-machines",
+    label: "Retard retour outil J+1 — monteur",
+    body: "Bonjour {prenom}, l'outil {ref} ({nom}) devait être rendu hier ({dateRetour}). Merci de le ramener au plus vite à l'atelier.",
+    variables: ["{prenom}", "{ref}", "{nom}", "{dateRetour}"],
+    actif: true,
+  },
+  {
+    id: "outillage_retard_relance",
+    module: "parc-machines",
+    label: "Relance retard outil J+3 — monteur + conducteur",
+    body: "Bonjour {prenom}, RELANCE : l'outil {ref} ({nom}) sorti par {emprunteur} devait être rendu le {dateRetour} (3 jours de retard). Action requise.",
+    variables: ["{prenom}", "{ref}", "{nom}", "{dateRetour}", "{emprunteur}"],
+    actif: true,
+  },
+  {
+    id: "outillage_pannes",
+    module: "parc-machines",
+    label: "Panne signalée — responsable parc",
+    body: "Bonjour {prenom}, panne {bloquante} signalée par {signaleePar} sur {ref} ({nom}) : {pannes}. À traiter.",
+    variables: ["{prenom}", "{ref}", "{nom}", "{pannes}", "{signaleePar}", "{bloquante}"],
     actif: true,
   },
 ];

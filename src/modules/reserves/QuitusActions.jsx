@@ -10,6 +10,9 @@ import { openQuitusWindow } from "./quitusPdfGenerator";
 import { generateQuitusPdfBlob, uploadQuitusPdf } from "./reservesUtils";
 import { db } from "../../firebase";
 import { doc, updateDoc } from "firebase/firestore";
+// v10.I — SMS au conducteur après génération du quitus PDF
+import { useData } from "../../core/DataContext";
+import { smsQuitusSigne, findConducteur } from "../../core/smsService";
 
 // ─── Génération du corps d'email ────────────────────────────
 function buildEmailBody({ reserve, company, technomFull, pdfUrl }) {
@@ -64,6 +67,10 @@ export function QuitusActions({ reserve, chantier, company, technicien, users, r
   const [uploading, setUploading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(reserve?.quitusUrl || "");
   const [copied, setCopied] = useState(false);
+  // v10.I — récupère smsTemplates pour notification conducteur
+  const data = useData();
+  const smsTemplates = data?.smsTemplates || [];
+  const dataUsers = data?.users || users || [];
 
   const technomFull = reserve.leveeParNom ||
     (technicien ? `${technicien.prenom || ""} ${technicien.nom || ""}`.trim() : "");
@@ -97,6 +104,23 @@ export function QuitusActions({ reserve, chantier, company, technicien, users, r
         quitusGeneratedAt: new Date().toISOString(),
       });
       setPdfUrl(url);
+      // v10.I — SMS au conducteur : "le quitus a été généré et est disponible"
+      // (envoyé une seule fois, lors de la 1ère génération du PDF)
+      try {
+        const conducteur = chantier ? findConducteur(chantier, dataUsers) : null;
+        if (conducteur) {
+          await smsQuitusSigne({
+            smsTemplates,
+            conducteur,
+            refReserve: reserve.numReserve || "",
+            chantier: chantier?.nom || reserve.chantierNom || "",
+            reserveId: reserve._id,
+            quitusUrl: url,
+          });
+        }
+      } catch(smsErr) {
+        console.warn("[v10.I] SMS quitus signé non bloquant:", smsErr);
+      }
       return url;
     } finally {
       setUploading(false);
