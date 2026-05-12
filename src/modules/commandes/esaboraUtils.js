@@ -138,32 +138,53 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
     "Ventilation 1", "Ventilation 2", // AI-AJ
   ];
 
+  // v10.L.4 — Helper : tronque silencieusement à N caractères max.
+  // Esabora limite plusieurs champs (adresse = 40, etc.). Tronquer évite
+  // l'erreur "longueur maximale" sans bloquer l'envoi. Si tronqué,
+  // l'utilisateur peut corriger directement dans Esabora après import.
+  const trunc = (s, max) => {
+    const v = (s == null ? "" : String(s)).trim();
+    return v.length <= max ? v : v.slice(0, max);
+  };
+
   // Adresse livraison = chantier si renseigné, sinon vide
-  const livAdr1 = chantier?.adresse || "";
-  const livCP = chantier?.codePostal || "";
-  const livVille = chantier?.ville || "";
+  const livAdr1 = trunc(chantier?.adresse || "", 40);
+  const livCP = trunc(chantier?.codePostal || "", 10);
+  const livVille = trunc(chantier?.ville || "", 40);
+
+  // v10.L.4 — Titre commande = numéro EPJ + nom du chantier (tronqué)
+  // Ex : "Commande EPJ CMD-2026-0042 — Résidence Les Hauts"
+  // Limité à 40 caractères pour respecter la limite Esabora.
+  const chantierNom = chantier?.nom || order.chantier || "";
+  const titreCmd = trunc(
+    chantierNom
+      ? `Cmd EPJ ${order.num || ""} — ${chantierNom}`
+      : `Commande EPJ ${order.num || ""}`,
+    40
+  );
+  const titreLiv = trunc(chantierNom || "Chantier", 40);
 
   const rowGen = [
-    `Commande EPJ ${order.num || ""}`,           // A Titre
+    titreCmd,                                    // A Titre commande (v10.L.4)
     "",                                          // B Numéro (Esabora rempli)
-    group.codeEsabora,                           // C Code fournisseur
+    trunc(group.codeEsabora, 20),                // C Code fournisseur
     "", "",                                      // D-E interlocuteur
     todayFR(),                                   // F Date création
     tvaDefault, "", "", "",                      // G-J TVA (v10.L.1 : TVA 1 = défaut)
-    "EPJ — Électricité Générale",                // K Adresse cmd titre
-    "3 rue Georges Pérec", "", "",               // L-N
-    "38400",                                     // O
-    "Saint-Martin-d'Hères",                      // P
-    "FR",                                        // Q
-    chantier?.nom || "Chantier",                 // R Titre liv
-    livAdr1, "", "",                             // S-U
-    livCP,                                       // V
-    livVille,                                    // W
-    "FR",                                        // X
-    order.numAffaire || order.chantierNum || "", // Y Numéro affaire
+    trunc("EPJ — Électricité Générale", 40),     // K Adresse cmd titre
+    trunc("3 rue Georges Pérec", 40), "", "",    // L-N
+    trunc("38400", 10),                          // O CP
+    trunc("Saint-Martin-d'Hères", 40),           // P Ville
+    "FR",                                        // Q Pays
+    titreLiv,                                    // R Titre livraison (v10.L.4)
+    livAdr1, "", "",                             // S-U Adresse livraison
+    livCP,                                       // V CP livraison
+    livVille,                                    // W Ville livraison
+    "FR",                                        // X Pays livraison
+    trunc(order.numAffaire || order.chantierNum || "", 20), // Y Numéro affaire
     "",                                          // Z trigramme
     order.dateReception || "",                   // AA date livraison
-    order.num || "",                             // AB Commentaire = clé EPJ
+    trunc(order.num || "", 200),                 // AB Commentaire = clé EPJ
     "", "", "",                                  // AC-AE répartition
     "", "", "",                                  // AF-AH tri
     "", "",                                      // AI-AJ ventilation
@@ -185,8 +206,8 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
   ];
 
   const rowsArt = (group.items || []).map(it => [
-    it.r || it.ref || "",
-    it.n || it.designation || "",
+    trunc(it.r || it.ref || "", 50),             // A Référence (v10.L.4 : tronqué)
+    trunc(it.n || it.designation || "", 200),    // B Désignation (v10.L.4 : tronqué)
     Number(it.qty || it.qte || 0),
     "",                          // Prix unitaire (vide à l'import)
     order.dateReception || "",
@@ -195,7 +216,7 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
                                  //          Le pourcentage réel est défini dans la colonne G de l'entête
                                  //          (TVA 1 = tvaDefault, soit 20 % par défaut).
     "", "",                      // Ventilations
-    it.u || it.unite || "Pièce",
+    trunc(it.u || it.unite || "Pièce", 20),      // Unité (v10.L.4 : tronqué)
   ]);
 
   const ws2 = XLSX.utils.aoa_to_sheet([headerArt, ...rowsArt]);

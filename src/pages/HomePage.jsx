@@ -181,7 +181,21 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
     // v10.L — Commandes À ENVOYER DANS ESABORA
     // Affiché uniquement si esaboraEnabled === true
     // Compte les commandes "Envoyée aux achats" pas encore syncées (esaboraStatus !== "synced")
-    const commandesAEsabora = featureFlags.esaboraEnabled
+    // v10.L.4 — Bannière restreinte aux rôles "achats" (Admin/Direction/Assistante).
+    //           Les autres rôles (conducteur travaux, monteur, etc.) ne la voient pas :
+    //           ils ne peuvent pas agir, donc inutile de leur afficher.
+    const canSendEsabora = (() => {
+      if (!user) return false;
+      const roles = Array.isArray(user.roles) ? user.roles
+                  : (user.role ? [user.role] : []);
+      const fonction = user.fonction || "";
+      if (roles.includes("Admin") || fonction === "Admin") return true;
+      if (roles.includes("Direction") || fonction === "Direction") return true;
+      if (roles.some(r => (r||"").toLowerCase().includes("assist"))) return true;
+      if ((fonction||"").toLowerCase().includes("assist")) return true;
+      return false;
+    })();
+    const commandesAEsabora = (featureFlags.esaboraEnabled && canSendEsabora)
       ? safeCommandes.filter(cmd =>
           (cmd.statut === "Envoyée aux achats" || cmd.statut === "Commandée")
           && cmd.esaboraStatus !== "synced"

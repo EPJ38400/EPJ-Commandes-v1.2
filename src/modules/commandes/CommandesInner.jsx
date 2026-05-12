@@ -2325,8 +2325,12 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           {/* ─── v10.L — Intégration Esabora (Zapier) ─── */}
-          {/* Visible si esaboraEnabled === true ET statut = Envoyée aux achats / Commandée */}
+          {/* Visible si esaboraEnabled === true ET statut = Envoyée aux achats / Commandée
+              v10.L.4 — Restriction aux mêmes rôles que "Marquer commandée" :
+                        Admin + Direction + Assistante achats.
+                        Les conducteurs travaux et autres rôles ne voient PAS le bouton. */}
           {featureFlags.esaboraEnabled
+            && canMarkAsCommandee()
             && (o.statut === "Envoyée aux achats" || o.statut === "Commandée")
             && (() => {
             const st = o.esaboraStatus || "pending";
