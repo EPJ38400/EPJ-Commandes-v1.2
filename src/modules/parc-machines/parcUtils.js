@@ -94,6 +94,21 @@ export function canGererCatalogue(user) {
     || roles.includes("assistante");
 }
 
+// v10.M — Droits spécifiques à l'import/export Excel du parc d'outils.
+// Plus restrictif que canGererCatalogue : on retire Assistante (qui gère
+// le catalogue 1-à-1 mais ne touche pas au bulk), on ajoute le
+// Responsable parc machines (flag user.responsableParc).
+// Q5 validé par PJY : Admin + Direction + Responsable parc.
+export function canImportExportOutils(user) {
+  if (!user) return false;
+  const roles = getRoles(user).map(r => (r || "").toLowerCase());
+  if (roles.includes("admin")) return true;
+  if (roles.includes("direction")) return true;
+  if (user.fonction === "Admin" || user.fonction === "Direction") return true;
+  if (user.responsableParc === true) return true;
+  return false;
+}
+
 // ─── Compression + upload photo Firebase Storage ────────────
 export async function compressImage(file, maxWidth = 1024, quality = 0.85) {
   return new Promise((resolve, reject) => {

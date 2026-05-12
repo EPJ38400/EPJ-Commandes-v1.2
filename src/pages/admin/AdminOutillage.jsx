@@ -12,15 +12,20 @@ import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
 import {
-  OUTIL_STATUTS, canGererCatalogue,
+  OUTIL_STATUTS, canGererCatalogue, canImportExportOutils,
   uploadOutilPhoto, deleteOutilPhoto, generateId,
   getCategorieIcon, getCategorieLabel,
 } from "../../modules/parc-machines/parcUtils";
-import { INITIAL_OUTILS, INITIAL_CATEGORIES, INITIAL_PANNES } from "../../modules/parc-machines/initialOutils";
+import { INITIAL_CATEGORIES, INITIAL_PANNES } from "../../modules/parc-machines/initialOutils";
+// v10.M — Import/Export Excel du parc d'outils
+import {
+  exportOutilsToExcel, parseOutilsFromExcel, validateImportRows,
+  buildOutilDocFromRow, hasActiveSorties, countActiveSorties,
+} from "../../modules/parc-machines/outilsImporter";
 
 export function AdminOutillage({ onBack }) {
   const { user } = useAuth();
-  const { outils, outillageCategories, outillagePannes, users } = useData();
+  const { outils, outillageCategories, outillagePannes, users, outillageSorties = [] } = useData();
   const toast = useToast();
   const [editing, setEditing] = useState(null); // null | "new" | outilId
   const [form, setForm] = useState({});
@@ -31,6 +36,10 @@ export function AdminOutillage({ onBack }) {
   const [importing, setImporting] = useState(null); // null | "outils" | "categories" | "pannes"
   const fileInputLibraryRef = useRef(null);
   const fileInputCameraRef = useRef(null);
+  // v10.M — Import/Export Excel
+  const [importPreview, setImportPreview] = useState(null); // null | { rows, errors, newCount, existingCount, mode, file }
+  const fileInputExcelRef = useRef(null);
+  const userCanImportExport = canImportExportOutils(user);
 
   if (!canGererCatalogue(user)) {
     return (
@@ -48,46 +57,10 @@ export function AdminOutillage({ onBack }) {
   }
 
   // ─── Imports initiaux ───────────────────────────────────────
-  const importOutilsInitiaux = async () => {
-    if (outils.length > 0) {
-      toast("❌ Le catalogue contient déjà " + outils.length + " outil(s). Supprimez-les d'abord si vous voulez réimporter.");
-      return;
-    }
-    if (!confirm(`⚠ Importer le catalogue initial ?\n\n${INITIAL_OUTILS.length} outils seront ajoutés en base Firestore.\nCette action créera un document par outil.\n\nContinuer ?`)) return;
-
-    setImporting("outils");
-    try {
-      // Firebase batch limit = 500 writes, on est safe avec 223
-      const batch = writeBatch(db);
-      const now = new Date().toISOString();
-      INITIAL_OUTILS.forEach((o, i) => {
-        const id = generateId("outil_");
-        batch.set(doc(db, "outils", id), {
-          id,
-          ref: o.ref,
-          nom: o.nom,
-          categorieId: o.categorieId,
-          codeBarres: o.codeBarres || "",
-          marque: "",
-          numSerie: "",
-          notes: "",
-          statut: "disponible",
-          photoURL: "",
-          photoPath: "",
-          affectationPermanenteUserId: null,
-          createdAt: now,
-          updatedAt: now,
-        });
-      });
-      await batch.commit();
-      toast(`✓ ${INITIAL_OUTILS.length} outils importés avec succès`);
-    } catch (e) {
-      console.error(e);
-      toast("❌ Erreur import : " + e.message);
-    } finally {
-      setImporting(null);
-    }
-  };
+  // v10.M — L'import initial des 223 outils a été retiré : il est remplacé
+  // par le bloc « Import / Export du parc » plus bas (fichier Excel).
+  // On garde les imports initiaux de catégories et de pannes (juste pour
+  // amorcer un parc vide rapidement, ils ne grossissent pas le bundle).
 
   const importCategoriesInitiales = async () => {
     if (outillageCategories.length > 0) {
@@ -153,6 +126,161 @@ export function AdminOutillage({ onBack }) {
       packContent: [],
     });
     setEditing("new");
+  };
+
+  // ─── v10.M — Export Excel du parc actuel ─────────────────────
+  const handleExportExcel = () => {
+    if (!userCanImportExport) {
+      toast("❌ Réservé Admin / Direction / Responsable parc");
+      return;
+    }
+    try {
+      const blob = exportOutilsToExcel(outils, outillageCategories);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      a.href = url;
+      a.download = `EPJ_parc_outils_${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(`✓ Export généré : ${outils.length} outils`);
+    } catch (e) {
+      console.error(e);
+      toast("❌ Erreur export : " + (e.message || e));
+    }
+  };
+
+  // ─── v10.M — Sélection du fichier Excel à importer ──────────
+  // Le bouton "Importer (Mettre à jour)" pré-positionne mode='update',
+  // le bouton "Tout remplacer" pré-positionne mode='replace'.
+  const handlePickExcel = (mode) => {
+    if (!userCanImportExport) {
+      toast("❌ Réservé Admin / Direction / Responsable parc");
+      return;
+    }
+    // Gate "tout remplacer" : on bloque si sorties actives en cours.
+    if (mode === "replace") {
+      const nbActive = countActiveSorties(outillageSorties);
+      if (nbActive > 0) {
+        toast(`❌ Impossible : ${nbActive} sortie(s) d'outil(s) en cours. Récupère-les avant de tout remplacer.`);
+        return;
+      }
+    }
+    // Stocke le mode pour qu'on s'en souvienne après que l'utilisateur ait choisi le fichier
+    fileInputExcelRef.current._mode = mode;
+    fileInputExcelRef.current.value = ""; // reset pour re-déclencher onChange si même fichier
+    fileInputExcelRef.current.click();
+  };
+
+  // ─── v10.M — Quand le fichier Excel est choisi → parse + preview ──
+  const handleExcelFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const mode = e.target._mode || "update";
+    try {
+      const parsed = await parseOutilsFromExcel(file);
+      if (parsed.errors && parsed.errors.length > 0) {
+        toast("❌ " + parsed.errors[0]);
+        return;
+      }
+      const v = validateImportRows(parsed.rows, outils);
+      setImportPreview({
+        mode,
+        file: file.name,
+        valid: v.valid,
+        errors: v.errors,
+        duplicatesInFile: v.duplicatesInFile,
+        newCount: v.newCount,
+        existingCount: v.existingCount,
+        totalInFile: parsed.rows.length,
+      });
+    } catch (err) {
+      toast("❌ Lecture impossible : " + (err.message || err));
+    }
+  };
+
+  // ─── v10.M — Exécution de l'import après confirmation ────────
+  const handleImportConfirm = async () => {
+    if (!importPreview || !userCanImportExport) return;
+    const { mode, valid } = importPreview;
+    if (valid.length === 0) {
+      toast("❌ Aucune ligne valide à importer");
+      return;
+    }
+
+    // Double confirmation pour le mode "tout remplacer"
+    if (mode === "replace") {
+      const okFirst = confirm(
+        `⚠️ ATTENTION : action IRRÉVERSIBLE.\n\n` +
+        `Cette action va SUPPRIMER tous les ${outils.length} outils existants\n` +
+        `et les remplacer par les ${valid.length} outils du fichier.\n\n` +
+        `Les sorties d'outils historiques (déjà retournées) seront conservées,\n` +
+        `mais les liens vers des outils supprimés deviendront orphelins.\n\n` +
+        `Continuer ?`
+      );
+      if (!okFirst) return;
+      const typed = prompt(`Tape exactement "REMPLACER" (en MAJUSCULES) pour confirmer la suppression de tous les outils existants :`);
+      if (typed !== "REMPLACER") {
+        toast("❌ Annulé — la chaîne saisie ne correspond pas");
+        return;
+      }
+    } else {
+      // Mode "Mettre à jour" : confirmation simple
+      const ok = confirm(
+        `Confirmer la mise à jour ?\n\n` +
+        `• ${importPreview.newCount} nouveau(x) outil(s) seront ajouté(s)\n` +
+        `• ${importPreview.existingCount} outil(s) existant(s) seront mis à jour\n` +
+        `• Les outils non présents dans le fichier resteront inchangés`
+      );
+      if (!ok) return;
+    }
+
+    setImporting("excel");
+    try {
+      // Index des outils existants par référence (lowercase)
+      const byRef = new Map();
+      outils.forEach(o => {
+        if (o.ref) byRef.set(o.ref.toLowerCase(), o);
+      });
+
+      // Mode replace : supprime TOUS les outils existants d'abord
+      if (mode === "replace") {
+        // Batch suppression (max 500 writes par batch Firestore)
+        for (let i = 0; i < outils.length; i += 400) {
+          const batch = writeBatch(db);
+          outils.slice(i, i + 400).forEach(o => {
+            batch.delete(doc(db, "outils", o._id || o.id));
+          });
+          await batch.commit();
+        }
+      }
+
+      // Upsert toutes les lignes valides
+      for (let i = 0; i < valid.length; i += 400) {
+        const batch = writeBatch(db);
+        valid.slice(i, i + 400).forEach(row => {
+          // En mode replace, pas d'existing (tout est supprimé)
+          const existing = mode === "replace" ? null : byRef.get(row.ref.toLowerCase());
+          const newId = generateId("outil_");
+          const docData = buildOutilDocFromRow(row, existing, newId);
+          batch.set(doc(db, "outils", docData.id), docData);
+        });
+        await batch.commit();
+      }
+
+      const msg = mode === "replace"
+        ? `✓ Remplacement OK — ${valid.length} outil(s) importé(s)`
+        : `✓ Mise à jour OK — ${importPreview.newCount} ajout(s), ${importPreview.existingCount} mise(s) à jour`;
+      toast(msg);
+      setImportPreview(null);
+    } catch (err) {
+      console.error("[v10.M] import error:", err);
+      toast("❌ Erreur import : " + (err.message || err));
+    } finally {
+      setImporting(null);
+    }
   };
 
   const startEdit = (o) => {
@@ -609,21 +737,150 @@ export function AdminOutillage({ onBack }) {
                   ? `✓ 2. Pannes importées (${outillagePannes.length})`
                   : "2. Importer les 8 pannes récurrentes"}
             </button>
-            <button onClick={importOutilsInitiaux}
-              disabled={!!importing || outils.length > 0 || outillageCategories.length === 0}
-              style={{
-                ...seedBtnStyle,
-                opacity: (outils.length > 0 || outillageCategories.length === 0) ? 0.5 : 1,
-              }}>
-              {importing === "outils"
-                ? "⏳ Import 223 outils en cours…"
-                : outils.length > 0
-                  ? `✓ 3. Outils importés (${outils.length})`
-                  : outillageCategories.length === 0
-                    ? "3. Importer les 223 outils (importe d'abord les catégories)"
-                    : "3. Importer les 223 outils EPJ"}
-            </button>
+            {/* v10.M — L'import initial des 223 outils est remplacé par
+                l'import via fichier Excel (bloc dédié ci-dessous).
+                Pour amorcer un parc vide, exporte d'abord le fichier
+                modèle fourni en pièce jointe du CHANGELOG v10.M et
+                réimporte-le. */}
+            <div style={{ fontSize: 11, color: EPJ.gray500, lineHeight: 1.5, marginTop: 4 }}>
+              {outils.length === 0
+                ? "💡 Étape 3 : utilise le bloc « Import / Export du parc » ci-dessous pour charger les outils."
+                : `✓ 3. ${outils.length} outils en base`}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── v10.M — Import / Export Excel du parc ─── */}
+      {userCanImportExport && (
+        <div className="epj-card" style={{
+          padding: 16, marginBottom: 14,
+          borderLeft: `3px solid ${EPJ.blue}`,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900, marginBottom: 6 }}>
+            📥 Import / Export du parc
+          </div>
+          <div style={{ fontSize: 11, color: EPJ.gray700, lineHeight: 1.5, marginBottom: 10 }}>
+            Exporte le parc actuel pour le sauvegarder ou le modifier dans Excel.
+            Puis réimporte-le en mode <b>mise à jour</b> (ajoute/modifie, conserve l'existant)
+            ou <b>tout remplacer</b> (supprime tout et recharge — irréversible).
+          </div>
+
+          {/* Bouton Export */}
+          <button onClick={handleExportExcel}
+            disabled={!!importing}
+            style={{
+              ...seedBtnStyle,
+              width: "100%", marginBottom: 6,
+              background: `${EPJ.green}12`,
+              color: EPJ.green,
+              border: `1px solid ${EPJ.green}40`,
+            }}>
+            📤 Exporter le parc actuel ({outils.length} outils)
+          </button>
+
+          {/* Bouton Import Mise à jour */}
+          <button onClick={() => handlePickExcel("update")}
+            disabled={!!importing}
+            style={{
+              ...seedBtnStyle,
+              width: "100%", marginBottom: 6,
+              background: `${EPJ.blue}12`,
+              color: EPJ.blue,
+              border: `1px solid ${EPJ.blue}40`,
+            }}>
+            📥 Importer (Mettre à jour le parc)
+          </button>
+
+          {/* Bouton Tout remplacer */}
+          <button onClick={() => handlePickExcel("replace")}
+            disabled={!!importing}
+            style={{
+              ...seedBtnStyle,
+              width: "100%",
+              background: `${EPJ.red}12`,
+              color: EPJ.red,
+              border: `1px solid ${EPJ.red}40`,
+            }}>
+            🗑 Importer (Tout remplacer — IRRÉVERSIBLE)
+          </button>
+
+          {/* Input file caché */}
+          <input
+            ref={fileInputExcelRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelFileChosen}
+            style={{ display: "none" }}
+          />
+
+          {/* Preview avant import */}
+          {importPreview && (
+            <div style={{
+              marginTop: 12, padding: 12, borderRadius: 8,
+              background: importPreview.mode === "replace" ? `${EPJ.red}08` : `${EPJ.blue}08`,
+              border: `1px solid ${importPreview.mode === "replace" ? EPJ.red : EPJ.blue}40`,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray900, marginBottom: 6 }}>
+                📋 Aperçu de l'import — {importPreview.file}
+              </div>
+              <div style={{ fontSize: 11, color: EPJ.gray700, lineHeight: 1.6 }}>
+                <b>Mode :</b> {importPreview.mode === "replace" ? "🗑 Tout remplacer" : "📥 Mise à jour"}<br/>
+                <b>Lignes lues :</b> {importPreview.totalInFile}<br/>
+                <b>Lignes valides :</b> {importPreview.valid.length}<br/>
+                <b>Nouveaux outils :</b> {importPreview.newCount}<br/>
+                <b>Outils existants mis à jour :</b> {importPreview.existingCount}<br/>
+                {importPreview.errors.length > 0 && (
+                  <span style={{ color: EPJ.red }}>
+                    <b>Erreurs :</b> {importPreview.errors.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Liste des erreurs (max 5) */}
+              {importPreview.errors.length > 0 && (
+                <div style={{
+                  marginTop: 8, padding: 8, borderRadius: 6,
+                  background: `${EPJ.red}10`, fontSize: 10, color: EPJ.red, lineHeight: 1.5,
+                  maxHeight: 100, overflowY: "auto",
+                }}>
+                  {importPreview.errors.slice(0, 5).map((err, i) => <div key={i}>• {err}</div>)}
+                  {importPreview.errors.length > 5 && (
+                    <div style={{ fontWeight: 700, marginTop: 4 }}>
+                      … et {importPreview.errors.length - 5} autre(s) erreur(s)
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Boutons confirmer / annuler */}
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                <button onClick={handleImportConfirm}
+                  disabled={!!importing || importPreview.valid.length === 0}
+                  style={{
+                    flex: 1, padding: "10px 12px", borderRadius: 6,
+                    background: importPreview.mode === "replace" ? EPJ.red : EPJ.blue,
+                    color: "#fff", border: "none", fontSize: 12, fontWeight: 700,
+                    cursor: importing ? "not-allowed" : "pointer",
+                    opacity: (importing || importPreview.valid.length === 0) ? 0.5 : 1,
+                    fontFamily: font.body,
+                  }}>
+                  {importing === "excel" ? "⏳ Import en cours…" : `✓ Confirmer (${importPreview.valid.length} outils)`}
+                </button>
+                <button onClick={() => setImportPreview(null)}
+                  disabled={!!importing}
+                  style={{
+                    padding: "10px 12px", borderRadius: 6,
+                    background: "transparent", color: EPJ.gray500,
+                    border: `1px solid ${EPJ.gray300}`, fontSize: 12, fontWeight: 600,
+                    cursor: importing ? "not-allowed" : "pointer",
+                    fontFamily: font.body,
+                  }}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
