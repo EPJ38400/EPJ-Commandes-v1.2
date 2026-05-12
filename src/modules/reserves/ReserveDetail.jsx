@@ -17,6 +17,9 @@ import {
 } from "./reservesUtils";
 import { AttachmentsManager } from "./AttachmentsManager";
 import { QuitusActions } from "./QuitusActions";
+// v10.N — SMS attribution + demande levée
+import { smsReserveAttribuee, smsReserveDemandeLevee, findUserByUid } from "../../core/smsService";
+import { canDemanderLevee } from "./reservesRappel";
 
 export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const { user } = useAuth();
@@ -80,25 +83,39 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
     const affecteANom = affecte ? `${affecte.prenom || ""} ${affecte.nom || ""}`.trim() : "";
     setSaving(true);
     try {
+      // v10.N — Lors d'un transfert (re-attribution), on reset le flag rappel
+      // pour que le nouveau destinataire reçoive son rappel à son tour si retard.
+      const isTransfert = !!reserve.affecteAUserId && reserve.affecteAUserId !== assignUserId;
       await updateDoc(doc(db, "reserves", reserve._id), {
         affecteAUserId: assignUserId,
         affecteANom,
         dateAffectation: todayISO(),
         statut: reserve.rdvPris ? "planifiee" : "attribuee",
+        // Reset du flag rappel à chaque (ré)attribution
+        smsRappelRetardSent: false,
+        smsRappelRetardSentAt: null,
+        // Trace transfert si applicable
+        ...(isTransfert ? {
+          transfereParId: user?._id || "",
+          transfereParNom: `${user?.prenom||""} ${user?.nom||""}`.trim(),
+          dateTransfert: new Date().toISOString(),
+        } : {}),
       });
       setShowAssign(false);
-      // Proposer SMS d'attribution
-      if (affecte?.telephone) {
-        const tpl = smsTemplates.find(t => t.code === "reserve_attribution");
-        if (tpl && confirm(`Envoyer un SMS d'attribution à ${affecteANom} (${affecte.telephone}) ?`)) {
-          const msg = renderReserveSmsTemplate(tpl.texte, {
-            prenom: affecte.prenom || "",
-            numReserve: reserve.numReserve,
-            chantier: reserve.chantierNum,
-            clientNom: reserve.clientFinal?.nom || "",
-            clientTel: reserve.clientFinal?.telephone || "",
+      // v10.N — SMS automatique au destinataire (plus de mailto/clipboard)
+      if (affecte) {
+        try {
+          await smsReserveAttribuee({
+            smsTemplates,
+            destinataire: affecte,
+            refReserve: reserve.numReserve,
+            titreReserve: reserve.titre || "",
+            chantier: reserve.chantierNom || reserve.chantierNum,
+            dateLevee: reserve.dateSouhaiteLevee || "",
+            reserveId: reserve._id,
           });
-          window.location.href = buildSmsDeepLink(affecte.telephone, msg);
+        } catch (smsErr) {
+          console.warn("[v10.N] SMS attribution non bloquant:", smsErr);
         }
       }
     } catch (e) { alert("❌ " + e.message); }
@@ -120,22 +137,38 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
     setSaving(false);
   };
 
-  const doRelanceSMS = () => {
+  // v10.N — Demander la levée (SMS automatique via queue, plus de mailto/clipboard)
+  // Visible pour Admin / Direction / Conducteur travaux / responsableParc.
+  // Remplace l'ancien doRelanceSMS qui passait par window.location.href = sms:...
+  const doDemanderLevee = async () => {
     const affecte = users.find(u => u._id === reserve.affecteAUserId);
-    if (!affecte?.telephone) {
-      alert("Pas de numéro de téléphone pour cet utilisateur.");
+    if (!affecte) {
+      alert("Aucun destinataire affecté à cette réserve.");
       return;
     }
-    const tpl = smsTemplates.find(t => t.code === "reserve_relance_rdv");
-    if (!tpl) { alert("Template SMS introuvable."); return; }
-    const msg = renderReserveSmsTemplate(tpl.texte, {
-      prenom: affecte.prenom || "",
-      numReserve: reserve.numReserve,
-      chantier: reserve.chantierNum,
-      clientNom: reserve.clientFinal?.nom || "",
-      clientTel: reserve.clientFinal?.telephone || "",
-    });
-    window.location.href = buildSmsDeepLink(affecte.telephone, msg);
+    if (!affecte.telephone && !affecte.tel) {
+      alert("Pas de numéro de téléphone pour " + (affecte.prenom||"") + " " + (affecte.nom||""));
+      return;
+    }
+    if (!confirm(`Envoyer un SMS à ${affecte.prenom} ${affecte.nom} pour demander la levée de la réserve ${reserve.numReserve} ?`)) return;
+    try {
+      const res = await smsReserveDemandeLevee({
+        smsTemplates,
+        destinataire: affecte,
+        demandeur: user,
+        refReserve: reserve.numReserve,
+        titreReserve: reserve.titre || "",
+        chantier: reserve.chantierNom || reserve.chantierNum,
+        reserveId: reserve._id,
+      });
+      if (res?.queued) {
+        alert(`✓ SMS demande de levée envoyé à ${affecte.prenom}`);
+      } else {
+        alert(`⚠️ SMS non envoyé : ${res?.reason || "raison inconnue"}`);
+      }
+    } catch (e) {
+      alert("❌ Erreur : " + (e.message || e));
+    }
   };
 
   const doDelete = async () => {
@@ -372,14 +405,24 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
               <button onClick={() => setShowPlanify(true)} className="epj-btn" style={actionBtnStyle(EPJ.orange)}>
                 📅 Planifier le RDV
               </button>
-              <button onClick={doRelanceSMS} className="epj-btn" style={actionBtnStyle(EPJ.gray700)}>
-                📱 SMS de relance
-              </button>
+              {canDemanderLevee(reserve, user) && (
+                <button onClick={doDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+                  📱 Demander la levée (SMS)
+                </button>
+              )}
             </>
           )}
           {["attribuee", "planifiee", "intervention"].includes(reserve.statut) && (
             <button onClick={onLevee} className="epj-btn" style={actionBtnStyle(EPJ.green)}>
               ✓ Déclarer la levée
+            </button>
+          )}
+          {/* v10.N — "Demander la levée" aussi visible sur statut planifiee/intervention pour privilégiés */}
+          {reserve.affecteAUserId
+            && ["planifiee", "intervention"].includes(reserve.statut)
+            && canDemanderLevee(reserve, user) && (
+            <button onClick={doDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+              📱 Demander la levée (SMS)
             </button>
           )}
           {reserve.affecteAUserId && (

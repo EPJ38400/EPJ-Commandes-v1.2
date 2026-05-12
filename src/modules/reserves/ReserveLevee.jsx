@@ -17,7 +17,7 @@ import {
 import { PhotoDropZone } from "./PhotoDropZone";
 import { SignaturePad } from "./SignaturePad";
 // v10.I — SMS au demandeur initial après levée
-import { smsReserveLevee, findUserByUid } from "../../core/smsService";
+// v10.N — smsReserveLevee retiré (Point 2 PJY : pas de SMS à la levée)
 
 const QUALITES = [
   "Client final",
@@ -138,23 +138,8 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
         clientSignataireNom: (clientNom || "").trim(),
         clientSignataireQualite: clientQualite || "",
       });
-      // v10.I — SMS au demandeur initial (celui qui a créé la réserve)
-      // Si l'auteur initial n'est pas un user EPJ (ex: locataire, MOE), on ne fait rien.
-      try {
-        const demandeur = findUserByUid(reserve.creePar, users);
-        if (demandeur) {
-          await smsReserveLevee({
-            smsTemplates,
-            demandeur,
-            leveeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
-            refReserve: reserve.numReserve || "",
-            chantier: reserve.chantierNom || reserve.chantierNum || "",
-            reserveId: reserve._id,
-          });
-        }
-      } catch(smsErr) {
-        console.warn("[v10.I] SMS réserve levée non bloquant:", smsErr);
-      }
+      // v10.N — Plus de SMS à la levée (Point 2 PJY).
+      // L'info passe par : dashboard + email automatique (déjà câblé via mailto: dans QuitusActions).
       onDone();
     } catch (err) {
       console.error(err);

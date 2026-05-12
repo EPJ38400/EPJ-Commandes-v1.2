@@ -31,6 +31,8 @@ import { ParcMachinesModule } from "./modules/parc-machines/ParcMachinesModule";
 import { ReservesModule } from "./modules/reserves/ReservesModule";
 // v10.K — Watcher invisible : rappel SMS J + anomalie J+2 sur les sorties d'outils
 import { OutillageRappelWatcher } from "./modules/parc-machines/OutillageRappelWatcher";
+// v10.N — Watcher invisible : rappel SMS de levée de réserve
+import { ReservesRappelWatcher } from "./modules/reserves/ReservesRappelWatcher";
 
 const ROUTE_STORAGE_KEY = "epj_last_route";
 
@@ -129,6 +131,8 @@ function Router() {
     >
       {/* v10.K — Watcher invisible : SMS rappel J + anomalie J+2 sur outils */}
       <OutillageRappelWatcher/>
+      {/* v10.N — Watcher invisible : SMS rappel levée de réserve (5 min) */}
+      <ReservesRappelWatcher/>
 
       {route === "home" && (
         <HomePage

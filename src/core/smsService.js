@@ -306,6 +306,91 @@ export async function smsReserveLevee({
   });
 }
 
+/**
+ * v10.N — Réserve attribuée à un destinataire → SMS au destinataire.
+ * Déclenché à la création AVEC attribution OU lors d'un transfert.
+ */
+export async function smsReserveAttribuee({
+  smsTemplates, destinataire, refReserve, titreReserve, chantier, dateLevee, reserveId,
+}) {
+  if (!destinataire) return { queued: false, reason: "destinataire introuvable" };
+  return queueSms({
+    type: "RESERVE_ATTRIBUEE",
+    templateCode: "reserve_attribuee",
+    smsTemplates,
+    recipient: {
+      userId: extractUid(destinataire),
+      name: `${destinataire.prenom||""} ${destinataire.nom||""}`.trim(),
+      phone: destinataire.telephone || destinataire.tel || "",
+    },
+    variables: {
+      prenom: destinataire.prenom || "",
+      refReserve: refReserve || "",
+      titre: titreReserve || "",
+      chantier: chantier || "",
+      dateLevee: dateLevee || "",
+    },
+    context: { module: "reserves-quitus", reserveId: reserveId || "" },
+  });
+}
+
+/**
+ * v10.N — Rappel automatique de levée (J : date prévue dépassée).
+ * Envoyé une seule fois par cycle via watcher (idempotence flag smsRappelRetardSent).
+ * Cible le destinataire COURANT de la réserve (qui peut avoir changé via transfert).
+ */
+export async function smsReserveRappelLevee({
+  smsTemplates, destinataire, refReserve, titreReserve, chantier, dateLevee, reserveId,
+}) {
+  if (!destinataire) return { queued: false, reason: "destinataire introuvable" };
+  return queueSms({
+    type: "RESERVE_RAPPEL_LEVEE",
+    templateCode: "reserve_rappel_levee",
+    smsTemplates,
+    recipient: {
+      userId: extractUid(destinataire),
+      name: `${destinataire.prenom||""} ${destinataire.nom||""}`.trim(),
+      phone: destinataire.telephone || destinataire.tel || "",
+    },
+    variables: {
+      prenom: destinataire.prenom || "",
+      refReserve: refReserve || "",
+      titre: titreReserve || "",
+      chantier: chantier || "",
+      dateLevee: dateLevee || "",
+    },
+    context: { module: "reserves-quitus", reserveId: reserveId || "" },
+  });
+}
+
+/**
+ * v10.N — Demande manuelle de levée par Admin/Direction/responsableParc.
+ * Bouton "📱 Demander la levée" dans le détail réserve.
+ */
+export async function smsReserveDemandeLevee({
+  smsTemplates, destinataire, demandeur, refReserve, titreReserve, chantier, reserveId,
+}) {
+  if (!destinataire) return { queued: false, reason: "destinataire introuvable" };
+  return queueSms({
+    type: "RESERVE_DEMANDE_LEVEE",
+    templateCode: "reserve_demande_levee",
+    smsTemplates,
+    recipient: {
+      userId: extractUid(destinataire),
+      name: `${destinataire.prenom||""} ${destinataire.nom||""}`.trim(),
+      phone: destinataire.telephone || destinataire.tel || "",
+    },
+    variables: {
+      prenom: destinataire.prenom || "",
+      refReserve: refReserve || "",
+      titre: titreReserve || "",
+      chantier: chantier || "",
+      demandeurNom: demandeur ? `${demandeur.prenom||""} ${demandeur.nom||""}`.trim() : "",
+    },
+    context: { module: "reserves-quitus", reserveId: reserveId || "" },
+  });
+}
+
 /** v10.I — Quitus signé (circuit complet) → SMS au conducteur. */
 export async function smsQuitusSigne({
   smsTemplates, conducteur, refReserve, chantier, reserveId, quitusUrl,

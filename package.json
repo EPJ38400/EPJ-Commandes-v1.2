@@ -1,13 +1,13 @@
 {
   "name": "epj-commandes",
   "private": true,
-  "version": "1.10.18",
+  "version": "1.10.19",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:unit": "node src/modules/commandes/catalogImporter.test.js && node src/modules/commandes/orderEdit.test.js && node src/core/smsService.test.js && node src/modules/commandes/orderDates.test.js && node src/modules/commandes/orderReceive.test.js && node src/modules/parc-machines/outillageRappel.test.js && node src/modules/commandes/esaboraUtils.test.js && node src/modules/parc-machines/outilsImporter.test.js"
+    "test:unit": "node src/modules/commandes/catalogImporter.test.js && node src/modules/commandes/orderEdit.test.js && node src/core/smsService.test.js && node src/modules/commandes/orderDates.test.js && node src/modules/commandes/orderReceive.test.js && node src/modules/parc-machines/outillageRappel.test.js && node src/modules/commandes/esaboraUtils.test.js && node src/modules/parc-machines/outilsImporter.test.js && node src/modules/reserves/reservesRappel.test.js"
   },
   "dependencies": {
     "firebase": "^10.12.0",

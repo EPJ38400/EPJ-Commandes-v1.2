@@ -191,6 +191,31 @@ const DEFAULT_TEMPLATES = [
     variables: ["{prenom}", "{ref}", "{nom}", "{demandeurPrenom}", "{demandeurNom}"],
     actif: true,
   },
+  // ─── v10.N — SMS Réserves (3 nouveaux) ───
+  {
+    id: "reserve_attribuee",
+    module: "reserves-quitus",
+    label: "Réserve attribuée (à un monteur)",
+    body: "Bonjour {prenom}, la réserve {refReserve} sur {chantier} t'a été attribuée : {titre}. À lever avant le {dateLevee}. — EPJ",
+    variables: ["{prenom}", "{refReserve}", "{titre}", "{chantier}", "{dateLevee}"],
+    actif: true,
+  },
+  {
+    id: "reserve_rappel_levee",
+    module: "reserves-quitus",
+    label: "Rappel auto retard de levée (jour J)",
+    body: "Bonjour {prenom}, rappel EPJ : la réserve {refReserve} sur {chantier} ({titre}) devait être levée le {dateLevee}. Merci de t'en occuper. — EPJ",
+    variables: ["{prenom}", "{refReserve}", "{titre}", "{chantier}", "{dateLevee}"],
+    actif: true,
+  },
+  {
+    id: "reserve_demande_levee",
+    module: "reserves-quitus",
+    label: "Demande manuelle de levée de réserve",
+    body: "Bonjour {prenom}, {demandeurNom} te demande de lever la réserve {refReserve} sur {chantier} ({titre}) dès que possible. — EPJ",
+    variables: ["{prenom}", "{refReserve}", "{titre}", "{chantier}", "{demandeurNom}"],
+    actif: true,
+  },
 ];
 
 export function AdminSmsTemplates({ onBack }) {

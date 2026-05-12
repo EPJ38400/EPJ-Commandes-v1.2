@@ -15,7 +15,7 @@ import {
 import { PhotoDropZone } from "./PhotoDropZone";
 import { AttachmentsManager } from "./AttachmentsManager";
 // v10.I — SMS au conducteur du chantier à la création d'une réserve
-import { smsReserveCreee, findConducteur } from "../../core/smsService";
+import { smsReserveAttribuee, findUserByUid } from "../../core/smsService";
 
 export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
   const { user } = useAuth();
@@ -178,21 +178,25 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
       };
 
       await setDoc(doc(db, "reserves", id), data);
-      // v10.I — SMS au conducteur du chantier (non bloquant)
+      // v10.N — SMS UNIQUEMENT à l'attribution (Point 1 = A : pas de SMS à la création).
+      // Si la réserve est créée AVEC attribution dans la foulée, SMS au destinataire.
       try {
-        const conducteur = chantier ? findConducteur(chantier, users) : null;
-        if (conducteur) {
-          await smsReserveCreee({
-            smsTemplates,
-            conducteur,
-            creeParNom: `${user.prenom||""} ${user.nom||""}`.trim(),
-            refReserve: numReserve,
-            chantier: chantier?.nom || chantierNum,
-            reserveId: id,
-          });
+        if (form.affecteAUserId) {
+          const destinataire = findUserByUid(form.affecteAUserId, users);
+          if (destinataire) {
+            await smsReserveAttribuee({
+              smsTemplates,
+              destinataire,
+              refReserve: numReserve,
+              titreReserve: form.titre || "",
+              chantier: chantier?.nom || chantierNum,
+              dateLevee: form.dateSouhaiteLevee || "",
+              reserveId: id,
+            });
+          }
         }
       } catch(smsErr) {
-        console.warn("[v10.I] SMS réserve créée non bloquant:", smsErr);
+        console.warn("[v10.N] SMS attribution non bloquant:", smsErr);
       }
       onDone(id);
     } catch (err) {
