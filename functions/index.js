@@ -21,7 +21,7 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { setGlobalOptions } from "firebase-functions/v2";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 // Initialise Firebase Admin SDK (auto-config avec les credentials du compte de service)
 admin.initializeApp();
