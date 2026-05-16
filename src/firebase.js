@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-//  Firebase init — projet ap-epj (conservé de la V1.3)
+//  Firebase init — projet ap-epj
+//  v1.11.0 : ajout de Firebase Auth (migration sécurité)
 // ═══════════════════════════════════════════════════════════════
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDBrJnApDSAXDCww5fs2Y6qKPylK-vwSqM",
@@ -17,3 +19,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const auth = getAuth(app);
+
+// Persistance locale : la session Auth survit à un refresh / fermeture d'onglet
+// (comme l'ancien localStorage qu'on remplace).
+setPersistence(auth, browserLocalPersistence).catch(err => {
+  console.warn("Firebase Auth persistence:", err);
+});

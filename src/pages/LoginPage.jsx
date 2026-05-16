@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 //  LoginPage — écran de connexion
-//  - Icône PWA (style carte de visite : arcs + logo centré)
-//  - Logo couleur EPJ (PNG transparent)
-//  - Arcs de la charte en arrière-plan
+//  v1.11.0 : login asynchrone (Firebase Auth + fallback ancien)
+//   • Label : "Identifiant ou email" (l'AuthContext route auto.)
+//   • Le bouton attend la résolution de la Promise login()
+//   • Pas de changement visuel autre que le label
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { EPJ, font, globalCss } from "../core/theme";
@@ -16,12 +17,21 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError("");
     setPending(true);
-    const res = login(id.trim(), pwd);
-    if (!res.ok) { setError(res.error); setPending(false); }
+    try {
+      const res = await login(id.trim(), pwd);
+      if (!res.ok) {
+        setError(res.error);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Erreur inattendue. Réessayez.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -61,7 +71,6 @@ export function LoginPage() {
         }}>
           {/* Bloc identité */}
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            {/* Icône d'app (style carte de visite EPJ) */}
             <div style={{
               width: 92, height: 92, margin: "0 auto 18px",
               borderRadius: 20, overflow: "hidden",
@@ -73,7 +82,6 @@ export function LoginPage() {
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
             </div>
-            {/* Logo couleur (PNG transparent) */}
             <img
               src={LOGO_LOGIN}
               alt="EPJ Électricité Générale"
@@ -104,14 +112,14 @@ export function LoginPage() {
                 display: "block", fontSize: 11, fontWeight: 600,
                 color: EPJ.gray500, letterSpacing: 0.4, textTransform: "uppercase",
                 marginBottom: 6,
-              }}>Identifiant</label>
+              }}>Identifiant ou email</label>
               <input
                 className="epj-input"
                 value={id}
                 onChange={e => setId(e.target.value)}
                 autoComplete="username"
                 autoCapitalize="none"
-                placeholder="Votre identifiant"
+                placeholder="Votre identifiant ou email"
                 required
               />
             </div>
