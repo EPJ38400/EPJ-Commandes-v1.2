@@ -96,6 +96,14 @@ export function DashboardDirection({ onBack, onGoto }) {
     const commandesUrgentes = commandesEnAttente.filter(cmd => cmd.urgent === true);
     const commandesAValider = commandes.filter(cmd => cmd.statut === "En attente de validation");
 
+    // v1.13.0 — Commandes à passer chez le fournisseur (pour Achat/Direction)
+    const commandesAPasser = commandes.filter(cmd =>
+      ["Validée", "Envoyée aux achats", "Commandée partiellement"].includes(cmd.statut)
+    );
+    const commandesPartielles = commandes.filter(cmd =>
+      cmd.statut === "Commandée partiellement"
+    );
+
     // Parc machines en panne
     const outilsEnPanne = outils.filter(o => o.statut === "panne" || o.statut === "HS");
 
@@ -106,6 +114,7 @@ export function DashboardDirection({ onBack, onGoto }) {
       reservesOuvertes, reservesEnRetard, reservesBloquantes, reservesNonAttribuees,
       chantiersActifs,
       commandesEnAttente, commandesEnRetard, commandesUrgentes, commandesAValider,
+      commandesAPasser, commandesPartielles,
       outilsEnPanne, outilsSortis,
     };
   }, [reserves, chantiers, commandes, outils, outillageSorties]);
@@ -265,6 +274,20 @@ export function DashboardDirection({ onBack, onGoto }) {
             icon="📦"
             color={EPJ.blue}
             onClick={() => onGoto && onGoto("module:commandes")}
+          />
+          {/* v1.13.0 — KPI À commander (Achat/Direction/Admin) */}
+          <Kpi
+            label="À commander"
+            value={stats.commandesAPasser.length}
+            sub={stats.commandesPartielles.length > 0
+              ? `dont ${stats.commandesPartielles.length} partielle${stats.commandesPartielles.length > 1 ? "s" : ""}` : null}
+            icon="🛒"
+            color={EPJ.orange}
+            alert={stats.commandesPartielles.length > 0}
+            onClick={() => {
+              try { localStorage.setItem("epj_commandes_target_view", "toOrder"); } catch {}
+              onGoto && onGoto("module:commandes");
+            }}
           />
           <Kpi
             label="Matériel en retard"

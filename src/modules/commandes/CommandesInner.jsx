@@ -26,6 +26,9 @@ import {
   buildReceptionPayload, computeReliquatItems, validateReceivedQuantities, normalizeQty,
 } from "./orderReceive";
 import { getExpectedDeliveryDate, formatDateFR } from "./orderDates";
+import { OrderMessageThread } from "./OrderMessageThread";
+import { PartialPassSheet } from "./PartialPassSheet";
+import { buildPartialPassPayload } from "./orderPartialPass";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -64,7 +67,7 @@ const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
 const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
 const font = "'Inter','Segoe UI',-apple-system,sans-serif";
-const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"}};
+const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"}};
 
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
@@ -162,7 +165,17 @@ export function CommandesInner({ onExitModule }) {
   const initialDraft = loadDraft() || {};
 
   // ⚠️ view démarre sur 'home' (page d'accueil du module Commandes).
-  const [view, setView] = useState('home');
+  const [view, setView] = useState(() => {
+    // v1.13.0 — Si le dashboard a posé un target_view, on l'ouvre directement
+    try {
+      const target = localStorage.getItem("epj_commandes_target_view");
+      if (target) {
+        localStorage.removeItem("epj_commandes_target_view");
+        return target;
+      }
+    } catch {}
+    return 'home';
+  });
   // ─── v10.G — Helper pour retour à l'accueil du module ───
   // Reset propre (vues, sélections temporaires) quand on clique sur le
   // bouton "← Commandes" du sub-header.
@@ -244,6 +257,8 @@ export function CommandesInner({ onExitModule }) {
   const artFileInputCameraRef = useRef(null);
   const [bulkSelected, setBulkSelected] = useState([]); // v10.G.1 : array de {c, r}
   const [bulkMode, setBulkMode] = useState(false);
+  // v1.13.0 — modale passage partiel chez fournisseur
+  const [partialPassOrder, setPartialPassOrder] = useState(null);
 
   // ─── FIREBASE : écoute temps réel des commandes ───
   useEffect(() => {
@@ -423,6 +438,23 @@ export function CommandesInner({ onExitModule }) {
     // scope === false ou undefined → aucune visibilité
     return 0;
   }, [user, history, dynChantiers, rolesConfig]);
+
+  // v1.13.0 — Compteur "À commander" pour Achat/Direction/Admin
+  // Compte les commandes en attente d'être passées chez le fournisseur :
+  //   - "Validée" (à envoyer aux achats)
+  //   - "Envoyée aux achats" (à passer)
+  //   - "Commandée partiellement" (reste à passer)
+  const toOrderCount = useMemo(() => {
+    if (!user || !canMarkAsCommandee()) return 0;
+    return (history || []).filter(h =>
+      h && h.num && (
+        h.statut === "Validée" ||
+        h.statut === "Envoyée aux achats" ||
+        h.statut === "Commandée partiellement"
+      )
+    ).length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, history]);
 
   const showT = (m) => { setToast(m); setTimeout(()=>setToast(null), 1800); };
   const addToCart = (r) => { setCart(p=>({...p,[r]:(p[r]||0)+1})); showT("✓ Ajouté"); };
@@ -874,6 +906,8 @@ export function CommandesInner({ onExitModule }) {
     if (roles.includes("Admin") || fonction === "Admin") return true;
     // Test : Direction
     if (roles.includes("Direction") || fonction === "Direction") return true;
+    // v1.13.0 — Test : Achat (rôle créé pour le passage de commandes)
+    if (roles.includes("Achat") || fonction === "Achat") return true;
     // Test : Assistante (nouveau rôle)
     if (roles.some(r => (r||"").toLowerCase().includes("assist"))) return true;
     if ((fonction||"").toLowerCase().includes("assist")) return true;
@@ -1114,6 +1148,103 @@ export function CommandesInner({ onExitModule }) {
     } catch(err) {
       console.error("Erreur marquage commandée:", err);
       showT("❌ Erreur — réessayez");
+    }
+  };
+
+  // v1.13.0 — Passage partiel chez le fournisseur (Achat/Direction/Admin)
+  // Sépare ce qui a été commandé de ce qui reste à commander :
+  //  - met à jour la commande mère avec statut + log
+  //  - crée une commande "reliquat" en statut "Envoyée aux achats"
+  //    contenant les lignes/qtés restantes
+  const performPartialPass = async (order, { orderedByIndex }) => {
+    if (!order || !order._id) return false;
+    try {
+      const { payload, reliquatItems } = buildPartialPassPayload(order, orderedByIndex, { user });
+      if (!payload) {
+        showT("ℹ️ Aucune ligne commandée — annulation");
+        return false;
+      }
+
+      // 1. Update commande mère
+      await updateDoc(doc(db, "commandes", order._id), payload);
+
+      // 2. Création reliquat si besoin
+      let reliquatNum = "";
+      if (reliquatItems.length > 0) {
+        try {
+          const year = new Date().getFullYear();
+          const existing = history
+            .map(h => h.num || "")
+            .filter(n => n.startsWith(`CMD-${year}-`))
+            .map(n => parseInt(n.split("-")[2], 10))
+            .filter(n => !isNaN(n));
+          const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
+          reliquatNum = `CMD-${year}-${String(nextNum).padStart(4, "0")}`;
+          const todayFR = new Date().toLocaleDateString('fr-FR');
+          const reliquatPayload = {
+            num: reliquatNum,
+            date: todayFR,
+            statut: "Envoyée aux achats",  // déjà acté, prêt à re-passer
+            type: order.type || "chantier",
+            chantier: order.chantier || "",
+            numAffaire: order.numAffaire || order.chantierNum || "",
+            chantierNum: order.chantierNum || order.numAffaire || "",
+            user: order.user || "",
+            userId: order.userId || "",
+            salarie: order.salarie || "",
+            livraison: order.livraison || "",
+            dateReception: order.dateReception || "",
+            urgent: !!order.urgent,
+            remarques: `Reliquat de passage de ${order.num}${order.remarques ? " — "+order.remarques : ""}`,
+            items: reliquatItems,
+            parentOrderId: order._id,
+            parentOrderNum: order.num,
+            createdByReliquatPass: true,
+            dateEnvoiAchats: new Date().toISOString(),
+            validePar: order.validePar || "",
+          };
+          await addDoc(collection(db, "commandes"), reliquatPayload);
+          console.log(`[v1.13] Reliquat de passage créé : ${reliquatNum}`);
+        } catch (relErr) {
+          console.warn("[v1.13] Échec création reliquat (passage OK quand même):", relErr);
+          showT("⚠️ Commande validée mais reliquat non créé");
+        }
+      }
+
+      // 3. SMS au demandeur si tout commandé (cas standard)
+      if (payload.statut === "Commandée") {
+        try {
+          const demandeur = findUserByUid(order.userId, dynUsers);
+          if (demandeur) {
+            await smsCommandePassee({
+              smsTemplates,
+              demandeur,
+              numCmd: order.num,
+              chantier: order.chantier || "",
+              orderId: order._id,
+            });
+          }
+        } catch (smsErr) {
+          console.warn("[v1.13] SMS passage non bloquant:", smsErr);
+        }
+      }
+      // Si "Commandée partiellement", pas de SMS auto : le demandeur n'a
+      // pas besoin d'être notifié tant que tout n'est pas chez le fournisseur.
+
+      const okMsg = reliquatItems.length > 0
+        ? `🛒 Passage partiel validé — reliquat ${reliquatNum} créé`
+        : "🛒 Commande passée chez le fournisseur";
+      showT(okMsg);
+
+      // Rafraîchir l'écran si on est sur la fiche détail
+      if (selectedOrder && selectedOrder._id === order._id) {
+        setSelectedOrder({ ...order, ...payload });
+      }
+      return true;
+    } catch (err) {
+      console.error("Erreur passage partiel:", err);
+      showT("❌ Erreur — réessayez");
+      return false;
     }
   };
 
@@ -1518,6 +1649,13 @@ export function CommandesInner({ onExitModule }) {
           <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.gray},${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>📋</div>
           <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Historique</div><div style={{fontSize:12,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
         </div>
+        {/* v1.13.0 — Carte "À commander" pour Admin/Direction/Achat/Assistante */}
+        {canMarkAsCommandee() && toOrderCount > 0 && (
+          <div onClick={()=>setView('toOrder')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.orange}`}}>
+            <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},#E65100)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{toOrderCount}</div></div>
+            <div><div style={{fontWeight:700,fontSize:15,color:'#E65100'}}>À commander</div><div style={{fontSize:12,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
+          </div>
+        )}
         {user.fonction==="Admin"&&<div onClick={()=>{setAdminSection(null);setSelectedCat(null);setSearch('');setView('admin')}} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.dark}`}}>
           <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,#555,${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>⚙️</div>
           <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Administration</div><div style={{fontSize:12,color:EPJ.gray}}>Chantiers, utilisateurs, catalogue</div></div>
@@ -2234,6 +2372,17 @@ export function CommandesInner({ onExitModule }) {
   if(view==="orderDetail"&&selectedOrder){
     const o=selectedOrder;const byFourn={};(o.items||[]).forEach(it=>{const c=(it.r||'').split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
     return(
+      <>
+      {partialPassOrder && (
+        <PartialPassSheet
+          order={partialPassOrder}
+          onClose={() => setPartialPassOrder(null)}
+          onConfirm={async ({ orderedByIndex }) => {
+            const ok = await performPartialPass(partialPassOrder, { orderedByIndex });
+            if (ok) setPartialPassOrder(null);
+          }}
+        />
+      )}
       <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
         <style>{css}</style>
         <Header title={o.num} back={true} backView="history" showCart={false}/>
@@ -2313,29 +2462,42 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           {/* v10.I — Fix 2 : bouton "Marquer commandée" réservé Admin/Direction/Assistante */}
-          {o.statut === "Envoyée aux achats" && canMarkAsCommandee() && (
+          {/* v1.13.0 : ajout du bouton "Passer partiellement" à côté */}
+          {(o.statut === "Envoyée aux achats" || o.statut === "Commandée partiellement") && canMarkAsCommandee() && (
             <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid #6A1B9A`}}>
               <div style={{fontSize:12,fontWeight:700,color:'#6A1B9A',marginBottom:8}}>
                 🛒 COMMANDE PASSÉE CHEZ LE FOURNISSEUR ?
               </div>
               <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
-                Une fois que tu as effectivement passé la commande chez le fournisseur
-                (saisie dans l'ERP, accusé de réception reçu...), clique ici pour
-                la marquer comme « Commandée ».
+                {o.statut === "Commandée partiellement"
+                  ? "Cette commande a déjà été passée partiellement. Tu peux passer le reste, ou continuer en partiel si certaines lignes sont encore indisponibles."
+                  : "Une fois que tu as effectivement passé la commande chez le fournisseur (saisie dans l'ERP, accusé de réception reçu...), clique ici. Si tu n'as pas pu tout commander (rupture, attente stock), utilise le bouton « partiellement »."}
               </div>
-              <button
-                className="epj-btn"
-                onClick={() => {
-                  markOrderAsCommandee(o).then(() => {
-                    setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
-                  });
-                }}
-                style={{
-                  width:'100%',
-                  background:'#6A1B9A',
-                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
-                }}
-              >🛒 Marquer comme commandée</button>
+              <div style={{display:'flex',gap:8}}>
+                <button
+                  className="epj-btn"
+                  onClick={() => {
+                    markOrderAsCommandee(o).then(() => {
+                      setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
+                    });
+                  }}
+                  style={{
+                    flex:2,
+                    background:'#6A1B9A',
+                    color:'#fff',padding:'12px',fontSize:13,fontWeight:700,
+                  }}
+                >🛒 Tout commandé</button>
+                <button
+                  className="epj-btn"
+                  onClick={() => setPartialPassOrder(o)}
+                  style={{
+                    flex:1,
+                    background:EPJ.orange,
+                    color:'#fff',padding:'12px',fontSize:12,fontWeight:700,
+                  }}
+                  title="Cocher ligne par ligne ce qui a été commandé"
+                >◐ Partiel…</button>
+              </div>
             </div>
           )}
 
@@ -2737,8 +2899,120 @@ export function CommandesInner({ onExitModule }) {
             </div>
             <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray}33`,borderRadius:8,background:'#fafafa',padding:4}}/>
           </div>}
+
+          {/* v1.13.0 — Fil de discussion sur la commande */}
+          <OrderMessageThread
+            order={o}
+            user={user}
+            dynChantiers={dynChantiers}
+            rolesConfig={rolesConfig}
+            onUpdated={(updated) => setSelectedOrder(updated)}
+          />
         </div>
       </div>
+      </>
+    );
+  }
+
+  // ═══ v1.13.0 — TO ORDER (À commander) ═══
+  // Liste les commandes à passer chez le fournisseur, groupées par statut.
+  // Visible Admin/Direction/Achat/Assistante uniquement.
+  if(view==="toOrder"){
+    if (!canMarkAsCommandee()) {
+      // Garde-fou — ne devrait jamais arriver vu que la card n'apparaît pas
+      setView("home");
+      return null;
+    }
+    const toOrder = (history || []).filter(h =>
+      h && h.num && (
+        h.statut === "Validée" ||
+        h.statut === "Envoyée aux achats" ||
+        h.statut === "Commandée partiellement"
+      )
+    );
+    // Tri : urgent d'abord, puis date réception croissante, puis date création
+    toOrder.sort((a, b) => {
+      if ((b.urgent?1:0) - (a.urgent?1:0) !== 0) return (b.urgent?1:0) - (a.urgent?1:0);
+      const da = a.dateReception || "9999-99-99";
+      const dbb = b.dateReception || "9999-99-99";
+      return da.localeCompare(dbb);
+    });
+    const byStatus = {
+      "Commandée partiellement": toOrder.filter(o => o.statut === "Commandée partiellement"),
+      "Envoyée aux achats": toOrder.filter(o => o.statut === "Envoyée aux achats"),
+      "Validée": toOrder.filter(o => o.statut === "Validée"),
+    };
+
+    return (
+      <>
+      {partialPassOrder && (
+        <PartialPassSheet
+          order={partialPassOrder}
+          onClose={() => setPartialPassOrder(null)}
+          onConfirm={async ({ orderedByIndex }) => {
+            const ok = await performPartialPass(partialPassOrder, { orderedByIndex });
+            if (ok) setPartialPassOrder(null);
+          }}
+        />
+      )}
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
+        <style>{css}</style>
+        <Header title="À commander" back={true} backView="home" showCart={false}/>
+        <div style={{padding:'10px 12px',background:'#FFF8E1',borderBottom:`1px solid ${EPJ.orange}33`,fontSize:12,color:'#E65100',lineHeight:1.4}}>
+          <strong>{toOrder.length}</strong> commande{toOrder.length>1?'s':''} à passer chez le fournisseur. Clique sur une commande pour la passer (en totalité ou partiellement).
+        </div>
+        <div style={{padding:12}}>
+          {toOrder.length === 0 && (
+            <div style={{textAlign:'center',padding:'40px 12px',color:EPJ.gray,fontSize:13}}>
+              <div style={{fontSize:44,marginBottom:8}}>✨</div>
+              Tout est passé. Aucune commande en attente.
+            </div>
+          )}
+          {Object.entries(byStatus).map(([statusName, list]) => (
+            list.length > 0 && (
+              <div key={statusName} style={{marginBottom:14}}>
+                <div style={{
+                  fontSize:11,fontWeight:700,letterSpacing:1,
+                  textTransform:'uppercase',color:STATUS_COLORS[statusName]?.color || EPJ.gray,
+                  marginBottom:6,paddingLeft:4,
+                }}>
+                  {STATUS_COLORS[statusName]?.icon} {statusName} ({list.length})
+                </div>
+                {list.map(o => (
+                  <div
+                    key={o._id}
+                    onClick={() => { setSelectedOrder(o); setView('orderDetail'); }}
+                    className="epj-card"
+                    style={{
+                      marginBottom:8,cursor:'pointer',padding:12,
+                      borderLeft:`4px solid ${STATUS_COLORS[o.statut]?.color || EPJ.gray}`,
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4,gap:8}}>
+                      <div style={{fontSize:14,fontWeight:800,color:EPJ.dark}}>
+                        {o.urgent && <span style={{color:EPJ.red,marginRight:4}}>⚠️</span>}
+                        {o.num}
+                      </div>
+                      <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
+                    </div>
+                    <div style={{fontSize:12,color:EPJ.dark,marginBottom:3}}>
+                      {o.type === 'equipement'
+                        ? <>👤 {o.salarie || "—"}</>
+                        : <>🏗️ {o.chantier || "—"}{o.numAffaire ? <span style={{color:EPJ.gray}}> [{o.numAffaire}]</span> : null}</>
+                      }
+                    </div>
+                    <div style={{fontSize:11,color:EPJ.gray,display:'flex',justifyContent:'space-between'}}>
+                      <span>Par {o.user || "—"} · {(o.items||[]).length} réf.</span>
+                      {o.dateReception && <span>Souhaité : {o.dateReception}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ))}
+        </div>
+      </div>
+      </>
     );
   }
 
