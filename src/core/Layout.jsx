@@ -1,14 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-//  Layout — shell global de l'application — v10.G
-//  - Header en 3 niveaux pour clarifier la navigation :
-//      • Bouton "🏠 Accueil" (à gauche) — toujours retour à l'accueil de l'app
-//      • Bouton Déconnexion ROUGE explicite avec confirmation (à droite)
-//      • Bouton Admin gris à côté
-//  - Le bouton 🏠 Accueil ne s'affiche que si onBack est passé par App.jsx
-//    (= on est dans un module ou un dashboard, pas sur la home).
-//  - Le bouton du milieu (← {nomModule}) et le bouton du bas (← Retour)
-//    sont gérés par chaque module individuellement.
-//  - L'utilisateur peut TOUJOURS cliquer sur le logo pour revenir à l'accueil.
+//  Layout — shell global de l'application
+//  v1.12.0 : ajout du bouton 🔑 "Mot de passe" dans le header.
+//  - Ouvre la page ChangePasswordPage en mode "free".
+//  - Visible pour TOUS les utilisateurs connectés (chacun peut
+//    changer son propre mdp).
 // ═══════════════════════════════════════════════════════════════
 import { EPJ, font, globalCss } from "./theme";
 import { LOGO_HEADER, BG_LOGIN } from "./logo";
@@ -16,7 +11,10 @@ import { useAuth } from "./AuthContext";
 import { useData } from "./DataContext";
 import { can } from "./permissions";
 
-export function Layout({ children, currentModule, onHome, onBack, onOpenAdmin, fullWidth = false }) {
+export function Layout({
+  children, currentModule, onHome, onBack,
+  onOpenAdmin, onChangePassword, fullWidth = false,
+}) {
   const { user, logout } = useAuth();
 
   return (
@@ -29,7 +27,6 @@ export function Layout({ children, currentModule, onHome, onBack, onOpenAdmin, f
         flexDirection: "column",
         position: "relative",
       }}>
-        {/* Arcs colorés EPJ en filigrane (fixe, traverse toutes les pages) */}
         <div style={{
           position: "fixed", inset: 0, zIndex: 0,
           backgroundImage: `url(${BG_LOGIN})`,
@@ -49,6 +46,7 @@ export function Layout({ children, currentModule, onHome, onBack, onOpenAdmin, f
             onBack={onBack}
             onLogout={logout}
             onOpenAdmin={onOpenAdmin}
+            onChangePassword={onChangePassword}
             fullWidth={fullWidth}
           />
         )}
@@ -71,13 +69,10 @@ export function Layout({ children, currentModule, onHome, onBack, onOpenAdmin, f
   );
 }
 
-// ─── Header global ─────────────────────────────────────────────
-function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) {
+function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, onChangePassword }) {
   const { rolesConfig } = useData();
   const isAdmin = can(user, "_admin", null, rolesConfig);
 
-  // Confirmation déconnexion : on demande confirmation pour éviter les
-  // erreurs (le user clique parfois "Déconnexion" en pensant à "Retour").
   const handleLogout = () => {
     const ok = window.confirm(
       "Voulez-vous vraiment vous déconnecter ?\n\n" +
@@ -86,8 +81,6 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
     if (ok) onLogout();
   };
 
-  // La flèche retour ne s'affiche que si onBack est fourni
-  // (= on n'est pas sur la home).
   const showBack = typeof onBack === "function";
 
   return (
@@ -106,12 +99,6 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
         padding: "10px 12px",
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        {/* ─── BOUTON 🏠 ACCUEIL (gauche) — v10.G ─────────────────────
-            Avant : flèche ← seule, fond noir.
-            Maintenant : maison + mot "Accueil" pour clarifier que ce bouton
-            ramène TOUJOURS à l'accueil de l'application (pas à la page
-            précédente, qui est gérée par le bouton "← Retour" en bas dans
-            chaque module). ───────────────────────────────────────────── */}
         {showBack && (
           <button
             onClick={onBack}
@@ -139,7 +126,6 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
           </button>
         )}
 
-        {/* ─── Logo + nom de section (cliquable = retour accueil) ─── */}
         <button
           onClick={onHome}
           style={{
@@ -174,7 +160,6 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
           </div>
         </button>
 
-        {/* ─── Boutons d'action droite : ⚙ Admin (gris) + Déconnexion (ROUGE) ─── */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           {isAdmin && onOpenAdmin && (
             <button
@@ -192,6 +177,25 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin }) 
               ⚙
             </button>
           )}
+
+          {/* v1.12.0 — Bouton changement mdp */}
+          {onChangePassword && (
+            <button
+              onClick={onChangePassword}
+              style={{
+                background: EPJ.gray700 || "#3D3D3D", border: "none", color: "#fff",
+                borderRadius: 10, padding: 0, fontSize: 16, fontWeight: 600,
+                cursor: "pointer", fontFamily: font.body,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 40, height: 40,
+              }}
+              title="Changer mon mot de passe"
+              aria-label="Changer mon mot de passe"
+            >
+              🔑
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
             style={{

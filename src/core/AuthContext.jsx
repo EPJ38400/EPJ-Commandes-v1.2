@@ -1,27 +1,33 @@
 // ═══════════════════════════════════════════════════════════════
-//  AuthContext — session utilisateur, login, logout
-//  v1.11.0 : Migration vers Firebase Auth (avec fallback ancien système)
+//  AuthContext — session utilisateur, login, logout, mdp
+//  v1.12.0 : Migration Firebase Auth complète (changement mdp,
+//            mdp oublié, forcing première connexion)
 //
-//  Stratégie :
-//   • Si l'identifiant saisi ressemble à un email → on tente
-//     signInWithEmailAndPassword (Firebase Auth) en priorité.
-//   • Si Auth échoue OU si l'identifiant n'est pas un email →
-//     fallback sur l'ancien système (lecture du champ pwd Firestore).
-//   • Le profil métier (rôles, permissions, signature, etc.) est
-//     toujours lu depuis le doc Firestore /utilisateurs/<id>,
-//     qu'on passe par Auth ou par fallback.
+//  Stratégie login (inchangée v1.11) :
+//   • Email + mdp → Firebase Auth en priorité
+//   • Identifiant + mdp → fallback Firestore (ancien système)
+//   • Profil métier lu depuis /utilisateurs/<id> dans tous les cas
 //
-//  Cela garantit qu'AUCUN utilisateur n'est bloqué pendant la
-//  transition : anciens identifiants + ancien mdp continuent à
-//  fonctionner. À retirer en étape D (suppression des pwd).
+//  Nouveautés v1.12 :
+//   • changePassword(currentPwd, newPwd) : réauthentifie puis met
+//     à jour le mdp Auth. Met aussi mustResetPassword=false côté
+//     Firestore pour lever le forcing première connexion.
+//   • sendResetEmail(email) : email Firebase officiel de reset.
+//   • mustResetPassword : booléen exposé pour que Router fasse
+//     le forcing si vrai.
 // ═══════════════════════════════════════════════════════════════
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { useData } from "./DataContext";
 
 const AuthContext = createContext(null);
@@ -29,13 +35,11 @@ export const useAuth = () => useContext(AuthContext);
 
 const STORAGE_KEY = "epj_user";
 
-// Détection grossière : si la chaîne contient un @, on traite comme email
 const looksLikeEmail = (s) => typeof s === "string" && s.includes("@");
 
 export function AuthProvider({ children }) {
   const { users } = useData();
 
-  // Chargement initial depuis localStorage (compatibilité ascendante)
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -43,14 +47,11 @@ export function AuthProvider({ children }) {
     } catch { return null; }
   });
 
-  // ─── Sync Firebase Auth → user métier ─────────────────────────
-  // Si une session Auth existe au démarrage (refresh, retour app),
-  // on retrouve le doc utilisateur correspondant via le champ uid
-  // et on le met en session.
+  // Sync onAuthStateChanged → profil métier
   useEffect(() => {
-    if (users.length === 0) return; // attend que la collection soit chargée
+    if (users.length === 0) return;
     const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (!fbUser) return; // pas connecté Auth → on ne touche pas (peut être en fallback)
+      if (!fbUser) return;
       const profil = users.find(u => u.uid === fbUser.uid);
       if (profil) {
         const oldJson = JSON.stringify(user || {});
@@ -60,7 +61,6 @@ export function AuthProvider({ children }) {
           try { localStorage.setItem(STORAGE_KEY, newJson); } catch {}
         }
       } else {
-        // Compte Auth existe mais pas de doc Firestore correspondant : anomalie.
         console.warn("AuthContext: compte Auth sans doc Firestore (uid=" + fbUser.uid + ")");
       }
     });
@@ -68,12 +68,9 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users]);
 
-  // Resynchronise le user stocké avec la version la plus fraîche de Firestore
-  // (utile si l'admin change son rôle ou ses droits pendant la session).
-  // Logique inchangée par rapport à v1.10.
+  // Resync profil Firestore frais
   useEffect(() => {
     if (!user || users.length === 0) return;
-    // Cherche par _id (Firestore doc id) ou par uid si disponible
     const fresh = users.find(u => u._id === user._id) ||
                   (user.uid ? users.find(u => u.uid === user.uid) : null);
     if (fresh) {
@@ -86,19 +83,15 @@ export function AuthProvider({ children }) {
     }
   }, [users, user]);
 
-  // ─── Login ────────────────────────────────────────────────────
-  // Renvoie une Promise pour permettre l'attente côté UI.
+  // ─── Login (inchangé v1.11) ────────────────────────────────────
   const login = useCallback(async (idOrEmail, pwd) => {
     const trimmed = (idOrEmail || "").trim();
 
-    // ─── Voie 1 : Firebase Auth si l'identifiant ressemble à un email ───
     if (looksLikeEmail(trimmed)) {
       try {
         const cred = await signInWithEmailAndPassword(auth, trimmed, pwd);
-        // Trouve le doc Firestore correspondant
         const profil = users.find(u => u.uid === cred.user.uid);
         if (!profil) {
-          // Compte Auth OK mais aucun doc Firestore : sécurité, on déconnecte.
           await fbSignOut(auth);
           return { ok: false, error: "Profil utilisateur introuvable. Contactez l'administrateur." };
         }
@@ -106,9 +99,6 @@ export function AuthProvider({ children }) {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(profil)); } catch {}
         return { ok: true };
       } catch (err) {
-        // Erreurs Firebase Auth — on tente le fallback uniquement pour
-        // les erreurs "identifiant pas trouvé / mdp faux". Pour les
-        // autres (réseau, etc.) on remonte l'erreur directement.
         const code = err?.code || "";
         const isCredError =
           code === "auth/invalid-credential" ||
@@ -119,15 +109,10 @@ export function AuthProvider({ children }) {
           console.error("Firebase Auth:", err);
           return { ok: false, error: "Erreur de connexion. Réessayez dans un instant." };
         }
-        // sinon : on passe en fallback ancien système ci-dessous
       }
     }
 
-    // ─── Voie 2 (fallback) : ancien système Firestore pwd ───
-    // Permet aux utilisateurs qui n'ont pas encore migré (ou qui tapent
-    // leur ancien identifiant non-email) de continuer à se connecter.
-    // Le matching se fait par _id (doc id Firestore) OU par champ id
-    // (ancien comportement, pour compat totale).
+    // Fallback ancien système
     const found = users.find(u =>
       (u._id === trimmed || u.id === trimmed) && u.pwd === pwd
     );
@@ -139,16 +124,94 @@ export function AuthProvider({ children }) {
     return { ok: true };
   }, [users]);
 
-  // ─── Logout ───────────────────────────────────────────────────
+  // ─── Logout ────────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    // Déconnexion Auth si une session existe (no-op sinon).
     try { await fbSignOut(auth); } catch {}
     setUser(null);
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
+  // ─── Changement de mot de passe ────────────────────────────────
+  // Réauthentifie d'abord (sécurité Firebase exigée) puis met à jour
+  // le mdp. Lève aussi le flag mustResetPassword sur le doc Firestore.
+  const changePassword = useCallback(async (currentPwd, newPwd) => {
+    if (!auth.currentUser) {
+      return { ok: false, error: "Vous devez vous être connecté(e) via email/mot de passe pour changer votre mot de passe. Reconnectez-vous d'abord." };
+    }
+    if (!user?.email) {
+      return { ok: false, error: "Aucun email associé à votre compte." };
+    }
+    try {
+      // Réauthentifie avec l'ancien mdp
+      const credential = EmailAuthProvider.credential(user.email, currentPwd);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+
+      // Met à jour le mdp Auth
+      await updatePassword(auth.currentUser, newPwd);
+
+      // Lève le flag mustResetPassword côté Firestore si présent
+      if (user.mustResetPassword === true && user._id) {
+        try {
+          await updateDoc(doc(db, "utilisateurs", user._id), {
+            mustResetPassword: false,
+          });
+        } catch (fsErr) {
+          // Pas bloquant : le mdp est changé, le flag sera nettoyé à la prochaine sync.
+          console.warn("Impossible de retirer mustResetPassword:", fsErr);
+        }
+      }
+
+      return { ok: true };
+    } catch (err) {
+      const code = err?.code || "";
+      if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+        return { ok: false, error: "Le mot de passe actuel est incorrect." };
+      }
+      if (code === "auth/weak-password") {
+        return { ok: false, error: "Le nouveau mot de passe est trop faible (6 caractères minimum)." };
+      }
+      if (code === "auth/requires-recent-login") {
+        return { ok: false, error: "Pour sécurité, veuillez vous déconnecter et reconnecter avant de changer votre mot de passe." };
+      }
+      console.error("changePassword:", err);
+      return { ok: false, error: "Erreur lors du changement de mot de passe. Réessayez." };
+    }
+  }, [user]);
+
+  // ─── Mot de passe oublié ───────────────────────────────────────
+  // Envoie un email Firebase officiel avec un lien de reset.
+  const sendResetEmail = useCallback(async (email) => {
+    const trimmed = (email || "").trim();
+    if (!looksLikeEmail(trimmed)) {
+      return { ok: false, error: "Veuillez saisir une adresse email valide." };
+    }
+    try {
+      await sendPasswordResetEmail(auth, trimmed);
+      // Note : Firebase renvoie ok même si l'email n'existe pas (sécurité).
+      // C'est volontaire pour ne pas révéler qui a un compte.
+      return { ok: true };
+    } catch (err) {
+      const code = err?.code || "";
+      if (code === "auth/invalid-email") {
+        return { ok: false, error: "Adresse email invalide." };
+      }
+      if (code === "auth/too-many-requests") {
+        return { ok: false, error: "Trop de tentatives. Réessayez dans quelques minutes." };
+      }
+      console.error("sendResetEmail:", err);
+      return { ok: false, error: "Erreur lors de l'envoi de l'email. Réessayez." };
+    }
+  }, []);
+
+  // Le flag est lu depuis le doc Firestore (pas le claim Auth, car claim
+  // immuable côté client sans Cloud Function).
+  const mustResetPassword = user?.mustResetPassword === true;
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{
+      user, login, logout,
+      changePassword, sendResetEmail, mustResetPassword,
+    }}>
       {children}
     </AuthContext.Provider>
   );

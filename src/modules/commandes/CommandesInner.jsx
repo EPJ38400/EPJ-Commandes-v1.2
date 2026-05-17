@@ -397,21 +397,32 @@ export function CommandesInner({ onExitModule }) {
   //   • Admin → voit tout (logique préservée pour la rétrocompat)
   //   • Conducteur → voit les commandes de ses chantiers + celles qu'il a passées
   //   • Autres → uniquement ses propres commandes
+  // v1.12.1 — Fix : utilise can(user,"commandes","view") au lieu de
+  // tests fragiles sur user.fonction (qui ratait "Direction", "Achat",
+  // et "Conducteur de travaux" avec le "de" en plus).
+  // Scopes possibles retournés par can() :
+  //   "all"            → voit tout (Admin, Direction, Achat)
+  //   "own_chantiers"  → voit les commandes des chantiers où il/elle est
+  //                      conducteur, + celles qu'il/elle a passées (CdT, CdC)
+  //   "own_items"      → voit uniquement ses propres commandes (Monteur, Artisan)
   const myHistoryCount = useMemo(() => {
     if(!user) return 0;
     const fullName = `${user.prenom} ${user.nom}`;
     const safe = (history || []).filter(h => h && h.num);
-    if(user.fonction === "Admin") {
-      // Admin garde la vue globale (cohérent avec la vue Historique)
+    const scope = can(user, "commandes", "view", rolesConfig);
+    if (scope === "all") {
       return safe.length;
     }
-    if(user.fonction === "Conducteur de travaux") {
+    if (scope === "own_chantiers") {
       const mesChantiers = dynChantiers.filter(c => c.conducteur === fullName).map(c => c.nom);
       return safe.filter(h => mesChantiers.includes(h.chantier) || h.user === fullName).length;
     }
-    // Monteur / Chef de chantier / autres
-    return safe.filter(h => h.userId === user.id || h.user === fullName).length;
-  }, [user, history, dynChantiers]);
+    if (scope === "own_items") {
+      return safe.filter(h => h.userId === user.id || h.user === fullName).length;
+    }
+    // scope === false ou undefined → aucune visibilité
+    return 0;
+  }, [user, history, dynChantiers, rolesConfig]);
 
   const showT = (m) => { setToast(m); setTimeout(()=>setToast(null), 1800); };
   const addToCart = (r) => { setCart(p=>({...p,[r]:(p[r]||0)+1})); showT("✓ Ajouté"); };
@@ -2155,17 +2166,21 @@ export function CommandesInner({ onExitModule }) {
   // ═══ HISTORY ═══
   if(view==="history"){
     const fullName = `${user.prenom} ${user.nom}`;
-    // Filtrer selon le rôle
     let myHistory = history.filter(h=>h&&h.num);
-    if(user.fonction==="Admin") {
-      // Admin voit tout
-    } else if(user.fonction==="Conducteur de travaux") {
-      // Conducteur voit les commandes de ses chantiers
+    // v1.12.1 — Utilise can() au lieu de user.fonction (cf. myHistoryCount)
+    const scope = can(user, "commandes", "view", rolesConfig);
+    if (scope === "all") {
+      // Admin, Direction, Achat → tout
+    } else if (scope === "own_chantiers") {
+      // Conducteur travaux, Chef chantier
       const mesChantiers = dynChantiers.filter(c=>c.conducteur===fullName).map(c=>c.nom);
       myHistory = myHistory.filter(h=>mesChantiers.includes(h.chantier)||h.user===fullName);
-    } else {
-      // Monteur/Chef de chantier voit uniquement ses commandes
+    } else if (scope === "own_items") {
+      // Monteur, Artisan
       myHistory = myHistory.filter(h=>h.userId===user.id||h.user===fullName);
+    } else {
+      // Aucune visibilité (rôle sans droits ou config manquante)
+      myHistory = [];
     }
     // Appliquer les filtres manuels
     if(historyFilter.statut) myHistory = myHistory.filter(h=>h.statut===historyFilter.statut);

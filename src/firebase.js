@@ -1,6 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 //  Firebase init — projet ap-epj
-//  v1.11.0 : ajout de Firebase Auth (migration sécurité)
+//  v1.12.0 : ajout fonctions Auth pour gestion mdp
+//   - sendPasswordResetEmail : mdp oublié
+//   - updatePassword + reauthenticate : changement mdp dans l'app
+//   - onAuthStateChanged : reactivité session
 // ═══════════════════════════════════════════════════════════════
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
@@ -21,8 +24,10 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
+// Locale française pour les emails de reset envoyés par Firebase
+auth.languageCode = "fr";
+
 // Persistance locale : la session Auth survit à un refresh / fermeture d'onglet
-// (comme l'ancien localStorage qu'on remplace).
 setPersistence(auth, browserLocalPersistence).catch(err => {
   console.warn("Firebase Auth persistence:", err);
 });

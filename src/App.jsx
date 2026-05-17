@@ -1,15 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
-//  App.jsx — Routeur racine de l'EPJ App Globale — v10.E
-//  v10.E :
-//   • Le retour à l'accueil au visibilitychange est SUPPRIMÉ.
-//     C'est ce qui faisait perdre les paniers / saisies en cours
-//     quand l'iPhone se mettait en veille. Désormais, l'app reste
-//     exactement où elle était. Les modules persistent leur état
-//     localement (panier, formulaires) via localStorage.
-//   • La route courante est sauvegardée dans localStorage pour
-//     que le user retrouve son écran si l'app redémarre.
-//   • Le bouton "← Retour" (Schéma C) est propagé au Layout via
-//     la prop onBack quand on n'est pas sur la home.
+//  App.jsx — Routeur racine de l'EPJ App Globale
+//  v1.12.0 :
+//   • Ajout de la route "change-password" (libre depuis le menu)
+//   • Forcing mustResetPassword : si le user a ce flag à true,
+//     l'app le redirige automatiquement vers ChangePasswordPage
+//     en mode "forced". Aucun autre écran n'est accessible.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
 
@@ -24,14 +19,13 @@ import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
 import { AdminPage } from "./pages/admin/AdminPage";
 import { DashboardDirection } from "./pages/DashboardDirection";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 
 import { CommandesModule } from "./modules/commandes/CommandesModule";
 import { AvancementModule } from "./modules/avancement/AvancementModule";
 import { ParcMachinesModule } from "./modules/parc-machines/ParcMachinesModule";
 import { ReservesModule } from "./modules/reserves/ReservesModule";
-// v10.K — Watcher invisible : rappel SMS J + anomalie J+2 sur les sorties d'outils
 import { OutillageRappelWatcher } from "./modules/parc-machines/OutillageRappelWatcher";
-// v10.N — Watcher invisible : rappel SMS de levée de réserve
 import { ReservesRappelWatcher } from "./modules/reserves/ReservesRappelWatcher";
 
 const ROUTE_STORAGE_KEY = "epj_last_route";
@@ -48,50 +42,44 @@ export default function App() {
   );
 }
 
-// ─── Router interne ─────────────────────────────────────────────
 function Router() {
-  const { user } = useAuth();
+  const { user, mustResetPassword } = useAuth();
   const { allLoaded, rolesConfig } = useData();
 
-  // Restaure la dernière route consultée (panier, etc. survivent à
-  // une fermeture/réouverture de l'app).
   const [route, setRoute] = useState(() => {
     try {
       return localStorage.getItem(ROUTE_STORAGE_KEY) || "home";
     } catch { return "home"; }
   });
 
-  // Persiste la route courante à chaque changement
   useEffect(() => {
     try { localStorage.setItem(ROUTE_STORAGE_KEY, route); } catch {}
   }, [route]);
 
-  // Force le retour à l'accueil à CHAQUE nouvelle connexion
-  // (notamment après déconnexion + reconnexion avec un autre compte).
-  // Note : la sauvegarde des brouillons (panier, etc.) reste en localStorage,
-  // donc si le même user se reconnecte il retrouve ses saisies.
   const userId = user?._id || null;
   useEffect(() => {
-    if (userId) {
-      setRoute("home");
-    }
+    if (userId) setRoute("home");
   }, [userId]);
-
-  // ─── v10.E : SUPPRESSION du retour forcé à l'accueil au visibilitychange ───
-  // Avant (v10.D), au moindre passage de l'app en arrière-plan (verrouillage
-  // iPhone, app switcher, etc.), on revenait de force à l'accueil. Conséquence :
-  // un panier de commande en cours, un formulaire de réserve à moitié rempli,
-  // un avancement chantier en saisie → tout disparaissait à l'écran et le user
-  // devait recommencer.
-  //
-  // Désormais, on ne touche plus à la route au retour de veille. Chaque module
-  // persiste son état local (panier, brouillon de formulaire) en localStorage
-  // dans des clés dédiées (ex: "epj_commandes_draft"), et ces états sont
-  // restaurés à chaque montage du composant. Le user retrouve donc son écran
-  // EXACTEMENT là où il l'avait laissé.
 
   if (!allLoaded) return <FullPageSpinner label="Chargement de l'application…"/>;
   if (!user) return <LoginPage/>;
+
+  // ─── v1.12.0 — Forcing mustResetPassword ─────────────────────────
+  // Si le compte a le flag à true (compte créé avec mdp temporaire),
+  // on bloque TOUT accès à l'app tant que le mdp n'est pas changé.
+  if (mustResetPassword) {
+    return (
+      <ChangePasswordPage
+        mode="forced"
+        onDone={() => {
+          // Après reset, le flag passe à false côté Firestore, la sync
+          // automatique va rafraîchir user.mustResetPassword et on
+          // sortira de ce return naturellement.
+          setRoute("home");
+        }}
+      />
+    );
+  }
 
   const openBestDashboard = () => {
     if (can(user, "_dashboards", "direction", rolesConfig)) setRoute("dashboard:direction");
@@ -109,17 +97,28 @@ function Router() {
     if (route === "dashboard:conducteur")  return "Dashboard Conducteur";
     if (route === "dashboard:public")      return "Dashboard Public";
     if (route === "admin")                 return "Administration";
+    if (route === "change-password")       return "Mot de passe";
     return null;
   })();
 
-  // Vues qui bénéficient du layout large sur desktop (Mac/PC)
   const useFullWidth =
     route === "dashboard:direction" ||
     route === "admin";
 
-  // Pour le bouton "← Retour" du header : il s'affiche dans tous les écrans
-  // sauf la home. Sur la home, pas de retour (on est déjà à la racine).
   const headerOnBack = route === "home" ? null : () => setRoute("home");
+
+  // ─── v1.12.0 — Changement de mot de passe libre (depuis menu) ───
+  // Affiché en standalone (sans Layout) pour avoir un écran propre,
+  // comme l'écran de login.
+  if (route === "change-password") {
+    return (
+      <ChangePasswordPage
+        mode="free"
+        onDone={() => setRoute("home")}
+        onCancel={() => setRoute("home")}
+      />
+    );
+  }
 
   return (
     <Layout
@@ -127,11 +126,10 @@ function Router() {
       onHome={() => setRoute("home")}
       onBack={headerOnBack}
       onOpenAdmin={() => setRoute("admin")}
+      onChangePassword={() => setRoute("change-password")}
       fullWidth={useFullWidth}
     >
-      {/* v10.K — Watcher invisible : SMS rappel J + anomalie J+2 sur outils */}
       <OutillageRappelWatcher/>
-      {/* v10.N — Watcher invisible : SMS rappel levée de réserve (5 min) */}
       <ReservesRappelWatcher/>
 
       {route === "home" && (
@@ -157,7 +155,6 @@ function Router() {
         <ReservesModule onExitModule={() => setRoute("home")}/>
       )}
 
-      {/* Dashboard Direction — vue de pilotage (v10.C) */}
       {route === "dashboard:direction" && (
         <DashboardDirection
           onBack={() => setRoute("home")}
@@ -165,12 +162,10 @@ function Router() {
         />
       )}
 
-      {/* Autres dashboards (placeholders — à construire) */}
       {(route === "dashboard:conducteur" || route === "dashboard:public") && (
         <PlaceholderScreen title={currentModule} onBack={() => setRoute("home")}/>
       )}
 
-      {/* Administration */}
       {route === "admin" && (
         <AdminPage onExit={() => setRoute("home")}/>
       )}

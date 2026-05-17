@@ -1,14 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 //  LoginPage — écran de connexion
-//  v1.11.0 : login asynchrone (Firebase Auth + fallback ancien)
-//   • Label : "Identifiant ou email" (l'AuthContext route auto.)
-//   • Le bouton attend la résolution de la Promise login()
-//   • Pas de changement visuel autre que le label
+//  v1.12.0 : ajout du lien "Mot de passe oublié"
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { EPJ, font, globalCss } from "../core/theme";
 import { LOGO_LOGIN, APP_ICON, BG_LOGIN } from "../core/logo";
 import { useAuth } from "../core/AuthContext";
+import { ForgotPasswordPage } from "./ForgotPasswordPage";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -16,6 +14,11 @@ export function LoginPage() {
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+
+  if (showForgot) {
+    return <ForgotPasswordPage onBack={() => setShowForgot(false)} />;
+  }
 
   const submit = async (e) => {
     e.preventDefault();
@@ -23,9 +26,7 @@ export function LoginPage() {
     setPending(true);
     try {
       const res = await login(id.trim(), pwd);
-      if (!res.ok) {
-        setError(res.error);
-      }
+      if (!res.ok) setError(res.error);
     } catch (err) {
       console.error(err);
       setError("Erreur inattendue. Réessayez.");
@@ -38,26 +39,21 @@ export function LoginPage() {
     <>
       <style>{globalCss}</style>
       <div style={{
-        minHeight: "100vh",
-        width: "100%",
+        minHeight: "100vh", width: "100%",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "32px 16px",
         position: "relative",
         background: EPJ.gray50,
         overflow: "hidden",
       }}>
-        {/* Arrière-plan : arcs colorés EPJ */}
         <div style={{
           position: "absolute", inset: 0,
           backgroundImage: `url(${BG_LOGIN})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          backgroundSize: "cover", backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          opacity: 0.22,
-          filter: "saturate(1.1)",
+          opacity: 0.22, filter: "saturate(1.1)",
           pointerEvents: "none",
         }}/>
-        {/* Voile blanc radial pour garantir la lisibilité du formulaire */}
         <div style={{
           position: "absolute", inset: 0,
           background: "radial-gradient(600px 400px at 50% 50%, rgba(255,255,255,.75), rgba(255,255,255,.35))",
@@ -69,27 +65,15 @@ export function LoginPage() {
           animation: "fadeUp .4s ease",
           position: "relative", zIndex: 1,
         }}>
-          {/* Bloc identité */}
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <div style={{
               width: 92, height: 92, margin: "0 auto 18px",
               borderRadius: 20, overflow: "hidden",
               boxShadow: "0 10px 28px rgba(0,0,0,.14)",
             }}>
-              <img
-                src={APP_ICON}
-                alt="EPJ"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
+              <img src={APP_ICON} alt="EPJ" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}/>
             </div>
-            <img
-              src={LOGO_LOGIN}
-              alt="EPJ Électricité Générale"
-              style={{
-                width: "100%", maxWidth: 260, height: "auto",
-                display: "block", margin: "0 auto",
-              }}
-            />
+            <img src={LOGO_LOGIN} alt="EPJ Électricité Générale" style={{ width: "100%", maxWidth: 260, height: "auto", display: "block", margin: "0 auto" }}/>
             <div style={{
               fontSize: 11, fontWeight: 600, color: EPJ.gray500,
               letterSpacing: 1.4, textTransform: "uppercase", marginTop: 8,
@@ -98,7 +82,6 @@ export function LoginPage() {
             </div>
           </div>
 
-          {/* Formulaire */}
           <form onSubmit={submit} style={{
             background: EPJ.white,
             border: `1px solid ${EPJ.gray200}`,
@@ -123,7 +106,7 @@ export function LoginPage() {
                 required
               />
             </div>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 8 }}>
               <label style={{
                 display: "block", fontSize: 11, fontWeight: 600,
                 color: EPJ.gray500, letterSpacing: 0.4, textTransform: "uppercase",
@@ -138,6 +121,22 @@ export function LoginPage() {
                 placeholder="••••••••"
                 required
               />
+            </div>
+
+            {/* Lien Mot de passe oublié */}
+            <div style={{ textAlign: "right", marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={() => { setError(""); setShowForgot(true); }}
+                style={{
+                  background: "none", border: "none", padding: 0,
+                  color: EPJ.blue || "#00A3E0", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: font.body,
+                  textDecoration: "underline",
+                }}
+              >
+                Mot de passe oublié ?
+              </button>
             </div>
 
             {error && (
