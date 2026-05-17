@@ -167,15 +167,28 @@ export function CommandesInner({ onExitModule }) {
   // ⚠️ view démarre sur 'home' (page d'accueil du module Commandes).
   const [view, setView] = useState(() => {
     // v1.13.0 — Si le dashboard a posé un target_view, on l'ouvre directement
+    // Whitelist stricte pour ne pas se retrouver bloqué sur une vue inconnue
+    // ou corrompue dans le localStorage.
+    const ALLOWED_TARGET_VIEWS = ["home", "history", "toOrder", "pending"];
     try {
       const target = localStorage.getItem("epj_commandes_target_view");
-      if (target) {
-        localStorage.removeItem("epj_commandes_target_view");
+      localStorage.removeItem("epj_commandes_target_view");
+      if (target && ALLOWED_TARGET_VIEWS.includes(target)) {
         return target;
       }
     } catch {}
     return 'home';
   });
+
+  // v1.13.0 — Filet de sécurité : si on se retrouve sur une vue inaccessible
+  // (ex: toOrder pour quelqu'un sans le droit), on rebascule sur home.
+  // Utilise useEffect pour faire ça PROPREMENT (jamais pendant le render).
+  useEffect(() => {
+    if (view === "toOrder" && user && !canMarkAsCommandee()) {
+      setView("home");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, user]);
   // ─── v10.G — Helper pour retour à l'accueil du module ───
   // Reset propre (vues, sélections temporaires) quand on clique sur le
   // bouton "← Commandes" du sub-header.
@@ -438,6 +451,26 @@ export function CommandesInner({ onExitModule }) {
     // scope === false ou undefined → aucune visibilité
     return 0;
   }, [user, history, dynChantiers, rolesConfig]);
+
+  // ─── v10.I — Fix 2 : peut marquer "Commandée" ? ───
+  // Réservé à Admin + Direction + Assistante (décision Pierre-Julien Q2=1).
+  // v1.13.0 : + Achat
+  // Implémenté via les rôles plutôt que via can() car c'est une action métier
+  // très spécifique (= "passer la commande chez le fournisseur") qui n'est pas
+  // bien capturée par les 6 actions génériques view/create/edit/delete/validate/export.
+  // Définie ICI (avant toOrderCount) pour être disponible dès le premier useMemo.
+  const canMarkAsCommandee = () => {
+    if (!user) return false;
+    const roles = Array.isArray(user.roles) ? user.roles
+                : (user.role ? [user.role] : []);
+    const fonction = user.fonction || "";
+    if (roles.includes("Admin") || fonction === "Admin") return true;
+    if (roles.includes("Direction") || fonction === "Direction") return true;
+    if (roles.includes("Achat") || fonction === "Achat") return true;
+    if (roles.some(r => (r||"").toLowerCase().includes("assist"))) return true;
+    if ((fonction||"").toLowerCase().includes("assist")) return true;
+    return false;
+  };
 
   // v1.13.0 — Compteur "À commander" pour Achat/Direction/Admin
   // Compte les commandes en attente d'être passées chez le fournisseur :
@@ -889,28 +922,6 @@ export function CommandesInner({ onExitModule }) {
     if (scope === "own_items") {
       return o.user === `${user.prenom||""} ${user.nom||""}`.trim();
     }
-    return false;
-  };
-
-  // ─── v10.I — Fix 2 : peut marquer "Commandée" ? ───
-  // Réservé à Admin + Direction + Assistante (décision Pierre-Julien Q2=1).
-  // Implémenté via les rôles plutôt que via can() car c'est une action métier
-  // très spécifique (= "passer la commande chez le fournisseur") qui n'est pas
-  // bien capturée par les 6 actions génériques view/create/edit/delete/validate/export.
-  const canMarkAsCommandee = () => {
-    if (!user) return false;
-    const roles = Array.isArray(user.roles) ? user.roles
-                : (user.role ? [user.role] : []);
-    const fonction = user.fonction || "";
-    // Test : Admin
-    if (roles.includes("Admin") || fonction === "Admin") return true;
-    // Test : Direction
-    if (roles.includes("Direction") || fonction === "Direction") return true;
-    // v1.13.0 — Test : Achat (rôle créé pour le passage de commandes)
-    if (roles.includes("Achat") || fonction === "Achat") return true;
-    // Test : Assistante (nouveau rôle)
-    if (roles.some(r => (r||"").toLowerCase().includes("assist"))) return true;
-    if ((fonction||"").toLowerCase().includes("assist")) return true;
     return false;
   };
 
@@ -2917,12 +2928,7 @@ export function CommandesInner({ onExitModule }) {
   // ═══ v1.13.0 — TO ORDER (À commander) ═══
   // Liste les commandes à passer chez le fournisseur, groupées par statut.
   // Visible Admin/Direction/Achat/Assistante uniquement.
-  if(view==="toOrder"){
-    if (!canMarkAsCommandee()) {
-      // Garde-fou — ne devrait jamais arriver vu que la card n'apparaît pas
-      setView("home");
-      return null;
-    }
+  if(view==="toOrder" && canMarkAsCommandee()){
     const toOrder = (history || []).filter(h =>
       h && h.num && (
         h.statut === "Validée" ||
