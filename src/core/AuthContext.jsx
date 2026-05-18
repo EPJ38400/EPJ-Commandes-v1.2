@@ -26,7 +26,7 @@ import {
   reauthenticateWithCredential,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useData } from "./DataContext";
 
@@ -90,7 +90,26 @@ export function AuthProvider({ children }) {
     if (looksLikeEmail(trimmed)) {
       try {
         const cred = await signInWithEmailAndPassword(auth, trimmed, pwd);
-        const profil = users.find(u => u.uid === cred.user.uid);
+        // v1.13.2 — FIX : on cherche le profil directement dans Firestore
+        // au lieu de chercher dans `users` (qui est vide tant que DataContext
+        // n'a pas pu charger la collection, ce qui n'arrive qu'après auth).
+        // Une fois authentifié, les règles Firestore acceptent la lecture.
+        let profil = users.find(u => u.uid === cred.user.uid);
+        if (!profil) {
+          try {
+            const q = query(
+              collection(db, "utilisateurs"),
+              where("uid", "==", cred.user.uid)
+            );
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              const docSnap = snap.docs[0];
+              profil = { ...docSnap.data(), _id: docSnap.id };
+            }
+          } catch (lookupErr) {
+            console.error("Erreur lookup profil après login:", lookupErr);
+          }
+        }
         if (!profil) {
           await fbSignOut(auth);
           return { ok: false, error: "Profil utilisateur introuvable. Contactez l'administrateur." };
