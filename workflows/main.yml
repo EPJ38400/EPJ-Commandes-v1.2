@@ -1,0 +1,55 @@
+# ═══════════════════════════════════════════════════════════════
+#  Workflow GitHub Actions — Déploiement Cloud Functions Firebase
+#  
+#  Déclenché à chaque push sur la branche main qui modifie functions/.
+#  Déploie automatiquement les Cloud Functions sur Firebase ap-epj.
+#
+#  Pré-requis dans GitHub → Settings → Secrets and variables → Actions :
+#    - FIREBASE_SERVICE_ACCOUNT : contenu JSON de la clé du compte de service
+#      "github-actions-deploy" (créé dans Google Cloud Console)
+# ═══════════════════════════════════════════════════════════════
+name: Deploy Cloud Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:  # permet déclenchement manuel
+
+jobs:
+  deploy:
+    name: Deploy to Firebase Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase Tools
+        run: npm install -g firebase-tools
+
+      - name: Install Functions dependencies
+        run: cd functions && npm install
+
+      - name: Write Service Account credentials
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/firebase-key.json
+
+      - name: Deploy to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/../firebase-key.json
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
+          firebase deploy --only functions --project ap-epj --non-interactive
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f $HOME/firebase-key.json
