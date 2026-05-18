@@ -133,23 +133,18 @@ export function AuthProvider({ children }) {
           code === "auth/user-not-found" ||
           code === "auth/wrong-password" ||
           code === "auth/invalid-email";
-        if (!isCredError) {
-          console.error("Firebase Auth:", err);
-          return { ok: false, error: "Erreur de connexion. Réessayez dans un instant." };
+        if (isCredError) {
+          return { ok: false, error: "Identifiant ou mot de passe incorrect" };
         }
+        console.error("Firebase Auth:", err);
+        return { ok: false, error: "Erreur de connexion. Réessayez dans un instant." };
       }
     }
 
-    // Fallback ancien système
-    const found = users.find(u =>
-      (u._id === trimmed || u.id === trimmed) && u.pwd === pwd
-    );
-    if (!found) {
-      return { ok: false, error: "Identifiant ou mot de passe incorrect" };
-    }
-    setUser(found);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(found)); } catch {}
-    return { ok: true };
+    // v1.13.4 — Fallback ancien système RETIRÉ (étape D de la sécurisation).
+    // Désormais Firebase Auth est la seule voie de login. Si l'identifiant
+    // ne ressemble pas à un email, on refuse directement.
+    return { ok: false, error: "Veuillez saisir votre adresse email." };
   }, [users]);
 
   // ─── Logout ────────────────────────────────────────────────────
