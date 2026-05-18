@@ -140,6 +140,25 @@ async function markFailed(docId, reason) {
   }
 }
 
+// ─── Fonctions admin (gestion utilisateurs) ──────────────────
+// Cf. functions/adminUsers.js — v1.14.0 / v1.16.0
+export {
+  adminCreateUser,
+  adminUpdateUser,
+  adminResetPassword,
+  adminDeleteUser,
+  adminToggleDisabled,
+  clearMustResetPassword,
+} from "./adminUsers.js";
+
+// ─── Fonctions backup Firestore ──────────────────────────────
+// Cf. functions/backups.js — v1.15.0
+export {
+  weeklyFirestoreBackup,
+  adminTriggerBackup,
+  adminListBackups,
+} from "./backups.js";
+
 // ─── Fonction de purge ───────────────────────────────────────
 // Supprime les docs smsQueue avec status="sent" après 24h
 // pour éviter que la collection grossisse indéfiniment.
