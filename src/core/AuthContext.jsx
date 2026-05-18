@@ -2,19 +2,23 @@
 //  AuthContext — session utilisateur, login, logout, mdp
 //  v1.12.0 : Migration Firebase Auth complète (changement mdp,
 //            mdp oublié, forcing première connexion)
+//  v1.16.0 : Forcing première connexion via claim Firebase Auth
+//            (anciennement Firestore uniquement). Ajout appel
+//            Cloud Function clearMustResetPassword après reset
+//            réussi pour retirer le claim côté serveur.
 //
-//  Stratégie login (inchangée v1.11) :
-//   • Email + mdp → Firebase Auth en priorité
-//   • Identifiant + mdp → fallback Firestore (ancien système)
-//   • Profil métier lu depuis /utilisateurs/<id> dans tous les cas
+//  Stratégie login :
+//   • Email + mdp → Firebase Auth (seule voie depuis v1.13.4)
+//   • Fallback Firestore retiré
 //
-//  Nouveautés v1.12 :
-//   • changePassword(currentPwd, newPwd) : réauthentifie puis met
-//     à jour le mdp Auth. Met aussi mustResetPassword=false côté
-//     Firestore pour lever le forcing première connexion.
-//   • sendResetEmail(email) : email Firebase officiel de reset.
-//   • mustResetPassword : booléen exposé pour que Router fasse
-//     le forcing si vrai.
+//  Flag mustResetPassword :
+//   • Posé par les Cloud Functions adminCreateUser/adminResetPassword
+//     dans le claim Auth.
+//   • Lu côté client via getIdTokenResult().claims.mustResetPassword
+//   • Compatibilité : si un user a encore l'ancien champ Firestore
+//     mustResetPassword: true, on le respecte aussi.
+//   • Après changement de mdp réussi : la Cloud Function
+//     clearMustResetPassword retire le claim ET le champ Firestore.
 // ═══════════════════════════════════════════════════════════════
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
@@ -27,8 +31,13 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { auth, db, app } from "../firebase";
 import { useData } from "./DataContext";
+
+// Cloud Function pour retirer le claim mustResetPassword après changement de mdp
+const _functions = getFunctions(app, "europe-west1");
+const fnClearMustReset = httpsCallable(_functions, "clearMustResetPassword");
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -47,11 +56,18 @@ export function AuthProvider({ children }) {
     } catch { return null; }
   });
 
-  // Sync onAuthStateChanged → profil métier
+  // État pour le flag mustResetPassword lu depuis le claim Auth.
+  // Source de vérité prioritaire (le champ Firestore est gardé pour rétro-compat).
+  const [mustResetClaim, setMustResetClaim] = useState(false);
+
+  // Sync onAuthStateChanged → profil métier + claim mustResetPassword
   useEffect(() => {
     if (users.length === 0) return;
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (!fbUser) return;
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser) {
+        setMustResetClaim(false);
+        return;
+      }
       const profil = users.find(u => u.uid === fbUser.uid);
       if (profil) {
         const oldJson = JSON.stringify(user || {});
@@ -62,6 +78,15 @@ export function AuthProvider({ children }) {
         }
       } else {
         console.warn("AuthContext: compte Auth sans doc Firestore (uid=" + fbUser.uid + ")");
+      }
+      // Lit le claim mustResetPassword (force refresh pour avoir l'état serveur)
+      try {
+        const tokenResult = await fbUser.getIdTokenResult();
+        const claim = tokenResult.claims?.mustResetPassword === true;
+        setMustResetClaim(claim);
+      } catch (err) {
+        console.warn("Lecture claim mustResetPassword échouée:", err);
+        setMustResetClaim(false);
       }
     });
     return () => unsub();
@@ -97,6 +122,9 @@ export function AuthProvider({ children }) {
         // Admin SDK, le client peut avoir un ancien token sans le claim.
         try {
           await cred.user.getIdToken(true);
+          // Lit aussi le claim mustResetPassword au passage
+          const tokenResult = await cred.user.getIdTokenResult();
+          setMustResetClaim(tokenResult.claims?.mustResetPassword === true);
         } catch (refreshErr) {
           console.warn("Force refresh token a échoué (non bloquant):", refreshErr);
         }
@@ -175,16 +203,34 @@ export function AuthProvider({ children }) {
       // Met à jour le mdp Auth
       await updatePassword(auth.currentUser, newPwd);
 
-      // Lève le flag mustResetPassword côté Firestore si présent
+      // Retire le flag mustResetPassword côté Auth (claim) via Cloud Function
+      // et côté Firestore (rétro-compat) en une seule opération serveur.
+      try {
+        await fnClearMustReset();
+        setMustResetClaim(false);
+      } catch (clearErr) {
+        // Non bloquant : le mdp a été changé, c'est l'essentiel.
+        // L'admin pourra retirer le claim manuellement si nécessaire.
+        console.warn("Impossible de retirer le claim mustResetPassword:", clearErr);
+      }
+
+      // Rétro-compat : si l'ancien champ Firestore mustResetPassword est encore
+      // présent sur le profil, le retire aussi (au cas où la Cloud Function
+      // n'aurait pas trouvé le doc).
       if (user?.mustResetPassword === true && user?._id) {
         try {
           await updateDoc(doc(db, "utilisateurs", user._id), {
             mustResetPassword: false,
           });
         } catch (fsErr) {
-          console.warn("Impossible de retirer mustResetPassword:", fsErr);
+          console.warn("Impossible de retirer mustResetPassword Firestore:", fsErr);
         }
       }
+
+      // Force un refresh du token pour que la prochaine requête utilise le claim mis à jour
+      try {
+        await auth.currentUser.getIdToken(true);
+      } catch {}
 
       return { ok: true };
     } catch (err) {
@@ -228,9 +274,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Le flag est lu depuis le doc Firestore (pas le claim Auth, car claim
-  // immuable côté client sans Cloud Function).
-  const mustResetPassword = user?.mustResetPassword === true;
+  // Combine les 2 sources :
+  //  - mustResetClaim : claim Firebase Auth (source de vérité prioritaire,
+  //    posée par adminCreateUser et adminResetPassword)
+  //  - user.mustResetPassword : ancien champ Firestore (rétro-compat avec
+  //    les utilisateurs créés avant la v1.14 ou via l'ancien système)
+  // Si l'un OU l'autre est vrai → on force le reset.
+  const mustResetPassword = mustResetClaim || (user?.mustResetPassword === true);
 
   return (
     <AuthContext.Provider value={{
