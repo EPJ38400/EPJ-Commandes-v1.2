@@ -161,25 +161,27 @@ export function AuthProvider({ children }) {
     if (!auth.currentUser) {
       return { ok: false, error: "Vous devez vous être connecté(e) via email/mot de passe pour changer votre mot de passe. Reconnectez-vous d'abord." };
     }
-    if (!user?.email) {
-      return { ok: false, error: "Aucun email associé à votre compte." };
+    // v1.13.5 — On utilise auth.currentUser.email (l'email Firebase Auth réel)
+    // et non user.email (l'email Firestore), qui peuvent différer (cas admin).
+    const authEmail = auth.currentUser.email;
+    if (!authEmail) {
+      return { ok: false, error: "Aucun email associé à votre compte Auth." };
     }
     try {
       // Réauthentifie avec l'ancien mdp
-      const credential = EmailAuthProvider.credential(user.email, currentPwd);
+      const credential = EmailAuthProvider.credential(authEmail, currentPwd);
       await reauthenticateWithCredential(auth.currentUser, credential);
 
       // Met à jour le mdp Auth
       await updatePassword(auth.currentUser, newPwd);
 
       // Lève le flag mustResetPassword côté Firestore si présent
-      if (user.mustResetPassword === true && user._id) {
+      if (user?.mustResetPassword === true && user?._id) {
         try {
           await updateDoc(doc(db, "utilisateurs", user._id), {
             mustResetPassword: false,
           });
         } catch (fsErr) {
-          // Pas bloquant : le mdp est changé, le flag sera nettoyé à la prochaine sync.
           console.warn("Impossible de retirer mustResetPassword:", fsErr);
         }
       }
