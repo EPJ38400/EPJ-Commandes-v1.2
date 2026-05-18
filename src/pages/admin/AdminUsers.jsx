@@ -1,15 +1,34 @@
 // ═══════════════════════════════════════════════════════════════
-//  AdminUsers — gestion des utilisateurs (CRUD)
-//  Rôles MULTIPLES par utilisateur (cases à cocher)
-//  + Reset mot de passe
+//  AdminUsers — v1.14.0
+//  Gestion des utilisateurs côté admin via Cloud Functions.
+//
+//  Plus aucune écriture directe sur Firestore : tout passe par les
+//  Cloud Functions onCall qui :
+//   - Créent/suppriment le compte Firebase Auth
+//   - Posent les custom claims
+//   - Maintiennent le doc Firestore en cohérence
+//
+//  Bénéfices :
+//   - L'admin reste connecté (pas de "session switch" sur création)
+//   - Mots de passe temporaires générés côté serveur
+//   - Désactivation au lieu de suppression possible (préserve l'historique)
+//   - Affichage du mdp temporaire à l'admin (pour transmission)
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
-import { db } from "../../firebase";
-import { doc, setDoc, deleteDoc } from "firebase/firestore";
 import { EPJ, font } from "../../core/theme";
 import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
-import { ROLES, getRoles, rolesLabel } from "../../core/permissions";
+import { ROLES, getRoles } from "../../core/permissions";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { app } from "../../firebase";
+
+// Cloud Functions admin (région europe-west1)
+const functions = getFunctions(app, "europe-west1");
+const fnCreateUser     = httpsCallable(functions, "adminCreateUser");
+const fnUpdateUser     = httpsCallable(functions, "adminUpdateUser");
+const fnResetPassword  = httpsCallable(functions, "adminResetPassword");
+const fnDeleteUser     = httpsCallable(functions, "adminDeleteUser");
+const fnToggleDisabled = httpsCallable(functions, "adminToggleDisabled");
 
 export function AdminUsers({ onBack, onEditRights }) {
   const { users } = useData();
@@ -18,6 +37,10 @@ export function AdminUsers({ onBack, onEditRights }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
 
+  // État pour afficher un mdp temporaire généré par le serveur
+  const [tempPasswordModal, setTempPasswordModal] = useState(null);
+  // forme : { name, email, password, action: "created" | "reset" }
+
   const startNew = () => {
     setForm({
       id: "",
@@ -25,12 +48,11 @@ export function AdminUsers({ onBack, onEditRights }) {
       nom: "",
       email: "",
       telephone: "",
-      pwd: "",
       roles: ["Monteur"],
       fonction: "",
       canSortirOutil: false,
       directAchat: false,
-      responsableParc: false, // v10.K
+      responsableParc: false,
     });
     setEditing("new");
   };
@@ -42,12 +64,11 @@ export function AdminUsers({ onBack, onEditRights }) {
       nom: u.nom || "",
       email: u.email || "",
       telephone: u.telephone || "",
-      pwd: "", // on ne montre jamais le mot de passe actuel
       roles: getRoles(u),
       fonction: u.fonction || "",
       canSortirOutil: u.canSortirOutil === true,
       directAchat: u.directAchat === true,
-      responsableParc: u.responsableParc === true, // v10.K
+      responsableParc: u.responsableParc === true,
     });
     setEditing(u.id);
   };
@@ -73,69 +94,116 @@ export function AdminUsers({ onBack, onEditRights }) {
       toast("❌ ID, prénom et nom requis");
       return;
     }
-    if (editing === "new" && !form.pwd) {
-      toast("❌ Mot de passe requis à la création");
+    if (!form.email || !form.email.includes("@")) {
+      toast("❌ Email valide requis (sert au login)");
       return;
     }
     if (!form.roles || form.roles.length === 0) {
       toast("❌ Au moins un rôle requis");
       return;
     }
+
     setSaving(true);
     try {
-      // On récupère l'user existant pour conserver les champs qu'on n'édite pas
-      const existing = users.find(u => u.id === form.id);
       const payload = {
         id: form.id,
-        prenom: form.prenom,
-        nom: form.nom,
-        email: form.email || "",
+        prenom: form.prenom.trim(),
+        nom: form.nom.trim(),
+        email: form.email.trim(),
         telephone: normalizePhone(form.telephone || ""),
         roles: form.roles,
-        fonction: form.fonction || form.roles[0], // rétrocompat V1.3
-        // Mot de passe : seulement si nouveau ou si modifié explicitement
-        pwd: form.pwd || (existing?.pwd || ""),
-        // Garde les affectations / surcharges existantes si présentes
-        permissionsOverride: existing?.permissionsOverride || {},
+        fonction: form.fonction || form.roles[0],
         directAchat: form.directAchat === true,
         canSortirOutil: form.canSortirOutil === true,
-        responsableParc: form.responsableParc === true, // v10.K
-        // Signature utilisateur (pour quitus) — conservée si existe
-        signatureUrl: existing?.signatureUrl || "",
-        signaturePath: existing?.signaturePath || "",
+        responsableParc: form.responsableParc === true,
       };
-      await setDoc(doc(db, "utilisateurs", form.id), payload);
-      toast(editing === "new" ? "✓ Utilisateur créé" : "✓ Utilisateur mis à jour");
+
+      if (editing === "new") {
+        const res = await fnCreateUser(payload);
+        const result = res.data || {};
+        toast("✓ Utilisateur créé");
+        // Affiche le mdp temporaire pour transmission à l'utilisateur
+        setTempPasswordModal({
+          name: `${payload.prenom} ${payload.nom}`,
+          email: result.email || payload.email,
+          password: result.tempPassword,
+          action: "created",
+        });
+      } else {
+        await fnUpdateUser(payload);
+        toast("✓ Utilisateur mis à jour");
+      }
       cancel();
     } catch (e) {
-      console.error(e);
-      toast("❌ Erreur : " + e.message);
+      console.error("[AdminUsers] save:", e);
+      const msg = humanError(e);
+      toast("❌ " + msg);
     }
     setSaving(false);
   };
 
-  const remove = async (userId) => {
-    if (!confirm(`Supprimer définitivement l'utilisateur "${userId}" ?\nCette action est irréversible.`)) return;
+  const remove = async (u) => {
+    if (!confirm(
+      `Supprimer définitivement l'utilisateur "${u.prenom} ${u.nom}" (${u.id}) ?\n\n` +
+      `⚠️ Cette action supprime aussi son compte de connexion (Firebase Auth).\n\n` +
+      `Cette action est irréversible.\n\n` +
+      `💡 Si tu veux juste l'empêcher de se connecter temporairement, utilise plutôt "Désactiver".`
+    )) return;
     try {
-      await deleteDoc(doc(db, "utilisateurs", userId));
+      await fnDeleteUser({ id: u.id });
       toast("🗑️ Utilisateur supprimé");
     } catch (e) {
-      toast("❌ " + e.message);
+      console.error("[AdminUsers] delete:", e);
+      toast("❌ " + humanError(e));
     }
   };
 
   const resetPwd = async (u) => {
-    const newPwd = prompt(`Nouveau mot de passe pour ${u.prenom} ${u.nom} :`, "1234");
-    if (!newPwd) return;
+    if (!confirm(
+      `Réinitialiser le mot de passe de ${u.prenom} ${u.nom} ?\n\n` +
+      `Un nouveau mot de passe temporaire sera généré et affiché. ` +
+      `Tu devras le communiquer à l'utilisateur.\n\n` +
+      `L'ancien mot de passe sera immédiatement invalidé.`
+    )) return;
     try {
-      await setDoc(doc(db, "utilisateurs", u.id), { ...u, pwd: newPwd });
+      const res = await fnResetPassword({ id: u.id });
+      const result = res.data || {};
       toast("🔑 Mot de passe réinitialisé");
+      setTempPasswordModal({
+        name: `${u.prenom} ${u.nom}`,
+        email: u.email,
+        password: result.tempPassword,
+        action: "reset",
+      });
     } catch (e) {
-      toast("❌ " + e.message);
+      console.error("[AdminUsers] reset:", e);
+      toast("❌ " + humanError(e));
     }
   };
 
-  // ── Rendu du formulaire de création/édition ──
+  const toggleDisabled = async (u) => {
+    const wantDisable = u.disabled !== true;
+    if (!confirm(
+      wantDisable
+        ? `Désactiver ${u.prenom} ${u.nom} ?\n\nL'utilisateur ne pourra plus se connecter, ` +
+          `mais son compte et son historique sont préservés. Tu pourras le réactiver à tout moment.`
+        : `Réactiver ${u.prenom} ${u.nom} ?\n\nL'utilisateur pourra à nouveau se connecter avec son mot de passe.`
+    )) return;
+    try {
+      await fnToggleDisabled({ id: u.id, disabled: wantDisable });
+      toast(wantDisable ? "🚫 Utilisateur désactivé" : "✓ Utilisateur réactivé");
+    } catch (e) {
+      console.error("[AdminUsers] toggleDisabled:", e);
+      toast("❌ " + humanError(e));
+    }
+  };
+
+  // ─── Modale d'affichage du mdp temporaire ──────────────────────
+  if (tempPasswordModal) {
+    return <TempPasswordModal info={tempPasswordModal} onClose={() => setTempPasswordModal(null)}/>;
+  }
+
+  // ─── Rendu du formulaire de création/édition ───────────────────
   if (editing) {
     const isNew = editing === "new";
     return (
@@ -156,6 +224,7 @@ export function AdminUsers({ onBack, onEditRights }) {
               autoCapitalize="none"
             />
             {!isNew && <Hint>L'identifiant ne peut pas être modifié une fois créé.</Hint>}
+            {isNew && <Hint>Identifiant unique de l'utilisateur (utilisé en interne, ex: Dupont, Martin).</Hint>}
           </Field>
 
           <Row>
@@ -167,8 +236,18 @@ export function AdminUsers({ onBack, onEditRights }) {
             </Field>
           </Row>
 
-          <Field label="Email">
-            <input className="epj-input" type="email" value={form.email || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="ex: j.dupont@epj-electricite.com"/>
+          <Field label="Email" required>
+            <input
+              className="epj-input"
+              type="email"
+              value={form.email || ""}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="ex: j.dupont@epj-electricite.com"
+              autoCapitalize="none"
+              disabled={!isNew}
+            />
+            {isNew && <Hint>Sert au login de l'utilisateur. Doit être valide et unique.</Hint>}
+            {!isNew && <Hint>L'email ne peut pas être modifié après création (lié au compte Auth).</Hint>}
           </Field>
 
           <Field label="Téléphone mobile">
@@ -184,10 +263,15 @@ export function AdminUsers({ onBack, onEditRights }) {
           </Field>
 
           {isNew && (
-            <Field label="Mot de passe" required>
-              <input className="epj-input" value={form.pwd || ""} onChange={e => setForm(f => ({ ...f, pwd: e.target.value }))} placeholder="mot de passe initial"/>
-              <Hint>L'utilisateur pourra le changer plus tard. Vous pourrez aussi le réinitialiser.</Hint>
-            </Field>
+            <div style={{
+              padding: "10px 12px", borderRadius: 8,
+              background: `${EPJ.blue}10`, border: `1px solid ${EPJ.blue}30`,
+              marginBottom: 14, fontSize: 12, color: EPJ.gray700, lineHeight: 1.5,
+            }}>
+              🔐 <b>Mot de passe</b> : un mot de passe temporaire sera <b>généré automatiquement</b>
+              et affiché après création. Tu pourras le copier et le communiquer à l'utilisateur,
+              qui devra le changer à sa première connexion.
+            </div>
           )}
 
           <Field label="Rôles" required>
@@ -220,74 +304,31 @@ export function AdminUsers({ onBack, onEditRights }) {
           </Field>
 
           <Field label="Droits spéciaux">
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 4px",
-            }}>
-              <input
-                type="checkbox"
-                id="canSortirOutil"
-                checked={form.canSortirOutil === true}
-                onChange={e => setForm(f => ({ ...f, canSortirOutil: e.target.checked }))}
-                style={{ width: 18, height: 18, cursor: "pointer", accentColor: EPJ.orange }}
-              />
-              <label htmlFor="canSortirOutil" style={{
-                fontSize: 13, color: EPJ.gray900, cursor: "pointer", flex: 1, lineHeight: 1.4,
-              }}>
-                <b>🔧 Autorisé à sortir un outil du parc</b>
-                <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
-                  Admin et Direction l'ont par défaut.
-                </div>
-              </label>
-            </div>
-
-            {/* v10.E — C4 : flag directAchat */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 4px", marginTop: 4,
-              borderTop: `1px solid ${EPJ.gray200}`,
-            }}>
-              <input
-                type="checkbox"
-                id="directAchat"
-                checked={form.directAchat === true}
-                onChange={e => setForm(f => ({ ...f, directAchat: e.target.checked }))}
-                style={{ width: 18, height: 18, cursor: "pointer", accentColor: EPJ.green }}
-              />
-              <label htmlFor="directAchat" style={{
-                fontSize: 13, color: EPJ.gray900, cursor: "pointer", flex: 1, lineHeight: 1.4,
-              }}>
-                <b>🟢 Achats directs (sans validation)</b>
-                <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
-                  Si coché, les commandes de cet utilisateur partent directement aux achats.
-                  Sinon, elles passent par "En attente de validation". À réserver à la Direction.
-                </div>
-              </label>
-            </div>
-            {/* v10.K — Flag responsableParc : reçoit les alertes parc machines */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 4px", marginTop: 4,
-              borderTop: `1px solid ${EPJ.gray200}`,
-            }}>
-              <input
-                type="checkbox"
-                id="responsableParc"
-                checked={form.responsableParc === true}
-                onChange={e => setForm(f => ({ ...f, responsableParc: e.target.checked }))}
-                style={{ width: 18, height: 18, cursor: "pointer", accentColor: EPJ.blue }}
-              />
-              <label htmlFor="responsableParc" style={{
-                fontSize: 13, color: EPJ.gray900, cursor: "pointer", flex: 1, lineHeight: 1.4,
-              }}>
-                <b>🛠 Responsable parc machines</b>
-                <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
-                  Reçoit les SMS d'alerte (panne signalée au retour d'un outil)
-                  et peut envoyer manuellement une demande de retour.
-                  Si non coché, ces alertes vont à la Direction par défaut.
-                </div>
-              </label>
-            </div>
+            <SpecialFlag
+              id="canSortirOutil"
+              checked={form.canSortirOutil}
+              onChange={v => setForm(f => ({ ...f, canSortirOutil: v }))}
+              accent={EPJ.orange}
+              label="🔧 Autorisé à sortir un outil du parc"
+              hint="Admin et Direction l'ont par défaut."
+              isFirst
+            />
+            <SpecialFlag
+              id="directAchat"
+              checked={form.directAchat}
+              onChange={v => setForm(f => ({ ...f, directAchat: v }))}
+              accent={EPJ.green}
+              label="🟢 Achats directs (sans validation)"
+              hint="Si coché, les commandes de cet utilisateur partent directement aux achats. Sinon, elles passent par 'En attente de validation'. À réserver à la Direction."
+            />
+            <SpecialFlag
+              id="responsableParc"
+              checked={form.responsableParc}
+              onChange={v => setForm(f => ({ ...f, responsableParc: v }))}
+              accent={EPJ.blue}
+              label="🛠 Responsable parc machines"
+              hint="Reçoit les SMS d'alerte (panne signalée au retour d'un outil) et peut envoyer manuellement une demande de retour."
+            />
           </Field>
         </div>
 
@@ -303,7 +344,7 @@ export function AdminUsers({ onBack, onEditRights }) {
     );
   }
 
-  // ── Rendu liste ──
+  // ─── Rendu liste ──────────────────────────────────────────────
   const sortedUsers = [...users].sort((a, b) => (a.nom || "").localeCompare(b.nom || ""));
 
   return (
@@ -322,45 +363,136 @@ export function AdminUsers({ onBack, onEditRights }) {
         {sortedUsers.length} utilisateur{sortedUsers.length > 1 ? "s" : ""}
       </div>
 
-      {sortedUsers.map(u => (
-        <div key={u.id} className="epj-card" style={{ padding: "14px 16px", marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 10,
-              background: `${EPJ.blue}15`, color: EPJ.blue,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 14, flexShrink: 0,
-            }}>
-              {(u.prenom?.[0] || "") + (u.nom?.[0] || "")}
+      {sortedUsers.map(u => {
+        const isDisabled = u.disabled === true;
+        return (
+          <div key={u.id} className="epj-card" style={{
+            padding: "14px 16px", marginBottom: 8,
+            opacity: isDisabled ? 0.55 : 1,
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: isDisabled ? `${EPJ.gray500}20` : `${EPJ.blue}15`,
+                color: isDisabled ? EPJ.gray500 : EPJ.blue,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 700, fontSize: 14, flexShrink: 0,
+              }}>
+                {(u.prenom?.[0] || "") + (u.nom?.[0] || "")}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: EPJ.gray900 }}>
+                  {u.prenom} {u.nom}
+                  {isDisabled && (
+                    <span style={{
+                      marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 8px",
+                      borderRadius: 999, background: `${EPJ.red}15`, color: EPJ.red,
+                    }}>
+                      DÉSACTIVÉ
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontFamily: "monospace" }}>
+                  {u.id}{u.email ? ` • ${u.email}` : ""}{u.telephone ? ` • ${u.telephone}` : ""}
+                </div>
+                <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {getRoles(u).map(r => (
+                    <span key={r} style={{
+                      fontSize: 10, fontWeight: 600, padding: "2px 8px",
+                      borderRadius: 999, background: `${EPJ.blue}15`, color: EPJ.blue,
+                    }}>
+                      {r}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: EPJ.gray900 }}>
-                {u.prenom} {u.nom}
-              </div>
-              <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontFamily: "monospace" }}>
-                {u.id}{u.email ? ` • ${u.email}` : ""}{u.telephone ? ` • ${u.telephone}` : ""}
-              </div>
-              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {getRoles(u).map(r => (
-                  <span key={r} style={{
-                    fontSize: 10, fontWeight: 600, padding: "2px 8px",
-                    borderRadius: 999, background: `${EPJ.blue}15`, color: EPJ.blue,
-                  }}>
-                    {r}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-            <ActionBtn onClick={() => startEdit(u)}>✎ Modifier</ActionBtn>
-            <ActionBtn onClick={() => onEditRights(u.id)}>🔒 Droits</ActionBtn>
-            <ActionBtn onClick={() => resetPwd(u)}>🔑 Mot de passe</ActionBtn>
-            <ActionBtn onClick={() => remove(u.id)} danger>🗑</ActionBtn>
+            <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+              <ActionBtn onClick={() => startEdit(u)}>✎ Modifier</ActionBtn>
+              <ActionBtn onClick={() => onEditRights(u.id)}>🔒 Droits</ActionBtn>
+              <ActionBtn onClick={() => resetPwd(u)}>🔑 Mot de passe</ActionBtn>
+              <ActionBtn onClick={() => toggleDisabled(u)} warning>
+                {isDisabled ? "✓ Réactiver" : "🚫 Désactiver"}
+              </ActionBtn>
+              <ActionBtn onClick={() => remove(u)} danger>🗑</ActionBtn>
+            </div>
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Modale d'affichage du mot de passe temporaire ──────────────
+function TempPasswordModal({ info, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(info.password).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+  return (
+    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
+      <SectionHeader
+        title={info.action === "created" ? "Compte créé" : "Mot de passe réinitialisé"}
+        onBack={onClose}
+      />
+
+      <div className="epj-card" style={{ padding: 18, marginBottom: 12, border: `2px solid ${EPJ.green}` }}>
+        <div style={{ fontSize: 13, color: EPJ.gray700, lineHeight: 1.6, marginBottom: 16 }}>
+          {info.action === "created"
+            ? <>Le compte de <b>{info.name}</b> a été créé avec succès. Voici ses identifiants&nbsp;:</>
+            : <>Un nouveau mot de passe a été généré pour <b>{info.name}</b>. Communique-le-lui&nbsp;:</>
+          }
         </div>
-      ))}
+
+        <div style={{
+          padding: "12px 14px", borderRadius: 10,
+          background: EPJ.gray50, marginBottom: 10,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: EPJ.gray500, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>Email (login)</div>
+          <div style={{ fontSize: 14, fontFamily: "monospace", color: EPJ.gray900, wordBreak: "break-all" }}>{info.email}</div>
+        </div>
+
+        <div style={{
+          padding: "12px 14px", borderRadius: 10,
+          background: `${EPJ.green}10`, border: `1px solid ${EPJ.green}40`,
+          marginBottom: 14,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: EPJ.green, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>Mot de passe temporaire</div>
+          <div style={{
+            fontSize: 18, fontFamily: "monospace", color: EPJ.gray900,
+            fontWeight: 700, letterSpacing: 1, wordBreak: "break-all",
+          }}>{info.password}</div>
+        </div>
+
+        <button
+          onClick={copy}
+          className="epj-btn"
+          style={{ width: "100%", background: copied ? EPJ.green : EPJ.gray900, color: "#fff", marginBottom: 8 }}
+        >
+          {copied ? "✓ Copié !" : "📋 Copier le mot de passe"}
+        </button>
+
+        <div style={{
+          fontSize: 12, color: EPJ.gray500, lineHeight: 1.5,
+          padding: "10px 12px", borderRadius: 8,
+          background: `${EPJ.orange}10`, border: `1px solid ${EPJ.orange}30`,
+        }}>
+          ⚠️ <b>Important</b> : ce mot de passe ne sera plus affiché après cette page.
+          Note-le ou copie-le maintenant. L'utilisateur devra le changer à sa première connexion.
+        </div>
+      </div>
+
+      <button
+        className="epj-btn"
+        onClick={onClose}
+        style={{ width: "100%", background: EPJ.gray900, color: "#fff" }}
+      >
+        J'ai noté, fermer
+      </button>
     </div>
   );
 }
@@ -406,15 +538,22 @@ function Hint({ children }) {
   return <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 4 }}>{children}</div>;
 }
 
-function ActionBtn({ children, onClick, danger }) {
+function ActionBtn({ children, onClick, danger, warning }) {
+  let style = {
+    border: `1px solid ${EPJ.gray200}`, background: EPJ.white, color: EPJ.gray700,
+  };
+  if (danger) style = {
+    border: `1px solid ${EPJ.red}44`, background: `${EPJ.red}0D`, color: EPJ.red,
+  };
+  else if (warning) style = {
+    border: `1px solid ${EPJ.orange}44`, background: `${EPJ.orange}0D`, color: EPJ.orange,
+  };
   return (
     <button
       onClick={onClick}
       style={{
         flex: 1, padding: "8px 10px", borderRadius: 8,
-        border: `1px solid ${danger ? `${EPJ.red}44` : EPJ.gray200}`,
-        background: danger ? `${EPJ.red}0D` : EPJ.white,
-        color: danger ? EPJ.red : EPJ.gray700,
+        ...style,
         fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
         whiteSpace: "nowrap",
       }}
@@ -424,13 +563,52 @@ function ActionBtn({ children, onClick, danger }) {
   );
 }
 
+function SpecialFlag({ id, checked, onChange, accent, label, hint, isFirst }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: 10,
+      padding: "8px 4px",
+      borderTop: isFirst ? "none" : `1px solid ${EPJ.gray200}`,
+      marginTop: isFirst ? 0 : 4,
+    }}>
+      <input
+        type="checkbox"
+        id={id}
+        checked={checked === true}
+        onChange={e => onChange(e.target.checked)}
+        style={{ width: 18, height: 18, cursor: "pointer", accentColor: accent, marginTop: 2 }}
+      />
+      <label htmlFor={id} style={{
+        fontSize: 13, color: EPJ.gray900, cursor: "pointer", flex: 1, lineHeight: 1.4,
+      }}>
+        <b>{label}</b>
+        <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2, fontWeight: 400 }}>
+          {hint}
+        </div>
+      </label>
+    </div>
+  );
+}
+
+// ─── Utils ──────────────────────────────────────────────────────
+
+function humanError(e) {
+  // Erreurs Firebase Functions onCall
+  const code = e?.code || "";
+  const msg = e?.message || "Erreur inconnue";
+  if (code === "functions/permission-denied" || code === "permission-denied") return "Accès refusé (admin requis)";
+  if (code === "functions/unauthenticated" || code === "unauthenticated") return "Vous devez être connecté";
+  if (code === "functions/already-exists" || code === "already-exists") return msg;
+  if (code === "functions/not-found" || code === "not-found") return msg;
+  if (code === "functions/invalid-argument" || code === "invalid-argument") return msg;
+  if (code === "functions/failed-precondition" || code === "failed-precondition") return msg;
+  return msg;
+}
+
 // Normalise un numéro de téléphone français
-// Retourne format "06 12 34 56 78" ou "+33 6 12 34 56 78"
 function normalizePhone(raw) {
   if (!raw) return "";
-  // Retire tout sauf chiffres et +
   let n = String(raw).replace(/[^\d+]/g, "");
-  // +33... → +33 X XX XX XX XX
   if (n.startsWith("+33")) {
     const digits = n.slice(3);
     if (digits.length === 9) {
@@ -438,10 +616,8 @@ function normalizePhone(raw) {
     }
     return n;
   }
-  // 0X... → 0X XX XX XX XX
   if (n.startsWith("0") && n.length === 10) {
     return `${n.slice(0, 2)} ${n.slice(2, 4)} ${n.slice(4, 6)} ${n.slice(6, 8)} ${n.slice(8, 10)}`;
   }
-  // Sinon on renvoie tel quel (l'utilisateur saura ce qu'il fait)
   return raw.trim();
 }
