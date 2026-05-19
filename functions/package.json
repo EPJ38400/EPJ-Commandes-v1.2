@@ -15,6 +15,8 @@
   "dependencies": {
     "firebase-admin": "^13.0.1",
     "firebase-functions": "^6.1.1",
+    "@google-cloud/storage": "^7.13.0",
+    "google-auth-library": "^9.14.2",
     "googleapis": "^144.0.0"
   },
   "private": true

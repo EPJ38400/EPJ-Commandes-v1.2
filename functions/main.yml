@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════
+#  Workflow GitHub Actions — Déploiement Cloud Functions Firebase
+#  v1.13.0 — Brevo (existant) + Brique Mail Gmail/Claude (ajout)
+#
+#  Déclenché à chaque push sur la branche main qui modifie functions/.
+#  Déploie automatiquement les Cloud Functions sur Firebase ap-epj.
+#
+#  Pré-requis dans GitHub → Settings → Secrets and variables → Actions :
+#    DÉJÀ EN PLACE :
+#    - FIREBASE_SERVICE_ACCOUNT  : clé JSON du compte de service
+#    - BREVO_API_KEY             : clé Brevo (déjà déployée)
+#
+#    NOUVEAUX (à ajouter pour la brique mail v1.13.0) :
+#    - GMAIL_CLIENT_ID
+#    - GMAIL_CLIENT_SECRET
+#    - GMAIL_REFRESH_TOKEN
+#    - ANTHROPIC_API_KEY
+#
+#  Note : GMAIL_REDIRECT_URI n'est PAS un secret (constante publique),
+#  elle est hard-codée dans gmailPoll.js et gmailSend.js.
+# ═══════════════════════════════════════════════════════════════
+name: Deploy Cloud Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/main.yml'
+  workflow_dispatch:  # permet déclenchement manuel
+
+jobs:
+  deploy:
+    name: Deploy to Firebase Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase Tools
+        run: npm install -g firebase-tools
+
+      - name: Install Functions dependencies
+        run: cd functions && npm install
+
+      - name: Write Service Account credentials
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/firebase-key.json
+
+      # ─── Configuration des SECRETS Firebase Functions (Secret Manager) ──
+      # Utilise `firebase functions:secrets:set` qui stocke dans Google
+      # Secret Manager (système moderne, identique à BREVO_API_KEY).
+      #
+      # On utilise --data-file=- pour envoyer la valeur via stdin et éviter
+      # qu'elle apparaisse dans les logs GitHub Actions.
+      # Chaque appel est idempotent : la nouvelle valeur écrase l'ancienne.
+      - name: Set Gmail and Anthropic secrets
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: $HOME/firebase-key.json
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
+          printf '%s' "$GMAIL_CLIENT_ID"     | firebase functions:secrets:set GMAIL_CLIENT_ID     --project ap-epj --data-file=-
+          printf '%s' "$GMAIL_CLIENT_SECRET" | firebase functions:secrets:set GMAIL_CLIENT_SECRET --project ap-epj --data-file=-
+          printf '%s' "$GMAIL_REFRESH_TOKEN" | firebase functions:secrets:set GMAIL_REFRESH_TOKEN --project ap-epj --data-file=-
+          printf '%s' "$ANTHROPIC_API_KEY"   | firebase functions:secrets:set ANTHROPIC_API_KEY   --project ap-epj --data-file=-
+
+      - name: Deploy to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/../firebase-key.json
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
+          firebase deploy --only functions --project ap-epj --non-interactive
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f $HOME/firebase-key.json
