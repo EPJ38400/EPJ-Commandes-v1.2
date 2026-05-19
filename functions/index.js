@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  functions/index.js — v10.O
+//  functions/index.js — v10.O + v1.13.0 (Brique Mail)
 //
 //  Cloud Function Firebase qui REMPLACE le scénario Make "SMS Queue → Brevo".
 //
@@ -158,6 +158,14 @@ export {
   adminTriggerBackup,
   adminListBackups,
 } from "./backups.js";
+
+// ─── Brique Mail — v1.13.0 ────────────────────────────────────
+// Cf. functions/gmailPoll.js et functions/gmailSend.js
+// Aspire la boîte sav@epj-electricite.com toutes les 2 minutes,
+// rattache automatiquement les mails aux réserves, et envoie les
+// mails sortants depuis l'app via Gmail API.
+export { gmailPoll } from "./gmailPoll.js";
+export { gmailSend } from "./gmailSend.js";
 
 // ─── Fonction de purge ───────────────────────────────────────
 // Supprime les docs smsQueue avec status="sent" après 24h

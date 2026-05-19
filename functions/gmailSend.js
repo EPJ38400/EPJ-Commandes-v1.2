@@ -1,74 +1,96 @@
-/* ═══════════════════════════════════════════════════════════════
-   gmailSend.js — Cloud Function trigger
-   v1.13.0 — Brique mail
+// ═══════════════════════════════════════════════════════════════
+//  functions/gmailSend.js — v1.13.0
+//
+//  Cloud Function trigger : déclenchée à la création d'un document
+//  dans la collection mailOutbox. Envoie le mail via Gmail API depuis
+//  la boîte sav@epj-electricite.com, archive le mail sortant dans
+//  reserveMails, puis nettoie l'entrée outbox.
+//
+//  Architecture cohérente avec index.js (Brevo) :
+//    - Firebase Functions v2 (onDocumentCreated)
+//    - ES modules
+//    - defineSecret pour les credentials Gmail
+//    - Région europe-west1
+// ═══════════════════════════════════════════════════════════════
 
-   Déclencheur : création d'un document dans la collection `mailOutbox`.
-   Action : envoie le mail via Gmail API depuis la boîte sav@,
-   archive le mail sortant dans `reserveMails` (rattaché à la réserve),
-   puis supprime le doc de la file d'attente.
-
-   PRÉREQUIS : mêmes que gmailPoll (OAuth Gmail + config)
-   ═══════════════════════════════════════════════════════════════ */
-
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const { google } = require("googleapis");
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
+import admin from "firebase-admin";
+import { google } from "googleapis";
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
+
+const GMAIL_CLIENT_ID = defineSecret("GMAIL_CLIENT_ID");
+const GMAIL_CLIENT_SECRET = defineSecret("GMAIL_CLIENT_SECRET");
+const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
+const GMAIL_REDIRECT_URI = "https://developers.google.com/oauthplayground";
 
 const COLLECTION_MAILS = "reserveMails";
 const COLLECTION_OUTBOX = "mailOutbox";
 const COLLECTION_CONFIG = "gmailConfig";
 
-// ─── Trigger : nouveau document dans mailOutbox ─────────────
-exports.gmailSend = functions
-  .runWith({ timeoutSeconds: 120, memory: "256MB" })
-  .firestore.document(`${COLLECTION_OUTBOX}/{docId}`)
-  .onCreate(async (snap, context) => {
+const SENDER_NAME = "EPJ Électricité — SAV";
+const SENDER_EMAIL_DEFAULT = "sav@epj-electricite.com";
+
+// ─── Cloud Function : trigger onCreate sur mailOutbox ────────
+export const gmailSend = onDocumentCreated(
+  {
+    document: `${COLLECTION_OUTBOX}/{docId}`,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    region: "europe-west1",
+    secrets: [GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN],
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) {
+      console.warn("[gmailSend] Event sans snapshot, on ignore");
+      return;
+    }
     const draft = snap.data();
-    if (!draft || draft.statut !== "pending") return null;
+    if (!draft || draft.statut !== "pending") {
+      console.log("[gmailSend] doc non pending, skip");
+      return;
+    }
 
     const outboxRef = snap.ref;
     console.log("[gmailSend] envoi", draft.sujet);
 
     try {
-      // 1. OAuth
+      // OAuth Gmail
       const configSnap = await db.collection(COLLECTION_CONFIG).doc("main").get();
-      if (!configSnap.exists) {
-        throw new Error("Config Gmail absente");
-      }
-      const config = configSnap.data();
+      const config = configSnap.exists ? configSnap.data() : {};
+      const senderEmail = config.boiteEmail || SENDER_EMAIL_DEFAULT;
+
       const oauth2Client = new google.auth.OAuth2(
-        functions.config().gmail.client_id,
-        functions.config().gmail.client_secret,
-        functions.config().gmail.redirect_uri,
+        GMAIL_CLIENT_ID.value(),
+        GMAIL_CLIENT_SECRET.value(),
+        GMAIL_REDIRECT_URI,
       );
-      oauth2Client.setCredentials({ refresh_token: config.oauthRefreshToken });
+      oauth2Client.setCredentials({
+        refresh_token: GMAIL_REFRESH_TOKEN.value(),
+      });
       const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-      // 2. Construire le MIME
-      // Sujet : on ajoute le tag [RES-XXX] s'il n'y est pas déjà
+      // Construire le sujet avec tag [RES-XXX]
       let sujet = draft.sujet || "";
       if (draft.reserveNum && !sujet.includes(`[RES-${draft.reserveNum}]`)) {
         sujet = `[RES-${draft.reserveNum}] ${sujet}`;
       }
 
-      const senderEmail = config.boiteEmail || "sav@epj-electricite.com";
-      const senderName = "EPJ Électricité — SAV";
-
+      // Construire le MIME
       const mime = buildMime({
-        from: `${senderName} <${senderEmail}>`,
+        from: `${SENDER_NAME} <${senderEmail}>`,
         to: (draft.to || []).join(", "),
         cc: (draft.cc || []).join(", "),
         subject: sujet,
         body: draft.corps || "",
       });
-
       const encoded = Buffer.from(mime).toString("base64")
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-      // 3. Envoyer
+      // Envoyer
       const sendOpts = { userId: "me", requestBody: { raw: encoded } };
       if (draft.gmailThreadId) sendOpts.requestBody.threadId = draft.gmailThreadId;
 
@@ -76,9 +98,8 @@ exports.gmailSend = functions
       const gmailId = result.data.id;
       const threadId = result.data.threadId;
 
-      // 4. Archiver dans reserveMails (mail sortant)
+      // Archiver dans reserveMails
       if (draft.reserveId) {
-        // Récupérer le chantierNum depuis la réserve
         const rsnap = await db.collection("reserves").doc(draft.reserveId).get();
         const chantierNum = rsnap.exists ? rsnap.data().chantierNum : null;
 
@@ -89,7 +110,7 @@ exports.gmailSend = functions
           reserveNum: draft.reserveNum,
           chantierNum,
           direction: "out",
-          expediteurNom: senderName,
+          expediteurNom: SENDER_NAME,
           expediteurEmail: senderEmail,
           destinataires: draft.to || [],
           cc: draft.cc || [],
@@ -110,19 +131,17 @@ exports.gmailSend = functions
         });
       }
 
-      // 5. Marquer le doc outbox comme envoyé puis supprimer
+      // Marquer sent (gardé 60s pour traçabilité côté UI, puis supprimé)
       await outboxRef.update({
         statut: "sent",
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
         gmailId, gmailThreadId: threadId,
       });
-      // On garde 1 minute pour traçabilité côté UI, puis cleanup côté GC
       setTimeout(async () => {
         try { await outboxRef.delete(); } catch {}
       }, 60_000);
 
       console.log("[gmailSend] OK", gmailId);
-      return null;
     } catch (e) {
       console.error("[gmailSend] erreur:", e.message);
       await outboxRef.update({
@@ -132,7 +151,8 @@ exports.gmailSend = functions
       });
       throw e;
     }
-  });
+  }
+);
 
 // ─── Helpers MIME ───────────────────────────────────────────
 function buildMime({ from, to, cc, subject, body }) {
@@ -147,14 +167,12 @@ function buildMime({ from, to, cc, subject, body }) {
   lines.push("");
   const html = textToHtml(body);
   const encoded = Buffer.from(html, "utf8").toString("base64");
-  // Découper en lignes de 76 caractères (RFC 2045)
   const chunks = encoded.match(/.{1,76}/g) || [encoded];
   lines.push(chunks.join("\r\n"));
   return lines.join("\r\n");
 }
 
 function textToHtml(text) {
-  // Conversion simple texte → HTML (préserve sauts de ligne)
   const escaped = String(text || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
