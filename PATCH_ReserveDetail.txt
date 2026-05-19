@@ -1,0 +1,122 @@
+================================================================
+  PATCH ReserveDetail.jsx — Insertion de la timeline mail
+  v1.13.0 — Brique mail
+================================================================
+
+Le fichier `src/modules/reserves/ReserveDetail.jsx` existant ne change
+QUE de 3 manières :
+
+  1. Ajouter 3 imports en haut
+  2. Récupérer mails + événements via les hooks
+  3. Insérer <MailTimeline .../> à un endroit visible
+
+Aucune ligne existante n'est supprimée ou modifiée logiquement.
+
+────────────────────────────────────────────────────────────────
+ PATCH 1 — Ajouter les imports
+────────────────────────────────────────────────────────────────
+
+Localiser le bloc d'imports en haut du fichier (avant `export function ReserveDetail`)
+et AJOUTER les 3 lignes suivantes :
+
+  import { MailTimeline } from "./MailTimeline";
+  import { useReserveMails, useReserveEvents, addInternalNote, queueOutgoingMail }
+    from "../../core/gmail/useReserveMails";
+
+
+────────────────────────────────────────────────────────────────
+ PATCH 2 — Récupérer mails + événements dans le composant
+────────────────────────────────────────────────────────────────
+
+Au début de `export function ReserveDetail({ reserveId, onBack, onLevee })`,
+juste APRÈS la ligne :
+
+  const reserve = reserves.find(r => r._id === reserveId);
+
+AJOUTER ces 2 lignes :
+
+  const { mails } = useReserveMails(reserveId);
+  const events = useReserveEvents(reserve);
+
+
+────────────────────────────────────────────────────────────────
+ PATCH 3 — Insérer <MailTimeline> dans le rendu
+────────────────────────────────────────────────────────────────
+
+Dans le JSX retourné, localiser le bloc :
+
+  {/* Pièces jointes (PDFs, photos supplémentaires) */}
+  <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
+    ...
+    <AttachmentsManager ... />
+  </div>
+
+JUSTE APRÈS la fin de ce bloc (la fermeture </div>), AJOUTER :
+
+  {/* Timeline mail — v1.13.0 */}
+  <MailTimeline
+    mails={mails}
+    events={events}
+    reserve={reserve}
+    canReply={canEdit}
+    onReply={async (draft) => {
+      await queueOutgoingMail(
+        { ...draft, reserveId: reserve._id, reserveNum: reserve.numReserve },
+        user._id,
+      );
+    }}
+    onAddNote={async (texte) => {
+      const auteur = `${user.prenom || ""} ${user.nom || ""}`.trim() || user._id;
+      await addInternalNote(reserve._id, texte, auteur);
+    }}
+    onJoindreMail={undefined /* V2 — upload manuel .eml/.msg */}
+  />
+
+
+────────────────────────────────────────────────────────────────
+ RÉSULTAT
+────────────────────────────────────────────────────────────────
+
+Sur la fiche d'une réserve, juste après le bloc "Pièces jointes",
+apparaît une nouvelle carte "✉ Conversation" contenant :
+
+  • Les mails entrants/sortants (de Gmail) en ordre chronologique
+  • Les événements internes (création, attribution, RDV, notes,
+    levée, quitus)
+  • Trois boutons : Répondre par mail / Note interne / Joindre
+
+Si aucun mail rattaché → état vide explicatif.
+Si la timeline est vide ET aucun événement → vraie réserve récente
+sans historique, c'est normal.
+
+ZÉRO IMPACT sur le reste de l'app : si reserveMails est vide,
+le composant gère parfaitement le cas.
+
+────────────────────────────────────────────────────────────────
+ PATCH 4 (optionnel) — App.jsx : nouvelle route "mails-a-classer"
+────────────────────────────────────────────────────────────────
+
+Pour accéder à l'écran de classement, ajouter dans `src/App.jsx` :
+
+  import { MailsAClasser } from "./modules/reserves/MailsAClasser";
+
+Dans le switch des routes, ajouter :
+
+  if (route === "mails-a-classer") return "Mails à classer";
+
+Et dans le rendu Layout :
+
+  {route === "mails-a-classer" && (
+    <MailsAClasser
+      onOpenReserve={(reserveId) => setRoute("module:reserves")}
+      onCreateReserveFromDraft={(payload) => {
+        // Stocker le brouillon dans un state ou localStorage
+        // puis aller sur ReserveCreate qui le lira
+        localStorage.setItem("reserve_draft_from_mail", JSON.stringify(payload));
+        setRoute("module:reserves");
+      }}
+    />
+  )}
+
+Un point d'entrée depuis HomePage ou un badge dans Réserves
+"📥 X mails à classer" peut être ajouté en V2.
