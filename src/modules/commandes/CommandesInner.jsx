@@ -69,6 +69,21 @@ const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray
 const font = "'Inter','Segoe UI',-apple-system,sans-serif";
 const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"},"Scindée":{bg:"#F5F5F5",color:"#9E9E9E",icon:"📂"}};
 
+// v1.17.3 — Pour les commandes issues d'une scission (split), on garde la
+// couleur du statut technique (ex: violet "Commandée") mais on change le LIBELLÉ
+// pour rappeler que c'est une commande partielle par rapport à l'originale.
+//  • "-1" (createdBySplit, statut "Commandée") → libellé "Commandée partiellement"
+//    avec couleur violette de "Commandée"
+function getStatusDisplay(order) {
+  if (!order || !order.statut) return { bg:"#eee", color:"#333", icon:"", label:"—" };
+  const base = STATUS_COLORS[order.statut] || { bg:"#eee", color:"#333", icon:"" };
+  // Cas spécial : commande "-1" issue d'un split → libellé enrichi
+  if (order.createdBySplit === true && order.statut === "Commandée") {
+    return { ...base, label: "Commandée partiellement" };
+  }
+  return { ...base, label: order.statut };
+}
+
 // Équipement salarié = only Outillage category
 const EMAIL_ACHATS = "achat@epj-electricite.com";
 const EQUIP_CATS = ["Outillage","EPI","Vêtements de travail"];
@@ -436,7 +451,12 @@ export function CommandesInner({ onExitModule }) {
   const myHistoryCount = useMemo(() => {
     if(!user) return 0;
     const fullName = `${user.prenom} ${user.nom}`;
-    const safe = (history || []).filter(h => h && h.num && h.statut !== "Scindée");
+    // v1.17.3 — Exclure aussi les reliquats "-2" du compteur de l'historique
+    const safe = (history || []).filter(h =>
+      h && h.num &&
+      h.statut !== "Scindée" &&
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+    );
     const scope = can(user, "commandes", "view", rolesConfig);
     if (scope === "all") {
       return safe.length;
@@ -2044,7 +2064,7 @@ export function CommandesInner({ onExitModule }) {
       <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
       <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
       <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
-      {o&&<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div className="status-pill" style={{background:STATUS_COLORS[o.statut]?.bg,color:STATUS_COLORS[o.statut]?.color,marginTop:4}}>{STATUS_COLORS[o.statut]?.icon||''} {o.statut}</div></div>}
+      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div className="status-pill" style={{background:s.bg,color:s.color,marginTop:4}}>{s.icon||''} {s.label}</div></div>);})()}
       
       {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
         <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
@@ -2423,7 +2443,13 @@ export function CommandesInner({ onExitModule }) {
   // ═══ HISTORY ═══
   if(view==="history"){
     const fullName = `${user.prenom} ${user.nom}`;
-    let myHistory = history.filter(h=>h&&h.num&&h.statut!=="Scindée");
+    let myHistory = history.filter(h=>
+      h && h.num &&
+      h.statut !== "Scindée" &&
+      // v1.17.3 — Exclure les reliquats de scission ("-2") en attente d'achat
+      // (ils s'affichent dans "À commander", pas dans l'historique du demandeur)
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+    );
     // v1.12.1 — Utilise can() au lieu de user.fonction (cf. myHistoryCount)
     const scope = can(user, "commandes", "view", rolesConfig);
     if (scope === "all") {
@@ -2488,7 +2514,7 @@ export function CommandesInner({ onExitModule }) {
           <div key={h._id||i} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
             <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
               <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
-              <div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:STATUS_COLORS[h.statut]?.bg||'#eee',color:STATUS_COLORS[h.statut]?.color||'#333'}}>{STATUS_COLORS[h.statut]?.icon||''} {h.statut||'—'}</div></div>
+              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:s.bg||'#eee',color:s.color||'#333'}}>{s.icon||''} {s.label||'—'}</div></div>);})()}
             </div>
             {canDeleteThisOrder(h)&&<button onClick={async(e)=>{
               e.stopPropagation();
@@ -2523,7 +2549,7 @@ export function CommandesInner({ onExitModule }) {
           <div className="epj-card" style={{marginBottom:10}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
               <div style={{fontSize:18,fontWeight:800,color:EPJ.dark}}>{o.num}</div>
-              <div className="status-pill" style={{background:STATUS_COLORS[o.statut]?.bg,color:STATUS_COLORS[o.statut]?.color,fontSize:12,padding:'5px 12px'}}>{STATUS_COLORS[o.statut]?.icon} {o.statut}</div>
+              {(()=>{const s=getStatusDisplay(o);return(<div className="status-pill" style={{background:s.bg,color:s.color,fontSize:12,padding:'5px 12px'}}>{s.icon} {s.label}</div>);})()}
             </div>
             {o.urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
             {o.motifRefus&&<div style={{background:'#FFEBEE',color:'#C62828',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>Motif : {o.motifRefus}</div>}
