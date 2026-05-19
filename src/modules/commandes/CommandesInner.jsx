@@ -180,11 +180,11 @@ export function CommandesInner({ onExitModule }) {
     return 'home';
   });
 
-  // v1.13.0 — Filet de sécurité : si on se retrouve sur une vue inaccessible
+  // v1.17.2 — Filet de sécurité : si on se retrouve sur une vue inaccessible
   // (ex: toOrder pour quelqu'un sans le droit), on rebascule sur home.
   // Utilise useEffect pour faire ça PROPREMENT (jamais pendant le render).
   useEffect(() => {
-    if (view === "toOrder" && user && !canMarkAsCommandee()) {
+    if (view === "toOrder" && user && !canSeeToOrder()) {
       setView("home");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,22 +472,52 @@ export function CommandesInner({ onExitModule }) {
     return false;
   };
 
-  // v1.13.0 — Compteur "À commander" pour Achat/Direction/Admin
-  // Compte les commandes en attente d'être passées chez le fournisseur :
-  //   - "Validée" (à envoyer aux achats)
-  //   - "Envoyée aux achats" (à passer)
-  //   - "Commandée partiellement" (reste à passer)
+  // v1.17.2 — Peut VOIR la carte "À commander" ?
+  // Plus large que canMarkAsCommandee : inclut aussi les Conducteurs travaux,
+  // Chefs de chantier, et tout user avec directAchat=true (qui passent leurs
+  // propres commandes en direct). Ils ne voient QUE leur scope (own_chantiers
+  // ou own_items), pas toutes les commandes.
+  const canSeeToOrder = () => {
+    if (!user) return false;
+    if (canMarkAsCommandee()) return true; // Admin/Direction/Achat/Assistante
+    if (user.directAchat === true) return true; // CdT/CdC avec directAchat
+    const roles = Array.isArray(user.roles) ? user.roles
+                : (user.role ? [user.role] : []);
+    if (roles.includes("Conducteur travaux")) return true;
+    if (roles.includes("Chef chantier")) return true;
+    return false;
+  };
+
+  // v1.17.2 — Compteur "À commander" élargi
+  // Admin/Direction/Achat/Assistante voient TOUT
+  // Conducteur travaux / Chef chantier / users directAchat voient
+  // uniquement leurs commandes (own_chantiers ou own_items)
   const toOrderCount = useMemo(() => {
-    if (!user || !canMarkAsCommandee()) return 0;
-    return (history || []).filter(h =>
-      h && h.num && (
-        h.statut === "Validée" ||
-        h.statut === "Envoyée aux achats" ||
-        h.statut === "Commandée partiellement"
-      )
-    ).length;
+    if (!user || !canSeeToOrder()) return 0;
+    const fullName = `${user.prenom} ${user.nom}`;
+    const baseFilter = (h) => h && h.num && (
+      h.statut === "Validée" ||
+      h.statut === "Envoyée aux achats" ||
+      h.statut === "Commandée partiellement"
+    );
+    const safe = (history || []).filter(baseFilter);
+
+    // Si admin/direction/achat/assistante → tout
+    if (canMarkAsCommandee()) return safe.length;
+
+    // Sinon on filtre par scope
+    const scope = can(user, "commandes", "view", rolesConfig);
+    if (scope === "all") return safe.length;
+    if (scope === "own_chantiers") {
+      const mesChantiers = dynChantiers.filter(c => c.conducteur === fullName).map(c => c.nom);
+      return safe.filter(h => mesChantiers.includes(h.chantier) || h.user === fullName).length;
+    }
+    if (scope === "own_items") {
+      return safe.filter(h => h.userId === user.id || h.user === fullName).length;
+    }
+    return 0;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, history]);
+  }, [user, history, dynChantiers, rolesConfig]);
 
   const showT = (m) => { setToast(m); setTimeout(()=>setToast(null), 1800); };
   const addToCart = (r) => { setCart(p=>({...p,[r]:(p[r]||0)+1})); showT("✓ Ajouté"); };
@@ -1737,8 +1767,9 @@ export function CommandesInner({ onExitModule }) {
           <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.gray},${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>📋</div>
           <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Historique</div><div style={{fontSize:12,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
         </div>
-        {/* v1.13.0 — Carte "À commander" pour Admin/Direction/Achat/Assistante */}
-        {canMarkAsCommandee() && toOrderCount > 0 && (
+        {/* v1.17.2 — Carte "À commander" élargie : Admin/Direction/Achat/Assistante voient toutes,
+            Conducteurs travaux / Chefs de chantier / users directAchat voient les leurs */}
+        {canSeeToOrder() && toOrderCount > 0 && (
           <div onClick={()=>setView('toOrder')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.orange}`}}>
             <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},#E65100)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{toOrderCount}</div></div>
             <div><div style={{fontWeight:700,fontSize:15,color:'#E65100'}}>À commander</div><div style={{fontSize:12,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
@@ -2411,6 +2442,20 @@ export function CommandesInner({ onExitModule }) {
     // Appliquer les filtres manuels
     if(historyFilter.statut) myHistory = myHistory.filter(h=>h.statut===historyFilter.statut);
     if(historyFilter.chantier) myHistory = myHistory.filter(h=>h.chantier===historyFilter.chantier);
+
+    // v1.17.2 — Tri par date décroissante (plus récentes en premier)
+    // Utilise createdAt (ISO précis à la milliseconde) en priorité, puis num
+    // (CMD-2026-NNNN) comme tie-breaker. Les commandes scindées -1/-2 restent
+    // groupées avec leur parent grâce au tri par num.
+    myHistory.sort((a, b) => {
+      const ta = a.createdAt || "";
+      const tb = b.createdAt || "";
+      if (ta && tb) return tb.localeCompare(ta);
+      if (ta && !tb) return -1;
+      if (!ta && tb) return 1;
+      // Pas de createdAt : tri par num desc (CMD-2026-0053 avant CMD-2026-0052)
+      return (b.num || "").localeCompare(a.num || "");
+    });
     return(
     <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
       <style>{css}</style>
@@ -3002,17 +3047,34 @@ export function CommandesInner({ onExitModule }) {
     );
   }
 
-  // ═══ v1.13.0 — TO ORDER (À commander) ═══
+  // ═══ v1.17.2 — TO ORDER (À commander) ═══
   // Liste les commandes à passer chez le fournisseur, groupées par statut.
-  // Visible Admin/Direction/Achat/Assistante uniquement.
-  if(view==="toOrder" && canMarkAsCommandee()){
-    const toOrder = (history || []).filter(h =>
+  // Admin/Direction/Achat/Assistante : voient TOUTES les commandes.
+  // Conducteur travaux / Chef chantier / users directAchat : voient les leurs
+  // selon leur scope (own_chantiers ou own_items).
+  if(view==="toOrder" && canSeeToOrder()){
+    const fullName = `${user.prenom} ${user.nom}`;
+    let toOrder = (history || []).filter(h =>
       h && h.num && (
         h.statut === "Validée" ||
         h.statut === "Envoyée aux achats" ||
         h.statut === "Commandée partiellement"
       )
     );
+
+    // Si pas Admin/Direction/Achat/Assistante → filtrer par scope
+    if (!canMarkAsCommandee()) {
+      const scope = can(user, "commandes", "view", rolesConfig);
+      if (scope === "own_chantiers") {
+        const mesChantiers = dynChantiers.filter(c => c.conducteur === fullName).map(c => c.nom);
+        toOrder = toOrder.filter(h => mesChantiers.includes(h.chantier) || h.user === fullName);
+      } else if (scope === "own_items") {
+        toOrder = toOrder.filter(h => h.userId === user.id || h.user === fullName);
+      } else if (scope !== "all") {
+        toOrder = [];
+      }
+    }
+
     // Tri : urgent d'abord, puis date réception croissante, puis date création
     toOrder.sort((a, b) => {
       if ((b.urgent?1:0) - (a.urgent?1:0) !== 0) return (b.urgent?1:0) - (a.urgent?1:0);
