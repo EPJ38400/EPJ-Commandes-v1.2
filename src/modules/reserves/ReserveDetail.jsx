@@ -20,6 +20,9 @@ import { QuitusActions } from "./QuitusActions";
 // v10.N — SMS attribution + demande levée
 import { smsReserveAttribuee, smsReserveDemandeLevee, findUserByUid } from "../../core/smsService";
 import { canDemanderLevee } from "./reservesRappel";
+// ─── v1.13.0 — Brique mail ──────────────────────────────────
+import { MailTimeline } from "./MailTimeline";
+import { useReserveMails, useReserveEvents, addInternalNote, queueOutgoingMail } from "../../core/gmail/useReserveMails";
 
 export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const { user } = useAuth();
@@ -40,6 +43,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const [rdvHeure, setRdvHeure] = useState("");
 
   const reserve = reserves.find(r => r._id === reserveId);
+  // ─── v1.13.0 — Brique mail ──────────────────────────────────
+  const { mails } = useReserveMails(reserveId);
+  const events = useReserveEvents(reserve);
   const canEdit = !!can(user, "reserves-quitus", "edit", rolesConfig);
   const canDelete = !!can(user, "reserves-quitus", "delete", rolesConfig);
 
@@ -281,6 +287,24 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           readOnly={!canEdit}
         />
       </div>
+
+      {/* ─── v1.13.0 — Timeline mail (Conversation) ─── */}
+      <MailTimeline
+        mails={mails}
+        events={events}
+        reserve={reserve}
+        canReply={canEdit}
+        onReply={async (draft) => {
+          await queueOutgoingMail(
+            { ...draft, reserveId: reserve._id, reserveNum: reserve.numReserve },
+            user._id,
+          );
+        }}
+        onAddNote={async (texte) => {
+          const auteur = `${user.prenom || ""} ${user.nom || ""}`.trim() || user._id;
+          await addInternalNote(reserve._id, texte, auteur);
+        }}
+      />
 
       {/* Infos */}
       <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
