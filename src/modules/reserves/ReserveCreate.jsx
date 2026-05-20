@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 //  ReserveCreate — Formulaire de création d'une réserve
+//  v1.18.0 — Brique chantier ad hoc + auto-remplissage depuis mail
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo, useEffect } from "react";
 import { EPJ, font } from "../../core/theme";
@@ -7,7 +8,7 @@ import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { db } from "../../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   generateReserveNum, uploadReservePhoto, deleteReservePhoto, todayISO,
   RESERVE_PRIORITES,
@@ -16,8 +17,12 @@ import { PhotoDropZone } from "./PhotoDropZone";
 import { AttachmentsManager } from "./AttachmentsManager";
 // v10.I — SMS au conducteur du chantier à la création d'une réserve
 import { smsReserveAttribuee, findUserByUid } from "../../core/smsService";
+// v1.18.0 — Création/édition de chantier ad hoc
+import { ChantierEditModal } from "./ChantierEditModal";
 
-export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
+const CHANTIER_NEW_SENTINEL = "__NEW_CHANTIER__";
+
+export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFromMail }) {
   const { user } = useAuth();
   const data = useData();
   const chantiers = data.chantiers || [];
@@ -31,28 +36,101 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(null);
 
+  // v1.18.0 — Modale de création de chantier ad hoc
+  const [showChantierModal, setShowChantierModal] = useState(false);
+
   // Chantier présélectionné éventuellement
   const [chantierNum, setChantierNum] = useState(prefillChantierNum || "");
   const chantier = chantiers.find(c => c.num === chantierNum);
 
-  const [form, setForm] = useState({
-    titre: "",
-    description: "",
-    emplacement: { batiment: "", cage: "", apt: "", partiesCommunes: false },
-    clientFinal: { nom: "", telephone: "", email: "", adresseContact: "" },
-    emisParLabel: "",
-    emisParNom: "",
-    categorieId: "",
-    priorite: "normale",
-    dateEmission: todayISO(),
-    dateLimite: "",
-    photoAvant: "",
-    photoAvantPath: "",
-    piecesJointes: [],
-    affecteAUserId: "",
-    rdvPris: false,
-    rdvDate: "",
-    rdvHeure: "",
+  // v1.18.0 — Match d'une catégorie depuis la "categorieGuess" de l'IA
+  const matchCategorieIdFromGuess = (guess) => {
+    if (!guess) return "";
+    const g = String(guess).toLowerCase().trim();
+    const found = reservesCategories.find(c => {
+      const id = String(c._id || "").toLowerCase();
+      const lbl = String(c.label || "").toLowerCase();
+      return id === g || lbl === g || id.includes(g) || lbl.includes(g);
+    });
+    return found?._id || "";
+  };
+
+  // v1.18.0 — Match d'un émetteur depuis le "emisParLabel" de l'IA
+  const matchEmetteurFromLabel = (label) => {
+    if (!label) return "";
+    const l = String(label).toLowerCase().trim();
+    const found = reservesEmetteurs.find(e => {
+      const id = String(e._id || "").toLowerCase();
+      const lbl = String(e.label || "").toLowerCase();
+      return id === l || lbl === l || id.includes(l) || lbl.includes(l);
+    });
+    return found?.label || label;
+  };
+
+  const [form, setForm] = useState(() => {
+    // ─── v1.18.0 — Pré-remplissage depuis brouillon IA si on vient d'un mail ───
+    const brouillon = prefillFromMail?.brouillon || null;
+    if (brouillon) {
+      return {
+        titre: brouillon.titre || (brouillon.description ? brouillon.description.slice(0, 80) : ""),
+        description: brouillon.description || "",
+        emplacement: {
+          batiment: brouillon.emplacement || "",
+          cage: "",
+          apt: "",
+          partiesCommunes: false,
+        },
+        clientFinal: {
+          nom: brouillon.clientFinal?.nom || "",
+          telephone: brouillon.clientFinal?.telephone || "",
+          email: brouillon.clientFinal?.email || "",
+          adresseContact: "",
+        },
+        emisParLabel: matchEmetteurFromLabel(brouillon.emisParLabel),
+        emisParNom: brouillon.emisParNom || "",
+        categorieId: matchCategorieIdFromGuess(brouillon.categorieGuess),
+        priorite: brouillon.priorite || "normale",
+        dateEmission: todayISO(),
+        dateLimite: "",
+        photoAvant: "",
+        photoAvantPath: "",
+        // v1.18.0 — Copie des pièces jointes du mail dans la réserve
+        piecesJointes: (prefillFromMail?.piecesJointes || []).map(pj => ({
+          id: pj.id || `pj_mail_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          nom: pj.nom,
+          url: pj.url,
+          path: pj.path || "",
+          contentType: pj.contentType || "",
+          tailleKo: pj.tailleKo || 0,
+          kind: pj.kind || "image",
+          origineMail: true,
+        })),
+        affecteAUserId: "",
+        rdvPris: false,
+        rdvDate: "",
+        rdvHeure: "",
+      };
+    }
+    // Pas de mail → valeurs par défaut classiques
+    return {
+      titre: "",
+      description: "",
+      emplacement: { batiment: "", cage: "", apt: "", partiesCommunes: false },
+      clientFinal: { nom: "", telephone: "", email: "", adresseContact: "" },
+      emisParLabel: "",
+      emisParNom: "",
+      categorieId: "",
+      priorite: "normale",
+      dateEmission: todayISO(),
+      dateLimite: "",
+      photoAvant: "",
+      photoAvantPath: "",
+      piecesJointes: [],
+      affecteAUserId: "",
+      rdvPris: false,
+      rdvDate: "",
+      rdvHeure: "",
+    };
   });
 
   // Auto-remplissage quand on sélectionne un chantier qui a déjà un clientFinal
@@ -198,6 +276,55 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
       } catch(smsErr) {
         console.warn("[v10.N] SMS attribution non bloquant:", smsErr);
       }
+
+      // ─── v1.18.0 — Rattacher le mail à la réserve nouvellement créée ───
+      // Si on vient de l'écran "Mails à classer", on doit :
+      //   1. Créer le doc dans reserveMails (avec direction "in", reserveId, etc.)
+      //   2. Supprimer (ou marquer comme classé) le doc dans reserveMailsAClasser
+      if (prefillFromMail?._id) {
+        try {
+          const mailRef = doc(db, "reserveMails", `mail_${prefillFromMail.gmailId}_${Date.now()}`);
+          await setDoc(mailRef, {
+            gmailId: prefillFromMail.gmailId,
+            gmailThreadId: prefillFromMail.gmailThreadId,
+            reserveId: id,
+            reserveNum: numReserve,
+            chantierNum,
+            direction: "in",
+            expediteurNom: prefillFromMail.expediteurNom || "",
+            expediteurEmail: prefillFromMail.expediteurEmail || "",
+            destinataires: prefillFromMail.destinataires || [],
+            cc: prefillFromMail.cc || [],
+            bcc: prefillFromMail.bcc || [],
+            sujet: prefillFromMail.sujet || "",
+            dateEnvoi: prefillFromMail.dateEnvoi || null,
+            dateAspiration: prefillFromMail.dateAspiration || serverTimestamp(),
+            corpsHtml: prefillFromMail.corpsHtml || "",
+            corpsTexte: prefillFromMail.corpsTexte || "",
+            apercu: prefillFromMail.apercu || "",
+            piecesJointes: prefillFromMail.piecesJointes || [],
+            rattachementMethode: "manuel_creation_reserve",
+            rattachementScore: 1.0,
+            rattachementParUserId: user._id,
+            rattachementDate: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+
+          // Marquer le mail dans reserveMailsAClasser comme classé
+          await updateDoc(doc(db, "reserveMailsAClasser", prefillFromMail._id), {
+            statut: "classe",
+            classeVersReserveId: id,
+            classeVersReserveNum: numReserve,
+            classeParUserId: user._id,
+            classeAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        } catch (mailErr) {
+          console.warn("[v1.18.0] Rattachement mail non bloquant:", mailErr);
+        }
+      }
+
       onDone(id);
     } catch (err) {
       console.error(err);
@@ -221,9 +348,26 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
       <div className="epj-card" style={{ padding: 14, marginBottom: 12 }}>
         {/* Chantier */}
         <FieldLabel>Chantier *</FieldLabel>
-        <select value={chantierNum} onChange={e => setChantierNum(e.target.value)}
-                className="epj-input" style={{ marginBottom: 12 }}>
+        <select
+          value={chantierNum}
+          onChange={e => {
+            const v = e.target.value;
+            if (v === CHANTIER_NEW_SENTINEL) {
+              // v1.18.0 — Ouvre la modale de création de chantier ad hoc
+              setShowChantierModal(true);
+              // ne change PAS le state chantierNum pour l'instant
+              // (la modale appellera onSaved qui le mettra à jour)
+            } else {
+              setChantierNum(v);
+            }
+          }}
+          className="epj-input"
+          style={{ marginBottom: 12 }}
+        >
           <option value="">— Sélectionner un chantier —</option>
+          <option value={CHANTIER_NEW_SENTINEL} style={{ fontWeight: 700, color: EPJ.blue }}>
+            ➕ Créer un nouveau chantier
+          </option>
           {chantiersVisibles.map(c => (
             <option key={c.num} value={c.num}>
               {c.num} — {c.nom}
@@ -237,6 +381,11 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
             padding: "6px 10px", borderRadius: 6, marginBottom: 12,
           }}>
             📍 {chantier.adresse || "(adresse non renseignée)"}
+            {chantier.creeAdHoc && (
+              <span style={{ marginLeft: 8, color: EPJ.orange, fontWeight: 600 }}>
+                · Ad hoc (N° d'affaire à compléter)
+              </span>
+            )}
           </div>
         )}
 
@@ -429,6 +578,22 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum }) {
           opacity: saving || uploadingPhoto ? 0.5 : 1,
         }}>{saving ? "⏳ Enregistrement…" : "💾 Créer la réserve"}</button>
       </div>
+
+      {/* v1.18.0 — Modale de création de chantier ad hoc */}
+      {showChantierModal && (
+        <ChantierEditModal
+          mode="create"
+          prefillNom={prefillFromMail?.brouillon?.chantierGuess || ""}
+          prefillAdresse={prefillFromMail?.brouillon?.emplacement || ""}
+          userId={user?._id}
+          onCancel={() => setShowChantierModal(false)}
+          onSaved={(newChantier) => {
+            setShowChantierModal(false);
+            // Sélectionne automatiquement le chantier qu'on vient de créer
+            setChantierNum(newChantier.num);
+          }}
+        />
+      )}
     </div>
   );
 }

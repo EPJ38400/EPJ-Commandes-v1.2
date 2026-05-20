@@ -23,6 +23,8 @@ import { canDemanderLevee } from "./reservesRappel";
 // ─── v1.13.0 — Brique mail ──────────────────────────────────
 import { MailTimeline } from "./MailTimeline";
 import { useReserveMails, useReserveEvents, addInternalNote, queueOutgoingMail } from "../../core/gmail/useReserveMails";
+// ─── v1.18.0 — Édition de chantier ad hoc ───────────────────
+import { ChantierEditModal } from "./ChantierEditModal";
 
 export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const { user } = useAuth();
@@ -41,6 +43,8 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const [assignUserId, setAssignUserId] = useState("");
   const [rdvDate, setRdvDate] = useState("");
   const [rdvHeure, setRdvHeure] = useState("");
+  // ─── v1.18.0 — Édition de chantier depuis la fiche réserve ───
+  const [showChantierEdit, setShowChantierEdit] = useState(false);
 
   const reserve = reserves.find(r => r._id === reserveId);
   // ─── v1.13.0 — Brique mail ──────────────────────────────────
@@ -308,7 +312,42 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* Infos */}
       <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
-        <InfoRow label="Chantier" value={`${reserve.chantierNum} — ${reserve.chantierNom || ""}`}/>
+        {/* v1.18.0 — Chantier avec bouton d'édition ✏️ */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <div style={{ flex: 1 }}>
+            <InfoRow
+              label="Chantier"
+              value={`${reserve.chantierNum || ""}${reserve.chantierNom ? " — " + reserve.chantierNom : ""}`}
+            />
+          </div>
+          <button
+            onClick={() => setShowChantierEdit(true)}
+            title="Modifier le chantier"
+            style={{
+              background: "transparent",
+              border: `1px solid ${EPJ.gray200}`,
+              borderRadius: 6,
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: 13,
+              color: EPJ.gray700,
+            }}
+          >
+            ✏️
+          </button>
+        </div>
+        {(() => {
+          const chantierDoc = chantiers.find(c => c.num === reserve.chantierNum);
+          return chantierDoc?.creeAdHoc ? (
+            <div style={{
+              fontSize: 11, color: EPJ.orange, fontWeight: 600,
+              background: `${EPJ.orange}15`,
+              padding: "4px 8px", borderRadius: 5, marginBottom: 6,
+            }}>
+              ⚠ Chantier ad hoc — N° d'affaire à compléter
+            </div>
+          ) : null;
+        })()}
         {reserve.chantierAdresse && <InfoRow label="Adresse" value={reserve.chantierAdresse}/>}
         <EmplacementRow empl={reserve.emplacement}/>
         {reserve.description && <InfoRow label="Description" value={reserve.description} multiline/>}
@@ -516,6 +555,39 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           fontSize: 12, padding: "10px",
         }}>🗑 Supprimer la réserve</button>
       )}
+
+      {/* v1.18.0 — Modale d'édition du chantier */}
+      {showChantierEdit && (() => {
+        const chantierDoc = chantiers.find(c => c.num === reserve.chantierNum);
+        if (!chantierDoc) return null;
+        return (
+          <ChantierEditModal
+            mode="edit"
+            chantier={chantierDoc}
+            userId={user?._id}
+            onCancel={() => setShowChantierEdit(false)}
+            onSaved={async (updatedChantier) => {
+              setShowChantierEdit(false);
+              // Si le num du chantier a changé (régularisation N° d'affaire),
+              // on met à jour les champs dénormalisés sur la réserve.
+              try {
+                if (updatedChantier.num !== reserve.chantierNum
+                    || updatedChantier.nom !== reserve.chantierNom
+                    || updatedChantier.adresse !== reserve.chantierAdresse) {
+                  await updateDoc(doc(db, "reserves", reserve._id), {
+                    chantierNum: updatedChantier.num,
+                    chantierNom: updatedChantier.nom,
+                    chantierAdresse: updatedChantier.adresse || "",
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
+              } catch (err) {
+                console.warn("[v1.18.0] Resync chantier sur réserve non bloquant:", err);
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
