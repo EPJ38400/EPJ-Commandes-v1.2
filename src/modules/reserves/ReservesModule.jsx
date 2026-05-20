@@ -11,13 +11,17 @@ import { ReservesInner } from "./ReservesInner";
 import { ReserveCreate } from "./ReserveCreate";
 import { ReserveDetail } from "./ReserveDetail";
 import { ReserveLevee } from "./ReserveLevee";
+// ─── v1.13.0 — Brique mail ──────────────────────────────────
+import { MailsAClasser } from "./MailsAClasser";
 
 export function ReservesModule({ onExitModule }) {
   const { user } = useAuth();
   const { rolesConfig } = useData();
-  const [view, setView] = useState("dashboard"); // dashboard | create | detail | levee
+  const [view, setView] = useState("dashboard"); // dashboard | create | detail | levee | mailsAClasser
   const [selectedReserveId, setSelectedReserveId] = useState(null);
   const [prefillChantierNum, setPrefillChantierNum] = useState(null);
+  // ─── v1.13.0 — Brique mail : brouillon de réserve issu d'un mail ──
+  const [mailDraft, setMailDraft] = useState(null);
 
   const viewScope = can(user, "reserves-quitus", "view", rolesConfig);
   if (!viewScope) {
@@ -37,13 +41,22 @@ export function ReservesModule({ onExitModule }) {
   const goToDetail = (reserveId) => { setSelectedReserveId(reserveId); setView("detail"); };
   const goToLevee  = (reserveId) => { setSelectedReserveId(reserveId); setView("levee"); };
   const goToCreate = (chantierNum) => { setPrefillChantierNum(chantierNum || null); setView("create"); };
-  const goToDashboard = () => { setSelectedReserveId(null); setPrefillChantierNum(null); setView("dashboard"); };
+  const goToDashboard = () => {
+    setSelectedReserveId(null);
+    setPrefillChantierNum(null);
+    setMailDraft(null);
+    setView("dashboard");
+  };
 
   if (view === "create") {
     return <ReserveCreate
-      onDone={(reserveId) => reserveId ? goToDetail(reserveId) : goToDashboard()}
+      onDone={(reserveId) => {
+        setMailDraft(null);
+        return reserveId ? goToDetail(reserveId) : goToDashboard();
+      }}
       onCancel={goToDashboard}
       prefillChantierNum={prefillChantierNum}
+      prefillFromMail={mailDraft}
     />;
   }
   if (view === "detail" && selectedReserveId) {
@@ -61,9 +74,22 @@ export function ReservesModule({ onExitModule }) {
     />;
   }
 
+  // ─── v1.13.0 — Brique mail ─────────────────────────────────
+  if (view === "mailsAClasser") {
+    return <MailsAClasser
+      onOpenReserve={(reserveId) => goToDetail(reserveId)}
+      onCreateReserveFromDraft={(draft) => {
+        setMailDraft(draft);
+        setView("create");
+      }}
+      onBack={goToDashboard}
+    />;
+  }
+
   return <ReservesInner
     onCreate={goToCreate}
     onSelect={goToDetail}
+    onOpenMailsAClasser={() => setView("mailsAClasser")}
     onExitModule={onExitModule}
   />;
 }

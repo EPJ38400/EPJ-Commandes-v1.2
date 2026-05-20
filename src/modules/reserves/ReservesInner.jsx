@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 //  ReservesInner — Dashboard + liste filtrable
 // ═══════════════════════════════════════════════════════════════
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../../firebase";
 import { EPJ, font } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -12,13 +14,24 @@ import {
   formatDate, isReserveEnRetard, isRdvEnRetard,
 } from "./reservesUtils";
 
-export function ReservesInner({ onCreate, onSelect, onExitModule }) {
+export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitModule }) {
   const { user } = useAuth();
   const data = useData();
   const reserves = data.reserves || [];
   const chantiers = data.chantiers || [];
   const users = data.users || [];
   const rolesConfig = data.rolesConfig;
+
+  // ─── v1.13.0 — Brique mail : compteur live des mails à classer ──
+  const [nbMailsAClasser, setNbMailsAClasser] = useState(0);
+  useEffect(() => {
+    const q = query(
+      collection(db, "reserveMailsAClasser"),
+      where("statut", "==", "en_attente"),
+    );
+    const unsub = onSnapshot(q, (snap) => setNbMailsAClasser(snap.size));
+    return unsub;
+  }, []);
 
   const viewScope = can(user, "reserves-quitus", "view", rolesConfig);
   const canCreate = !!can(user, "reserves-quitus", "create", rolesConfig);
@@ -125,6 +138,40 @@ export function ReservesInner({ onCreate, onSelect, onExitModule }) {
         <KpiCard label="Levées /mois" value={kpi.leveesMois} color={EPJ.green} icon="✓"/>
         <KpiCard label="Retards"   value={kpi.enRetard} color={EPJ.red} icon="⏰"/>
       </div>
+
+      {/* ─── v1.13.0 — Bouton "Mails à classer" ─── */}
+      {nbMailsAClasser > 0 && (
+        <button
+          onClick={onOpenMailsAClasser}
+          className="epj-btn"
+          style={{
+            width: "100%",
+            background: "#FFF4E6",
+            color: EPJ.orange,
+            border: `1px solid ${EPJ.orange}`,
+            marginBottom: 12,
+            fontSize: 13,
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: font.body,
+            fontWeight: 600,
+          }}
+        >
+          <span>📥 Mails à classer</span>
+          <span style={{
+            background: EPJ.orange,
+            color: "#fff",
+            borderRadius: 12,
+            padding: "2px 10px",
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            {nbMailsAClasser}
+          </span>
+        </button>
+      )}
 
       {/* Bannière retards */}
       {kpi.enRetard > 0 && (

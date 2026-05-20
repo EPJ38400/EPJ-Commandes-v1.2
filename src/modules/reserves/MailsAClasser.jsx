@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 import { MailItem } from "./MailItem";
 
-export function MailsAClasser({ onOpenReserve, onCreateReserveFromDraft }) {
+export function MailsAClasser({ onOpenReserve, onCreateReserveFromDraft, onBack }) {
   const { user } = useAuth();
   const data = useData();
   const { items, loading } = useMailsAClasser();
@@ -107,6 +107,22 @@ export function MailsAClasser({ onOpenReserve, onCreateReserveFromDraft }) {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "12px" }}>
       {/* Header */}
       <div style={{ marginBottom: 12 }}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="epj-btn"
+            style={{
+              background: "transparent",
+              color: EPJ.gray700,
+              padding: "4px 0",
+              fontSize: 13,
+              marginBottom: 8,
+              fontFamily: font.body,
+            }}
+          >
+            ← Retour aux réserves
+          </button>
+        )}
         <div style={{
           fontFamily: font.display, fontSize: 22, color: EPJ.gray900,
           marginBottom: 4,
