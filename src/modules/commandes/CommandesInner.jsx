@@ -544,7 +544,40 @@ export function CommandesInner({ onExitModule }) {
   const updateQty = (r, q) => { const v=Math.max(0,parseInt(q)||0); if(v<=0) setCart(p=>{const n={...p};delete n[r];return n;}); else setCart(p=>({...p,[r]:v})); };
 
   // doLogin / logout : gérés en amont par le Socle (AuthContext).
-  const numCmd = () => `CMD-${new Date().getFullYear()}-${String(cmdCounter).padStart(4,'0')}`;
+  // v1.17.5 — Génération du numéro de commande depuis l'historique Firestore.
+  //
+  // Avant : on lisait config/compteur en base + on faisait setDoc pour
+  // l'incrémenter à chaque envoi. Problème : les règles Firestore rejettent
+  // l'écriture sur config/compteur pour les users non-admin. Conséquence :
+  //   - setDoc plantait après l'addDoc de la commande
+  //   - sendOrder tombait dans son catch
+  //   - setView("done") n'était JAMAIS atteint
+  //   - la page restait bloquée sur l'écran de finalisation
+  //   - et le même compteur restait utilisé → DOUBLONS de numéros
+  // Maintenant : on calcule le numéro à la volée depuis le max des CMD-YYYY-NNNN
+  // déjà en base (historique chargé via onSnapshot). Plus aucune dépendance à
+  // config/compteur côté code. Le doc en base est conservé pour rétrocompat
+  // mais on l'écrit dans son propre try/catch (cf. sendOrder).
+  const computeNextCmdNum = () => {
+    const year = new Date().getFullYear();
+    const prefix = `CMD-${year}-`;
+    let max = 0;
+    (history || []).forEach(h => {
+      const num = h?.num || "";
+      if (!num.startsWith(prefix)) return;
+      // Extraire la partie numérique SANS les suffixes -1 / -2 / -1-1 / etc.
+      // (les commandes scindées ne consomment pas de nouveau compteur)
+      const afterPrefix = num.slice(prefix.length); // "0053" ou "0053-1" ou "0053-1-2"
+      const baseNumStr = afterPrefix.split("-")[0]; // "0053"
+      const n = parseInt(baseNumStr, 10);
+      if (!isNaN(n) && n > max) max = n;
+    });
+    // Filet de sécurité : on prend aussi en compte cmdCounter (au cas où
+    // history n'a pas encore été synchronisé par onSnapshot au démarrage).
+    const next = Math.max(max + 1, cmdCounter);
+    return `CMD-${year}-${String(next).padStart(4, "0")}`;
+  };
+  const numCmd = () => computeNextCmdNum();
   const clearOrder = () => {
     setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);
     setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");
@@ -771,7 +804,17 @@ export function CommandesInner({ onExitModule }) {
       const docRef = await addDoc(collection(db, "commandes"), orderData);
       const newCount = cmdCounter + 1;
       setCmdCounter(newCount);
-      await setDoc(doc(db, "config", "compteur"), { value: newCount });
+      // v1.17.5 — setDoc dans son propre try/catch.
+      // Les règles Firestore rejettent l'écriture sur config/compteur pour
+      // les users non-admin → ça plantait sendOrder et bloquait setView("done").
+      // Maintenant, si ça échoue, on s'en moque : le numéro de commande est
+      // calculé à la volée depuis l'historique (computeNextCmdNum), donc
+      // config/compteur est purement informatif (rétrocompat).
+      try {
+        await setDoc(doc(db, "config", "compteur"), { value: newCount });
+      } catch (compteurErr) {
+        console.warn("[v1.17.5] setDoc config/compteur non bloquant (rules):", compteurErr?.message || compteurErr);
+      }
 
       // ─── v10.H — SMS conducteur si la commande nécessite validation ───
       // Règle : on n'envoie un SMS QUE si needsValidation === true (= demandeur
