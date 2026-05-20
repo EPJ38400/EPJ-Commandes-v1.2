@@ -87,26 +87,48 @@ export const gmailPoll = onSchedule(
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
     // 3. Récupérer les nouveaux messages
+    //    Stratégie hybride :
+    //      a) History API depuis dernierHistoryId : capte les mails entrants standards
+    //      b) Listing INBOX en parallèle : capte AUSSI les mails déplacés/glissés
+    //         depuis une autre boîte (qui peuvent ne pas apparaître en History si
+    //         le client mail les écrit déjà comme lus)
+    //      c) Déduplication par gmailId avant traitement
     let messages = [];
     try {
+      const collected = new Map(); // gmailId -> message
+
+      // a) History API (détection incrémentale standard)
       if (config.dernierHistoryId) {
-        const history = await gmail.users.history.list({
-          userId: "me",
-          startHistoryId: config.dernierHistoryId,
-          historyTypes: ["messageAdded"],
-        });
-        messages = (history.data.history || [])
-          .flatMap(h => (h.messagesAdded || []).map(ma => ma.message))
-          .filter(m => m.labelIds?.includes("INBOX"));
-      } else {
-        // Première exécution : on prend les 20 derniers mails
-        const list = await gmail.users.messages.list({
-          userId: "me",
-          q: "in:inbox newer_than:7d",
-          maxResults: 20,
-        });
-        messages = list.data.messages || [];
+        try {
+          const history = await gmail.users.history.list({
+            userId: "me",
+            startHistoryId: config.dernierHistoryId,
+            historyTypes: ["messageAdded"],
+          });
+          const fromHistory = (history.data.history || [])
+            .flatMap(h => (h.messagesAdded || []).map(ma => ma.message))
+            .filter(m => m.labelIds?.includes("INBOX"));
+          for (const m of fromHistory) collected.set(m.id, m);
+        } catch (e) {
+          // History peut renvoyer 404 si dernierHistoryId est trop vieux (>30j)
+          // ou si l'historyId n'est plus valide. On continue avec le fallback.
+          console.warn("[gmailPoll] History API a échoué (probable historyId trop vieux), fallback sur listing:", e.message);
+        }
       }
+
+      // b) Listing INBOX (capture les mails glissés depuis une autre boîte)
+      //    On scanne les 50 derniers mails de la boîte de réception (30j max)
+      //    pour ne pas rater ceux que History n'a pas vus.
+      const list = await gmail.users.messages.list({
+        userId: "me",
+        q: "in:inbox newer_than:30d",
+        maxResults: 50,
+      });
+      for (const m of (list.data.messages || [])) {
+        if (!collected.has(m.id)) collected.set(m.id, m);
+      }
+
+      messages = Array.from(collected.values());
     } catch (e) {
       console.error("[gmailPoll] erreur lecture Gmail:", e.message);
       throw e;
