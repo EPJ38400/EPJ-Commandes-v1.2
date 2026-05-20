@@ -95,7 +95,7 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
         photoAvant: "",
         photoAvantPath: "",
         // v1.18.0 — Copie des pièces jointes du mail dans la réserve
-        piecesJointes: (prefillFromMail?.piecesJointes || []).map(pj => ({
+        piecesJointes: (prefillFromMail?.mailDoc?.piecesJointes || []).map(pj => ({
           id: pj.id || `pj_mail_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           nom: pj.nom,
           url: pj.url,
@@ -280,29 +280,32 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
       // ─── v1.18.0 — Rattacher le mail à la réserve nouvellement créée ───
       // Si on vient de l'écran "Mails à classer", on doit :
       //   1. Créer le doc dans reserveMails (avec direction "in", reserveId, etc.)
-      //   2. Supprimer (ou marquer comme classé) le doc dans reserveMailsAClasser
-      if (prefillFromMail?._id) {
+      //   2. Marquer le doc dans reserveMailsAClasser comme "classe"
+      // NB : MailsAClasser passe le mail dans prefillFromMail.mailDoc
+      //      (pas directement à la racine de prefillFromMail).
+      const mail = prefillFromMail?.mailDoc;
+      if (mail?._id) {
         try {
-          const mailRef = doc(db, "reserveMails", `mail_${prefillFromMail.gmailId}_${Date.now()}`);
+          const mailRef = doc(db, "reserveMails", `mail_${mail.gmailId}_${Date.now()}`);
           await setDoc(mailRef, {
-            gmailId: prefillFromMail.gmailId,
-            gmailThreadId: prefillFromMail.gmailThreadId,
+            gmailId: mail.gmailId,
+            gmailThreadId: mail.gmailThreadId,
             reserveId: id,
             reserveNum: numReserve,
             chantierNum,
             direction: "in",
-            expediteurNom: prefillFromMail.expediteurNom || "",
-            expediteurEmail: prefillFromMail.expediteurEmail || "",
-            destinataires: prefillFromMail.destinataires || [],
-            cc: prefillFromMail.cc || [],
-            bcc: prefillFromMail.bcc || [],
-            sujet: prefillFromMail.sujet || "",
-            dateEnvoi: prefillFromMail.dateEnvoi || null,
-            dateAspiration: prefillFromMail.dateAspiration || serverTimestamp(),
-            corpsHtml: prefillFromMail.corpsHtml || "",
-            corpsTexte: prefillFromMail.corpsTexte || "",
-            apercu: prefillFromMail.apercu || "",
-            piecesJointes: prefillFromMail.piecesJointes || [],
+            expediteurNom: mail.expediteurNom || "",
+            expediteurEmail: mail.expediteurEmail || "",
+            destinataires: mail.destinataires || [],
+            cc: mail.cc || [],
+            bcc: mail.bcc || [],
+            sujet: mail.sujet || "",
+            dateEnvoi: mail.dateEnvoi || null,
+            dateAspiration: mail.dateAspiration || serverTimestamp(),
+            corpsHtml: mail.corpsHtml || "",
+            corpsTexte: mail.corpsTexte || "",
+            apercu: mail.apercu || "",
+            piecesJointes: mail.piecesJointes || [],
             rattachementMethode: "manuel_creation_reserve",
             rattachementScore: 1.0,
             rattachementParUserId: user._id,
@@ -312,7 +315,7 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
           });
 
           // Marquer le mail dans reserveMailsAClasser comme classé
-          await updateDoc(doc(db, "reserveMailsAClasser", prefillFromMail._id), {
+          await updateDoc(doc(db, "reserveMailsAClasser", mail._id), {
             statut: "classe",
             classeVersReserveId: id,
             classeVersReserveNum: numReserve,
