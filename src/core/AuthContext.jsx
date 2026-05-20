@@ -6,6 +6,10 @@
 //            (anciennement Firestore uniquement). Ajout appel
 //            Cloud Function clearMustResetPassword après reset
 //            réussi pour retirer le claim côté serveur.
+//  v1.13.6 : Force le refresh du token JWT au démarrage de l'app
+//            (onAuthStateChanged). Évite les permission-denied
+//            quand le SDK Firebase restaure une session existante
+//            avec un ancien token sans Custom Claims (role).
 //
 //  Stratégie login :
 //   • Email + mdp → Firebase Auth (seule voie depuis v1.13.4)
@@ -68,6 +72,19 @@ export function AuthProvider({ children }) {
         setMustResetClaim(false);
         return;
       }
+      // v1.13.6 — Force le refresh du token au démarrage de l'app.
+      // Indispensable car onAuthStateChanged peut restaurer une session
+      // déjà existante (cookie/storage Firebase) avec un ancien token JWT
+      // qui ne contient pas encore les Custom Claims (notamment role).
+      // Sans ce refresh, les règles Firestore qui vérifient
+      // `request.auth.token.role != null` échouent et toutes les
+      // requêtes plantent en boucle avec permission-denied.
+      try {
+        await fbUser.getIdToken(true);
+      } catch (refreshErr) {
+        console.warn("Force refresh token au démarrage a échoué (non bloquant):", refreshErr);
+      }
+
       const profil = users.find(u => u.uid === fbUser.uid);
       if (profil) {
         const oldJson = JSON.stringify(user || {});
