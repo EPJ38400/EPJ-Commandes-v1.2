@@ -45,11 +45,148 @@ const COLLECTION_A_CLASSER = "reserveMailsAClasser";
 const COLLECTION_CONFIG = "gmailConfig";
 const CONFIG_DOC = "main";
 
+// v1.18.0 — Préfixe utilisé pour tous les labels Gmail EPJ.
+// Les labels ont leur visibilité IMAP désactivée (cf. ensureLabel ci-dessous)
+// donc ils n'apparaissent PAS dans les clients mail tiers (eM Client, Outlook,
+// Apple Mail). Le classement reste côté serveur Gmail uniquement.
+const LABEL_ROOT = "EPJ";
+const LABEL_A_CLASSER = `${LABEL_ROOT}/A-classer`;
+
 // Modèles Claude utilisés
 const CLAUDE_MODEL_RATTACH = "claude-haiku-4-5-20251001";
 const CLAUDE_MODEL_BROUILLON = "claude-sonnet-4-6";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+
+// ─── v1.18.0 — Utils labels Gmail ───────────────────────────
+//
+// Cache mémoire des labels (label_name → label_id) pour éviter les
+// appels répétés à users.labels.list dans une même invocation.
+const _labelCache = new Map();
+
+/**
+ * Récupère l'ID d'un label Gmail, en le créant s'il n'existe pas.
+ * Le label est créé avec messageListVisibility=hide ET
+ * labelListVisibility=labelShow, pour qu'il soit invisible des clients
+ * IMAP (eM Client, Outlook, Apple Mail) mais visible dans Gmail web/app.
+ *
+ * @param {object} gmail   — client Gmail authentifié
+ * @param {string} name    — nom complet du label (ex. "EPJ/001374 — LES OREADES")
+ * @returns {string}       — ID du label (ex. "Label_123")
+ */
+async function ensureLabel(gmail, name) {
+  if (_labelCache.has(name)) return _labelCache.get(name);
+
+  // Liste tous les labels pour voir si celui-ci existe déjà
+  const list = await gmail.users.labels.list({ userId: "me" });
+  for (const lbl of (list.data.labels || [])) {
+    _labelCache.set(lbl.name, lbl.id);
+  }
+  if (_labelCache.has(name)) return _labelCache.get(name);
+
+  // Création (avec invisibilité IMAP)
+  try {
+    const res = await gmail.users.labels.create({
+      userId: "me",
+      requestBody: {
+        name,
+        messageListVisibility: "hide",   // ne pas afficher dans IMAP
+        labelListVisibility: "labelShow",
+      },
+    });
+    const id = res.data.id;
+    _labelCache.set(name, id);
+    console.log(`[gmailPoll] label créé : ${name} (${id})`);
+    return id;
+  } catch (e) {
+    console.warn(`[gmailPoll] création label "${name}" échouée:`, e.message);
+    throw e;
+  }
+}
+
+/**
+ * Sanitise un fragment de nom pour un label Gmail.
+ * Retire les caractères qui causent des soucis : /, \, newlines, control chars.
+ */
+function sanitizeLabelFragment(s) {
+  return String(s || "")
+    .replace(/[\\/\r\n\t]+/g, " ")  // remplace les slash et control chars par espace
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);                 // limite raisonnable
+}
+
+/**
+ * Construit le nom de label pour un chantier.
+ * Format : "EPJ/<num> — <nom>" (ex. "EPJ/001374 — LES OREADES")
+ * Si le nom est manquant : "EPJ/<num>"
+ */
+function buildChantierLabelName(chantierNum, chantierNom) {
+  const num = sanitizeLabelFragment(chantierNum || "");
+  const nom = sanitizeLabelFragment(chantierNom || "");
+  if (!num && !nom) return null;
+  const tail = nom ? `${num} — ${nom}` : num;
+  return `${LABEL_ROOT}/${tail}`;
+}
+
+/**
+ * Applique un label sur un mail Gmail ET retire le label INBOX
+ * (pour que le mail "quitte" la boîte de réception).
+ * Retire aussi le label "A-classer" si présent.
+ *
+ * @param {object} gmail
+ * @param {string} gmailId
+ * @param {string} labelName  — nom complet (ex. "EPJ/001374 — LES OREADES")
+ */
+async function applyChantierLabel(gmail, gmailId, labelName) {
+  if (!labelName) return;
+  try {
+    const labelId = await ensureLabel(gmail, labelName);
+
+    // Récupère aussi l'ID du label A-classer s'il existe, pour le retirer.
+    let aClasserLabelId = null;
+    try {
+      // Sans création — juste lookup dans le cache (rempli par ensureLabel)
+      if (_labelCache.has(LABEL_A_CLASSER)) {
+        aClasserLabelId = _labelCache.get(LABEL_A_CLASSER);
+      }
+    } catch {}
+
+    const removeLabelIds = ["INBOX"];
+    if (aClasserLabelId) removeLabelIds.push(aClasserLabelId);
+
+    await gmail.users.messages.modify({
+      userId: "me",
+      id: gmailId,
+      requestBody: {
+        addLabelIds: [labelId],
+        removeLabelIds,
+      },
+    });
+  } catch (e) {
+    // Non bloquant : si l'application du label échoue, on continue.
+    // Le mail est quand même bien rattaché côté Firestore.
+    console.warn(`[gmailPoll] applyChantierLabel(${gmailId}, ${labelName}) échec:`, e.message);
+  }
+}
+
+/**
+ * Applique le label "A-classer" sur un mail (garde INBOX pour visibilité).
+ */
+async function applyAClasserLabel(gmail, gmailId) {
+  try {
+    const labelId = await ensureLabel(gmail, LABEL_A_CLASSER);
+    await gmail.users.messages.modify({
+      userId: "me",
+      id: gmailId,
+      requestBody: {
+        addLabelIds: [labelId],
+      },
+    });
+  } catch (e) {
+    console.warn(`[gmailPoll] applyAClasserLabel(${gmailId}) échec:`, e.message);
+  }
+}
 
 // ─── Cloud Function : déclenchée toutes les 2 minutes ────────
 export const gmailPoll = onSchedule(
@@ -217,6 +354,12 @@ async function processMail(gmail, gmailId) {
       rattachementScore: match.score,
       rattachementDate: admin.firestore.FieldValue.serverTimestamp(),
     });
+    // ─── v1.18.0 — Classement Gmail : applique le label chantier ───
+    // et retire INBOX pour que le mail "quitte" la boîte de réception.
+    const labelName = buildChantierLabelName(match.chantierNum, match.chantierNom);
+    if (labelName) {
+      await applyChantierLabel(gmail, gmailId, labelName);
+    }
     return "rattache";
   }
 
@@ -228,6 +371,10 @@ async function processMail(gmail, gmailId) {
     iaPropositions: propositions,
     iaTraiteLe: admin.firestore.FieldValue.serverTimestamp(),
   });
+  // ─── v1.18.0 — Classement Gmail : applique le label "A-classer" ───
+  // L'INBOX est conservée pour que le mail reste visible en attendant
+  // qu'on le traite depuis l'app.
+  await applyAClasserLabel(gmail, gmailId);
   return "a_classer";
 }
 
@@ -339,9 +486,11 @@ async function tryRattachementDeterministe(parsed, threadId) {
       .where("numReserve", "==", numReserve).limit(1).get();
     if (!q.empty) {
       const d = q.docs[0];
+      const data = d.data();
       return {
         reserveId: d.id, reserveNum: numReserve,
-        chantierNum: d.data().chantierNum,
+        chantierNum: data.chantierNum,
+        chantierNom: data.chantierNom || "",
         methode: "tag_sujet", score: 1.0,
       };
     }
@@ -354,9 +503,17 @@ async function tryRattachementDeterministe(parsed, threadId) {
     if (!q.empty) {
       const m = q.docs[0].data();
       if (m.reserveId) {
+        // Récupérer chantierNom depuis la réserve (le doc mail ne le stocke
+        // pas systématiquement, et il a pu changer entre temps)
+        let chantierNom = "";
+        try {
+          const rsnap = await db.collection(COLLECTION_RESERVES).doc(m.reserveId).get();
+          if (rsnap.exists) chantierNom = rsnap.data().chantierNom || "";
+        } catch {}
         return {
           reserveId: m.reserveId, reserveNum: m.reserveNum,
           chantierNum: m.chantierNum,
+          chantierNom,
           methode: "thread", score: 0.95,
         };
       }
@@ -382,6 +539,7 @@ async function tryRattachementDeterministe(parsed, threadId) {
           return {
             reserveId: rid, reserveNum: r.numReserve,
             chantierNum: r.chantierNum,
+            chantierNom: r.chantierNom || "",
             methode: "contact", score: 0.85,
           };
         }

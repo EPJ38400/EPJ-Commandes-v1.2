@@ -167,6 +167,18 @@ export {
 export { gmailPoll } from "./gmailPoll.js";
 export { gmailSend } from "./gmailSend.js";
 
+// ─── Labels Gmail automatiques — v1.18.0 ──────────────────────
+// Cf. functions/gmailLabels.js
+// Quand un mail dans reserveMailsAClasser passe au statut "classe"
+// (depuis l'app, après création ou rattachement à une réserve), on
+// applique le label Gmail correspondant au chantier (format
+// "EPJ/<num> — <nom>"), on retire INBOX, et on retire le label
+// "EPJ/A-classer". Les labels Gmail sont créés avec
+// messageListVisibility=hide donc invisibles dans les clients IMAP
+// (eM Client, Outlook, etc.) : le classement reste côté serveur
+// Gmail uniquement pour ne pas alourdir les boîtes locales.
+export { onMailAClasserUpdate } from "./gmailLabels.js";
+
 // ─── Fonction de purge ───────────────────────────────────────
 // Supprime les docs smsQueue avec status="sent" après 24h
 // pour éviter que la collection grossisse indéfiniment.
