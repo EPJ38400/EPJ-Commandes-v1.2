@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reserveMails",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "expediteurEmail", "order": "ASCENDING" },
+        { "fieldPath": "dateEnvoi", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reserveMails",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reserveId", "order": "ASCENDING" },
+        { "fieldPath": "dateEnvoi", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reserveMailsAClasser",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "dateAspiration", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reserves",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
