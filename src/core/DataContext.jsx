@@ -1,15 +1,48 @@
 // ═══════════════════════════════════════════════════════════════
 //  DataContext — abonnements Firestore partagés
 //  Collections : utilisateurs, chantiers, config/settings, rolesConfig/*
+//  v1.13.7 : Attendre que Firebase Auth ait restauré la session
+//            ET rafraîchi le token JWT avec les Custom Claims AVANT
+//            d'ouvrir les listeners Firestore. Sinon, les listeners
+//            partent avec un token incomplet et plantent en boucle
+//            avec permission-denied.
 // ═══════════════════════════════════════════════════════════════
 import { createContext, useContext, useState, useEffect } from "react";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { collection, doc, onSnapshot } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export function DataProvider({ children }) {
+  // v1.13.7 — Signal d'authentification complète :
+  //   - utilisateur Firebase Auth dispo
+  //   - token JWT rafraîchi (Custom Claims à jour)
+  // Tant que ce signal est false, AUCUN listener Firestore n'est ouvert.
+  // Cela évite les permission-denied au démarrage de l'app quand le
+  // SDK Firebase restaure une session avec un ancien token JWT.
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser) {
+        setAuthReady(false);
+        return;
+      }
+      try {
+        // Force la récupération d'un token frais avec les Custom Claims à jour.
+        // Indispensable car le SDK peut restaurer une session avec un ancien
+        // token qui ne contient pas encore le claim "role".
+        await fbUser.getIdToken(true);
+        setAuthReady(true);
+      } catch (err) {
+        console.warn("DataContext: refresh token a échoué, listeners restent fermés:", err);
+        setAuthReady(false);
+      }
+    });
+    return () => unsub();
+  }, []);
   const [users, setUsers] = useState([]);
   const [chantiers, setChantiers] = useState([]);
   const [config, setConfig] = useState({});
@@ -37,6 +70,7 @@ export function DataProvider({ children }) {
 
   // ── Utilisateurs ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "utilisateurs"),
       snap => {
@@ -46,10 +80,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore utilisateurs:", err); setLoaded(l => ({ ...l, users: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Chantiers ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "chantiers"),
       snap => {
@@ -59,10 +94,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore chantiers:", err); setLoaded(l => ({ ...l, chantiers: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Config globale ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       doc(db, "config", "settings"),
       snap => {
@@ -72,10 +108,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore config:", err); setLoaded(l => ({ ...l, config: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Config société (infos EPJ + papier en-tête pour quitus) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       doc(db, "config", "company"),
       snap => {
@@ -85,10 +122,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore company:", err); setLoaded(l => ({ ...l, company: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Overrides de rôles (Droits types modifiables) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "rolesConfig"),
       snap => {
@@ -100,10 +138,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore rolesConfig:", err); setLoaded(l => ({ ...l, rolesConfig: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Modèle global des tâches d'avancement ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       doc(db, "tasksConfig", "default"),
       snap => {
@@ -113,10 +152,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore tasksConfig:", err); setLoaded(l => ({ ...l, tasksConfig: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Outils (catalogue parc machines) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "outils"),
       snap => {
@@ -126,10 +166,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore outils:", err); setLoaded(l => ({ ...l, outils: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Sorties d'outillage (en cours + historique) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "outillageSorties"),
       snap => {
@@ -139,10 +180,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore outillageSorties:", err); setLoaded(l => ({ ...l, outillageSorties: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Catégories d'outillage (modifiables) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "outillageCategories"),
       snap => {
@@ -154,10 +196,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore outillageCategories:", err); setLoaded(l => ({ ...l, outillageCategories: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Pannes récurrentes ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "outillagePannes"),
       snap => {
@@ -169,10 +212,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore outillagePannes:", err); setLoaded(l => ({ ...l, outillagePannes: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Modèles SMS globaux ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "smsTemplates"),
       snap => {
@@ -182,10 +226,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore smsTemplates:", err); setLoaded(l => ({ ...l, smsTemplates: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Validations d'avancement mensuel ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "avancementValidations"),
       snap => {
@@ -195,10 +240,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore avancementValidations:", err); setLoaded(l => ({ ...l, avancementValidations: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Réserves (module 4) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "reserves"),
       snap => {
@@ -208,10 +254,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore reserves:", err); setLoaded(l => ({ ...l, reserves: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Catégories de réserves (configurables) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "reservesCategories"),
       snap => {
@@ -223,10 +270,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore reservesCategories:", err); setLoaded(l => ({ ...l, reservesCategories: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Émetteurs de réserves (configurables) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "reservesEmetteurs"),
       snap => {
@@ -238,10 +286,11 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore reservesEmetteurs:", err); setLoaded(l => ({ ...l, reservesEmetteurs: true })); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   // ── Commandes (v10.C — pour Dashboard) ──
   useEffect(() => {
+    if (!authReady) return;
     const unsub = onSnapshot(
       collection(db, "commandes"),
       snap => {
@@ -250,7 +299,7 @@ export function DataProvider({ children }) {
       err => { console.error("Firestore commandes:", err); }
     );
     return () => unsub();
-  }, []);
+  }, [authReady]);
 
   const allLoaded = loaded.users && loaded.chantiers && loaded.config && loaded.company
     && loaded.rolesConfig && loaded.tasksConfig && loaded.outils && loaded.outillageSorties
