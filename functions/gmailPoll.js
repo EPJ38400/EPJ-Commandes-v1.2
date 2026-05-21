@@ -45,148 +45,11 @@ const COLLECTION_A_CLASSER = "reserveMailsAClasser";
 const COLLECTION_CONFIG = "gmailConfig";
 const CONFIG_DOC = "main";
 
-// v1.18.0 — Préfixe utilisé pour tous les labels Gmail EPJ.
-// Les labels ont leur visibilité IMAP désactivée (cf. ensureLabel ci-dessous)
-// donc ils n'apparaissent PAS dans les clients mail tiers (eM Client, Outlook,
-// Apple Mail). Le classement reste côté serveur Gmail uniquement.
-const LABEL_ROOT = "EPJ";
-const LABEL_A_CLASSER = `${LABEL_ROOT}/A-classer`;
-
 // Modèles Claude utilisés
 const CLAUDE_MODEL_RATTACH = "claude-haiku-4-5-20251001";
 const CLAUDE_MODEL_BROUILLON = "claude-sonnet-4-6";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-
-// ─── v1.18.0 — Utils labels Gmail ───────────────────────────
-//
-// Cache mémoire des labels (label_name → label_id) pour éviter les
-// appels répétés à users.labels.list dans une même invocation.
-const _labelCache = new Map();
-
-/**
- * Récupère l'ID d'un label Gmail, en le créant s'il n'existe pas.
- * Le label est créé avec messageListVisibility=hide ET
- * labelListVisibility=labelShow, pour qu'il soit invisible des clients
- * IMAP (eM Client, Outlook, Apple Mail) mais visible dans Gmail web/app.
- *
- * @param {object} gmail   — client Gmail authentifié
- * @param {string} name    — nom complet du label (ex. "EPJ/001374 — LES OREADES")
- * @returns {string}       — ID du label (ex. "Label_123")
- */
-async function ensureLabel(gmail, name) {
-  if (_labelCache.has(name)) return _labelCache.get(name);
-
-  // Liste tous les labels pour voir si celui-ci existe déjà
-  const list = await gmail.users.labels.list({ userId: "me" });
-  for (const lbl of (list.data.labels || [])) {
-    _labelCache.set(lbl.name, lbl.id);
-  }
-  if (_labelCache.has(name)) return _labelCache.get(name);
-
-  // Création (avec invisibilité IMAP)
-  try {
-    const res = await gmail.users.labels.create({
-      userId: "me",
-      requestBody: {
-        name,
-        messageListVisibility: "hide",   // ne pas afficher dans IMAP
-        labelListVisibility: "labelShow",
-      },
-    });
-    const id = res.data.id;
-    _labelCache.set(name, id);
-    console.log(`[gmailPoll] label créé : ${name} (${id})`);
-    return id;
-  } catch (e) {
-    console.warn(`[gmailPoll] création label "${name}" échouée:`, e.message);
-    throw e;
-  }
-}
-
-/**
- * Sanitise un fragment de nom pour un label Gmail.
- * Retire les caractères qui causent des soucis : /, \, newlines, control chars.
- */
-function sanitizeLabelFragment(s) {
-  return String(s || "")
-    .replace(/[\\/\r\n\t]+/g, " ")  // remplace les slash et control chars par espace
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 100);                 // limite raisonnable
-}
-
-/**
- * Construit le nom de label pour un chantier.
- * Format : "EPJ/<num> — <nom>" (ex. "EPJ/001374 — LES OREADES")
- * Si le nom est manquant : "EPJ/<num>"
- */
-function buildChantierLabelName(chantierNum, chantierNom) {
-  const num = sanitizeLabelFragment(chantierNum || "");
-  const nom = sanitizeLabelFragment(chantierNom || "");
-  if (!num && !nom) return null;
-  const tail = nom ? `${num} — ${nom}` : num;
-  return `${LABEL_ROOT}/${tail}`;
-}
-
-/**
- * Applique un label sur un mail Gmail ET retire le label INBOX
- * (pour que le mail "quitte" la boîte de réception).
- * Retire aussi le label "A-classer" si présent.
- *
- * @param {object} gmail
- * @param {string} gmailId
- * @param {string} labelName  — nom complet (ex. "EPJ/001374 — LES OREADES")
- */
-async function applyChantierLabel(gmail, gmailId, labelName) {
-  if (!labelName) return;
-  try {
-    const labelId = await ensureLabel(gmail, labelName);
-
-    // Récupère aussi l'ID du label A-classer s'il existe, pour le retirer.
-    let aClasserLabelId = null;
-    try {
-      // Sans création — juste lookup dans le cache (rempli par ensureLabel)
-      if (_labelCache.has(LABEL_A_CLASSER)) {
-        aClasserLabelId = _labelCache.get(LABEL_A_CLASSER);
-      }
-    } catch {}
-
-    const removeLabelIds = ["INBOX"];
-    if (aClasserLabelId) removeLabelIds.push(aClasserLabelId);
-
-    await gmail.users.messages.modify({
-      userId: "me",
-      id: gmailId,
-      requestBody: {
-        addLabelIds: [labelId],
-        removeLabelIds,
-      },
-    });
-  } catch (e) {
-    // Non bloquant : si l'application du label échoue, on continue.
-    // Le mail est quand même bien rattaché côté Firestore.
-    console.warn(`[gmailPoll] applyChantierLabel(${gmailId}, ${labelName}) échec:`, e.message);
-  }
-}
-
-/**
- * Applique le label "A-classer" sur un mail (garde INBOX pour visibilité).
- */
-async function applyAClasserLabel(gmail, gmailId) {
-  try {
-    const labelId = await ensureLabel(gmail, LABEL_A_CLASSER);
-    await gmail.users.messages.modify({
-      userId: "me",
-      id: gmailId,
-      requestBody: {
-        addLabelIds: [labelId],
-      },
-    });
-  } catch (e) {
-    console.warn(`[gmailPoll] applyAClasserLabel(${gmailId}) échec:`, e.message);
-  }
-}
 
 // ─── Cloud Function : déclenchée toutes les 2 minutes ────────
 export const gmailPoll = onSchedule(
@@ -276,28 +139,37 @@ export const gmailPoll = onSchedule(
     // 4. Traiter chaque mail
     let nbRattaches = 0;
     let nbAClasser = 0;
+    let nbNouveaux = 0;        // v1.18.2 — compte UNIQUEMENT les nouveaux mails effectivement traités
+    let nbDejaTraites = 0;     // pour debug (logs uniquement)
+    let nbErreurs = 0;         // pour debug
     for (const msg of messages) {
       try {
         const result = await processMail(gmail, msg.id);
-        if (result === "rattache") nbRattaches++;
-        else if (result === "a_classer") nbAClasser++;
+        if (result === "rattache") { nbRattaches++; nbNouveaux++; }
+        else if (result === "a_classer") { nbAClasser++; nbNouveaux++; }
+        else if (result === "deja_traite") { nbDejaTraites++; }
+        else if (result === "erreur") { nbErreurs++; }
       } catch (e) {
         console.error(`[gmailPoll] erreur sur mail ${msg.id}:`, e.message);
+        nbErreurs++;
       }
     }
 
     // 5. Mettre à jour la config (historyId + stats + dernière sync)
+    // v1.18.2 — statsAspires n'incrémente QUE pour les vrais nouveaux mails
+    // (auparavant on incrémentait pour TOUT mail listé, ce qui explique le
+    // 902 délirant alors qu'il n'y avait que 2 vrais mails).
     const profile = await gmail.users.getProfile({ userId: "me" });
     await db.collection(COLLECTION_CONFIG).doc(CONFIG_DOC).update({
       dernierHistoryId: String(profile.data.historyId),
       derniereSync: admin.firestore.FieldValue.serverTimestamp(),
-      statsAspires: admin.firestore.FieldValue.increment(messages.length),
+      statsAspires: admin.firestore.FieldValue.increment(nbNouveaux),
       statsRattachesAuto: admin.firestore.FieldValue.increment(nbRattaches),
       statsAClasser: admin.firestore.FieldValue.increment(nbAClasser),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log(`[gmailPoll] terminé : ${nbRattaches} rattachés, ${nbAClasser} à classer`);
+    console.log(`[gmailPoll] terminé : ${nbNouveaux} nouveaux (${nbRattaches} rattachés, ${nbAClasser} à classer), ${nbDejaTraites} déjà traités ignorés, ${nbErreurs} erreurs`);
   }
 );
 
@@ -305,77 +177,85 @@ export const gmailPoll = onSchedule(
 //  Traitement d'un mail individuel
 // ═══════════════════════════════════════════════════════════════
 async function processMail(gmail, gmailId) {
-  const full = await gmail.users.messages.get({
-    userId: "me", id: gmailId, format: "full",
-  });
-  const msg = full.data;
-
-  // Dédup : on ne traite pas un mail déjà en base
-  const existing = await db.collection(COLLECTION_MAILS)
-    .where("gmailId", "==", gmailId).limit(1).get();
-  if (!existing.empty) return "deja_traite";
-  const existingAClasser = await db.collection(COLLECTION_A_CLASSER)
-    .where("gmailId", "==", gmailId).limit(1).get();
-  if (!existingAClasser.empty) return "deja_traite";
-
-  // Parser
-  const parsed = parseGmailMessage(msg);
-  const piecesJointes = await downloadAttachments(gmail, gmailId, msg.payload);
-
-  const mailDoc = {
-    gmailId,
-    gmailThreadId: msg.threadId,
-    direction: "in",
-    expediteurNom: parsed.fromName,
-    expediteurEmail: parsed.fromEmail,
-    destinataires: parsed.to,
-    cc: parsed.cc,
-    bcc: [],
-    sujet: parsed.subject,
-    dateEnvoi: parsed.date,
-    dateAspiration: admin.firestore.FieldValue.serverTimestamp(),
-    corpsHtml: parsed.html,
-    corpsTexte: parsed.text,
-    apercu: parsed.text.slice(0, 180),
-    piecesJointes,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
-
-  // Rattachement déterministe en cascade
-  const match = await tryRattachementDeterministe(parsed, msg.threadId);
-  if (match) {
-    await db.collection(COLLECTION_MAILS).add({
-      ...mailDoc,
-      reserveId: match.reserveId,
-      reserveNum: match.reserveNum,
-      chantierNum: match.chantierNum,
-      rattachementMethode: match.methode,
-      rattachementScore: match.score,
-      rattachementDate: admin.firestore.FieldValue.serverTimestamp(),
+  // v1.18.2 — try/catch global pour ne JAMAIS laisser le code partiellement
+  // exécuté (download fait + écriture Firestore pas faite). Toute erreur est
+  // remontée comme "erreur" sans planter le cycle complet.
+  try {
+    const full = await gmail.users.messages.get({
+      userId: "me", id: gmailId, format: "full",
     });
-    // ─── v1.18.0 — Classement Gmail : applique le label chantier ───
-    // et retire INBOX pour que le mail "quitte" la boîte de réception.
-    const labelName = buildChantierLabelName(match.chantierNum, match.chantierNom);
-    if (labelName) {
-      await applyChantierLabel(gmail, gmailId, labelName);
-    }
-    return "rattache";
-  }
+    const msg = full.data;
 
-  // Sinon : IA Claude
-  const propositions = await askClaude(parsed);
-  await db.collection(COLLECTION_A_CLASSER).add({
-    ...mailDoc,
-    statut: "en_attente",
-    iaPropositions: propositions,
-    iaTraiteLe: admin.firestore.FieldValue.serverTimestamp(),
-  });
-  // ─── v1.18.0 — Classement Gmail : applique le label "A-classer" ───
-  // L'INBOX est conservée pour que le mail reste visible en attendant
-  // qu'on le traite depuis l'app.
-  await applyAClasserLabel(gmail, gmailId);
-  return "a_classer";
+    // ─── 1. Dédup AVANT tout (ne pas faire d'I/O coûteuse en doublon) ───
+    const existing = await db.collection(COLLECTION_MAILS)
+      .where("gmailId", "==", gmailId).limit(1).get();
+    if (!existing.empty) return "deja_traite";
+    const existingAClasser = await db.collection(COLLECTION_A_CLASSER)
+      .where("gmailId", "==", gmailId).limit(1).get();
+    if (!existingAClasser.empty) return "deja_traite";
+
+    // ─── 2. Parser le mail (gratuit, en mémoire) ───
+    const parsed = parseGmailMessage(msg);
+
+    // ─── 3. Rattachement déterministe AVANT téléchargement PJ ───
+    // v1.18.2 — On déplace le rattachement AVANT downloadAttachments.
+    // Comme ça, si le rattachement plante (ex: index manquant), on n'a
+    // PAS gaspillé de Storage. Le cycle suivant retentera proprement.
+    const match = await tryRattachementDeterministe(parsed, msg.threadId);
+
+    // ─── 4. Téléchargement des PJ (path déterministe : pas de doublons) ───
+    const piecesJointes = await downloadAttachments(gmail, gmailId, msg.payload);
+
+    const mailDoc = {
+      gmailId,
+      gmailThreadId: msg.threadId,
+      direction: "in",
+      expediteurNom: parsed.fromName,
+      expediteurEmail: parsed.fromEmail,
+      destinataires: parsed.to,
+      cc: parsed.cc,
+      bcc: [],
+      sujet: parsed.subject,
+      dateEnvoi: parsed.date,
+      dateAspiration: admin.firestore.FieldValue.serverTimestamp(),
+      corpsHtml: parsed.html,
+      corpsTexte: parsed.text,
+      apercu: parsed.text.slice(0, 180),
+      piecesJointes,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // ─── 5. Écriture Firestore selon rattachement trouvé ou non ───
+    if (match) {
+      await db.collection(COLLECTION_MAILS).add({
+        ...mailDoc,
+        reserveId: match.reserveId,
+        reserveNum: match.reserveNum,
+        chantierNum: match.chantierNum,
+        rattachementMethode: match.methode,
+        rattachementScore: match.score,
+        rattachementDate: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return "rattache";
+    }
+
+    // Sinon : IA Claude
+    const propositions = await askClaude(parsed);
+    await db.collection(COLLECTION_A_CLASSER).add({
+      ...mailDoc,
+      statut: "en_attente",
+      iaPropositions: propositions,
+      iaTraiteLe: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return "a_classer";
+  } catch (err) {
+    // v1.18.2 — Log l'erreur sans planter tout le cycle. Si on est arrivé
+    // ici APRÈS downloadAttachments, le path déterministe garantit qu'au
+    // prochain cycle Storage ne créera pas de doublon (overwrite).
+    console.error(`[processMail] gmailId=${gmailId} erreur:`, err);
+    return "erreur";
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -439,18 +319,34 @@ async function downloadAttachments(gmail, gmailId, payload) {
       });
       const buffer = Buffer.from(att.data.data, "base64");
       const safeName = part.filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
-      const path = `mails/${gmailId}/${Date.now()}_${safeName}`;
+      // v1.18.2 — Path DÉTERMINISTE basé sur l'attachmentId Gmail.
+      // Si la fonction re-tente le téléchargement (cas où processMail
+      // crashait après downloadAttachments avant l'écriture Firestore),
+      // Storage écrasera le fichier existant au lieu d'en créer un
+      // doublon. C'est ce qui causait l'accumulation de ~40 doublons
+      // par image sur le mail Adrien ROCHAS (~30 Mo gaspillés).
+      // L'attachmentId est stable pour un même mail + même PJ.
+      const safeAttId = String(part.body.attachmentId).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 60);
+      const path = `mails/${gmailId}/${safeAttId}_${safeName}`;
       const file = bucket.file(path);
       await file.save(buffer, {
         contentType: part.mimeType,
         metadata: { contentType: part.mimeType },
+        resumable: false,
       });
+      // v1.18.2 — URL signée raccourcie de 2099 à 30 jours.
+      // Recommandation audit 4.7 : limiter l'exposition en cas de fuite
+      // d'URL. Si le mail est consulté >30j après réception, l'app
+      // pourra régénérer une URL fraîche via storage_get_signed_url.
+      const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const [url] = await file.getSignedUrl({
         action: "read",
-        expires: "2099-12-31",
+        expires,
       });
       pjs.push({
-        id: `pj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        // ID déterministe aussi pour éviter les "doublons logiques"
+        // dans le tableau piecesJointes du doc Firestore.
+        id: `pj_${safeAttId}`,
         nom: part.filename,
         contentType: part.mimeType,
         tailleKo: Math.round(buffer.length / 1024),
@@ -486,11 +382,9 @@ async function tryRattachementDeterministe(parsed, threadId) {
       .where("numReserve", "==", numReserve).limit(1).get();
     if (!q.empty) {
       const d = q.docs[0];
-      const data = d.data();
       return {
         reserveId: d.id, reserveNum: numReserve,
-        chantierNum: data.chantierNum,
-        chantierNom: data.chantierNom || "",
+        chantierNum: d.data().chantierNum,
         methode: "tag_sujet", score: 1.0,
       };
     }
@@ -503,17 +397,9 @@ async function tryRattachementDeterministe(parsed, threadId) {
     if (!q.empty) {
       const m = q.docs[0].data();
       if (m.reserveId) {
-        // Récupérer chantierNom depuis la réserve (le doc mail ne le stocke
-        // pas systématiquement, et il a pu changer entre temps)
-        let chantierNom = "";
-        try {
-          const rsnap = await db.collection(COLLECTION_RESERVES).doc(m.reserveId).get();
-          if (rsnap.exists) chantierNom = rsnap.data().chantierNom || "";
-        } catch {}
         return {
           reserveId: m.reserveId, reserveNum: m.reserveNum,
           chantierNum: m.chantierNum,
-          chantierNom,
           methode: "thread", score: 0.95,
         };
       }
@@ -539,7 +425,6 @@ async function tryRattachementDeterministe(parsed, threadId) {
           return {
             reserveId: rid, reserveNum: r.numReserve,
             chantierNum: r.chantierNum,
-            chantierNom: r.chantierNom || "",
             methode: "contact", score: 0.85,
           };
         }
