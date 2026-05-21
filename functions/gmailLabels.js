@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import { google } from "googleapis";
 
 if (!admin.apps.length) admin.initializeApp();
