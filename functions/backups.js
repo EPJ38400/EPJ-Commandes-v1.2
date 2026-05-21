@@ -249,3 +249,107 @@ async function cleanOldBackups() {
     console.warn("[backup] cleanOldBackups a échoué (non bloquant) :", err.message);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  v2.0.0 — BACKUP STORAGE HEBDOMADAIRE
+//
+//  En plus du backup Firestore, on duplique le contenu du bucket
+//  principal (ap-epj.firebasestorage.app) vers ap-epj-backups/
+//  storage/<date>/ tous les dimanches à 04:00.
+//
+//  C'est CRITIQUE car le bucket contient les PDF de quitus signés
+//  (valeur juridique) et les photos de réserves. Une suppression
+//  accidentelle, un compromis du compte ou un bug d'app pourrait
+//  faire perdre ces données irrémédiablement.
+//
+//  Coût : copie intra-région, ~0,02 €/Go/mois en cold storage.
+//  Si le bucket pèse 2 Go → ~5 cts/mois pour 1 mois de backups.
+//
+//  Restauration : copier le dossier depuis le bucket backup vers
+//  le bucket principal via gsutil :
+//   gsutil -m cp -r gs://ap-epj-backups/storage/2026-05-18/* \
+//                   gs://ap-epj.firebasestorage.app/
+// ═══════════════════════════════════════════════════════════════
+
+const SOURCE_STORAGE_BUCKET = "ap-epj.firebasestorage.app";
+const STORAGE_BACKUP_PREFIX = "storage/";
+const STORAGE_RETENTION_COUNT = 4; // 4 semaines (~1 mois)
+
+export const weeklyStorageBackup = onSchedule(
+  {
+    schedule: "0 4 * * 0", // dimanches 04:00
+    timeZone: "Europe/Paris",
+    region: "europe-west1",
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async () => {
+    const date = new Date().toISOString().split("T")[0];
+    const targetPrefix = `${STORAGE_BACKUP_PREFIX}auto-${date}/`;
+    console.log(`[storage-backup] Démarrage copie ${SOURCE_STORAGE_BUCKET} → ${BUCKET_NAME}/${targetPrefix}`);
+
+    const storage = new Storage();
+    const sourceBucket = storage.bucket(SOURCE_STORAGE_BUCKET);
+    const targetBucket = storage.bucket(BUCKET_NAME);
+
+    try {
+      const [files] = await sourceBucket.getFiles();
+      console.log(`[storage-backup] ${files.length} fichiers à copier`);
+
+      let copied = 0, failed = 0;
+      // Copie par batch de 20 pour ne pas saturer
+      for (let i = 0; i < files.length; i += 20) {
+        const batch = files.slice(i, i + 20);
+        await Promise.all(batch.map(async (file) => {
+          try {
+            const destPath = targetPrefix + file.name;
+            await file.copy(targetBucket.file(destPath));
+            copied++;
+          } catch (e) {
+            failed++;
+            console.warn(`[storage-backup] échec copie ${file.name}: ${e.message}`);
+          }
+        }));
+      }
+
+      console.log(`[storage-backup] ✓ ${copied} copiés, ${failed} échoués`);
+      await cleanOldStorageBackups();
+    } catch (err) {
+      console.error("[storage-backup] ÉCHEC:", err);
+      throw err;
+    }
+  }
+);
+
+async function cleanOldStorageBackups() {
+  try {
+    const storage = new Storage();
+    const [files] = await storage.bucket(BUCKET_NAME).getFiles({ prefix: STORAGE_BACKUP_PREFIX });
+
+    const folders = new Map();
+    for (const f of files) {
+      const match = f.name.match(/^storage\/auto-(\d{4}-\d{2}-\d{2})\//);
+      if (!match) continue;
+      const folder = `auto-${match[1]}`;
+      if (!folders.has(folder)) folders.set(folder, []);
+      folders.get(folder).push(f);
+    }
+
+    const sorted = Array.from(folders.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+    const toDelete = sorted.slice(STORAGE_RETENTION_COUNT);
+    if (toDelete.length === 0) return;
+
+    console.log(`[storage-backup] Nettoyage de ${toDelete.length} ancien(s) backup(s) storage`);
+    for (const [folderName, folderFiles] of toDelete) {
+      console.log(`[storage-backup] - Suppression ${folderName} (${folderFiles.length} fichiers)`);
+      // Suppression par chunks de 50
+      for (let i = 0; i < folderFiles.length; i += 50) {
+        await Promise.all(folderFiles.slice(i, i + 50).map(f => f.delete().catch(e => {
+          console.warn(`[storage-backup] échec delete ${f.name}: ${e.message}`);
+        })));
+      }
+    }
+  } catch (err) {
+    console.warn("[storage-backup] cleanOldStorageBackups a échoué (non bloquant):", err.message);
+  }
+}
