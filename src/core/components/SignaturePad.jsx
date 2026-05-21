@@ -1,27 +1,60 @@
 // ═══════════════════════════════════════════════════════════════
 //  SignaturePad — Canvas tactile pour signature numérique
-//  Réutilisable : sortie / retour / transfert d'outil, etc.
-//  - Multi-touch-friendly (pointer events)
-//  - Export base64 JPEG compressé
+//  v2.0.0 : composant UNIFIÉ — supporte les 2 modes d'utilisation
+//
+//  MODE 1 : Imperative via ref (legacy parc-machines)
+//    const sigRef = useRef();
+//    <SignaturePad ref={sigRef} label="Signature" required />
+//    sigRef.current.isEmpty()      → boolean
+//    sigRef.current.clear()        → vide la signature
+//    sigRef.current.getDataURL()   → string base64 JPEG (ou null si vide)
+//
+//  MODE 2 : Controlled via value/onChange (legacy reserves)
+//    <SignaturePad
+//       value={sig}
+//       onChange={png => setSig(png)}
+//       label="Signature client"
+//       hint="Avec le doigt ou le stylet"
+//    />
+//
+//  Les deux modes peuvent cohabiter (utiles si l'appelant passe ref + onChange).
+//  L'image exportée est :
+//    - JPEG 85% via getDataURL() (mode 1, compatible legacy parc-machines)
+//    - PNG via onChange (mode 2, compatible legacy réserves quitus)
+//
+//  - Pointer events (souris + touch + stylet)
+//  - Responsive (resize observer du conteneur)
+//  - DPR-aware (rendu net sur écrans Retina)
 //  - Validation : signature considérée "faite" si au moins 5 points tracés
 // ═══════════════════════════════════════════════════════════════
 import { useRef, useEffect, useState, useImperativeHandle, forwardRef } from "react";
 import { EPJ, font } from "../theme";
 
 export const SignaturePad = forwardRef(function SignaturePad({
+  // Mode 1 (parc-machines)
   label = "Signature",
   sublabel = null,
+  hint = null,                 // alias de sublabel (mode 2)
   height = 180,
   required = false,
-  onChange = null,      // callback (isEmpty: boolean) à chaque changement
+  disabled = false,
+  // Mode 2 (réserves)
+  value = null,                // PNG base64 initial à afficher
+  onChange = null,             // (png|empty) => void — signature au format PNG
+  // Style strok configurable (utile pour rendu sombre/clair)
+  strokeColor = null,          // par défaut : EPJ.gray900 (mode 1) ou bleu foncé (mode 2)
 }, ref) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [pointCount, setPointCount] = useState(0);
+  const [pointCount, setPointCount] = useState(value ? 999 : 0); // valeur initiale = déjà signé
   const lastPoint = useRef(null);
+  const initialValueDrawn = useRef(false);
 
-  // Redimensionne le canvas en fonction du container (responsive)
+  const effectiveStroke = strokeColor || EPJ.gray900;
+  const effectiveHint = hint || sublabel;
+
+  // ─── Resize + init canvas (responsive) ──────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -30,8 +63,8 @@ export const SignaturePad = forwardRef(function SignaturePad({
     const resize = () => {
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      // Sauvegarde du contenu avant resize
-      const prevDataUrl = (pointCount > 0) ? canvas.toDataURL("image/png") : null;
+      // Sauvegarde du contenu avant resize (sauf si pas encore signé)
+      const prevDataUrl = pointCount > 0 ? canvas.toDataURL("image/png") : null;
 
       canvas.width = rect.width * dpr;
       canvas.height = height * dpr;
@@ -42,16 +75,22 @@ export const SignaturePad = forwardRef(function SignaturePad({
       ctx.scale(dpr, dpr);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.strokeStyle = EPJ.gray900;
+      ctx.strokeStyle = effectiveStroke;
       ctx.lineWidth = 2.2;
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, rect.width, height);
 
-      // Restaurer le contenu
-      if (prevDataUrl) {
+      // Restaurer le contenu précédent OU la valeur initiale (mode 2)
+      const toRestore = prevDataUrl || (value && !initialValueDrawn.current ? value : null);
+      if (toRestore) {
         const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0, rect.width, height);
-        img.src = prevDataUrl;
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, height);
+          if (value && !initialValueDrawn.current) {
+            initialValueDrawn.current = true;
+          }
+        };
+        img.src = toRestore;
       }
     };
 
@@ -59,7 +98,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [height]);
+  }, [height, effectiveStroke]);
 
   const getPoint = (e) => {
     const canvas = canvasRef.current;
@@ -71,6 +110,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
   };
 
   const handlePointerDown = (e) => {
+    if (disabled) return;
     e.preventDefault();
     const canvas = canvasRef.current;
     if (canvas.setPointerCapture) {
@@ -85,7 +125,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
   };
 
   const handlePointerMove = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawing || disabled) return;
     e.preventDefault();
     const p = getPoint(e);
     const canvas = canvasRef.current;
@@ -93,18 +133,20 @@ export const SignaturePad = forwardRef(function SignaturePad({
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     lastPoint.current = p;
-    setPointCount(c => {
-      const newCount = c + 1;
-      if (onChange) onChange(newCount < 5);
-      return newCount;
-    });
+    setPointCount(c => c + 1);
   };
 
   const handlePointerUp = (e) => {
     if (!isDrawing) return;
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsDrawing(false);
     lastPoint.current = null;
+    // ─ Notification du parent (mode 2 : value/onChange) ─
+    if (onChange) {
+      const canvas = canvasRef.current;
+      // PNG (mode 2 — pour quitus, transparence pas critique mais PNG c'est l'historique)
+      onChange(canvas.toDataURL("image/png"));
+    }
   };
 
   const clear = () => {
@@ -114,10 +156,11 @@ export const SignaturePad = forwardRef(function SignaturePad({
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
     setPointCount(0);
-    if (onChange) onChange(true); // empty
+    initialValueDrawn.current = false;
+    if (onChange) onChange(""); // notify empty
   };
 
-  // Expose API au parent via ref
+  // ─── API impérative exposée au parent via ref (mode 1) ──────────
   useImperativeHandle(ref, () => ({
     isEmpty: () => pointCount < 5,
     clear,
@@ -131,7 +174,13 @@ export const SignaturePad = forwardRef(function SignaturePad({
       tmp.height = height;
       const tmpCtx = tmp.getContext("2d");
       tmpCtx.drawImage(canvas, 0, 0, rect.width, height);
+      // JPEG 85% (mode 1 — compatible legacy parc-machines)
       return tmp.toDataURL("image/jpeg", 0.85);
+    },
+    // v2.0.0 — Permet aussi de récupérer en PNG (utile si appelant veut PNG)
+    getDataURLPng: () => {
+      if (pointCount < 5) return null;
+      return canvasRef.current.toDataURL("image/png");
     },
   }), [pointCount, height]);
 
@@ -144,17 +193,19 @@ export const SignaturePad = forwardRef(function SignaturePad({
         marginBottom: 6,
       }}>
         <div>
-          <label style={{
-            fontSize: 11, fontWeight: 700,
-            color: EPJ.gray700, letterSpacing: 0.4, textTransform: "uppercase",
-          }}>
-            {label} {required && <span style={{ color: EPJ.red }}>*</span>}
-          </label>
-          {sublabel && (
-            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 1 }}>{sublabel}</div>
+          {label && (
+            <label style={{
+              fontSize: 11, fontWeight: 700,
+              color: EPJ.gray700, letterSpacing: 0.4, textTransform: "uppercase",
+            }}>
+              {label} {required && <span style={{ color: EPJ.red }}>*</span>}
+            </label>
+          )}
+          {effectiveHint && (
+            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 1 }}>{effectiveHint}</div>
           )}
         </div>
-        {!isEmpty && (
+        {!isEmpty && !disabled && (
           <button
             type="button"
             onClick={clear}
@@ -178,6 +229,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
           background: "#fff",
           overflow: "hidden",
           touchAction: "none",
+          opacity: disabled ? 0.6 : 1,
         }}
       >
         <canvas
@@ -190,7 +242,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
             display: "block",
             width: "100%",
             height: height + "px",
-            cursor: "crosshair",
+            cursor: disabled ? "not-allowed" : "crosshair",
             touchAction: "none",
           }}
         />

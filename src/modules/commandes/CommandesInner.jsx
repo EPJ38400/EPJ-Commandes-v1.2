@@ -3537,7 +3537,7 @@ export function CommandesInner({ onExitModule }) {
               setAdminSaving(true);
               let total=0;
               for(const cat of orphanCats){
-                try{ total += await deleteCategoryByQuery(cat); }catch(e){}
+                try{ total += await deleteCategoryByQuery(cat); }catch(e){console.error("[admin] Erreur suppression catégorie parasite:", cat, e);}
               }
               setAdminSaving(false);showT(`🗑️ ${total} articles parasites supprimés`);
             }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>
