@@ -61,8 +61,13 @@ function Router() {
     if (userId) setRoute("home");
   }, [userId]);
 
-  if (!allLoaded) return <FullPageSpinner label="Chargement de l'application…"/>;
+  // v2.0.0 — fix runtime : tester !user AVANT !allLoaded.
+  // Le DataContext n'ouvre ses listeners qu'après authReady (= user connecté +
+  // JWT refreshé). Sans user, aucun loaded.xxx ne passe à true et allLoaded
+  // reste false pour toujours → l'app resterait bloquée sur le spinner alors
+  // qu'elle devrait afficher la page de login.
   if (!user) return <LoginPage/>;
+  if (!allLoaded) return <FullPageSpinner label="Chargement de l'application…"/>;
 
   // ─── v1.12.0 — Forcing mustResetPassword ─────────────────────────
   // Si le compte a le flag à true (compte créé avec mdp temporaire),
