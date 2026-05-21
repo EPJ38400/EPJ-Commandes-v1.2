@@ -17,7 +17,7 @@
 //   </ErrorBoundary>
 // ═══════════════════════════════════════════════════════════════
 import { Component } from "react";
-import { db, auth } from "../firebase";
+import { db, auth } from "../../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export class ErrorBoundary extends Component {
