@@ -196,8 +196,8 @@ const DEFAULT_TEMPLATES = [
     id: "reserve_attribuee",
     module: "reserves-quitus",
     label: "Réserve attribuée (à un monteur)",
-    body: "Bonjour {prenom}, la réserve {refReserve} sur {chantier} t'a été attribuée : {titre}. À lever avant le {dateLevee}. — EPJ",
-    variables: ["{prenom}", "{refReserve}", "{titre}", "{chantier}", "{dateLevee}"],
+    body: "Bonjour {prenom}, la réserve {refReserve} sur {chantier} t'a été attribuée : {titre}. {dateRdv}À lever avant le {dateLevee}. — EPJ",
+    variables: ["{prenom}", "{refReserve}", "{titre}", "{chantier}", "{dateLevee}", "{dateRdv}"],
     actif: true,
   },
   {

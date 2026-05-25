@@ -122,6 +122,8 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
             titreReserve: reserve.titre || "",
             chantier: reserve.chantierNom || reserve.chantierNum,
             dateLevee: reserve.dateSouhaiteLevee || "",
+            rdvDate: reserve.rdvDate || "",
+            rdvHeure: reserve.rdvHeure || "",
             reserveId: reserve._id,
           });
         } catch (smsErr) {
