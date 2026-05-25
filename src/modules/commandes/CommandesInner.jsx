@@ -222,7 +222,7 @@ export function CommandesInner({ onExitModule }) {
   const [newChantier, setNewChantier] = useState("");
   const [showNewChantier, setShowNewChantier] = useState(false);
   const [targetSalarie, setTargetSalarie] = useState(initialDraft.targetSalarie || "");
-  const [livraison, setLivraison] = useState(initialDraft.livraison || "Chantier");
+  const [livraison, setLivraison] = useState(initialDraft.livraison || "Dépôt");
   const [urgent, setUrgent] = useState(!!initialDraft.urgent);
   const [dateReception, setDateReception] = useState(initialDraft.dateReception || "");
   const [remarques, setRemarques] = useState(initialDraft.remarques || "");
@@ -1990,7 +1990,7 @@ export function CommandesInner({ onExitModule }) {
               </div>
               <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>LIVRAISON</label>
                 <div style={{display:'flex',gap:8}}>
-                  {['Chantier','Dépôt'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
+                  {['Dépôt','Chantier'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
                 </div>
               </div>
             </>
