@@ -168,6 +168,7 @@ function Router() {
       )}
 
       {(route === "dashboard:conducteur" || route === "dashboard:public") && (
+        // TODO v2.0.1 : filtrer chantiers c.statut === "Terminé" (toujours masqués, pas de toggle) quand le vrai dashboard public sera développé
         <PlaceholderScreen title={currentModule} onBack={() => setRoute("home")}/>
       )}
 

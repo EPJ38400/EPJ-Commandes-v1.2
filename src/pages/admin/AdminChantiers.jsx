@@ -8,11 +8,18 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { db } from "../../firebase";
 import { doc, setDoc, deleteDoc } from "firebase/firestore";
 import { EPJ, font } from "../../core/theme";
+import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
 
+// v2.0.1 — Seuls Admin/Direction/Assistante peuvent marquer un chantier "Terminé".
+const ROLES_CAN_MARK_TERMINE = ["Admin", "Direction", "Assistante"];
+const canMarkChantierStatutTermine = (user) =>
+  getRoles(user).some(r => ROLES_CAN_MARK_TERMINE.includes(r));
+
 export function AdminChantiers({ onBack }) {
+  const { user } = useAuth();
   const { chantiers, users } = useData();
   const toast = useToast();
   const [editing, setEditing] = useState(null);
@@ -129,7 +136,7 @@ export function AdminChantiers({ onBack }) {
             <Field label="Statut">
               <select className="epj-input" value={form.statut || "Actif"} onChange={e => setForm(f => ({ ...f, statut: e.target.value }))}>
                 <option value="Actif">Actif</option>
-                <option value="Terminé">Terminé</option>
+                <option value="Terminé" disabled={!canMarkChantierStatutTermine(user)}>Terminé</option>
                 <option value="Archivé">Archivé</option>
               </select>
             </Field>
