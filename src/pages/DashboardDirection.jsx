@@ -11,7 +11,7 @@
 //   • Colonne gauche : À suivre (réserves + commandes actionnables)
 //   • Colonne droite : Activité récente + répartition par chantier
 // ═══════════════════════════════════════════════════════════════
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
@@ -64,6 +64,9 @@ export function DashboardDirection({ onBack, onGoto }) {
   const outils = data.outils || [];
   const outillageSorties = data.outillageSorties || [];
 
+  // v2.0.1 — Toggle "Afficher chantiers terminés" (masqués par défaut).
+  const [showTermines, setShowTermines] = useState(false);
+
   // ─── Calculs KPIs & listes ─────────────────────────────
   const stats = useMemo(() => {
     // Réserves ouvertes (pas encore levées)
@@ -82,7 +85,12 @@ export function DashboardDirection({ onBack, onGoto }) {
     const reservesNonAttribuees = reservesOuvertes.filter(r => !r.affecteAUserId);
 
     // Chantiers actifs (ceux qui ne sont pas archivés)
-    const chantiersActifs = chantiers.filter(c => c.archive !== true);
+    // v2.0.1 — masque aussi les chantiers "Terminé" sauf si toggle showTermines actif.
+    // Note : c.archive est un champ legacy probablement mort (jamais écrit par le code
+    // actuel) — à investiguer dans un sujet futur, conservé ici par prudence.
+    const chantiersActifs = chantiers.filter(c =>
+      c.archive !== true && (showTermines || c.statut !== "Terminé")
+    );
 
     // Commandes en attente (pas encore réceptionnées ni refusées)
     // Vraies valeurs Firestore : "En attente de validation" | "Validée" |
@@ -117,7 +125,7 @@ export function DashboardDirection({ onBack, onGoto }) {
       commandesAPasser, commandesPartielles,
       outilsEnPanne, outilsSortis,
     };
-  }, [reserves, chantiers, commandes, outils, outillageSorties]);
+  }, [reserves, chantiers, commandes, outils, outillageSorties, showTermines]);
 
   // ─── Activité récente (toutes réserves + commandes) ─────
   const activiteRecente = useMemo(() => {
@@ -232,6 +240,14 @@ export function DashboardDirection({ onBack, onGoto }) {
               <span className="dash-badge dash-badge-blue">
                 Direction
               </span>
+              <label className="dash-toggle-termines" title="Afficher les chantiers marqués Terminé">
+                <input
+                  type="checkbox"
+                  checked={showTermines}
+                  onChange={e => setShowTermines(e.target.checked)}
+                />
+                <span>Afficher chantiers terminés</span>
+              </label>
             </div>
           </div>
         </div>
@@ -658,12 +674,18 @@ const dashboardCss = `
   font-size: 12px; color: ${EPJ.gray500}; margin-top: 4px;
   text-transform: capitalize;
 }
-.dash-badges { display: flex; gap: 6px; }
+.dash-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .dash-badge {
   font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 12px;
   letter-spacing: 0.5px; text-transform: uppercase;
 }
 .dash-badge-blue { background: ${EPJ.blue}14; color: ${EPJ.blue}; }
+.dash-toggle-termines {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: ${EPJ.gray500};
+  cursor: pointer; user-select: none;
+}
+.dash-toggle-termines input { margin: 0; cursor: pointer; }
 
 .alerts-row {
   display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap;

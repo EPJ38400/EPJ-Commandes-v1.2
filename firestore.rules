@@ -1,0 +1,242 @@
+// ═══════════════════════════════════════════════════════════════
+//  firestore.rules — EPJ App Globale v2.0.0
+//
+//  Stratégie :
+//   • Tout est REFUSÉ par défaut (deny-all)
+//   • L'utilisateur doit être authentifié pour lire/écrire
+//   • Le rôle vient du custom claim Auth `request.auth.token.role`
+//     (posé par les Cloud Functions adminCreateUser / adminUpdateUser)
+//   • Les opérations destructives (delete) sont réservées à Admin
+//   • Les collections de référence (config, catégories) ne sont modifiables
+//     que par Admin/Direction
+//   • Les utilisateurs ne peuvent modifier que leur propre fiche (sauf Admin)
+//   • Les Cloud Functions tournent en service account et bypassent ces règles
+//
+//  Pour tester localement : firebase emulators:start --only firestore
+//  Pour déployer : firebase deploy --only firestore:rules
+// ═══════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ──────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.role;
+    }
+    function isAdmin() {
+      return isSignedIn() && role() == "Admin";
+    }
+    function isDirection() {
+      return isSignedIn() && (role() == "Admin" || role() == "Direction");
+    }
+    function isConducteur() {
+      return isSignedIn() && (
+        role() == "Admin" ||
+        role() == "Direction" ||
+        role() == "Conducteur travaux"
+      );
+    }
+    function isAssistante() {
+      return isSignedIn() && (
+        role() == "Admin" ||
+        role() == "Direction" ||
+        role() == "Conducteur travaux" ||
+        role() == "Assistante"
+      );
+    }
+    // Tout user authentifié et avec un rôle valide (= au moins Monteur/Artisan)
+    function isEmployee() {
+      return isSignedIn() && role() != null;
+    }
+    // Vérifie que l'utilisateur ne change pas le champ `role` côté Firestore
+    // (le rôle effectif est dans le claim Auth posé par adminUpdateUser)
+    function rolesUnchanged() {
+      return request.resource.data.roles == resource.data.roles
+          && request.resource.data.role == resource.data.role;
+    }
+
+    // ─── utilisateurs/{uid} ───────────────────────────────────────
+    // Lecture : tous les employés (pour afficher l'annuaire interne)
+    // Écriture : Admin uniquement, OU l'utilisateur sur sa propre fiche
+    //            (mais sans pouvoir modifier son rôle)
+    match /utilisateurs/{uid} {
+      allow read: if isEmployee();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+                    || (isEmployee() && request.auth.uid == uid && rolesUnchanged());
+    }
+
+    // ─── rolesConfig/{role} ───────────────────────────────────────
+    // Configuration des permissions par rôle (override des FACTORY)
+    // Lecture : tous (l'app a besoin de ces overrides au démarrage)
+    // Écriture : Admin uniquement
+    match /rolesConfig/{role} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+
+    // ─── chantiers/{id} ───────────────────────────────────────────
+    // Référentiel central, partagé par tous les modules
+    // Lecture : tous les employés
+    // Création / modification : Admin / Direction / Conducteur / Assistante
+    // Suppression : Admin uniquement
+    match /chantiers/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isAssistante();
+      allow delete: if isAdmin();
+    }
+
+    // ─── commandes/{id} ───────────────────────────────────────────
+    // Module Commandes — les règles métier fines sont vérifiées côté app
+    // (le système à 3 couches dans permissions.js gère view/edit/delete
+    // par scope own_chantiers / own_items)
+    // Lecture : tous les employés (filtré côté UI)
+    // Création / update : tous les employés (l'app filtre par rôle)
+    // Suppression : Admin / Direction / Conducteur travaux
+    match /commandes/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isConducteur();
+    }
+
+    // ─── reserves/{id} ────────────────────────────────────────────
+    // Module Réserves & quitus
+    match /reserves/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isConducteur();
+
+      // Sous-collections (timeline, pièces jointes…)
+      match /{subcoll=**} {
+        allow read: if isEmployee();
+        allow write: if isEmployee();
+      }
+    }
+    match /reservesCategories/{id} {
+      allow read: if isEmployee();
+      allow write: if isAssistante();
+    }
+    match /reservesEmetteurs/{id} {
+      allow read: if isEmployee();
+      allow write: if isAssistante();
+    }
+    match /reserveMails/{id} {
+      // Écrit principalement par la Cloud Function gmailPoll (service account)
+      // Lecture par les employés pour la timeline
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isAdmin();
+    }
+    match /reserveMailsAClasser/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isAdmin();
+    }
+    match /mailOutbox/{id} {
+      // Mails sortants en file d'attente — déposés par l'app, traités par gmailSend
+      allow read: if isEmployee();
+      allow create: if isEmployee();
+      allow update, delete: if false; // Seules les Cloud Functions y touchent
+    }
+
+    // ─── outils + parc machines ───────────────────────────────────
+    match /outils/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isAssistante();
+      allow delete: if isAdmin();
+    }
+    match /outillageSorties/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isAdmin();
+    }
+    match /outillageCategories/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+    match /outillagePannes/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+
+    // ─── avancement chantier ──────────────────────────────────────
+    match /avancementValidations/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isAdmin();
+    }
+
+    // ─── smsTemplates + smsQueue ──────────────────────────────────
+    match /smsTemplates/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+    match /smsQueue/{id} {
+      // L'app dépose des SMS, la Cloud Function onSmsQueueCreate les traite
+      allow read: if isEmployee();
+      allow create: if isEmployee();
+      allow update, delete: if false; // Seule la Cloud Function modifie le statut
+    }
+
+    // ─── catalogue (produits Commandes) ───────────────────────────
+    match /catalogue/{id} {
+      allow read: if isEmployee();
+      allow write: if isAssistante();
+    }
+
+    // ─── company (réglages entreprise) ────────────────────────────
+    match /company/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+
+    // ─── errorLog (capture ErrorBoundary) ─────────────────────────
+    // v2.0.0 — Les erreurs React non gérées sont loguées ici.
+    // Tout employé authentifié peut écrire (pour pas perdre d'info),
+    // seul l'admin peut lire (pour Diagnostics) et supprimer.
+    match /errorLog/{id} {
+      allow read: if isAdmin();
+      allow create: if isEmployee();
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── config/{id} ──────────────────────────────────────────────
+    // Configuration globale (settings, company, …) — chargée par DataContext
+    // au démarrage de l'app pour tous les employés.
+    // Lecture : tous les employés
+    // Écriture : Admin uniquement
+    match /config/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+
+    // ─── config/counters ─────────────────────────────────────────
+    // Doc compteurs atomiques (CMD, extensible outils/réserves).
+    // Lecture + écriture par tous les employés pour autoriser les
+    // runTransaction Firestore côté client (numérotation atomique).
+    match /config/counters {
+      allow read, write: if isEmployee();
+    }
+
+    // ─── tasksConfig/{id} ─────────────────────────────────────────
+    // Modèle global d'avancement (config des tâches par défaut).
+    // Lecture : tous les employés
+    // Écriture : Admin uniquement
+    match /tasksConfig/{id} {
+      allow read: if isEmployee();
+      allow write: if isAdmin();
+    }
+
+    // ─── Tout le reste : REFUSÉ ───────────────────────────────────
+    // Toute collection non listée ci-dessus retombe sur ce deny-all.
+    // Pour ajouter une nouvelle collection, ajouter explicitement sa règle.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

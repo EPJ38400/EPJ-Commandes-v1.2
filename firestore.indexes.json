@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "expediteurEmail", "order": "ASCENDING" },
-        { "fieldPath": "dateEnvoi", "order": "DESCENDING" }
+        { "fieldPath": "dateEnvoi",       "order": "DESCENDING" }
       ]
     },
     {
@@ -20,7 +20,7 @@
       "collectionGroup": "reserveMailsAClasser",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "statut",         "order": "ASCENDING" },
         { "fieldPath": "dateAspiration", "order": "DESCENDING" }
       ]
     },
@@ -28,8 +28,48 @@
       "collectionGroup": "reserves",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "statut",       "order": "ASCENDING" },
         { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "commandes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statut",       "order": "ASCENDING" },
+        { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "commandes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chantierNum",  "order": "ASCENDING" },
+        { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "outillageSorties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "emprunteurId",     "order": "ASCENDING" },
+        { "fieldPath": "dateRetourReelle", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "outillageSorties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "outilId",    "order": "ASCENDING" },
+        { "fieldPath": "dateSortie", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "smsQueue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

@@ -26,7 +26,7 @@ export function AvancementModule({ onExitModule }) {
   // Filtre les chantiers selon le scope de lecture
   const visibleChantiers = useMemo(() => {
     if (!viewScope) return [];
-    const actifs = chantiers.filter(c => c.statut !== "Archivé");
+    const actifs = chantiers.filter(c => c.statut !== "Archivé" && c.statut !== "Terminé");
     if (viewScope === "all") return actifs;
     if (viewScope === "own_chantiers") {
       return actifs.filter(c => isUserAffectedToChantier(user, c));

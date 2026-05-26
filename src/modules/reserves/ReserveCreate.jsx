@@ -269,6 +269,8 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
               titreReserve: form.titre || "",
               chantier: chantier?.nom || chantierNum,
               dateLevee: form.dateSouhaiteLevee || "",
+              rdvDate: form.rdvPris ? form.rdvDate : "",
+              rdvHeure: form.rdvPris ? form.rdvHeure : "",
               reserveId: id,
             });
           }

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../../firebase";
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs, runTransaction } from "firebase/firestore";
 import { initEPJData, uploadCatalog, deleteCategoryByQuery, buildCatalogueDocId } from "../../initFirestore";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -222,7 +222,7 @@ export function CommandesInner({ onExitModule }) {
   const [newChantier, setNewChantier] = useState("");
   const [showNewChantier, setShowNewChantier] = useState(false);
   const [targetSalarie, setTargetSalarie] = useState(initialDraft.targetSalarie || "");
-  const [livraison, setLivraison] = useState(initialDraft.livraison || "Chantier");
+  const [livraison, setLivraison] = useState(initialDraft.livraison || "Dépôt");
   const [urgent, setUrgent] = useState(!!initialDraft.urgent);
   const [dateReception, setDateReception] = useState(initialDraft.dateReception || "");
   const [remarques, setRemarques] = useState(initialDraft.remarques || "");
@@ -558,26 +558,55 @@ export function CommandesInner({ onExitModule }) {
   // déjà en base (historique chargé via onSnapshot). Plus aucune dépendance à
   // config/compteur côté code. Le doc en base est conservé pour rétrocompat
   // mais on l'écrit dans son propre try/catch (cf. sendOrder).
-  const computeNextCmdNum = () => {
-    const year = new Date().getFullYear();
+  // Helper sync : max séquence CMD pour une année donnée depuis history.
+  // Ignore les suffixes -1 / -2 / -1-1 (commandes scindées ne consomment pas de num).
+  const computeMaxCmdSeqForYear = (hist, year) => {
     const prefix = `CMD-${year}-`;
     let max = 0;
-    (history || []).forEach(h => {
+    (hist || []).forEach(h => {
       const num = h?.num || "";
       if (!num.startsWith(prefix)) return;
-      // Extraire la partie numérique SANS les suffixes -1 / -2 / -1-1 / etc.
-      // (les commandes scindées ne consomment pas de nouveau compteur)
-      const afterPrefix = num.slice(prefix.length); // "0053" ou "0053-1" ou "0053-1-2"
+      const afterPrefix = num.slice(prefix.length); // "0053" ou "0053-1"
       const baseNumStr = afterPrefix.split("-")[0]; // "0053"
       const n = parseInt(baseNumStr, 10);
       if (!isNaN(n) && n > max) max = n;
     });
+    return max;
+  };
+  const computeNextCmdNum = () => {
+    const year = new Date().getFullYear();
+    const max = computeMaxCmdSeqForYear(history, year);
     // Filet de sécurité : on prend aussi en compte cmdCounter (au cas où
     // history n'a pas encore été synchronisé par onSnapshot au démarrage).
     const next = Math.max(max + 1, cmdCounter);
     return `CMD-${year}-${String(next).padStart(4, "0")}`;
   };
   const numCmd = () => computeNextCmdNum();
+
+  // v2.0.1 — Génération atomique du numéro de commande via runTransaction.
+  // Garantit l'unicité même en cas d'envois simultanés. Self-init depuis
+  // history au tout premier appel (zéro action manuelle post-déploiement).
+  // Rollover d'année automatique (year !== currentYear → reset lastSeq=1).
+  const reserveNextCmdNum = async () => {
+    const currentYear = new Date().getFullYear();
+    const maxFromHistory = computeMaxCmdSeqForYear(history, currentYear);
+    return await runTransaction(db, async (tx) => {
+      const counterRef = doc(db, "config", "counters");
+      const snap = await tx.get(counterRef);
+      let newSeq;
+      if (!snap.exists() || !snap.data()?.commandes) {
+        newSeq = maxFromHistory + 1;
+      } else {
+        const storedYear = snap.data().commandes.year;
+        const lastSeq = snap.data().commandes.lastSeq || 0;
+        newSeq = (storedYear !== currentYear) ? 1 : lastSeq + 1;
+      }
+      tx.set(counterRef, {
+        commandes: { year: currentYear, lastSeq: newSeq },
+      }, { merge: true });
+      return `CMD-${currentYear}-${String(newSeq).padStart(4, "0")}`;
+    });
+  };
   const clearOrder = () => {
     setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);
     setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");
@@ -784,7 +813,7 @@ export function CommandesInner({ onExitModule }) {
     }
 
     // ─── Mode normal : création d'une nouvelle commande ────────────────
-    const cmd = numCmd();
+    const cmd = await reserveNextCmdNum();
     const chObj = selectedChantierObj;
     const needsValidation = orderType==='chantier' && !user.directAchat;
     const statut = needsValidation ? "En attente de validation" : "Envoyée aux achats";
@@ -1385,6 +1414,16 @@ export function CommandesInner({ onExitModule }) {
 
       // 2.g — Marquer la mère comme "Scindée"
       try {
+        const splitHistEntry = {
+          by: user ? (`${user.prenom || ""} ${user.nom || ""}`.trim() || user.id) : "—",
+          at: nowISO,
+          previousStatut: order.statut || "",
+          newStatut: "Scindée",
+          summary: `Scindée → ${child1Num} (commandée) + ${child2Num} (reliquat)`,
+        };
+        const editHistory = Array.isArray(order.editHistory)
+          ? [...order.editHistory, splitHistEntry]
+          : [splitHistEntry];
         await updateDoc(doc(db, "commandes", order._id), {
           statut: "Scindée",
           splitAt: nowISO,
@@ -1394,6 +1433,7 @@ export function CommandesInner({ onExitModule }) {
           ],
           splitBy: user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "—",
           splitByUid: user?.id || user?._id || "",
+          editHistory,
         });
       } catch (motherErr) {
         console.warn("[v1.17] Mère pas marquée Scindée (enfants OK) :", motherErr);
@@ -1990,7 +2030,7 @@ export function CommandesInner({ onExitModule }) {
               </div>
               <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>LIVRAISON</label>
                 <div style={{display:'flex',gap:8}}>
-                  {['Chantier','Dépôt'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
+                  {['Dépôt','Chantier'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
                 </div>
               </div>
             </>
@@ -2810,11 +2850,21 @@ export function CommandesInner({ onExitModule }) {
                         webhookUrl: featureFlags.esaboraWebhookUrl,
                         tvaDefault: featureFlags.esaboraTvaDefault, // v10.L.1
                       });
-                      if (res.ok) {
+                      {
                         const ignored = res.ignored?.length || 0;
-                        showT(`✅ ${res.results.length} fournisseur(s) envoyé(s)${ignored ? ` — ${ignored} article(s) sans code ignoré(s)` : ''}`);
-                      } else {
-                        showT(`❌ ${res.error || 'Échec partiel ou complet'}`);
+                        const ignoredSuffix = ignored ? ` — ${ignored} article(s) sans code ignoré(s)` : '';
+                        const results = res.results || [];
+                        const okCodes = results.filter(r => r.ok).map(r => r.codeEsabora);
+                        const koCodes = results.filter(r => !r.ok).map(r => r.codeEsabora);
+                        if (res.status === 'synced') {
+                          showT(`✅ Esabora — ${okCodes.length} fournisseur(s) envoyé(s) : ${okCodes.join(', ')}${ignoredSuffix}`);
+                        } else if (res.status === 'partial') {
+                          showT(`⚠️ Esabora — ${okCodes.length}/${results.length} envoyé(s) : ${okCodes.join(', ')} — KO : ${koCodes.join(', ')}${ignoredSuffix}`);
+                        } else if (results.length > 0) {
+                          showT(`❌ Esabora — ${koCodes.length} fournisseur(s) en échec : ${koCodes.join(', ')}`);
+                        } else {
+                          showT(`❌ ${res.error || 'Échec Esabora'}`);
+                        }
                       }
                       // Rafraîchit la vue (le doc Firestore a été update par sendOrderToEsabora)
                       setSelectedOrder(prev => prev ? { ...prev } : prev);
@@ -3537,7 +3587,7 @@ export function CommandesInner({ onExitModule }) {
               setAdminSaving(true);
               let total=0;
               for(const cat of orphanCats){
-                try{ total += await deleteCategoryByQuery(cat); }catch(e){}
+                try{ total += await deleteCategoryByQuery(cat); }catch(e){console.error("[admin] Erreur suppression catégorie parasite:", cat, e);}
               }
               setAdminSaving(false);showT(`🗑️ ${total} articles parasites supprimés`);
             }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>

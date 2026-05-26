@@ -398,3 +398,17 @@ export const DEFAULT_RESERVES_SMS_TEMPLATES = [
     texte: "Rappel : demain {dateRdv} à {heureRdv}, intervention réserve {numReserve} — {chantier}. Client : {clientNom} {clientTel}.",
   },
 ];
+
+// ─── Helpers SMS ────────────────────────────────────────────
+/** Format "Rendez-vous prévu mardi 22/05 à 14h00. " (point + espace final pour insertion inline). Retourne "" si rdvDate ou rdvHeure absent. */
+export function formatDateRdvPhrase(rdvDate, rdvHeure) {
+  if (!rdvDate || !rdvHeure) return "";
+  const d = new Date(rdvDate + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  const jour = d.toLocaleDateString("fr-FR", { weekday: "long" });
+  const jj = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const [hh, min] = String(rdvHeure).split(":");
+  if (!hh || !min) return "";
+  return `Rendez-vous prévu ${jour} ${jj}/${mm} à ${hh}h${min}. `;
+}

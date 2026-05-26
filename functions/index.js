@@ -1,7 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-//  functions/index.js — v10.O + v1.13.0 (Brique Mail)
+//  functions/index.js — v2.0.0
 //
 //  Cloud Function Firebase qui REMPLACE le scénario Make "SMS Queue → Brevo".
+//
+//  v2.0.0 changes :
+//   • purgeSmsQueue ACTIVÉE (Cloud Scheduler quotidien 03:00 Paris)
+//   • Backup Storage hebdo ajouté (cf. backups.js)
 //
 //  Déclenchement : à la création d'un document dans Firestore collection
 //  "smsQueue" (mêmes docs que ceux que l'app pose aujourd'hui).
@@ -151,10 +155,11 @@ export {
   clearMustResetPassword,
 } from "./adminUsers.js";
 
-// ─── Fonctions backup Firestore ──────────────────────────────
-// Cf. functions/backups.js — v1.15.0
+// ─── Fonctions backup Firestore + Storage ───────────────────
+// Cf. functions/backups.js — v2.0.0
 export {
   weeklyFirestoreBackup,
+  weeklyStorageBackup,
   adminTriggerBackup,
   adminListBackups,
 } from "./backups.js";
@@ -180,21 +185,39 @@ export { gmailSend } from "./gmailSend.js";
 export { onMailAClasserUpdate } from "./gmailLabels.js";
 
 // ─── Fonction de purge ───────────────────────────────────────
-// Supprime les docs smsQueue avec status="sent" après 24h
-// pour éviter que la collection grossisse indéfiniment.
-// Trigger : programmable via Cloud Scheduler (à activer plus tard si besoin).
-// Pour l'instant non exporté → on garde une trace des envois sur quelques jours.
-// Si la collection grossit trop, exporter cette fonction comme onSchedule.
+// v2.0.0 — ACTIVÉE : supprime les docs smsQueue avec status="sent"
+// après 24h pour éviter que la collection grossisse indéfiniment.
+// Trigger Cloud Scheduler programmé tous les jours à 03:00 (Paris).
 
-// import { onSchedule } from "firebase-functions/v2/scheduler";
-// export const purgeSmsQueue = onSchedule("every day 03:00", async () => {
-//   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-//   const snap = await db.collection("smsQueue")
-//     .where("status", "==", "sent")
-//     .where("sentAt", "<", cutoff)
-//     .get();
-//   const batch = db.batch();
-//   snap.docs.forEach(d => batch.delete(d.ref));
-//   await batch.commit();
-//   console.log(`[v10.O] Purge : ${snap.size} docs supprimés`);
-// });
+import { onSchedule } from "firebase-functions/v2/scheduler";
+
+export const purgeSmsQueue = onSchedule(
+  {
+    schedule: "0 3 * * *",
+    timeZone: "Europe/Paris",
+    region: "europe-west1",
+    timeoutSeconds: 120,
+    memory: "256MiB",
+  },
+  async () => {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const snap = await db.collection("smsQueue")
+      .where("status", "==", "sent")
+      .where("sentAt", "<", cutoff)
+      .get();
+    if (snap.empty) {
+      console.log("[purgeSmsQueue] Aucun SMS à purger");
+      return;
+    }
+    // Batch limité à 500 ops Firestore — si plus, on chunke
+    const docs = snap.docs;
+    let total = 0;
+    for (let i = 0; i < docs.length; i += 500) {
+      const batch = db.batch();
+      docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      total += Math.min(500, docs.length - i);
+    }
+    console.log(`[purgeSmsQueue] ✓ ${total} docs supprimés`);
+  }
+);

@@ -1,0 +1,125 @@
+// ═══════════════════════════════════════════════════════════════
+//  storage.rules — EPJ App Globale v2.0.0
+//
+//  Buckets :
+//   • ap-epj.firebasestorage.app — bucket principal (PDF, signatures, photos)
+//   • ap-epj-backups — bucket de backups (jamais accessible depuis l'app)
+//
+//  Stratégie :
+//   • Authentification obligatoire pour tout accès
+//   • Upload limité par dossier (10 Mo photos, 5 Mo PDF, 2 Mo signatures)
+//   • Types MIME contrôlés selon le dossier
+//   • Suppression réservée à Admin
+//
+//  IMPORTANT — Convention de nommage des chemins :
+//   Les uploads de l'app (parcUtils.js, reservesUtils.js, AdminCompany.jsx)
+//   utilisent des chemins PLATS à un seul segment après le préfixe :
+//     reserves/<reserveId>_<kind>_<timestamp>.jpg
+//     reserves/<reserveId>_att_<ts>_<name>
+//     quitus/<reserveId>_<ts>.pdf
+//     signatures/<userId>_<ts>.png
+//     outils/<outilId>_<ts>.jpg
+//     config/papier-entete-<ts>.<ext>
+//   Les rules ci-dessous matchent donc `match /<prefix>/{file}` (2 segments).
+//
+//   SEULE EXCEPTION : les pièces jointes Gmail aspirées par la Cloud Function
+//   `gmailPoll` sont stockées en chemin HIÉRARCHIQUE à 2 segments :
+//     mails/<gmailId>/<safeAttId>_<safeName>
+//   D'où `match /mails/{gmailId}/{file}` (3 segments).
+//
+//  Pour déployer : firebase deploy --only storage
+// ═══════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Helpers ──────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == "Admin";
+    }
+    function isEmployee() {
+      return isSignedIn() && request.auth.token.role != null;
+    }
+    function maxSize(mb) {
+      return request.resource.size < mb * 1024 * 1024;
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    function isPdf() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    // ─── outils/<outilId>_<ts>.jpg ────────────────────────────────
+    // Photos des outils du parc machines
+    match /outils/{file} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─── reserves/<reserveId>_<...> ───────────────────────────────
+    // Photos avant/après ET pièces jointes des réserves (même préfixe à plat)
+    match /reserves/{file} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─── quitus/<reserveId>_<ts>.pdf ──────────────────────────────
+    // PDF de quitus signés — VERROUILLÉS (pas de modif après création)
+    // Valeur juridique : immuables une fois posés.
+    match /quitus/{file} {
+      allow read: if isEmployee();
+      allow create: if isEmployee() && isPdf() && maxSize(5);
+      allow update: if false;   // Quitus signé = immuable
+      allow delete: if isAdmin();
+    }
+
+    // ─── signatures/<userId>_<ts>.png ─────────────────────────────
+    // Signatures pré-enregistrées des utilisateurs (admin user signatures)
+    match /signatures/{file} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee() && isImage() && maxSize(2);
+      allow delete: if isAdmin();
+    }
+
+    // ─── config/papier-entete-<ts>.<ext> ──────────────────────────
+    // Papier en-tête entreprise (image utilisée dans la génération PDF
+    // des bons de commande et quitus). Uploadé depuis Admin → Entreprise.
+    match /config/{file} {
+      allow read: if isEmployee();
+      allow write: if isAdmin() && maxSize(5);
+    }
+
+    // ─── commandes/<commandeId>_<...> ─────────────────────────────
+    // Pas d'upload actif détecté côté front aujourd'hui, mais on prépare
+    // le pattern pour de futurs PDF de bon de commande ou captures Esabora.
+    match /commandes/{file} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─── mails/<gmailId>/<file> ───────────────────────────────────
+    // Pièces jointes des mails aspirés par la Cloud Function gmailPoll
+    // (Brique Mail v1.13.0). Écriture par service account uniquement
+    // (le bypass des rules s'applique aux Cloud Functions).
+    // Lecture côté frontend pour l'affichage dans la timeline réserve.
+    match /mails/{gmailId}/{file} {
+      allow read: if isEmployee();
+      allow write: if false;          // Seul gmailPoll (service account) écrit
+      allow delete: if isAdmin();
+    }
+
+    // ─── Tout le reste : REFUSÉ ───────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
