@@ -2810,11 +2810,21 @@ export function CommandesInner({ onExitModule }) {
                         webhookUrl: featureFlags.esaboraWebhookUrl,
                         tvaDefault: featureFlags.esaboraTvaDefault, // v10.L.1
                       });
-                      if (res.ok) {
+                      {
                         const ignored = res.ignored?.length || 0;
-                        showT(`✅ ${res.results.length} fournisseur(s) envoyé(s)${ignored ? ` — ${ignored} article(s) sans code ignoré(s)` : ''}`);
-                      } else {
-                        showT(`❌ ${res.error || 'Échec partiel ou complet'}`);
+                        const ignoredSuffix = ignored ? ` — ${ignored} article(s) sans code ignoré(s)` : '';
+                        const results = res.results || [];
+                        const okCodes = results.filter(r => r.ok).map(r => r.codeEsabora);
+                        const koCodes = results.filter(r => !r.ok).map(r => r.codeEsabora);
+                        if (res.status === 'synced') {
+                          showT(`✅ Esabora — ${okCodes.length} fournisseur(s) envoyé(s) : ${okCodes.join(', ')}${ignoredSuffix}`);
+                        } else if (res.status === 'partial') {
+                          showT(`⚠️ Esabora — ${okCodes.length}/${results.length} envoyé(s) : ${okCodes.join(', ')} — KO : ${koCodes.join(', ')}${ignoredSuffix}`);
+                        } else if (results.length > 0) {
+                          showT(`❌ Esabora — ${koCodes.length} fournisseur(s) en échec : ${koCodes.join(', ')}`);
+                        } else {
+                          showT(`❌ ${res.error || 'Échec Esabora'}`);
+                        }
                       }
                       // Rafraîchit la vue (le doc Firestore a été update par sendOrderToEsabora)
                       setSelectedOrder(prev => prev ? { ...prev } : prev);
