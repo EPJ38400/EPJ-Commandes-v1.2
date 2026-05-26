@@ -215,6 +215,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── config/counters ─────────────────────────────────────────
+    // Doc compteurs atomiques (CMD, extensible outils/réserves).
+    // Lecture + écriture par tous les employés pour autoriser les
+    // runTransaction Firestore côté client (numérotation atomique).
+    match /config/counters {
+      allow read, write: if isEmployee();
+    }
+
     // ─── tasksConfig/{id} ─────────────────────────────────────────
     // Modèle global d'avancement (config des tâches par défaut).
     // Lecture : tous les employés

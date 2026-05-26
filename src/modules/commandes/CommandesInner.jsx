@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../../firebase";
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, getDoc, setDoc, deleteDoc, writeBatch, getDocs, runTransaction } from "firebase/firestore";
 import { initEPJData, uploadCatalog, deleteCategoryByQuery, buildCatalogueDocId } from "../../initFirestore";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -558,26 +558,55 @@ export function CommandesInner({ onExitModule }) {
   // déjà en base (historique chargé via onSnapshot). Plus aucune dépendance à
   // config/compteur côté code. Le doc en base est conservé pour rétrocompat
   // mais on l'écrit dans son propre try/catch (cf. sendOrder).
-  const computeNextCmdNum = () => {
-    const year = new Date().getFullYear();
+  // Helper sync : max séquence CMD pour une année donnée depuis history.
+  // Ignore les suffixes -1 / -2 / -1-1 (commandes scindées ne consomment pas de num).
+  const computeMaxCmdSeqForYear = (hist, year) => {
     const prefix = `CMD-${year}-`;
     let max = 0;
-    (history || []).forEach(h => {
+    (hist || []).forEach(h => {
       const num = h?.num || "";
       if (!num.startsWith(prefix)) return;
-      // Extraire la partie numérique SANS les suffixes -1 / -2 / -1-1 / etc.
-      // (les commandes scindées ne consomment pas de nouveau compteur)
-      const afterPrefix = num.slice(prefix.length); // "0053" ou "0053-1" ou "0053-1-2"
+      const afterPrefix = num.slice(prefix.length); // "0053" ou "0053-1"
       const baseNumStr = afterPrefix.split("-")[0]; // "0053"
       const n = parseInt(baseNumStr, 10);
       if (!isNaN(n) && n > max) max = n;
     });
+    return max;
+  };
+  const computeNextCmdNum = () => {
+    const year = new Date().getFullYear();
+    const max = computeMaxCmdSeqForYear(history, year);
     // Filet de sécurité : on prend aussi en compte cmdCounter (au cas où
     // history n'a pas encore été synchronisé par onSnapshot au démarrage).
     const next = Math.max(max + 1, cmdCounter);
     return `CMD-${year}-${String(next).padStart(4, "0")}`;
   };
   const numCmd = () => computeNextCmdNum();
+
+  // v2.0.1 — Génération atomique du numéro de commande via runTransaction.
+  // Garantit l'unicité même en cas d'envois simultanés. Self-init depuis
+  // history au tout premier appel (zéro action manuelle post-déploiement).
+  // Rollover d'année automatique (year !== currentYear → reset lastSeq=1).
+  const reserveNextCmdNum = async () => {
+    const currentYear = new Date().getFullYear();
+    const maxFromHistory = computeMaxCmdSeqForYear(history, currentYear);
+    return await runTransaction(db, async (tx) => {
+      const counterRef = doc(db, "config", "counters");
+      const snap = await tx.get(counterRef);
+      let newSeq;
+      if (!snap.exists() || !snap.data()?.commandes) {
+        newSeq = maxFromHistory + 1;
+      } else {
+        const storedYear = snap.data().commandes.year;
+        const lastSeq = snap.data().commandes.lastSeq || 0;
+        newSeq = (storedYear !== currentYear) ? 1 : lastSeq + 1;
+      }
+      tx.set(counterRef, {
+        commandes: { year: currentYear, lastSeq: newSeq },
+      }, { merge: true });
+      return `CMD-${currentYear}-${String(newSeq).padStart(4, "0")}`;
+    });
+  };
   const clearOrder = () => {
     setCart({});setOrderType("");setChantier("");setNewChantier("");setShowNewChantier(false);
     setTargetSalarie("");setUrgent(false);setDateReception("");setRemarques("");setExtraEmail("");
@@ -784,7 +813,7 @@ export function CommandesInner({ onExitModule }) {
     }
 
     // ─── Mode normal : création d'une nouvelle commande ────────────────
-    const cmd = numCmd();
+    const cmd = await reserveNextCmdNum();
     const chObj = selectedChantierObj;
     const needsValidation = orderType==='chantier' && !user.directAchat;
     const statut = needsValidation ? "En attente de validation" : "Envoyée aux achats";
