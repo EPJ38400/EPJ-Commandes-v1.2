@@ -368,14 +368,16 @@ export async function smsReserveRappelLevee({
 /**
  * v10.N — Demande manuelle de levée par Admin/Direction/responsableParc.
  * Bouton "📱 Demander la levée" dans le détail réserve.
+ * v2.0.1 — Accepte templateCode optionnel (menu de choix modèle SMS).
  */
 export async function smsReserveDemandeLevee({
   smsTemplates, destinataire, demandeur, refReserve, titreReserve, chantier, reserveId,
+  templateCode,
 }) {
   if (!destinataire) return { queued: false, reason: "destinataire introuvable" };
   return queueSms({
     type: "RESERVE_DEMANDE_LEVEE",
-    templateCode: "reserve_demande_levee",
+    templateCode: templateCode || "reserve_demande_levee",
     smsTemplates,
     recipient: {
       userId: extractUid(destinataire),

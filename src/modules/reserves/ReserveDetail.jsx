@@ -45,6 +45,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   const [rdvHeure, setRdvHeure] = useState("");
   // ─── v1.18.0 — Édition de chantier depuis la fiche réserve ───
   const [showChantierEdit, setShowChantierEdit] = useState(false);
+  // v2.0.1 — Menu de choix modèle SMS au clic "Demander la levée"
+  const [showSmsPicker, setShowSmsPicker] = useState(false);
+  const [smsPickerCandidates, setSmsPickerCandidates] = useState([]);
 
   const reserve = reserves.find(r => r._id === reserveId);
   // ─── v1.13.0 — Brique mail ──────────────────────────────────
@@ -152,7 +155,8 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   // v10.N — Demander la levée (SMS automatique via queue, plus de mailto/clipboard)
   // Visible pour Admin / Direction / Conducteur travaux / responsableParc.
   // Remplace l'ancien doRelanceSMS qui passait par window.location.href = sms:...
-  const doDemanderLevee = async () => {
+  // v2.0.1 — Accepte un templateCode (menu de choix modèle SMS).
+  const doDemanderLevee = async (templateCode) => {
     const affecte = users.find(u => u._id === reserve.affecteAUserId);
     if (!affecte) {
       alert("Aucun destinataire affecté à cette réserve.");
@@ -162,7 +166,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
       alert("Pas de numéro de téléphone pour " + (affecte.prenom||"") + " " + (affecte.nom||""));
       return;
     }
-    if (!confirm(`Envoyer un SMS à ${affecte.prenom} ${affecte.nom} pour demander la levée de la réserve ${reserve.numReserve} ?`)) return;
+    if (!confirm(`Envoyer un SMS à ${affecte.prenom} ${affecte.nom} pour la réserve ${reserve.numReserve} ?`)) return;
     try {
       const res = await smsReserveDemandeLevee({
         smsTemplates,
@@ -172,15 +176,40 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
         titreReserve: reserve.titre || "",
         chantier: reserve.chantierNom || reserve.chantierNum,
         reserveId: reserve._id,
+        templateCode,
       });
       if (res?.queued) {
-        alert(`✓ SMS demande de levée envoyé à ${affecte.prenom}`);
+        alert(`✓ SMS envoyé à ${affecte.prenom}`);
       } else {
         alert(`⚠️ SMS non envoyé : ${res?.reason || "raison inconnue"}`);
       }
     } catch (e) {
       alert("❌ Erreur : " + (e.message || e));
     }
+  };
+
+  // v2.0.1 — Templates SMS pertinents pour le clic "Demander la levée".
+  // Filtre : id contient "levee" OU commence par "reserve_demande". Exclut
+  // les templates désactivés. Les templates de contexte RDV (rdv_demain,
+  // relance_rdv) sont volontairement exclus.
+  const getLeveeRelevantTemplates = (templates) => {
+    return (templates || []).filter(t => {
+      if (t?.actif === false) return false;
+      const id = String(t?.id || "").toLowerCase();
+      return id.includes("levee") || id.startsWith("reserve_demande");
+    });
+  };
+
+  // v2.0.1 — Trigger du bouton "Demander la levée".
+  // 0/1 candidat → envoi auto. Plusieurs → modal de choix.
+  const onClickDemanderLevee = () => {
+    const candidates = getLeveeRelevantTemplates(smsTemplates);
+    if (candidates.length <= 1) {
+      doDemanderLevee(candidates[0]?.id);
+      return;
+    }
+    setSmsPickerCandidates(candidates);
+    setShowSmsPicker(true);
   };
 
   const doDelete = async () => {
@@ -471,7 +500,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
                 📅 Planifier le RDV
               </button>
               {canDemanderLevee(reserve, user) && (
-                <button onClick={doDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+                <button onClick={onClickDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
                   📱 Demander la levée (SMS)
                 </button>
               )}
@@ -486,7 +515,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           {reserve.affecteAUserId
             && ["planifiee", "intervention"].includes(reserve.statut)
             && canDemanderLevee(reserve, user) && (
-            <button onClick={doDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+            <button onClick={onClickDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
               📱 Demander la levée (SMS)
             </button>
           )}
@@ -590,6 +619,41 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           />
         );
       })()}
+
+      {/* v2.0.1 — Modal de choix du modèle SMS (Demander la levée) */}
+      {showSmsPicker && (
+        <div onClick={() => setShowSmsPicker(false)}
+             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',
+                     display:'flex',alignItems:'center',justifyContent:'center',
+                     zIndex:1000,padding:16}}>
+          <div className="epj-card" onClick={e => e.stopPropagation()}
+               style={{padding:20,maxWidth:420,width:'100%'}}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:6,fontFamily:font.display}}>
+              Choisir un modèle SMS
+            </div>
+            <div style={{fontSize:12,color:EPJ.gray500,marginBottom:16}}>
+              Plusieurs modèles sont pertinents pour la levée de cette réserve.
+            </div>
+            {smsPickerCandidates.map(t => (
+              <button key={t.id}
+                onClick={() => { setShowSmsPicker(false); doDemanderLevee(t.id); }}
+                className="epj-btn"
+                style={{display:'block',width:'100%',marginBottom:8,padding:'12px',
+                        textAlign:'left',background:EPJ.blue,color:'#fff',
+                        fontWeight:700,borderRadius:8,border:'none'}}>
+                {t.label || t.id}
+              </button>
+            ))}
+            <button onClick={() => setShowSmsPicker(false)}
+              className="epj-btn"
+              style={{display:'block',width:'100%',marginTop:8,padding:'10px',
+                      background:'#eee',color:EPJ.dark,fontWeight:600,
+                      borderRadius:8,border:'none'}}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
