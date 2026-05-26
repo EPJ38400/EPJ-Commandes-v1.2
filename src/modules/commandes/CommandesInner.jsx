@@ -1385,6 +1385,16 @@ export function CommandesInner({ onExitModule }) {
 
       // 2.g — Marquer la mère comme "Scindée"
       try {
+        const splitHistEntry = {
+          by: user ? (`${user.prenom || ""} ${user.nom || ""}`.trim() || user.id) : "—",
+          at: nowISO,
+          previousStatut: order.statut || "",
+          newStatut: "Scindée",
+          summary: `Scindée → ${child1Num} (commandée) + ${child2Num} (reliquat)`,
+        };
+        const editHistory = Array.isArray(order.editHistory)
+          ? [...order.editHistory, splitHistEntry]
+          : [splitHistEntry];
         await updateDoc(doc(db, "commandes", order._id), {
           statut: "Scindée",
           splitAt: nowISO,
@@ -1394,6 +1404,7 @@ export function CommandesInner({ onExitModule }) {
           ],
           splitBy: user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "—",
           splitByUid: user?.id || user?._id || "",
+          editHistory,
         });
       } catch (motherErr) {
         console.warn("[v1.17] Mère pas marquée Scindée (enfants OK) :", motherErr);
