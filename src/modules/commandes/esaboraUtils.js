@@ -302,7 +302,12 @@ export async function sendOrderToEsabora({ order, catalog, chantier, user, webho
 
   // Envoi 1 fichier par groupe
   const results = [];
-  for (const group of groups) {
+  for (const [i, group] of groups.entries()) {
+    // Tempo 15s entre envois successifs : Esabora pose un verrou court
+    // pendant la génération de son numéro interne et rejette les doublons
+    // de titre arrivant dans la même fenêtre (ErrNumeroNonUnique côté Zapier).
+    // Pas de tempo avant la 1ère itération, ni après la dernière.
+    if (i > 0) await new Promise(r => setTimeout(r, 15000));
     const blob = buildEsaboraExcel(group, order, chantier, { tvaDefault });
     const filename = `EPJ_${order.num || "CMD"}_${group.codeEsabora}.xlsx`;
     const res = await sendFileToZapier(webhookUrl, blob, filename, {
