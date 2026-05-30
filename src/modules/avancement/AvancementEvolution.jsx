@@ -37,6 +37,15 @@ export function AvancementEvolution({ chantier }) {
   const [activeBuildingId, setActiveBuildingId] = useState(allBuildingIds[0] || "A");
   const [expandedCats, setExpandedCats] = useState(new Set());
 
+  // Libellé d'un bâtiment résolu depuis les snapshots (étiquette figée), fallback id.
+  const unitLabelFor = (id) => {
+    for (const m of months) {
+      const sb = snapshots[m]?.[id];
+      if (sb?.unitLabel) return sb.unitLabel;
+    }
+    return `Bâtiment ${id}`;
+  };
+
   const toggleCat = (catId) => {
     const next = new Set(expandedCats);
     if (next.has(catId)) next.delete(catId); else next.add(catId);
@@ -102,7 +111,7 @@ export function AvancementEvolution({ chantier }) {
               color: activeBuildingId === bId ? "#fff" : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
-            }}>Bâtiment {bId}</button>
+            }}>{unitLabelFor(bId)}</button>
           ))}
         </div>
       )}

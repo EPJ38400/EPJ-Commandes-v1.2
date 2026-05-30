@@ -61,6 +61,12 @@ function categoriesFromSnapshot(snapshotBuilding) {
   return cats;
 }
 
+// Libellé d'un bâtiment figé : étiquette stockée au figeage (fidèle au nom
+// d'alors), fallback « Bâtiment {clé} » pour les vieux snapshots.
+function unitLabel(sb, key) {
+  return sb?.unitLabel || `Bâtiment ${key}`;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPORT PDF (via window.print sur un HTML stylé charte EPJ)
 //
@@ -127,7 +133,7 @@ export function exportSnapshotToPdf(chantier, month, snapshot, logoHeaderBase64)
     body += `
       <div class="building">
         <div class="building-head">
-          <div class="building-id">${buildingIds.length > 1 ? `Bâtiment ${bId}` : "Avancement"}</div>
+          <div class="building-id">${buildingIds.length > 1 ? escape(unitLabel(sb, bId)) : "Avancement"}</div>
           <div class="building-pct">${pct}%</div>
         </div>
         ${totalH > 0 ? `<div class="building-hours">⏱ ${totalH.toFixed(1)} h cumulées</div>` : ""}
@@ -362,7 +368,7 @@ export async function exportSnapshotToExcel(chantier, month, snapshot) {
     rows.push([`N° Affaire : ${chantier.num}`]);
     if (chantier.adresse) rows.push([`Adresse : ${chantier.adresse}`]);
     rows.push([`Situation : ${monthLabel}`]);
-    if (buildingIds.length > 1) rows.push([`Bâtiment : ${bId}`]);
+    if (buildingIds.length > 1) rows.push([unitLabel(sb, bId)]);
     rows.push([]);
 
     // Table
@@ -395,7 +401,9 @@ export async function exportSnapshotToExcel(chantier, month, snapshot) {
       }
     }
 
-    const sheetName = (buildingIds.length > 1 ? `Bât ${bId}` : "Avancement").slice(0, 31);
+    // Nom d'onglet Excel : retire les caractères interdits (: \ / ? * [ ]) et tronque à 31.
+    const rawName = buildingIds.length > 1 ? unitLabel(sb, bId) : "Avancement";
+    const sheetName = (rawName.replace(/[:\\/?*[\]]/g, " ").trim() || "Avancement").slice(0, 31);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 

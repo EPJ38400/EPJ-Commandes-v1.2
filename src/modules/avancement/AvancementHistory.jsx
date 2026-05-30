@@ -29,6 +29,12 @@ const FACTORY_META = {
 };
 const CAT_ORDER = ["etude", "beton", "divers", "placo", "logements", "communs", "controle"];
 
+// Libellé d'un bâtiment figé : on utilise l'étiquette stockée au figeage
+// (fidèle au nom d'alors). Fallback « Bâtiment {clé} » pour les vieux snapshots.
+function snapshotUnitLabel(sb, key) {
+  return sb?.unitLabel || `Bâtiment ${key}`;
+}
+
 export function AvancementHistory({ chantier, onBack }) {
   const { user } = useAuth();
   const { users } = useData();
@@ -307,7 +313,7 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
               color: activeBuildingId === bId ? "#fff" : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
-            }}>Bâtiment {bId}</button>
+            }}>{snapshotUnitLabel(snapshot[bId], bId)}</button>
           ))}
         </div>
       )}
@@ -316,7 +322,7 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
       <div className="epj-card" style={{ padding: "14px 16px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontSize: 12, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
-            Avancement{buildingIds.length > 1 ? ` — Bâtiment ${activeBuildingId}` : ""}
+            Avancement{buildingIds.length > 1 ? ` — ${snapshotUnitLabel(snapshot[activeBuildingId], activeBuildingId)}` : ""}
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, color: buildingColor, fontVariantNumeric: "tabular-nums" }}>
             {buildingPct}%

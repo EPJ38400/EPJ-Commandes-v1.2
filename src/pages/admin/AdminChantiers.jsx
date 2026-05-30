@@ -12,6 +12,7 @@ import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
+import { generateBuildingId, getBuildingLetter } from "../../modules/avancement/avancementTasks";
 
 // v2.0.1 — Seuls Admin/Direction/Assistante peuvent marquer un chantier "Terminé".
 const ROLES_CAN_MARK_TERMINE = ["Admin", "Direction", "Assistante"];
@@ -47,7 +48,7 @@ export function AdminChantiers({ onBack }) {
       num: "", nom: "", adresse: "", statut: "Actif",
       conducteurId: "", chefChantierIds: [], monteurIds: [], artisanIds: [],
       dateDebut: "", dateFinPrevue: "",
-      buildings: [{ id: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
+      buildings: [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
     });
     setEditing("new");
   };
@@ -63,7 +64,7 @@ export function AdminChantiers({ onBack }) {
       dateDebut: ch.dateDebut || "", dateFinPrevue: ch.dateFinPrevue || "",
       buildings: ch.buildings && ch.buildings.length > 0
         ? ch.buildings
-        : [{ id: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
+        : [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
     });
     setEditing(ch.num);
   };
@@ -444,23 +445,48 @@ function legacyFindUserByName(fullName, users) {
   return users.find(u => `${u.prenom} ${u.nom}`.toLowerCase() === fullName.toLowerCase()) || null;
 }
 
+// ─── Champ "lettre" éditable d'un bâtiment ──────────────────────
+// La lettre est l'affichage (modifiable, unique) ; l'id technique reste stable.
+function LettreInput({ value, onCommit }) {
+  const [v, setV] = useState(value);
+  useEffect(() => { setV(value); }, [value]);
+  return (
+    <input
+      value={v}
+      onChange={e => setV(e.target.value.toUpperCase().slice(0, 2))}
+      onBlur={() => { if (!onCommit(v)) setV(value); }}
+      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+      maxLength={2}
+      title="Lettre du bâtiment (modifiable, unique)"
+      style={{
+        width: 36, height: 32, textAlign: "center", flexShrink: 0,
+        borderRadius: 8, border: `1px solid ${EPJ.orange}`,
+        background: EPJ.white, color: EPJ.orange,
+        fontSize: 15, fontWeight: 700, fontFamily: font.body,
+      }}
+    />
+  );
+}
+
 // ─── Éditeur de bâtiments (avec config sous-sols/étages/combles) ──
 function BuildingsEditor({ buildings, onChange }) {
+  const toast = useToast();
+
   const addBuilding = () => {
-    // Trouve la prochaine lettre dispo
-    const usedIds = new Set(buildings.map(b => b.id));
-    let nextId = "A";
+    // La clé `id` est générée et STABLE ; on ne calcule que la prochaine lettre libre.
+    const used = new Set(buildings.map(b => getBuildingLetter(b).toUpperCase()));
+    let nextLetter = "A";
     for (const c of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-      if (!usedIds.has(c)) { nextId = c; break; }
+      if (!used.has(c)) { nextLetter = c; break; }
     }
     onChange([
       ...buildings,
-      { id: nextId, label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } },
+      { id: generateBuildingId(), lettre: nextLetter, label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } },
     ]);
   };
 
   const removeBuilding = (idx) => {
-    if (!confirm(`Retirer le bâtiment ${buildings[idx].id} ?\n⚠️ Les données d'avancement de ce bâtiment seront perdues.`)) return;
+    if (!confirm(`Retirer le bâtiment ${getBuildingLetter(buildings[idx])} ?\n⚠️ Les données d'avancement de ce bâtiment seront perdues.`)) return;
     onChange(buildings.filter((_, i) => i !== idx));
   };
 
@@ -468,6 +494,17 @@ function BuildingsEditor({ buildings, onChange }) {
     const next = [...buildings];
     next[idx] = { ...next[idx], ...changes };
     onChange(next);
+  };
+
+  // Commit + contrôle d'unicité de la lettre (insensible à la casse).
+  // Retourne false → le champ reprend sa valeur précédente.
+  const commitLettre = (idx, raw) => {
+    const value = String(raw || "").trim().toUpperCase().slice(0, 2);
+    if (!value) { toast("❌ La lettre ne peut pas être vide"); return false; }
+    const clash = buildings.some((b, i) => i !== idx && getBuildingLetter(b).trim().toUpperCase() === value);
+    if (clash) { toast(`❌ La lettre « ${value} » est déjà utilisée`); return false; }
+    updateBuilding(idx, { lettre: value });
+    return true;
   };
 
   const updateConfig = (idx, changes) => {
@@ -498,7 +535,7 @@ function BuildingsEditor({ buildings, onChange }) {
       </div>
       <div style={{ fontSize: 11, color: EPJ.gray500, marginBottom: 14, lineHeight: 1.5 }}>
         🏢 Définissez la typologie pour générer automatiquement les tâches d'avancement
-        (incorporation béton, placo).
+        (incorporation béton, placo). La lettre est modifiable et doit rester unique.
       </div>
 
       {buildings.map((b, idx) => (
@@ -508,12 +545,7 @@ function BuildingsEditor({ buildings, onChange }) {
           border: `1px solid ${EPJ.gray200}`,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: EPJ.orange, color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 14, fontWeight: 700, flexShrink: 0,
-            }}>{b.id}</div>
+            <LettreInput value={getBuildingLetter(b)} onCommit={(v) => commitLettre(idx, v)} />
             <input
               className="epj-input"
               value={b.label || ""}

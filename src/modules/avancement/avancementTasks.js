@@ -251,6 +251,18 @@ export const DEFAULT_BUILDING_CONFIG = {
   nbSousSols: 1, nbEtages: 3, combles: false, sousSolCommun: false,
 };
 
+// ─── Lettre / id technique de bâtiment ──────────────────────────
+// On découple l'id technique (clé STABLE de stockage de l'avancement,
+// jamais modifiée) de la lettre affichée (éditable). Fallback sur l'id
+// pour les bâtiments existants qui n'ont pas encore de champ `lettre`.
+export function getBuildingLetter(building) {
+  return building?.lettre || building?.id || "?";
+}
+// id technique stable pour un nouveau bâtiment (la lettre, elle, reste libre/éditable)
+export function generateBuildingId() {
+  return `bat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 // ─── Génère un ID unique pour une nouvelle tâche ────────────────
 export function generateTaskId(categoryId) {
   return `${categoryId}-custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;

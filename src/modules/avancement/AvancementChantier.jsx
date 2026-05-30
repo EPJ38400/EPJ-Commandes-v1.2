@@ -15,7 +15,7 @@ import { getRoles } from "../../core/permissions";
 import {
   getCategoriesForConfig, categoryProgress, overallProgress,
   DEFAULT_BUILDING_CONFIG, generateTaskId, generateSessionId,
-  totalHoursForTask, totalHoursForBuilding,
+  totalHoursForTask, totalHoursForBuilding, getBuildingLetter,
 } from "./avancementTasks";
 import {
   currentMonthKey, currentMonthLabel, getValidation,
@@ -160,6 +160,9 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
           hours:          chantier.avancementHours?.[b.id] || {}, // rétrocompat v6
           categories:     catsMap,
           config:         b.config || DEFAULT_BUILDING_CONFIG,
+          // Étiquette figée (lettre du bâtiment au moment du figeage) : l'historique
+          // reste fidèle même si la lettre est renommée plus tard. La clé reste l'id.
+          unitLabel:      activeBuildingLabel(b),
           frozenAt:       new Date().toISOString(),
           frozenBy:       user?.id || null,
         };
@@ -995,8 +998,8 @@ function pillStyle(active, color) {
 }
 
 function activeBuildingLabel(building) {
-  if (building.label) return `Bât. ${building.id} — ${building.label}`;
-  return `Bâtiment ${building.id}`;
+  if (building.label) return `Bât. ${getBuildingLetter(building)} — ${building.label}`;
+  return `Bâtiment ${getBuildingLetter(building)}`;
 }
 function formatMonth(ym) {
   const [y, m] = ym.split("-");
