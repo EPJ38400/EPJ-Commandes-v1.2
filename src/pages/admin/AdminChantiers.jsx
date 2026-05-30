@@ -101,7 +101,11 @@ export function AdminChantiers({ onBack }) {
         dateDebut: form.dateDebut || "", dateFinPrevue: form.dateFinPrevue || "",
         buildings: form.buildings || [{ id: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
       };
-      await setDoc(doc(db, "chantiers", form.num), payload);
+      // merge:true → préserve impérativement les champs d'avancement absents du
+      // payload (avancementProgress, avancementSnapshots, avancementHoursSessions,
+      // avancementHours, avancementTasksOverride, avancementArtisans). Sans merge,
+      // éditer un chantier écraserait tout l'avancement saisi et l'historique figé.
+      await setDoc(doc(db, "chantiers", form.num), payload, { merge: true });
       toast(editing === "new" ? "✓ Chantier créé" : "✓ Chantier mis à jour");
       cancel();
     } catch (e) { toast("❌ " + e.message); }
