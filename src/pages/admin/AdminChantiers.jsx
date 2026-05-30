@@ -536,6 +536,21 @@ function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChan
     onChangeBuildings(next);
   };
 
+  // Choix du menu "Sous-sol" : aucun / privé / rattaché à un commun.
+  //  - "none"  → pas de sous-sol (nbSousSols=0, sousSolId=null)
+  //  - "prive" → sous-sol privé (sousSolId=null, au moins 1 niveau)
+  //  - <ssId>  → rattaché au sous-sol commun correspondant
+  const setSousSolChoice = (idx, value) => {
+    if (value === "none") {
+      updateConfig(idx, { sousSolId: null, nbSousSols: 0 });
+    } else if (value === "prive") {
+      const cur = Number(buildings[idx]?.config?.nbSousSols) || 0;
+      updateConfig(idx, { sousSolId: null, nbSousSols: cur > 0 ? cur : 1 });
+    } else {
+      updateConfig(idx, { sousSolId: value });
+    }
+  };
+
   // Commit + contrôle d'unicité de la lettre (insensible à la casse)
   const commitLettre = (idx, raw) => {
     const value = String(raw || "").trim().toUpperCase().slice(0, 2);
@@ -590,6 +605,8 @@ function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChan
       {buildings.map((b, idx) => {
         const attachedId = getSousSolIdFromConfig(b.config);
         const attachedSs = attachedId ? sousSolsCommuns.find(s => s.id === attachedId) : null;
+        // Valeur du menu Sous-sol : commun rattaché, sinon privé (≥1 niveau) ou aucun (0)
+        const ssChoice = attachedId ? attachedId : (Number(b.config?.nbSousSols) > 0 ? "prive" : "none");
         return (
           <div key={b.id} style={{
             padding: 12, marginBottom: 10,
@@ -626,18 +643,19 @@ function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChan
                 <label style={fieldLabelStyle}>Sous-sol</label>
                 <select
                   className="epj-input"
-                  value={attachedId || ""}
-                  onChange={e => updateConfig(idx, { sousSolId: e.target.value || null })}
+                  value={ssChoice}
+                  onChange={e => setSousSolChoice(idx, e.target.value)}
                 >
-                  <option value="">Privé (propre au bâtiment)</option>
+                  <option value="none">Aucun (pas de sous-sol)</option>
+                  <option value="prive">Privé (propre au bâtiment)</option>
                   {sousSolsCommuns.map(ss => (
                     <option key={ss.id} value={ss.id}>{ss.nom || "Sous-sol commun"}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Nb de sous-sols privés — uniquement si non rattaché à un commun */}
-              {!attachedId && (
+              {/* Nb de niveaux — uniquement pour un sous-sol privé (le 0 = « Aucun » ci-dessus) */}
+              {ssChoice === "prive" && (
                 <div style={{ flex: "1 1 90px" }}>
                   <label style={fieldLabelStyle}>Niveaux S-sol</label>
                   <select
@@ -645,7 +663,7 @@ function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChan
                     value={b.config?.nbSousSols ?? 1}
                     onChange={e => updateConfig(idx, { nbSousSols: Number(e.target.value) })}
                   >
-                    {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                    {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
               )}
