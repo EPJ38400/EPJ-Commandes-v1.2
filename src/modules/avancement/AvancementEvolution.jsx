@@ -14,9 +14,10 @@ const FACTORY_META = {
   placo:     { num: 4, label: "AVANCEMENT PLACO",            color: "#E53935" },
   logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
   communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
+  ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
   controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
 };
-const CAT_ORDER = ["etude", "beton", "divers", "placo", "logements", "communs", "controle"];
+const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
 
 export function AvancementEvolution({ chantier }) {
   const snapshots = chantier.avancementSnapshots || {};
@@ -37,7 +38,7 @@ export function AvancementEvolution({ chantier }) {
   const [activeBuildingId, setActiveBuildingId] = useState(allBuildingIds[0] || "A");
   const [expandedCats, setExpandedCats] = useState(new Set());
 
-  // Libellé d'un bâtiment résolu depuis les snapshots (étiquette figée), fallback id.
+  // Libellé d'une unité (bâtiment ou sous-sol commun) résolu depuis les snapshots
   const unitLabelFor = (id) => {
     for (const m of months) {
       const sb = snapshots[m]?.[id];
@@ -366,9 +367,10 @@ function buildUnifiedCategories(months, snapshots, buildingId) {
     });
   });
 
-  // Transforme en liste ordonnée
-  return CAT_ORDER
-    .filter(id => catMap[id])
+  // Transforme en liste ordonnée (ordre connu, puis catégories inconnues)
+  const known = CAT_ORDER.filter(id => catMap[id]);
+  const extra = Object.keys(catMap).filter(id => !CAT_ORDER.includes(id));
+  return [...known, ...extra]
     .map(id => {
       const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: "#3D3D3D" };
       const tasks = Array.from(catMap[id].tasks.entries())

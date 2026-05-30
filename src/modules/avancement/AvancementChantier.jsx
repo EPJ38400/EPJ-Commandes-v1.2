@@ -13,9 +13,11 @@ import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
 import {
-  getCategoriesForConfig, categoryProgress, overallProgress,
+  getCategoriesForConfig, getCategoriesForSousSol, categoryProgress,
+  overallProgress, overallProgressSousSol,
   DEFAULT_BUILDING_CONFIG, generateTaskId, generateSessionId,
-  totalHoursForTask, totalHoursForBuilding, getBuildingLetter,
+  totalHoursForTask, totalHoursForBuilding,
+  resolveBuildings, getChantierSousSols, getBuildingLetter, getBuildingSousSolId,
 } from "./avancementTasks";
 import {
   currentMonthKey, currentMonthLabel, getValidation,
@@ -52,37 +54,55 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
 
-  // Bâtiments
-  const buildings = useMemo(() => {
-    if (chantier.buildings && chantier.buildings.length > 0) return chantier.buildings;
-    return [{ id: "A", label: "", config: DEFAULT_BUILDING_CONFIG }];
-  }, [chantier.buildings]);
+  // Bâtiments + sous-sols communs = "unités" de suivi
+  const buildings = useMemo(() => resolveBuildings(chantier), [chantier.buildings]);
+  const sousSols = useMemo(() => getChantierSousSols(chantier), [chantier.sousSolsCommuns]);
 
-  const [activeBuildingId, setActiveBuildingId] = useState(buildings[0].id);
+  const units = useMemo(() => ([
+    ...buildings.map(b => ({
+      kind: "batiment",
+      id: b.id,
+      tabLabel: `Bât. ${getBuildingLetter(b)}`,
+      headerLabel: `Bât. ${getBuildingLetter(b)}${b.label ? ` — ${b.label}` : ""}`,
+      config: b.config || DEFAULT_BUILDING_CONFIG,
+      building: b,
+    })),
+    ...sousSols.map(ss => ({
+      kind: "soussol",
+      id: ss.id,
+      tabLabel: `🅿 ${ss.nom || "Sous-sol"}`,
+      headerLabel: `Sous-sol commun — ${ss.nom || "Sous-sol"}`,
+      config: { nbNiveaux: ss.nbNiveaux ?? 1 },
+      ss,
+    })),
+  ]), [buildings, sousSols]);
+
+  const [activeUnitId, setActiveUnitId] = useState(units[0]?.id);
   const [filterArtisanId, setFilterArtisanId] = useState("");
-  const activeBuilding = buildings.find(b => b.id === activeBuildingId) || buildings[0];
+  const activeUnit = units.find(u => u.id === activeUnitId) || units[0];
+
+  // Si l'unité active disparaît (ex. sous-sol supprimé), retombe sur la première
+  useEffect(() => {
+    if (!units.some(u => u.id === activeUnitId)) setActiveUnitId(units[0]?.id);
+  }, [units, activeUnitId]);
 
   const categories = useMemo(
-    () => getCategoriesForConfig(
-      activeBuilding.config || DEFAULT_BUILDING_CONFIG,
-      tasksConfig,
-      chantier.avancementTasksOverride,
-      activeBuilding.id,
-      buildings
-    ),
-    [activeBuilding, tasksConfig, chantier.avancementTasksOverride, buildings]
+    () => activeUnit.kind === "soussol"
+      ? getCategoriesForSousSol(activeUnit.config, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
+      : getCategoriesForConfig(activeUnit.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, activeUnit.id),
+    [activeUnit, tasksConfig, chantier.avancementTasksOverride]
   );
 
   // ─── Progression & sessions d'heures (toujours éditable, le mois courant) ───
   const [localProgress, setLocalProgress] = useState(
-    () => chantier.avancementProgress?.[activeBuilding.id] || {}
+    () => chantier.avancementProgress?.[activeUnit.id] || {}
   );
-  const localSessions = chantier.avancementHoursSessions?.[activeBuilding.id] || {};
-  const legacyHours = chantier.avancementHours?.[activeBuilding.id] || {};
+  const localSessions = chantier.avancementHoursSessions?.[activeUnit.id] || {};
+  const legacyHours = chantier.avancementHours?.[activeUnit.id] || {};
 
   useEffect(() => {
-    setLocalProgress(chantier.avancementProgress?.[activeBuilding.id] || {});
-  }, [activeBuilding.id, chantier.avancementProgress]);
+    setLocalProgress(chantier.avancementProgress?.[activeUnit.id] || {});
+  }, [activeUnit.id, chantier.avancementProgress]);
 
   // Sauvegarde différée pour progress
   const pendingSaveRef = useRef(null);
@@ -95,7 +115,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
       try {
         const allProgress = {
           ...(chantier.avancementProgress || {}),
-          [activeBuildingId]: pendingSaveRef.current,
+          [activeUnit.id]: pendingSaveRef.current,
         };
         await updateDoc(doc(db, "chantiers", chantier.num), { avancementProgress: allProgress });
       } catch (e) { toast("❌ " + e.message); }
@@ -117,10 +137,10 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     };
     try {
       const allSessions = { ...(chantier.avancementHoursSessions || {}) };
-      const buildingSessions = { ...(allSessions[activeBuildingId] || {}) };
+      const buildingSessions = { ...(allSessions[activeUnit.id] || {}) };
       const taskSessions = [...(buildingSessions[taskId] || []), session];
       buildingSessions[taskId] = taskSessions;
-      allSessions[activeBuildingId] = buildingSessions;
+      allSessions[activeUnit.id] = buildingSessions;
       await updateDoc(doc(db, "chantiers", chantier.num), { avancementHoursSessions: allSessions });
       toast(`✓ +${hoursNum}h ajoutées`);
     } catch (e) { toast("❌ " + e.message); }
@@ -130,11 +150,11 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     if (!confirm("Supprimer cette session d'heures ?")) return;
     try {
       const allSessions = { ...(chantier.avancementHoursSessions || {}) };
-      const buildingSessions = { ...(allSessions[activeBuildingId] || {}) };
+      const buildingSessions = { ...(allSessions[activeUnit.id] || {}) };
       const taskSessions = (buildingSessions[taskId] || []).filter(s => s.id !== sessionId);
       if (taskSessions.length === 0) delete buildingSessions[taskId];
       else buildingSessions[taskId] = taskSessions;
-      allSessions[activeBuildingId] = buildingSessions;
+      allSessions[activeUnit.id] = buildingSessions;
       await updateDoc(doc(db, "chantiers", chantier.num), { avancementHoursSessions: allSessions });
       toast("🗑 Session supprimée");
     } catch (e) { toast("❌ " + e.message); }
@@ -146,23 +166,23 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     if (!confirm(`Figer la situation de ${monthLabel} pour ce chantier ?\n\nUn snapshot sera créé pour l'historique et la facturation.`)) return;
     try {
       const snapshot = {};
-      for (const b of buildings) {
-        const cats = getCategoriesForConfig(
-          b.config || DEFAULT_BUILDING_CONFIG,
-          tasksConfig, chantier.avancementTasksOverride, b.id, buildings
-        );
+      // Fige chaque unité : bâtiments + sous-sols communs
+      for (const u of units) {
+        const cats = u.kind === "soussol"
+          ? getCategoriesForSousSol(u.config, tasksConfig, chantier.avancementTasksOverride, u.id)
+          : getCategoriesForConfig(u.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, u.id);
         const catsMap = {};
         cats.forEach(c => { catsMap[c.id] = { tasks: c.tasks }; });
 
-        snapshot[b.id] = {
-          progress:       chantier.avancementProgress?.[b.id] || {},
-          hoursSessions:  chantier.avancementHoursSessions?.[b.id] || {},
-          hours:          chantier.avancementHours?.[b.id] || {}, // rétrocompat v6
+        snapshot[u.id] = {
+          progress:       chantier.avancementProgress?.[u.id] || {},
+          hoursSessions:  chantier.avancementHoursSessions?.[u.id] || {},
+          hours:          chantier.avancementHours?.[u.id] || {}, // rétrocompat v6
           categories:     catsMap,
-          config:         b.config || DEFAULT_BUILDING_CONFIG,
-          // Étiquette figée (lettre du bâtiment au moment du figeage) : l'historique
-          // reste fidèle même si la lettre est renommée plus tard. La clé reste l'id.
-          unitLabel:      activeBuildingLabel(b),
+          config:         u.config || DEFAULT_BUILDING_CONFIG,
+          // Étiquetage autonome (résiste au renommage / suppression ultérieurs)
+          kind:           u.kind,
+          unitLabel:      u.headerLabel,
           frozenAt:       new Date().toISOString(),
           frozenBy:       user?.id || null,
         };
@@ -179,14 +199,14 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
   // ─── Édition des tâches (inchangé) ─────────────────────────
   const saveTasksOverride = async (newCategories) => {
     const override = { ...(chantier.avancementTasksOverride || {}) };
-    const byBuilding = { ...(override[activeBuildingId] || {}) };
+    const byBuilding = { ...(override[activeUnit.id] || {}) };
     const catsMap = { ...(byBuilding.categories || {}) };
     newCategories.forEach(cat => {
       if (cat.generated) return;
       catsMap[cat.id] = { tasks: cat.tasks };
     });
     byBuilding.categories = catsMap;
-    override[activeBuildingId] = byBuilding;
+    override[activeUnit.id] = byBuilding;
     try {
       await updateDoc(doc(db, "chantiers", chantier.num), { avancementTasksOverride: override });
     } catch (e) { toast("❌ " + e.message); }
@@ -254,11 +274,9 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     } catch (e) { toast("❌ " + e.message); }
   };
 
-  const globalPct = overallProgress(
-    activeBuilding.config || DEFAULT_BUILDING_CONFIG, localProgress,
-    tasksConfig, chantier.avancementTasksOverride, activeBuilding.id,
-    buildings,
-  );
+  const globalPct = activeUnit.kind === "soussol"
+    ? overallProgressSousSol(activeUnit.config, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
+    : overallProgress(activeUnit.config || DEFAULT_BUILDING_CONFIG, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id);
   const barColor = globalPct === 100 ? EPJ.green : globalPct >= 60 ? EPJ.blue : globalPct >= 30 ? EPJ.orange : EPJ.gray500;
 
   const totalHours = useMemo(
@@ -374,7 +392,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
       <div className="epj-card" style={{ padding: "14px 16px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontSize: 12, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
-            Avancement global{buildings.length > 1 ? ` — ${activeBuildingLabel(activeBuilding)}` : ""}
+            Avancement global{units.length > 1 ? ` — ${activeUnit.headerLabel}` : ""}
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, color: barColor, fontVariantNumeric: "tabular-nums" }}>{globalPct}%</div>
         </div>
@@ -390,28 +408,46 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
             marginTop: 8, fontSize: 11, color: EPJ.gray500,
             display: "flex", alignItems: "center", gap: 6,
           }}>
-            ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)} h</b> cumulées sur ce bâtiment
+            ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)} h</b> cumulées sur {activeUnit.kind === "soussol" ? "ce sous-sol" : "ce bâtiment"}
           </div>
         )}
       </div>
 
-      {/* Onglets bâtiments */}
-      {buildings.length > 1 && (
+      {/* Onglets unités (bâtiments + sous-sols communs) */}
+      {units.length > 1 && (
         <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
-          {buildings.map(b => (
-            <button key={b.id} onClick={() => setActiveBuildingId(b.id)} style={{
+          {units.map(u => (
+            <button key={u.id} onClick={() => setActiveUnitId(u.id)} style={{
               padding: "8px 14px", borderRadius: 8,
-              border: `1px solid ${activeBuildingId === b.id ? EPJ.gray900 : EPJ.gray200}`,
-              background: activeBuildingId === b.id ? EPJ.gray900 : EPJ.white,
-              color: activeBuildingId === b.id ? "#fff" : EPJ.gray700,
+              border: `1px solid ${activeUnit.id === u.id ? EPJ.gray900 : (u.kind === "soussol" ? `${EPJ.blue}55` : EPJ.gray200)}`,
+              background: activeUnit.id === u.id ? EPJ.gray900 : EPJ.white,
+              color: activeUnit.id === u.id ? "#fff" : (u.kind === "soussol" ? EPJ.blue : EPJ.gray700),
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
             }}>
-              {activeBuildingLabel(b)}
+              {u.tabLabel}
             </button>
           ))}
         </div>
       )}
+
+      {/* Bandeau : bâtiment rattaché à un sous-sol commun */}
+      {activeUnit.kind === "batiment" && getBuildingSousSolId(activeUnit.building) && (() => {
+        const ss = sousSols.find(s => s.id === getBuildingSousSolId(activeUnit.building));
+        return (
+          <div
+            onClick={() => ss && setActiveUnitId(ss.id)}
+            style={{
+              marginBottom: 10, padding: "10px 12px", cursor: ss ? "pointer" : "default",
+              background: `${EPJ.blue}0C`, border: `1px solid ${EPJ.blue}33`,
+              borderRadius: 8, fontSize: 11, color: EPJ.gray700, lineHeight: 1.5,
+            }}
+          >
+            🅿 Sous-sol mutualisé <b>{ss?.nom || "(supprimé)"}</b> — l'avancement du sous-sol est
+            saisi une seule fois.{ss ? " Cliquez ici pour ouvrir l'onglet du sous-sol commun." : ""}
+          </div>
+        );
+      })()}
 
       {/* Filtre artisan */}
       {!editTasksMode && affectedArtisans.length > 0 && (
@@ -997,10 +1033,6 @@ function pillStyle(active, color) {
   };
 }
 
-function activeBuildingLabel(building) {
-  if (building.label) return `Bât. ${getBuildingLetter(building)} — ${building.label}`;
-  return `Bâtiment ${getBuildingLetter(building)}`;
-}
 function formatMonth(ym) {
   const [y, m] = ym.split("-");
   const months = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];

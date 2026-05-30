@@ -9,7 +9,10 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { AvancementChantier } from "./AvancementChantier";
-import { overallProgress, DEFAULT_BUILDING_CONFIG } from "./avancementTasks";
+import {
+  overallProgress, overallProgressSousSol, DEFAULT_BUILDING_CONFIG,
+  resolveBuildings, getChantierSousSols,
+} from "./avancementTasks";
 import {
   isRappelAvancementActif, currentMonthKey, currentMonthLabel,
   isAvancementValide,
@@ -121,10 +124,9 @@ export function AvancementModule({ onExitModule }) {
 }
 
 function ChantierCard({ chantier, tasksConfig, onClick, monthValide }) {
-  // Calcule l'avancement global (moyenne sur tous les bâtiments)
-  const buildings = chantier.buildings && chantier.buildings.length > 0
-    ? chantier.buildings
-    : [{ id: "A", label: "", config: DEFAULT_BUILDING_CONFIG }];
+  // Calcule l'avancement global (moyenne sur toutes les unités : bâtiments + sous-sols communs)
+  const buildings = resolveBuildings(chantier);
+  const sousSols = getChantierSousSols(chantier);
 
   let totalProgress = 0;
   let count = 0;
@@ -133,7 +135,14 @@ function ChantierCard({ chantier, tasksConfig, onClick, monthValide }) {
     totalProgress += overallProgress(
       b.config || DEFAULT_BUILDING_CONFIG, prog,
       tasksConfig, chantier.avancementTasksOverride, b.id,
-      buildings,
+    );
+    count++;
+  });
+  sousSols.forEach(ss => {
+    const prog = chantier.avancementProgress?.[ss.id] || {};
+    totalProgress += overallProgressSousSol(
+      { nbNiveaux: ss.nbNiveaux ?? 1 }, prog,
+      tasksConfig, chantier.avancementTasksOverride, ss.id,
     );
     count++;
   });

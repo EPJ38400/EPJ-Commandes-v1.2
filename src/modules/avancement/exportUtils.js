@@ -42,11 +42,17 @@ function categoriesFromSnapshot(snapshotBuilding) {
     placo:     { num: 4, label: "AVANCEMENT PLACO",            color: "#E53935" },
     logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
     communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
+    ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
     controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
   };
-  const order = ["etude", "beton", "divers", "placo", "logements", "communs", "controle"];
+  const order = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
+  // Ordre connu en premier, puis toute catégorie inconnue (robustesse)
+  const ids = [
+    ...order.filter(id => snapshotBuilding.categories[id]),
+    ...Object.keys(snapshotBuilding.categories).filter(id => !order.includes(id)),
+  ];
   const cats = [];
-  order.forEach(id => {
+  ids.forEach(id => {
     const data = snapshotBuilding.categories[id];
     if (!data) return;
     const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: "#3D3D3D" };

@@ -103,20 +103,16 @@ export const EDITABLE_CATEGORY_IDS = FACTORY_CATEGORIES
   .map(c => c.id);
 
 // ─── Génération BÉTON selon la typologie ───────────────────────
-// v10.E : nouveau paramètre `skipSousSols` qui supprime les sous-sols
-// pour les bâtiments qui ne sont PAS celui qui héberge le sous-sol commun.
-function buildBetonTasks(cfg, skipSousSols = false) {
+function buildBetonTasks(cfg) {
   const tasks = [{ id: "beton-radier", label: "Radier" }];
   const ss = Number(cfg?.nbSousSols || 0);
   const et = Number(cfg?.nbEtages || 0);
   const combles = !!cfg?.combles;
 
-  if (!skipSousSols) {
-    for (let i = ss; i >= 1; i--) {
-      const suffix = ss > 1 ? ` ${i}` : "";
-      tasks.push({ id: `beton-mur-ss${i}`,   label: `Mur Sous-sol${suffix}` });
-      tasks.push({ id: `beton-dalle-ss${i}`, label: `Dalle Sous-sol${suffix}` });
-    }
+  for (let i = ss; i >= 1; i--) {
+    const suffix = ss > 1 ? ` ${i}` : "";
+    tasks.push({ id: `beton-mur-ss${i}`,   label: `Mur Sous-sol${suffix}` });
+    tasks.push({ id: `beton-dalle-ss${i}`, label: `Dalle Sous-sol${suffix}` });
   }
   tasks.push({ id: "beton-mur-rdc",   label: "Mur RDC" });
   tasks.push({ id: "beton-dalle-rdc", label: "Dalle RDC" });
@@ -129,21 +125,62 @@ function buildBetonTasks(cfg, skipSousSols = false) {
 }
 
 // ─── Génération PLACO selon la typologie ───────────────────────
-function buildPlacoTasks(cfg, skipSousSols = false) {
+function buildPlacoTasks(cfg) {
   const tasks = [];
   const ss = Number(cfg?.nbSousSols || 0);
   const et = Number(cfg?.nbEtages || 0);
-  if (!skipSousSols) {
-    for (let i = ss; i >= 1; i--) {
-      const suffix = ss > 1 ? ` ${i}` : "";
-      tasks.push({ id: `placo-ss${i}`, label: `Sous-sol${suffix}` });
-    }
+  for (let i = ss; i >= 1; i--) {
+    const suffix = ss > 1 ? ` ${i}` : "";
+    tasks.push({ id: `placo-ss${i}`, label: `Sous-sol${suffix}` });
   }
   tasks.push({ id: "placo-rdc", label: "RDC" });
   for (let i = 1; i <= et; i++) {
     tasks.push({ id: `placo-r${i}`, label: `R+${i}` });
   }
   return tasks;
+}
+
+// ─── Génération des tâches d'un SOUS-SOL COMMUN ────────────────
+// cfg = { nbNiveaux }
+// Un sous-sol commun ne porte QUE les niveaux de sous-sol :
+// pas de radier (il reste sur le bâtiment), pas de RDC / étages.
+function buildSousSolBetonTasks(cfg) {
+  const tasks = [];
+  const nb = Number(cfg?.nbNiveaux || 0);
+  for (let i = nb; i >= 1; i--) {
+    const suffix = nb > 1 ? ` ${i}` : "";
+    tasks.push({ id: `beton-mur-ss${i}`,   label: `Mur Sous-sol${suffix}` });
+    tasks.push({ id: `beton-dalle-ss${i}`, label: `Dalle Sous-sol${suffix}` });
+  }
+  return tasks;
+}
+function buildSousSolPlacoTasks(cfg) {
+  const tasks = [];
+  const nb = Number(cfg?.nbNiveaux || 0);
+  for (let i = nb; i >= 1; i--) {
+    const suffix = nb > 1 ? ` ${i}` : "";
+    tasks.push({ id: `placo-ss${i}`, label: `Sous-sol${suffix}` });
+  }
+  return tasks;
+}
+
+// Équipement d'un sous-sol commun (catégorie éditable par chantier)
+export const SOUSSOL_EQUIP_TASKS = [
+  { id: "ssequip-1", label: "Chemin de câble" },
+  { id: "ssequip-2", label: "Éclairage / Lustrerie" },
+  { id: "ssequip-3", label: "Bloc secours (BAES)" },
+  { id: "ssequip-4", label: "Équipement box / garage" },
+  { id: "ssequip-5", label: "Détection / commande" },
+  { id: "ssequip-6", label: "Essai + Contrôle qualité" },
+];
+
+// Catégories d'un sous-sol commun : béton + placo (générés) + équipement (éditable)
+function buildSousSolCategories(cfg) {
+  return [
+    { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: "#6B6B6B", generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
+    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: "#E53935", generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
+    { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: "#00A3E0", generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
+  ];
 }
 
 // ─── Fusion FACTORY + MODÈLE GLOBAL ─────────────────────────────
@@ -180,25 +217,16 @@ function mergeWithChantierOverride(categories, chantierOverride, buildingId) {
 // tasksConfig = modèle global depuis Firestore
 // chantierOverride = chantier.avancementTasksOverride
 // buildingId = "A" / "B" / "C"... (pour cibler l'override)
-//
-// v10.E — buildings = liste complète des bâtiments du chantier (optionnelle).
-// Si un autre bâtiment est marqué "sousSolCommun", alors le bâtiment courant
-// (s'il n'est PAS celui-ci) ne doit pas afficher de sous-sols dans béton/placo.
-export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, buildings) {
-  // Détermine si on doit masquer les sous-sols pour CE bâtiment
-  let skipSousSols = false;
-  if (Array.isArray(buildings) && buildings.length > 1) {
-    const commun = buildings.find(b => b?.config?.sousSolCommun === true);
-    if (commun && commun.id !== buildingId) {
-      // Un autre bâtiment porte le sous-sol commun → pas de sous-sols ici
-      skipSousSols = true;
-    }
-  }
+export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId) {
+  // Bâtiment rattaché à un sous-sol commun : ses tâches de sous-sol privées sont
+  // MASQUÉES (nbSousSols forcé à 0 pour la génération uniquement). nbSousSols n'est
+  // jamais muté en base, donc l'opération est réversible au détachement.
+  const genCfg = getSousSolIdFromConfig(cfg) != null ? { ...cfg, nbSousSols: 0 } : cfg;
 
   // 1. FACTORY (génère les tâches dynamiques)
   let cats = FACTORY_CATEGORIES.map(cat => {
-    if (cat.generated === "beton") return { ...cat, tasks: buildBetonTasks(cfg, skipSousSols) };
-    if (cat.generated === "placo") return { ...cat, tasks: buildPlacoTasks(cfg, skipSousSols) };
+    if (cat.generated === "beton") return { ...cat, tasks: buildBetonTasks(genCfg) };
+    if (cat.generated === "placo") return { ...cat, tasks: buildPlacoTasks(genCfg) };
     return cat;
   });
 
@@ -211,6 +239,15 @@ export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, build
   return cats;
 }
 
+// ─── Catégories d'un SOUS-SOL COMMUN (unité de suivi autonome) ──
+// cfg = { nbNiveaux } ; ssId = clé de l'unité (override / progress keyés dessus)
+export function getCategoriesForSousSol(cfg, tasksConfig, chantierOverride, ssId) {
+  let cats = buildSousSolCategories(cfg);
+  cats = mergeWithGlobalModel(cats, tasksConfig);
+  cats = mergeWithChantierOverride(cats, chantierOverride, ssId);
+  return cats;
+}
+
 // ─── Pour l'édition du modèle global ─────────────────────────────
 // Retourne les catégories éditables avec leurs tâches (après modèle global)
 export function getEditableCategoriesForModel(tasksConfig) {
@@ -220,8 +257,8 @@ export function getEditableCategoriesForModel(tasksConfig) {
 
 // ─── Pour l'édition par chantier ─────────────────────────────────
 // Retourne TOUTES les catégories (éditables + générées en read-only)
-export function getCategoriesForChantierEdit(cfg, tasksConfig, chantierOverride, buildingId, buildings) {
-  return getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, buildings);
+export function getCategoriesForChantierEdit(cfg, tasksConfig, chantierOverride, buildingId) {
+  return getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId);
 }
 
 // ─── Calculs ────────────────────────────────────────────────────
@@ -235,8 +272,7 @@ export function categoryProgress(category, progressData) {
   return count > 0 ? Math.round(sum / count) : 0;
 }
 
-export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId, buildings) {
-  const cats = getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, buildings);
+function overallFromCats(cats, progressData) {
   let sum = 0, count = 0;
   for (const cat of cats) {
     for (const t of cat.tasks) {
@@ -247,9 +283,25 @@ export function overallProgress(cfg, progressData, tasksConfig, chantierOverride
   return count > 0 ? Math.round(sum / count) : 0;
 }
 
+export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId) {
+  return overallFromCats(
+    getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId),
+    progressData,
+  );
+}
+
+export function overallProgressSousSol(cfg, progressData, tasksConfig, chantierOverride, ssId) {
+  return overallFromCats(
+    getCategoriesForSousSol(cfg, tasksConfig, chantierOverride, ssId),
+    progressData,
+  );
+}
+
 export const DEFAULT_BUILDING_CONFIG = {
-  nbSousSols: 1, nbEtages: 3, combles: false, sousSolCommun: false,
+  nbSousSols: 1, nbEtages: 3, combles: false,
 };
+
+export const DEFAULT_SOUSSOL_CONFIG = { nbNiveaux: 1 };
 
 // ─── Lettre / id technique de bâtiment ──────────────────────────
 // On découple l'id technique (clé STABLE de stockage de l'avancement,
@@ -261,6 +313,29 @@ export function getBuildingLetter(building) {
 // id technique stable pour un nouveau bâtiment (la lettre, elle, reste libre/éditable)
 export function generateBuildingId() {
   return `bat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// ─── Helpers sous-sol commun ───────────────────────────────────
+// sousSolId reste un SCALAIRE en V1. Passer systématiquement par ce helper
+// permettra de le faire évoluer vers un tableau plus tard sans toucher aux appelants.
+export function getSousSolIdFromConfig(config) {
+  const v = config?.sousSolId;
+  return v == null ? null : v;
+}
+export function getBuildingSousSolId(building) {
+  return getSousSolIdFromConfig(building?.config);
+}
+export function getChantierSousSols(chantier) {
+  return Array.isArray(chantier?.sousSolsCommuns) ? chantier.sousSolsCommuns : [];
+}
+// Liste des bâtiments d'un chantier, avec le bâtiment "A" par défaut si aucun
+export function resolveBuildings(chantier) {
+  return chantier?.buildings && chantier.buildings.length > 0
+    ? chantier.buildings
+    : [{ id: "A", lettre: "A", label: "", config: DEFAULT_BUILDING_CONFIG }];
+}
+export function generateSousSolId() {
+  return `ss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 // ─── Génère un ID unique pour une nouvelle tâche ────────────────

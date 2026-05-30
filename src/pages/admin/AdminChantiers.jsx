@@ -12,7 +12,10 @@ import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
-import { generateBuildingId, getBuildingLetter } from "../../modules/avancement/avancementTasks";
+import {
+  generateBuildingId, generateSousSolId, getBuildingLetter,
+  getSousSolIdFromConfig, DEFAULT_SOUSSOL_CONFIG,
+} from "../../modules/avancement/avancementTasks";
 
 // v2.0.1 — Seuls Admin/Direction/Assistante peuvent marquer un chantier "Terminé".
 const ROLES_CAN_MARK_TERMINE = ["Admin", "Direction", "Assistante"];
@@ -48,7 +51,8 @@ export function AdminChantiers({ onBack }) {
       num: "", nom: "", adresse: "", statut: "Actif",
       conducteurId: "", chefChantierIds: [], monteurIds: [], artisanIds: [],
       dateDebut: "", dateFinPrevue: "",
-      buildings: [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
+      buildings: [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false, sousSolId: null } }],
+      sousSolsCommuns: [],
     });
     setEditing("new");
   };
@@ -64,7 +68,8 @@ export function AdminChantiers({ onBack }) {
       dateDebut: ch.dateDebut || "", dateFinPrevue: ch.dateFinPrevue || "",
       buildings: ch.buildings && ch.buildings.length > 0
         ? ch.buildings
-        : [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
+        : [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false, sousSolId: null } }],
+      sousSolsCommuns: Array.isArray(ch.sousSolsCommuns) ? ch.sousSolsCommuns : [],
     });
     setEditing(ch.num);
   };
@@ -86,6 +91,25 @@ export function AdminChantiers({ onBack }) {
       toast("❌ N° affaire et nom du chantier requis");
       return;
     }
+    // Normalisation additive : matérialise lettre (= id par défaut) et config.sousSolId (= null)
+    // sans rien changer au comportement existant.
+    const rawBuildings = form.buildings && form.buildings.length > 0
+      ? form.buildings
+      : [{ id: "A", lettre: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false, sousSolId: null } }];
+    const normBuildings = rawBuildings.map(b => ({
+      ...b,
+      lettre: (b.lettre || b.id || "A"),
+      config: { ...(b.config || {}), sousSolId: getSousSolIdFromConfig(b.config) },
+    }));
+    // Garde-fou unicité des lettres (insensible à la casse)
+    const lettresVues = new Set();
+    for (const b of normBuildings) {
+      const key = String(b.lettre).trim().toLowerCase();
+      if (!key) { toast("❌ Chaque bâtiment doit avoir une lettre"); return; }
+      if (lettresVues.has(key)) { toast(`❌ Lettre de bâtiment en double : « ${b.lettre} »`); return; }
+      lettresVues.add(key);
+    }
+    const normSousSols = Array.isArray(form.sousSolsCommuns) ? form.sousSolsCommuns : [];
     setSaving(true);
     try {
       const conducteur = users.find(u => u.id === form.conducteurId);
@@ -99,12 +123,13 @@ export function AdminChantiers({ onBack }) {
         monteurIds: form.monteurIds || [],
         artisanIds: form.artisanIds || [],
         dateDebut: form.dateDebut || "", dateFinPrevue: form.dateFinPrevue || "",
-        buildings: form.buildings || [{ id: "A", label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } }],
+        buildings: normBuildings,
+        sousSolsCommuns: normSousSols,
       };
-      // merge:true → préserve impérativement les champs d'avancement absents du
-      // payload (avancementProgress, avancementSnapshots, avancementHoursSessions,
-      // avancementHours, avancementTasksOverride, avancementArtisans). Sans merge,
-      // éditer un chantier écraserait tout l'avancement saisi et l'historique figé.
+      // merge:true → préserve impérativement les champs d'avancement non présents
+      // dans le payload (avancementProgress, avancementSnapshots, avancementHoursSessions,
+      // avancementTasksOverride, avancementArtisans…). Sans merge, éditer un chantier
+      // écraserait tout l'avancement et l'historique figé.
       await setDoc(doc(db, "chantiers", form.num), payload, { merge: true });
       toast(editing === "new" ? "✓ Chantier créé" : "✓ Chantier mis à jour");
       cancel();
@@ -165,10 +190,12 @@ export function AdminChantiers({ onBack }) {
           </Row>
         </div>
 
-        {/* Bâtiments */}
+        {/* Bâtiments + sous-sols communs */}
         <BuildingsEditor
           buildings={form.buildings || []}
-          onChange={(buildings) => setForm(f => ({ ...f, buildings }))}
+          sousSolsCommuns={form.sousSolsCommuns || []}
+          onChangeBuildings={(buildings) => setForm(f => ({ ...f, buildings }))}
+          onChangeSousSols={(sousSolsCommuns) => setForm(f => ({ ...f, sousSolsCommuns }))}
         />
 
         {/* Affectations */}
@@ -450,7 +477,6 @@ function legacyFindUserByName(fullName, users) {
 }
 
 // ─── Champ "lettre" éditable d'un bâtiment ──────────────────────
-// La lettre est l'affichage (modifiable, unique) ; l'id technique reste stable.
 function LettreInput({ value, onCommit }) {
   const [v, setV] = useState(value);
   useEffect(() => { setV(value); }, [value]);
@@ -472,36 +498,45 @@ function LettreInput({ value, onCommit }) {
   );
 }
 
-// ─── Éditeur de bâtiments (avec config sous-sols/étages/combles) ──
-function BuildingsEditor({ buildings, onChange }) {
+const fieldLabelStyle = {
+  display: "block", fontSize: 10, fontWeight: 600, color: EPJ.gray500,
+  letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4,
+};
+
+// ─── Éditeur de bâtiments + sous-sols communs ───────────────────
+function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChangeSousSols }) {
   const toast = useToast();
 
   const addBuilding = () => {
-    // La clé `id` est générée et STABLE ; on ne calcule que la prochaine lettre libre.
+    // Prochaine lettre libre (la clé `id` est générée et stable)
     const used = new Set(buildings.map(b => getBuildingLetter(b).toUpperCase()));
     let nextLetter = "A";
     for (const c of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
       if (!used.has(c)) { nextLetter = c; break; }
     }
-    onChange([
+    onChangeBuildings([
       ...buildings,
-      { id: generateBuildingId(), lettre: nextLetter, label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false } },
+      { id: generateBuildingId(), lettre: nextLetter, label: "", config: { nbSousSols: 1, nbEtages: 3, combles: false, sousSolId: null } },
     ]);
   };
 
   const removeBuilding = (idx) => {
     if (!confirm(`Retirer le bâtiment ${getBuildingLetter(buildings[idx])} ?\n⚠️ Les données d'avancement de ce bâtiment seront perdues.`)) return;
-    onChange(buildings.filter((_, i) => i !== idx));
+    onChangeBuildings(buildings.filter((_, i) => i !== idx));
   };
 
   const updateBuilding = (idx, changes) => {
     const next = [...buildings];
     next[idx] = { ...next[idx], ...changes };
-    onChange(next);
+    onChangeBuildings(next);
+  };
+  const updateConfig = (idx, changes) => {
+    const next = [...buildings];
+    next[idx] = { ...next[idx], config: { ...next[idx].config, ...changes } };
+    onChangeBuildings(next);
   };
 
-  // Commit + contrôle d'unicité de la lettre (insensible à la casse).
-  // Retourne false → le champ reprend sa valeur précédente.
+  // Commit + contrôle d'unicité de la lettre (insensible à la casse)
   const commitLettre = (idx, raw) => {
     const value = String(raw || "").trim().toUpperCase().slice(0, 2);
     if (!value) { toast("❌ La lettre ne peut pas être vide"); return false; }
@@ -511,26 +546,36 @@ function BuildingsEditor({ buildings, onChange }) {
     return true;
   };
 
-  const updateConfig = (idx, changes) => {
-    const next = [...buildings];
-    next[idx] = { ...next[idx], config: { ...next[idx].config, ...changes } };
-    onChange(next);
+  // ── Sous-sols communs ──
+  const addSousSol = () => {
+    onChangeSousSols([
+      ...sousSolsCommuns,
+      { id: generateSousSolId(), nom: `Sous-sol ${sousSolsCommuns.length + 1}`, nbNiveaux: DEFAULT_SOUSSOL_CONFIG.nbNiveaux },
+    ]);
   };
-
-  // v10.E — A2 : un seul bâtiment à la fois peut porter le sous-sol commun.
-  // Quand on coche un bâtiment, on décoche tous les autres.
-  const setSousSolCommun = (idx, value) => {
-    const next = buildings.map((b, i) => ({
-      ...b,
-      config: {
-        ...b.config,
-        sousSolCommun: i === idx ? value : false,
-      },
-    }));
-    onChange(next);
+  const updateSousSol = (idx, changes) => {
+    const next = [...sousSolsCommuns];
+    next[idx] = { ...next[idx], ...changes };
+    onChangeSousSols(next);
   };
-
-  const hasMultipleBuildings = buildings.length > 1;
+  const removeSousSol = (idx) => {
+    const ss = sousSolsCommuns[idx];
+    const attached = buildings.filter(b => getSousSolIdFromConfig(b.config) === ss.id);
+    const noms = attached.map(b => getBuildingLetter(b)).join(", ");
+    const msg = attached.length > 0
+      ? `Supprimer le sous-sol commun « ${ss.nom || "sans nom"} » ?\n\nIl est rattaché à : ${noms}.\nCes bâtiments repasseront en sous-sols privés (leur avancement de sous-sol privé redeviendra visible). L'historique figé n'est pas modifié.`
+      : `Supprimer le sous-sol commun « ${ss.nom || "sans nom"} » ?`;
+    if (!confirm(msg)) return;
+    // Détache les bâtiments rattachés (sousSolId = null) — réversibilité native
+    if (attached.length > 0) {
+      onChangeBuildings(buildings.map(b =>
+        getSousSolIdFromConfig(b.config) === ss.id
+          ? { ...b, config: { ...b.config, sousSolId: null } }
+          : b
+      ));
+    }
+    onChangeSousSols(sousSolsCommuns.filter((_, i) => i !== idx));
+  };
 
   return (
     <div className="epj-card" style={{ padding: 18, marginBottom: 12 }}>
@@ -542,114 +587,112 @@ function BuildingsEditor({ buildings, onChange }) {
         (incorporation béton, placo). La lettre est modifiable et doit rester unique.
       </div>
 
-      {buildings.map((b, idx) => (
-        <div key={b.id} style={{
-          padding: 12, marginBottom: 10,
-          background: EPJ.gray50, borderRadius: 10,
-          border: `1px solid ${EPJ.gray200}`,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <LettreInput value={getBuildingLetter(b)} onCommit={(v) => commitLettre(idx, v)} />
-            <input
-              className="epj-input"
-              value={b.label || ""}
-              onChange={e => updateBuilding(idx, { label: e.target.value })}
-              placeholder="Nom du bâtiment (optionnel, ex: Entrée A)"
-              style={{ flex: 1 }}
-            />
-            {buildings.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeBuilding(idx)}
-                style={{
-                  background: `${EPJ.red}0D`, color: EPJ.red,
-                  border: `1px solid ${EPJ.red}44`,
-                  borderRadius: 8, padding: "6px 10px",
-                  fontSize: 11, fontWeight: 600,
-                  cursor: "pointer", fontFamily: font.body,
-                }}
-              >🗑</button>
+      {buildings.map((b, idx) => {
+        const attachedId = getSousSolIdFromConfig(b.config);
+        const attachedSs = attachedId ? sousSolsCommuns.find(s => s.id === attachedId) : null;
+        return (
+          <div key={b.id} style={{
+            padding: 12, marginBottom: 10,
+            background: EPJ.gray50, borderRadius: 10,
+            border: `1px solid ${EPJ.gray200}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <LettreInput value={getBuildingLetter(b)} onCommit={(v) => commitLettre(idx, v)} />
+              <input
+                className="epj-input"
+                value={b.label || ""}
+                onChange={e => updateBuilding(idx, { label: e.target.value })}
+                placeholder="Nom du bâtiment (optionnel, ex: Entrée A)"
+                style={{ flex: 1 }}
+              />
+              {buildings.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeBuilding(idx)}
+                  style={{
+                    background: `${EPJ.red}0D`, color: EPJ.red,
+                    border: `1px solid ${EPJ.red}44`,
+                    borderRadius: 8, padding: "6px 10px",
+                    fontSize: 11, fontWeight: 600,
+                    cursor: "pointer", fontFamily: font.body,
+                  }}
+                >🗑</button>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              {/* Sous-sol : privé ou rattaché à un commun */}
+              <div style={{ flex: "1 1 150px" }}>
+                <label style={fieldLabelStyle}>Sous-sol</label>
+                <select
+                  className="epj-input"
+                  value={attachedId || ""}
+                  onChange={e => updateConfig(idx, { sousSolId: e.target.value || null })}
+                >
+                  <option value="">Privé (propre au bâtiment)</option>
+                  {sousSolsCommuns.map(ss => (
+                    <option key={ss.id} value={ss.id}>{ss.nom || "Sous-sol commun"}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Nb de sous-sols privés — uniquement si non rattaché à un commun */}
+              {!attachedId && (
+                <div style={{ flex: "1 1 90px" }}>
+                  <label style={fieldLabelStyle}>Niveaux S-sol</label>
+                  <select
+                    className="epj-input"
+                    value={b.config?.nbSousSols ?? 1}
+                    onChange={e => updateConfig(idx, { nbSousSols: Number(e.target.value) })}
+                  >
+                    {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ flex: "1 1 90px" }}>
+                <label style={fieldLabelStyle}>Étages (R+)</label>
+                <select
+                  className="epj-input"
+                  value={b.config?.nbEtages ?? 3}
+                  onChange={e => updateConfig(idx, { nbEtages: Number(e.target.value) })}
+                >
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <label style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "10px 12px",
+                background: b.config?.combles ? `${EPJ.orange}15` : EPJ.white,
+                border: `1px solid ${b.config?.combles ? EPJ.orange : EPJ.gray200}`,
+                borderRadius: 8, cursor: "pointer",
+                fontSize: 12, fontWeight: 600,
+                color: b.config?.combles ? EPJ.orange : EPJ.gray700,
+                whiteSpace: "nowrap",
+              }}>
+                <input
+                  type="checkbox"
+                  checked={!!b.config?.combles}
+                  onChange={e => updateConfig(idx, { combles: e.target.checked })}
+                  style={{ margin: 0 }}
+                />
+                Combles
+              </label>
+            </div>
+
+            {attachedId && (
+              <div style={{
+                marginTop: 8, fontSize: 11, color: EPJ.gray600, lineHeight: 1.4,
+                background: `${EPJ.blue}0C`, border: `1px solid ${EPJ.blue}33`,
+                borderRadius: 8, padding: "7px 10px",
+              }}>
+                🅿 Sous-sol mutualisé <b>{attachedSs?.nom || "(supprimé)"}</b> — l'avancement
+                du sous-sol est saisi une seule fois sur l'onglet du sous-sol commun.
+              </div>
             )}
           </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <label style={{
-                display: "block", fontSize: 10, fontWeight: 600, color: EPJ.gray500,
-                letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4,
-              }}>Sous-sols</label>
-              <select
-                className="epj-input"
-                value={b.config?.nbSousSols ?? 1}
-                onChange={e => updateConfig(idx, { nbSousSols: Number(e.target.value) })}
-              >
-                {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{
-                display: "block", fontSize: 10, fontWeight: 600, color: EPJ.gray500,
-                letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4,
-              }}>Étages (R+)</label>
-              <select
-                className="epj-input"
-                value={b.config?.nbEtages ?? 3}
-                onChange={e => updateConfig(idx, { nbEtages: Number(e.target.value) })}
-              >
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <label style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "10px 12px",
-              background: b.config?.combles ? `${EPJ.orange}15` : EPJ.white,
-              border: `1px solid ${b.config?.combles ? EPJ.orange : EPJ.gray200}`,
-              borderRadius: 8, cursor: "pointer",
-              fontSize: 12, fontWeight: 600,
-              color: b.config?.combles ? EPJ.orange : EPJ.gray700,
-              whiteSpace: "nowrap",
-            }}>
-              <input
-                type="checkbox"
-                checked={!!b.config?.combles}
-                onChange={e => updateConfig(idx, { combles: e.target.checked })}
-                style={{ margin: 0 }}
-              />
-              Combles
-            </label>
-          </div>
-
-          {/* v10.E — Checkbox "Sous-sol commun" : visible uniquement si plusieurs
-              bâtiments ET ce bâtiment a au moins un sous-sol. Quand cochée :
-              ce bâtiment garde ses sous-sols, les autres bâtiments du chantier
-              n'auront plus de sous-sols dans béton/placo (pour éviter de saisir
-              le même sous-sol enterré plusieurs fois). */}
-          {hasMultipleBuildings && (Number(b.config?.nbSousSols) || 0) > 0 && (
-            <label style={{
-              display: "flex", alignItems: "center", gap: 8,
-              marginTop: 10, padding: "8px 12px",
-              background: b.config?.sousSolCommun ? `${EPJ.blue}15` : EPJ.white,
-              border: `1px solid ${b.config?.sousSolCommun ? EPJ.blue : EPJ.gray200}`,
-              borderRadius: 8, cursor: "pointer",
-              fontSize: 12, fontWeight: 600,
-              color: b.config?.sousSolCommun ? EPJ.blue : EPJ.gray700,
-            }}>
-              <input
-                type="checkbox"
-                checked={!!b.config?.sousSolCommun}
-                onChange={e => setSousSolCommun(idx, e.target.checked)}
-                style={{ margin: 0 }}
-              />
-              <span>
-                Sous-sol commun à tous les bâtiments
-                <div style={{ fontSize: 10, fontWeight: 500, color: EPJ.gray500, marginTop: 2 }}>
-                  Les autres bâtiments n'auront pas de tâches sous-sol
-                </div>
-              </span>
-            </label>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       <button
         type="button"
@@ -663,6 +706,91 @@ function BuildingsEditor({ buildings, onChange }) {
       >
         + Ajouter un bâtiment
       </button>
+
+      {/* ─── Sous-sols communs ─── */}
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${EPJ.gray200}` }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900, marginBottom: 4 }}>
+          Sous-sols communs
+        </div>
+        <div style={{ fontSize: 11, color: EPJ.gray500, marginBottom: 12, lineHeight: 1.5 }}>
+          🅿 Un sous-sol mutualisé (ex. parking) partagé par plusieurs bâtiments.
+          Son avancement est saisi une seule fois et s'applique à tous les bâtiments rattachés.
+        </div>
+
+        {sousSolsCommuns.length === 0 && (
+          <div style={{ fontSize: 11, color: EPJ.gray400, fontStyle: "italic", marginBottom: 10 }}>
+            Aucun sous-sol commun pour ce chantier.
+          </div>
+        )}
+
+        {sousSolsCommuns.map((ss, idx) => {
+          const attached = buildings.filter(b => getSousSolIdFromConfig(b.config) === ss.id);
+          return (
+            <div key={ss.id} style={{
+              padding: 12, marginBottom: 10,
+              background: `${EPJ.blue}08`, borderRadius: 10,
+              border: `1px solid ${EPJ.blue}33`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: EPJ.blue, color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, flexShrink: 0,
+                }}>🅿</div>
+                <input
+                  className="epj-input"
+                  value={ss.nom || ""}
+                  onChange={e => updateSousSol(idx, { nom: e.target.value })}
+                  placeholder="Nom (ex: Parking SS1)"
+                  style={{ flex: 1 }}
+                />
+                <div style={{ flexShrink: 0 }}>
+                  <label style={fieldLabelStyle}>Niveaux</label>
+                  <select
+                    className="epj-input"
+                    value={ss.nbNiveaux ?? 1}
+                    onChange={e => updateSousSol(idx, { nbNiveaux: Number(e.target.value) })}
+                    style={{ width: 70 }}
+                  >
+                    {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeSousSol(idx)}
+                  style={{
+                    alignSelf: "flex-end",
+                    background: `${EPJ.red}0D`, color: EPJ.red,
+                    border: `1px solid ${EPJ.red}44`,
+                    borderRadius: 8, padding: "6px 10px",
+                    fontSize: 11, fontWeight: 600,
+                    cursor: "pointer", fontFamily: font.body,
+                  }}
+                >🗑</button>
+              </div>
+              <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 8 }}>
+                {attached.length > 0
+                  ? `Rattaché à : ${attached.map(b => getBuildingLetter(b)).join(", ")}`
+                  : "Aucun bâtiment rattaché — sélectionnez ce sous-sol dans la liste « Sous-sol » d'un bâtiment."}
+              </div>
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={addSousSol}
+          style={{
+            width: "100%", padding: "10px",
+            background: EPJ.white, border: `1px dashed ${EPJ.blue}66`,
+            borderRadius: 10, cursor: "pointer", fontFamily: font.body,
+            fontSize: 13, fontWeight: 600, color: EPJ.blue,
+          }}
+        >
+          + Créer un sous-sol commun
+        </button>
+      </div>
     </div>
   );
 }
