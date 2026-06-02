@@ -165,8 +165,8 @@ async function runGmailSync(trigger) {
     // pour capter les mails glissés depuis une autre boîte.
     const list = await gmail.users.messages.list({
       userId: "me",
-      q: "in:inbox newer_than:30d",
-      maxResults: 50,
+      q: "in:inbox",
+      maxResults: 100,
     });
     for (const m of (list.data.messages || [])) {
       if (!collected.has(m.id)) collected.set(m.id, m);
