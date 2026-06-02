@@ -257,12 +257,10 @@ async function processMail(gmail, gmailId) {
   // exécuté (download fait + écriture Firestore pas faite). Toute erreur est
   // remontée comme "erreur" sans planter le cycle complet.
   try {
-    const full = await gmail.users.messages.get({
-      userId: "me", id: gmailId, format: "full",
-    });
-    const msg = full.data;
-
-    // ─── 1. Dédup AVANT tout (ne pas faire d'I/O coûteuse en doublon) ───
+    // ─── 1. Dédup AVANT tout I/O coûteux (n'a besoin que du gmailId) ───
+    // Critique pour le resync complet (~500 mails) : sans ce court-circuit
+    // en tête, chaque mail déjà connu déclencherait un messages.get complet
+    // → risque de timeout 300s → reset historyId jamais atteint → boucle.
     const existing = await db.collection(COLLECTION_MAILS)
       .where("gmailId", "==", gmailId).limit(1).get();
     if (!existing.empty) return "deja_traite";
@@ -270,16 +268,22 @@ async function processMail(gmail, gmailId) {
       .where("gmailId", "==", gmailId).limit(1).get();
     if (!existingAClasser.empty) return "deja_traite";
 
-    // ─── 2. Parser le mail (gratuit, en mémoire) ───
+    // ─── 2. Récupérer le mail complet (coûteux : uniquement si nouveau) ───
+    const full = await gmail.users.messages.get({
+      userId: "me", id: gmailId, format: "full",
+    });
+    const msg = full.data;
+
+    // ─── 3. Parser le mail (gratuit, en mémoire) ───
     const parsed = parseGmailMessage(msg);
 
-    // ─── 3. Rattachement déterministe AVANT téléchargement PJ ───
+    // ─── 4. Rattachement déterministe AVANT téléchargement PJ ───
     // v1.18.2 — On déplace le rattachement AVANT downloadAttachments.
     // Comme ça, si le rattachement plante (ex: index manquant), on n'a
     // PAS gaspillé de Storage. Le cycle suivant retentera proprement.
     const match = await tryRattachementDeterministe(parsed, msg.threadId);
 
-    // ─── 4. Téléchargement des PJ (path déterministe : pas de doublons) ───
+    // ─── 5. Téléchargement des PJ (path déterministe : pas de doublons) ───
     const piecesJointes = await downloadAttachments(gmail, gmailId, msg.payload);
 
     const mailDoc = {
@@ -302,7 +306,7 @@ async function processMail(gmail, gmailId) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // ─── 5. Écriture Firestore selon rattachement trouvé ou non ───
+    // ─── 6. Écriture Firestore selon rattachement trouvé ou non ───
     if (match) {
       await db.collection(COLLECTION_MAILS).add({
         ...mailDoc,
