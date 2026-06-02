@@ -3,7 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo, useEffect } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { db } from "../../firebase";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { app, db } from "../../firebase";
 import { EPJ, font } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -13,6 +14,8 @@ import {
   RESERVE_STATUTS, RESERVE_PRIORITES,
   formatDate, isReserveEnRetard, isRdvEnRetard,
 } from "./reservesUtils";
+
+const fnForceSyncGmail = httpsCallable(getFunctions(app, "europe-west1"), "forceSyncGmail");
 
 export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitModule }) {
   const { user } = useAuth();
@@ -36,6 +39,34 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
   const viewScope = can(user, "reserves-quitus", "view", rolesConfig);
   const canCreate = !!can(user, "reserves-quitus", "create", rolesConfig);
   const canSeeAll = viewScope === "all";
+
+  // ─── Brique mail : "Forcer le sync" — Admin + Direction uniquement ──
+  // can(...,"validate") === "all" cible exactement Admin et Direction
+  // (les autres rôles ont validate=false ou un scope "own_chantiers").
+  const canForceSync = can(user, "reserves-quitus", "validate", rolesConfig) === "all";
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  const handleForceSync = async () => {
+    setSyncBusy(true);
+    setSyncMsg("");
+    try {
+      const { data } = await fnForceSyncGmail();
+      if (data?.skipped) {
+        setSyncMsg(data.skipped === "inactif" ? "Aspiration désactivée (config)." : "Config mail absente.");
+      } else {
+        const n = data?.nbNouveaux ?? 0;
+        setSyncMsg(
+          (n === 0 ? "Sync OK — aucun nouveau mail." : `Sync OK — ${n} mail(s) ramené(s).`) +
+          (data?.fullResync ? " (resync complet)" : "")
+        );
+      }
+    } catch (e) {
+      setSyncMsg(`Échec : ${e?.message || "erreur inconnue"}`);
+    } finally {
+      setSyncBusy(false);
+    }
+  };
 
   // Défaut intelligent selon le rôle (v10.A.3)
   // Les rôles "pilotage" voient par défaut TOUT, les rôles "terrain"
@@ -171,6 +202,41 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
             {nbMailsAClasser}
           </span>
         </button>
+      )}
+
+      {/* ─── Forcer le sync mails SAV — Admin + Direction ─── */}
+      {canForceSync && (
+        <div style={{ marginBottom: 12 }}>
+          <button
+            onClick={handleForceSync}
+            disabled={syncBusy}
+            className="epj-btn"
+            style={{
+              width: "100%",
+              background: "#EEF2FF",
+              color: EPJ.blue,
+              border: `1px solid ${EPJ.blue}`,
+              fontSize: 13,
+              padding: "10px 14px",
+              fontFamily: font.body,
+              fontWeight: 600,
+              opacity: syncBusy ? 0.6 : 1,
+              cursor: syncBusy ? "default" : "pointer",
+            }}
+          >
+            {syncBusy ? "⏳ Synchronisation…" : "🔄 Forcer le sync mails"}
+          </button>
+          {syncMsg && (
+            <div style={{
+              marginTop: 6,
+              fontSize: 12,
+              color: EPJ.gray500,
+              fontFamily: font.body,
+            }}>
+              {syncMsg}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Bannière retards */}
