@@ -169,7 +169,7 @@ export {
 // Aspire la boîte sav@epj-electricite.com toutes les 2 minutes,
 // rattache automatiquement les mails aux réserves, et envoie les
 // mails sortants depuis l'app via Gmail API.
-export { gmailPoll } from "./gmailPoll.js";
+export { gmailPoll, forceSyncGmail } from "./gmailPoll.js";
 export { gmailSend } from "./gmailSend.js";
 
 // ─── Labels Gmail automatiques — v1.18.0 ──────────────────────

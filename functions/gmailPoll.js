@@ -19,6 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import admin from "firebase-admin";
 import { google } from "googleapis";
@@ -34,6 +35,9 @@ const GMAIL_CLIENT_ID = defineSecret("GMAIL_CLIENT_ID");
 const GMAIL_CLIENT_SECRET = defineSecret("GMAIL_CLIENT_SECRET");
 const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+// Secrets partagés entre la tâche planifiée (gmailPoll) et la callable (forceSyncGmail).
+const GMAIL_SECRETS = [GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, ANTHROPIC_API_KEY];
 
 // L'URI de redirection est constante et non sensible : pas besoin de secret.
 const GMAIL_REDIRECT_URI = "https://developers.google.com/oauthplayground";
@@ -51,6 +55,164 @@ const CLAUDE_MODEL_BROUILLON = "claude-sonnet-4-6";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
+// ─── Client Gmail OAuth (factorisé) ─────────────────────────
+function buildGmailClient() {
+  const oauth2Client = new google.auth.OAuth2(
+    GMAIL_CLIENT_ID.value(),
+    GMAIL_CLIENT_SECRET.value(),
+    GMAIL_REDIRECT_URI,
+  );
+  oauth2Client.setCredentials({ refresh_token: GMAIL_REFRESH_TOKEN.value() });
+  return google.gmail({ version: "v1", auth: oauth2Client });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Cœur de synchronisation — partagé par gmailPoll (planifié) et
+//  forceSyncGmail (callable). Renvoie le bilan chiffré du cycle.
+//
+//  Stratégie de collecte :
+//    • History API incrémentale depuis dernierHistoryId (chemin normal).
+//    • Si l'historyId est périmé/invalide (Gmail renvoie 404) OU si aucun
+//      historyId n'est connu → BASCULEMENT sur un resync complet paginé
+//      (messages.list large), seule façon de se réparer après un trou de
+//      plusieurs jours. Le basculement est loggé explicitement.
+//    • Dans tous les cas, dédup par gmailId (Map) + processMail revérifie
+//      l'existence en base → idempotent, jamais de doublon d'aspiration.
+//    • dernierHistoryId est systématiquement réinitialisé sur le historyId
+//      courant de la boîte en fin de cycle → le cycle suivant repart propre.
+// ═══════════════════════════════════════════════════════════════
+async function runGmailSync(trigger) {
+  console.log(`[gmailSync] démarrage (trigger=${trigger})`);
+
+  // 1. Charger la config
+  const configRef = db.collection(COLLECTION_CONFIG).doc(CONFIG_DOC);
+  const configSnap = await configRef.get();
+  if (!configSnap.exists) {
+    console.warn("[gmailSync] config absente (gmailConfig/main), abandon");
+    return { skipped: "config_absente", nbNouveaux: 0, nbRattaches: 0, nbAClasser: 0, nbErreurs: 0, fullResync: false };
+  }
+  const config = configSnap.data();
+  if (config.actif === false) {
+    console.log("[gmailSync] désactivé via config.actif=false, abandon");
+    return { skipped: "inactif", nbNouveaux: 0, nbRattaches: 0, nbAClasser: 0, nbErreurs: 0, fullResync: false };
+  }
+
+  // 2. Authentification OAuth Gmail
+  const gmail = buildGmailClient();
+
+  // 3. Collecter les nouveaux messages (gmailId -> message)
+  const collected = new Map();
+  let fullResync = false;
+
+  // a) History API incrémentale
+  if (config.dernierHistoryId) {
+    try {
+      let pageToken;
+      do {
+        const history = await gmail.users.history.list({
+          userId: "me",
+          startHistoryId: config.dernierHistoryId,
+          historyTypes: ["messageAdded"],
+          pageToken,
+        });
+        const fromHistory = (history.data.history || [])
+          .flatMap(h => (h.messagesAdded || []).map(ma => ma.message))
+          .filter(m => m.labelIds?.includes("INBOX"));
+        for (const m of fromHistory) collected.set(m.id, m);
+        pageToken = history.data.nextPageToken;
+      } while (pageToken);
+    } catch (e) {
+      const status = e?.code ?? e?.response?.status;
+      if (status === 404) {
+        // historyId périmé/invalide : seule sortie correcte = resync complet.
+        // C'est exactement le no-op silencieux qui avait gelé l'aspiration.
+        fullResync = true;
+        console.warn(`[gmailSync] historyId ${config.dernierHistoryId} périmé/invalide (404) → BASCULEMENT resync complet`);
+      } else {
+        console.warn("[gmailSync] History API en échec (non-404), on continue:", e.message);
+      }
+    }
+  } else {
+    fullResync = true;
+    console.log("[gmailSync] aucun dernierHistoryId connu → resync complet initial");
+  }
+
+  // b) Collecte selon le mode
+  if (fullResync) {
+    // Resync complet paginé : large (60j > trou possible), exclut le sortant.
+    // Pas de filtre in:inbox volontairement → rattrape aussi les mails déjà
+    // archivés (lus/glissés par le client IMAP) depuis l'arrêt de l'aspiration.
+    let pageToken;
+    let scanned = 0;
+    const MAX_RESYNC = 500;
+    do {
+      const list = await gmail.users.messages.list({
+        userId: "me",
+        q: "newer_than:60d -in:sent -in:draft -in:chats",
+        maxResults: 100,
+        pageToken,
+      });
+      const batch = list.data.messages || [];
+      for (const m of batch) {
+        if (!collected.has(m.id)) collected.set(m.id, m);
+      }
+      scanned += batch.length;
+      pageToken = list.data.nextPageToken;
+    } while (pageToken && scanned < MAX_RESYNC);
+    console.log(`[gmailSync] resync complet : ${scanned} messages scannés (cap ${MAX_RESYNC})`);
+  } else {
+    // Chemin normal : listing INBOX léger en complément de l'History API,
+    // pour capter les mails glissés depuis une autre boîte.
+    const list = await gmail.users.messages.list({
+      userId: "me",
+      q: "in:inbox newer_than:30d",
+      maxResults: 50,
+    });
+    for (const m of (list.data.messages || [])) {
+      if (!collected.has(m.id)) collected.set(m.id, m);
+    }
+  }
+
+  const messages = Array.from(collected.values());
+  console.log(`[gmailSync] ${messages.length} mails à traiter (fullResync=${fullResync})`);
+
+  // 4. Traiter chaque mail (processMail est idempotent : dédup par gmailId)
+  let nbRattaches = 0;
+  let nbAClasser = 0;
+  let nbNouveaux = 0;        // compte UNIQUEMENT les nouveaux mails effectivement traités
+  let nbDejaTraites = 0;
+  let nbErreurs = 0;
+  for (const msg of messages) {
+    try {
+      const result = await processMail(gmail, msg.id);
+      if (result === "rattache") { nbRattaches++; nbNouveaux++; }
+      else if (result === "a_classer") { nbAClasser++; nbNouveaux++; }
+      else if (result === "deja_traite") { nbDejaTraites++; }
+      else if (result === "erreur") { nbErreurs++; }
+    } catch (e) {
+      console.error(`[gmailSync] erreur sur mail ${msg.id}:`, e.message);
+      nbErreurs++;
+    }
+  }
+
+  // 5. Mettre à jour la config (reset historyId sur le historyId courant)
+  const profile = await gmail.users.getProfile({ userId: "me" });
+  await configRef.update({
+    dernierHistoryId: String(profile.data.historyId),
+    derniereSync: admin.firestore.FieldValue.serverTimestamp(),
+    statsAspires: admin.firestore.FieldValue.increment(nbNouveaux),
+    statsRattachesAuto: admin.firestore.FieldValue.increment(nbRattaches),
+    statsAClasser: admin.firestore.FieldValue.increment(nbAClasser),
+    derniereSyncTrigger: trigger,
+    derniereSyncFullResync: fullResync,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`[gmailSync] terminé : ${nbNouveaux} nouveaux (${nbRattaches} rattachés, ${nbAClasser} à classer), ${nbDejaTraites} déjà traités ignorés, ${nbErreurs} erreurs, fullResync=${fullResync}`);
+
+  return { nbNouveaux, nbRattaches, nbAClasser, nbErreurs, nbDejaTraites, fullResync };
+}
+
 // ─── Cloud Function : déclenchée toutes les 2 minutes ────────
 export const gmailPoll = onSchedule(
   {
@@ -58,118 +220,32 @@ export const gmailPoll = onSchedule(
     timeoutSeconds: 300,
     memory: "512MiB",
     region: "europe-west1",
-    secrets: [GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, ANTHROPIC_API_KEY],
+    secrets: GMAIL_SECRETS,
   },
   async () => {
-    console.log("[gmailPoll v1.13.0] démarrage");
+    await runGmailSync("schedule");
+  }
+);
 
-    // 1. Charger la config
-    const configSnap = await db.collection(COLLECTION_CONFIG).doc(CONFIG_DOC).get();
-    if (!configSnap.exists) {
-      console.warn("[gmailPoll] config absente (gmailConfig/main), abandon");
-      return;
+// ─── Callable : "Forcer le sync" depuis l'UI (Admin + Direction) ──
+// Même logique robuste que la tâche planifiée. Renvoie le nb de mails ramenés.
+export const forceSyncGmail = onCall(
+  {
+    region: "europe-west1",
+    timeoutSeconds: 300,
+    memory: "512MiB",
+    secrets: GMAIL_SECRETS,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Vous devez être connecté.");
     }
-    const config = configSnap.data();
-    if (config.actif === false) {
-      console.log("[gmailPoll] désactivé via config.actif=false, abandon");
-      return;
+    const role = request.auth.token?.role;
+    if (role !== "Admin" && role !== "Direction") {
+      throw new HttpsError("permission-denied", "Réservé à l'administration et à la direction.");
     }
-
-    // 2. Authentification OAuth Gmail
-    const oauth2Client = new google.auth.OAuth2(
-      GMAIL_CLIENT_ID.value(),
-      GMAIL_CLIENT_SECRET.value(),
-      GMAIL_REDIRECT_URI,
-    );
-    oauth2Client.setCredentials({
-      refresh_token: GMAIL_REFRESH_TOKEN.value(),
-    });
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
-
-    // 3. Récupérer les nouveaux messages
-    //    Stratégie hybride :
-    //      a) History API depuis dernierHistoryId : capte les mails entrants standards
-    //      b) Listing INBOX en parallèle : capte AUSSI les mails déplacés/glissés
-    //         depuis une autre boîte (qui peuvent ne pas apparaître en History si
-    //         le client mail les écrit déjà comme lus)
-    //      c) Déduplication par gmailId avant traitement
-    let messages = [];
-    try {
-      const collected = new Map(); // gmailId -> message
-
-      // a) History API (détection incrémentale standard)
-      if (config.dernierHistoryId) {
-        try {
-          const history = await gmail.users.history.list({
-            userId: "me",
-            startHistoryId: config.dernierHistoryId,
-            historyTypes: ["messageAdded"],
-          });
-          const fromHistory = (history.data.history || [])
-            .flatMap(h => (h.messagesAdded || []).map(ma => ma.message))
-            .filter(m => m.labelIds?.includes("INBOX"));
-          for (const m of fromHistory) collected.set(m.id, m);
-        } catch (e) {
-          // History peut renvoyer 404 si dernierHistoryId est trop vieux (>30j)
-          // ou si l'historyId n'est plus valide. On continue avec le fallback.
-          console.warn("[gmailPoll] History API a échoué (probable historyId trop vieux), fallback sur listing:", e.message);
-        }
-      }
-
-      // b) Listing INBOX (capture les mails glissés depuis une autre boîte)
-      //    On scanne les 50 derniers mails de la boîte de réception (30j max)
-      //    pour ne pas rater ceux que History n'a pas vus.
-      const list = await gmail.users.messages.list({
-        userId: "me",
-        q: "in:inbox newer_than:30d",
-        maxResults: 50,
-      });
-      for (const m of (list.data.messages || [])) {
-        if (!collected.has(m.id)) collected.set(m.id, m);
-      }
-
-      messages = Array.from(collected.values());
-    } catch (e) {
-      console.error("[gmailPoll] erreur lecture Gmail:", e.message);
-      throw e;
-    }
-
-    console.log(`[gmailPoll] ${messages.length} mails à traiter`);
-
-    // 4. Traiter chaque mail
-    let nbRattaches = 0;
-    let nbAClasser = 0;
-    let nbNouveaux = 0;        // v1.18.2 — compte UNIQUEMENT les nouveaux mails effectivement traités
-    let nbDejaTraites = 0;     // pour debug (logs uniquement)
-    let nbErreurs = 0;         // pour debug
-    for (const msg of messages) {
-      try {
-        const result = await processMail(gmail, msg.id);
-        if (result === "rattache") { nbRattaches++; nbNouveaux++; }
-        else if (result === "a_classer") { nbAClasser++; nbNouveaux++; }
-        else if (result === "deja_traite") { nbDejaTraites++; }
-        else if (result === "erreur") { nbErreurs++; }
-      } catch (e) {
-        console.error(`[gmailPoll] erreur sur mail ${msg.id}:`, e.message);
-        nbErreurs++;
-      }
-    }
-
-    // 5. Mettre à jour la config (historyId + stats + dernière sync)
-    // v1.18.2 — statsAspires n'incrémente QUE pour les vrais nouveaux mails
-    // (auparavant on incrémentait pour TOUT mail listé, ce qui explique le
-    // 902 délirant alors qu'il n'y avait que 2 vrais mails).
-    const profile = await gmail.users.getProfile({ userId: "me" });
-    await db.collection(COLLECTION_CONFIG).doc(CONFIG_DOC).update({
-      dernierHistoryId: String(profile.data.historyId),
-      derniereSync: admin.firestore.FieldValue.serverTimestamp(),
-      statsAspires: admin.firestore.FieldValue.increment(nbNouveaux),
-      statsRattachesAuto: admin.firestore.FieldValue.increment(nbRattaches),
-      statsAClasser: admin.firestore.FieldValue.increment(nbAClasser),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    console.log(`[gmailPoll] terminé : ${nbNouveaux} nouveaux (${nbRattaches} rattachés, ${nbAClasser} à classer), ${nbDejaTraites} déjà traités ignorés, ${nbErreurs} erreurs`);
+    const res = await runGmailSync("manuel");
+    return { ok: true, ...res };
   }
 );
 
