@@ -157,17 +157,28 @@ async function achatHandler({ gmail, message }) {
     let candidats = extractNumeroCandidates(`${parsed.subject} ${parsed.text}`);
     let pdfPart = null;
     let pdfBuffer = null;
+    let pdfTexte = null; // null = PDF jamais lu ; "" ou texte = lu
     if (!candidats.length) {
       pdfPart = findFirstPdfPart(msg.payload);
       if (pdfPart) {
         pdfBuffer = await fetchAttachmentBuffer(gmail, gmailId, pdfPart.body.attachmentId);
-        const pdfText = await safePdfText(pdfBuffer);
-        candidats = extractNumeroCandidates(pdfText);
+        pdfTexte = await safePdfText(pdfBuffer);
+        candidats = extractNumeroCandidates(pdfTexte);
       }
     }
 
-    // 4a. Aucun numero détecté nulle part → pas un mail Esabora → cache terminal
+    // 4a. Aucun numero détecté.
     if (!candidats.length) {
+      // Cas AR scanné/image : PDF présent mais texte ~vide. NE PAS poser de
+      // cache terminal (sinon l'AR est perdu à jamais) → retry au prochain
+      // cycle (le numero pourra venir d'un OCR/texte ultérieur ou du sujet).
+      const pdfIllisible = pdfPart && (pdfTexte || "").replace(/\s/g, "").length < 20;
+      if (pdfIllisible) {
+        console.warn(`[gmailPollAchat] ${gmailId} PDF sans texte exploitable (scanné ?) → retry, pas de cache terminal`);
+        return "pending_pdf_scanne";
+      }
+      // Du texte a bien été lu (sujet/corps et/ou PDF) sans numero → pas notre
+      // mail → cache terminal (stoppe le re-scan inutile).
       await db.collection(COL_CACHE).doc(gmailId).set({
         gmailId, status: "no_numero", sujet: parsed.subject,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -285,21 +296,44 @@ async function runPriceWatch(numero) {
   // Price-watch ligne uniquement si les deux côtés sont présents.
   let nbLignesEnEcart = null;
   if (lignesCommande.length && lignesAR.length) {
-    const cmdByRef = new Map();
+    // Deux index commande : match EXACT (réf brute) prioritaire, fallback
+    // préfixe-tolérant SEULEMENT si non ambigu (sinon deux fabricants au même
+    // numéro nu — SCH 12345 / BLI 12345 → 12345 — produiraient un faux match).
+    const exactMap = new Map();
+    const normMap = new Map();
+    const normAmbigu = new Set();
     for (const l of lignesCommande) {
-      const k = normRef(l.reference);
-      if (k) cmdByRef.set(k, l);
+      const ex = exactRef(l.reference);
+      if (ex) exactMap.set(ex, l);
+      const nr = normRef(l.reference);
+      if (nr) {
+        if (normMap.has(nr)) normAmbigu.add(nr);
+        else normMap.set(nr, l);
+      }
     }
     nbLignesEnEcart = 0;
-    for (const la of lignesAR) {
-      const lc = cmdByRef.get(normRef(la.reference));
+    const idsVus = new Set();
+    for (let i = 0; i < lignesAR.length; i++) {
+      const la = lignesAR[i];
+      // 1) réf exacte ; 2) sinon fallback tolérant uniquement si non ambigu
+      let lc = exactMap.get(exactRef(la.reference));
+      if (!lc) {
+        const nr = normRef(la.reference);
+        if (nr && !normAmbigu.has(nr)) lc = normMap.get(nr);
+      }
       if (!lc) continue;
       const puCmd = numOrNull(lc.prixUnitaireCommande);
       const puAr = numOrNull(la.prixUnitaireAR);
       if (puCmd == null || puAr == null) continue;
       const ecart = round2(puAr - puCmd);
-      const refNorm = normRef(la.reference);
-      const ecartId = `${numero}__${refNorm}`.replace(/\//g, "_").slice(0, 1400);
+      // id basé sur la réf RÉELLE de la ligne AR (jamais la forme normalisée
+      // partagée) → deux réf distinctes ne fusionnent jamais. Anti-collision
+      // résiduelle (même réf 2× dans un AR) via suffixe d'index.
+      const refForId = sanitizeId(exactRef(la.reference) || normRef(la.reference) || `idx${i}`);
+      let ecartId = `${numero}__${refForId}`;
+      if (idsVus.has(ecartId)) ecartId = `${ecartId}__${i}`;
+      idsVus.add(ecartId);
+      ecartId = ecartId.slice(0, 1400);
       if (Math.abs(ecart) > PRIX_EPSILON) {
         nbLignesEnEcart++;
         await db.collection(COL_ECARTS).doc(ecartId).set({
@@ -468,12 +502,25 @@ async function safePdfText(buffer) {
   }
 }
 
-// Normalisation réf : strip préfixe fabricant 3 lettres + espaces, MAJ.
+// Réf EXACTE : MAJ + espaces internes normalisés, SANS retirer le préfixe
+// fabricant → clé de match prioritaire (ne fusionne jamais deux fabricants).
+function exactRef(ref) {
+  if (ref == null) return "";
+  return String(ref).trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+// Réf TOLÉRANTE : strip préfixe fabricant 3 lettres + tous espaces, MAJ →
+// fallback quand l'AR omet le préfixe (SCH S520059 ↔ S520059).
 function normRef(ref) {
   if (ref == null) return "";
   return String(ref).trim().toUpperCase()
     .replace(/^[A-Z]{3}\s+/, "")
     .replace(/\s+/g, "");
+}
+
+// Rend une chaîne sûre comme suffixe d'id Firestore.
+function sanitizeId(s) {
+  return String(s).replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
 function numOrNull(v) {
