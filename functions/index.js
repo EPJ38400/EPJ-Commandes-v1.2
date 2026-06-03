@@ -172,6 +172,12 @@ export {
 export { gmailPoll, forceSyncGmail } from "./gmailPoll.js";
 export { gmailSend } from "./gmailSend.js";
 
+// ─── Module Commande — étape 1 : Pull Esabora ─────────────────
+// Cf. functions/esaboraImport.js
+// Webhook HTTP Zapier (entête commande Esabora) → tri 3 cas →
+// commandesEsabora/{numero}. Sweep planifié reprend les pending.
+export { esaboraWebhook, esaboraSweep } from "./esaboraImport.js";
+
 // ─── Labels Gmail automatiques — v1.18.0 ──────────────────────
 // Cf. functions/gmailLabels.js
 // Quand un mail dans reserveMailsAClasser passe au statut "classe"
