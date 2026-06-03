@@ -19,6 +19,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
 import { AdminPage } from "./pages/admin/AdminPage";
 import { DashboardDirection } from "./pages/DashboardDirection";
+import { CollectionDashboards } from "./pages/CollectionDashboards";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 
 import { CommandesModule } from "./modules/commandes/CommandesModule";
@@ -99,6 +100,7 @@ function Router() {
     if (route === "module:parc-machines")  return "Parc machines";
     if (route === "module:reserves")       return "Réserves & quitus";
     if (route === "dashboard:direction")   return "Dashboard Direction";
+    if (route === "dashboards")            return "Collection Dashboards";
     if (route === "dashboard:conducteur")  return "Dashboard Conducteur";
     if (route === "dashboard:public")      return "Dashboard Public";
     if (route === "admin")                 return "Administration";
@@ -141,7 +143,12 @@ function Router() {
         <HomePage
           onOpenModule={(mod) => setRoute(`module:${mod}`)}
           onOpenDashboard={openBestDashboard}
+          onOpenCollectionDashboards={() => setRoute("dashboards")}
         />
+      )}
+
+      {route === "dashboards" && (
+        <CollectionDashboards onBack={() => setRoute("home")} />
       )}
 
       {route === "module:commandes" && (

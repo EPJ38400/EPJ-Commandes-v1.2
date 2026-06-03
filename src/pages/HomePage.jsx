@@ -8,6 +8,7 @@ import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
 import { can } from "../core/permissions";
+import { canSeeDashboards } from "../core/dashboardsAccess";
 import {
   computeParcNotifications, computeAvancementNotifications,
   isRappelAvancementActif, currentMonthLabel,
@@ -68,7 +69,18 @@ const DASHBOARD_TILE = {
   enabled: true,
 };
 
-export function HomePage({ onOpenModule, onOpenDashboard }) {
+// Collection Dashboards (Module Commande étape 4) — page indépendante,
+// distincte de la tuile "Dashboard" ci-dessus (dashboards direction/public).
+const COLLECTION_DASHBOARDS_TILE = {
+  id: "collection-dashboards",
+  title: "Collection Dashboards",
+  subtitle: "Dashboard achat & pilotage",
+  icon: "🧾",
+  accent: EPJ.blue,
+  enabled: true,
+};
+
+export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashboards }) {
   const { user } = useAuth();
   const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes, featureFlags = {} } = useData();
   if (!user) return null;
@@ -83,9 +95,11 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
     can(user, "_dashboards", "conducteur", rolesConfig) ||
     can(user, "_dashboards", "public", rolesConfig);
 
-  const allTiles = showDashboard
-    ? [...visibleModules, DASHBOARD_TILE]
-    : visibleModules;
+  const allTiles = [
+    ...visibleModules,
+    ...(showDashboard ? [DASHBOARD_TILE] : []),
+    ...(canSeeDashboards(user) ? [COLLECTION_DASHBOARDS_TILE] : []),
+  ];
 
   // ─── Calcul des notifications ───
   const notifications = useMemo(() => {
@@ -511,6 +525,7 @@ export function HomePage({ onOpenModule, onOpenDashboard }) {
               onClick={() => {
                 if (!tile.enabled) return;
                 if (tile.id === "dashboard") onOpenDashboard(user);
+                else if (tile.id === "collection-dashboards") onOpenCollectionDashboards();
                 else onOpenModule(tile.id);
               }}
               isFullWidth={allTiles.length % 2 === 1 && i === allTiles.length - 1}
