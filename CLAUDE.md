@@ -2,7 +2,7 @@
 
 > Ce fichier est lu en premier par tout assistant Claude qui ouvre le repo.
 > Il décrit l'application, son architecture, ses règles de travail et les pièges
-> documentés. À jour au **2026-05-21**.
+> documentés. À jour au **2026-06-03**.
 
 ---
 
@@ -30,20 +30,23 @@
 | Auth          | Firebase Auth (JWT custom claims via `AuthContext.jsx`)      |
 | Base          | Firestore (rules dans `firestore.rules`, indexes idem)       |
 | Storage       | Firebase Storage (rules dans `storage.rules`)                |
-| Mail          | Gmail API (Workspace, boîte `sav@epj-electricite.com`)       |
+| Mail          | Gmail API (Workspace, boîtes `sav@` et `achat@epj-electricite.com`) |
 | Imports       | `xlsx` (catalogues outils, articles)                         |
+| Extraction PDF| `pdf-parse` (détection n° hors-IA, import sous-chemin `pdf-parse/lib/pdf-parse.js`) + Claude Sonnet (extraction AR) |
 | CI/CD         | GitHub Actions (déploiement functions sur push)              |
 
 **Versions clés** (`package.json`) : `firebase ^10.12.0`, `react ^18.2.0`,
-`xlsx ^0.18.5`, `vite ^5.0.0`.
+`xlsx ^0.18.5`, `vite ^5.0.0`. Backend (`functions/package.json`) :
+`googleapis`, `firebase-admin`, `pdf-parse ^1.1.4`.
 
 ### Automatisations & services externes
 
 | Service / Outil       | Usage actuel                                            | Statut       |
 |-----------------------|---------------------------------------------------------|--------------|
-| **Zapier**            | Envoi des commandes vers Esabora                        | ✅ Actif      |
+| **Zapier**            | Bridge Esabora : envoi commandes → Esabora (sortant) **+** push entête « New Order Placed » → Cloud Function `esaboraWebhook` (onRequest, token header `x-epj-token`) | ✅ Actif |
 | **Brevo**             | Envoi de SMS (Cloud Functions → API Brevo)              | ✅ Actif      |
-| **Gmail API**         | Aspiration `sav@` + envoi mails depuis l'app            | ✅ Actif      |
+| **Gmail API**         | Aspiration `sav@` (réserves, inchangée) **+** `achat@` en **LECTURE SEULE** (`gmail.readonly`, sans libellé, lecture directe) via `gmailPollAchat` + envoi mails depuis l'app | ✅ Actif |
+| **Claude API**        | Sonnet (`claude-sonnet-4-6`) pour extraction copie commande + AR ; classement mails sav (`ANTHROPIC_API_KEY`) | ✅ Actif |
 | **Make (Integromat)** | —                                                       | ❌ **ABANDONNÉ** |
 
 > **Make est définitivement abandonné chez EPJ.** Ne jamais le proposer
@@ -84,7 +87,11 @@
 │   ├── gmailLabels.js              ← gestion labels Gmail (FIX 21/05 — cf §10)
 │   ├── gmailPoll.js                ← aspiration mails sav@ (Brique Mail v1.13.0)
 │   ├── gmailSend.js                ← envoi mails depuis l'app
-│   └── package.json                ← deps backend (googleapis, firebase-admin…)
+│   ├── esaboraImport.js            ← Module Commande étape 1 : webhook Zapier → tri commandesEsabora
+│   ├── gmailPollAchat.js           ← Module Commande étape 3 : achat@ → AR + price-watch
+│   ├── lib/
+│   │   └── gmailCore.js            ← cœur Gmail réutilisable (étape 2, boîte-agnostique, factorisé SANS toucher gmailPoll.js)
+│   └── package.json                ← deps backend (googleapis, firebase-admin, pdf-parse…)
 │
 └── src/
     ├── main.jsx                    ← entrée React
@@ -135,20 +142,56 @@ Liste officielle (cf. `src/core/permissions.js` → `MODULES`) :
 
 | # | Nom officiel              | Dossier                          | État réel                                                  |
 |---|---------------------------|----------------------------------|------------------------------------------------------------|
-| 1 | Commandes                 | `src/modules/commandes/`         | ✅ **EN PROD** — fonctionnel, envoi Esabora via Zapier OK   |
+| 1 | Commandes                 | `src/modules/commandes/`         | ✅ **EN PROD** — envoi Esabora via Zapier OK ; extension Esabora/AR back en prod (cf. Module Commande) |
 | 2 | Parc machines             | `src/modules/parc-machines/`     | ✅ **DÉVELOPPÉ** — en attente photos Excel avant usage      |
 | 3 | Avancement chantier       | `src/modules/avancement/`        | ✅ **EN TEST PROD** avec 3 utilisateurs                     |
 | 4 | Réserves + quitus         | `src/modules/reserves/`          | ✅ **DÉVELOPPÉ** — Brique Mail fonctionnelle                |
-| 5 | Suivi chantier + Esabora  | *(à créer)*                      | 🔴 **NON DÉVELOPPÉ** — aucun code à ce jour                 |
+| 5 | Suivi chantier + Esabora  | *(à créer)*                      | 🟠 **BACK PARTIEL EN PROD** — ingestion Esabora + AR achat livrée (Module Commande étapes 1-3) ; front Module 5 complet restant |
+
+### Module Commande — extension Esabora / AR achat (en cours)
+
+Brique transverse qui alimente M1 et préfigure M5. Suit toutes les commandes
+(app + Esabora) par chantier, extrait les AR fournisseurs depuis `achat@`,
+contrôle les écarts de prix, alimente un dashboard achat. Construite en 4 étapes :
+
+| Étape | Contenu                                                        | État |
+|-------|---------------------------------------------------------------|------|
+| 1 | **Pull Esabora** — webhook Zapier `esaboraWebhook` → tri 3 cas → `commandesEsabora/{numero}` | ✅ **EN PROD** |
+| 2 | **`gmailCore`** — cœur Gmail réutilisable factorisé (`functions/lib/gmailCore.js`) | ✅ **EN PROD** |
+| 3 | **`gmailPollAchat`** — `achat@` → extraction copie/AR (Claude Sonnet) + matching `numero` + price-watch ligne à ligne + AR manquant | ✅ **EN PROD** |
+| 4 | **Front** — historique commandes par chantier + dashboard achat (AR manquant / écart prix + acquittement « Sans AR ») | ⏳ **À FAIRE** |
+
+Invariants : ingestion lecture seule de `chantiers`/`commandes` (jamais
+d'écriture) ; collections **neuves** (`commandes`/`chantiers` intactes) ;
+`codeFournisseur` Esabora == `codeEsabora` catalogue ; commande **toujours**
+créée (webhook) avant l'AR fournisseur ; préfixe réf 3 lettres = **fabricant**
+(tolérance au matching, jamais déduction du fournisseur).
+
+> **Module Commande = première brique concrète du suivi Esabora (territoire
+> M5).** Le **backend est EN PROD depuis le 2026-06-03** (étapes 1-2-3, merge
+> `54a452c`). Le **front (étape 4) n'est PAS développé** — ne jamais le marquer
+> comme déployé.
 
 ### Roadmap restante
 
-**Socle (finitions transverses) → Module 5 (Suivi chantier + Esabora,
-à développer from scratch).**
+**Socle (finitions transverses) → Module Commande étape 4 (front Esabora/AR)
+→ Module 5 (Suivi chantier + Esabora, reste à développer).**
 
 Les modules 1 à 4 sont en phase **stabilisation / finitions**, pas
 de redéveloppement. Toute proposition de refonte d'un module existant
 doit être justifiée par un besoin métier explicite et validée par PJ.
+
+### Spec non déployée & décisions d'archi (2026-06-03)
+
+- **Front Module Commande (étape 4)** — historique commandes par chantier +
+  dashboard achat (alertes AR manquant / écart prix) + acquittement « Sans AR ».
+  **PAS déployé.**
+- **Décision archi (2026-06-03)** : ce front se fait en **arbre responsive
+  unique** (desktop + PWA dans la même base), **PAS** en archi N2 « deux arbres ».
+- **Migration desktop de toute l'app** = chantier **séparé et progressif**, qui
+  **touchera le trio sensible** → **GO écrit requis** (cf. §11).
+- Toujours au stade **spec** (non développés) : Chiffrage, cockpits, mode admin
+  étendu, migration v11.
 
 ---
 
@@ -205,10 +248,24 @@ Toutes exportées via `functions/index.js`.
 | `gmailLabels.js`     | Gestion labels Gmail — **FIX 21/05** : import admin réparé    |
 | `gmailPoll.js`       | Aspiration mails entrants `sav@epj-electricite.com`           |
 | `gmailSend.js`       | Envoi de mails depuis l'app (réponse à une réserve)           |
+| `esaboraImport.js`   | `esaboraWebhook` (onRequest, token header) + `esaboraSweep` (10 min) → tri `commandesEsabora` |
+| `lib/gmailCore.js`   | Cœur Gmail réutilisable (buildGmailClient, runGmailSync, parse, downloadAttachments, callClaudeJson) — **module lib, pas exporté** |
+| `gmailPollAchat.js`  | `gmailPollAchat` (onSchedule 5 min) + `forceSyncAchat` (callable Admin/Direction) → AR `achat@` + price-watch |
+
+**Fonctions exportées** (`index.js`) : `onSmsQueueCreate`, `purgeSmsQueue`,
+`admin*`, `weekly*Backup` / `adminTriggerBackup` / `adminListBackups`,
+`gmailPoll` / `forceSyncGmail`, `gmailSend`, `onMailAClasserUpdate`,
+`esaboraWebhook` / `esaboraSweep`, `gmailPollAchat` / `forceSyncAchat`.
+
+**Secrets (Google Secret Manager)** : `BREVO_API_KEY`, `GMAIL_CLIENT_ID`,
+`GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` (sav), `GMAIL_ACHAT_REFRESH_TOKEN`
+(achat), `ANTHROPIC_API_KEY`, `ESABORA_WEBHOOK_TOKEN` (token webhook Zapier).
 
 > **Déploiement** : automatique via GitHub Actions sur push `main`
 > (cf. `.github/workflows/`). Ne JAMAIS faire `firebase deploy` manuel
-> sans accord explicite (cf. §11).
+> sans accord explicite (cf. §11). `gmailPoll.js` et `lib/gmailCore.js`
+> sont **distincts** : le rebranchement de `gmailPoll` sur `gmailCore` est
+> une étape ultérieure non encore faite.
 
 ---
 
@@ -220,11 +277,23 @@ pour les mails)
 ```
 utilisateurs/{id}            — fiches users (rôle, téléphone pour SMS, permissionsOverride)
 chantiers/{id}               — chantiers + affectations  ⚠️ collection sensible (cf §11)
-config/settings              — config globale
+config/settings              — config globale (+ arAlerteDelaiJours, défaut 2 : délai avant AR « MANQUANT »)
 rolesConfig/{role}           — couche 2 du modèle permissions
 tasksConfig/default          — config tâches avancement
 
-commandes/{id}               — bons de commande (suivi Esabora inclus, envoi Zapier)
+commandes/{id}               — bons de commande app (suivi Esabora inclus, envoi Zapier)  ⚠️ lecture seule côté Module Commande
+
+# ── Module Commande (collections NEUVES — commandes/chantiers intactes) ──
+esabora_import/{numero}      — staging brut webhook Zapier (importStatus pending/processed)
+esabora_deadletter/{autoId}  — entêtes Esabora sans numero exploitable
+commandesEsabora/{numero}    — historique unifié (origine APP|ESABORA, lignesCommande, lignesAR,
+                               totalAR, ecartTotal, nbLignesEnEcart, arStatut EN_ATTENTE|RECU|MANQUANT|SANS_AR,
+                               arAcquitte, copieRef, arRef, chantierActif)
+achatEcartsPrix/{numero__ref}— écarts de prix ligne à ligne (price-watch), id déterministe
+gmailConfigAchat/main        — config aspiration achat@ (auto-bootstrap, séparée de gmailConfig sav)
+gmailAchatExtractions/{gmailId} — cache terminal par mail (done|no_numero|no_match) + extraction mémorisée
+# Write-safety : esaboraWebhook ET gmailPollAchat écrivent en merge sur commandesEsabora
+#                (jamais d'écrasement) ; commandes/ et chantiers/ uniquement LUES.
 
 outils/{id}                  — parc outils (+ isPack, packContent v10)
 outillageCategories/{id}     — catalogue catégories
@@ -237,6 +306,12 @@ reserves/{id}/mails/{mailId} — mails aspirés (Brique Mail v1.13.0)
 smsTemplates/{id}            — modèles SMS globaux (multi-modules)
 avancementValidations/{chantier_mois} — gel mensuel d'avancement
 ```
+
+> **État live (relevé PJ 2026-06-03, à re-vérifier avant de figer)** :
+> `gmailConfigAchat/main` présent ; `commandesEsabora` et `esabora_import`
+> **vides (0 doc)** ; `achatEcartsPrix`, `gmailAchatExtractions`,
+> `esabora_deadletter` apparaîtront au 1er usage réel. (Lecture Firestore non
+> faisable depuis Claude Code — état fourni par PJ, ne pas figer sans recontrôle.)
 
 ---
 
@@ -286,6 +361,7 @@ Préfixe métier explicite, en français/anglais :
 
 | Date       | Brique                                  | Fichiers touchés                                  |
 |------------|-----------------------------------------|---------------------------------------------------|
+| 2026-06-03 | **Module Commande étapes 1-3** (Pull Esabora + gmailCore + AR achat@ + price-watch) | `functions/esaboraImport.js`, `functions/lib/gmailCore.js`, `functions/gmailPollAchat.js`, `index.js`, `package.json` (merge `54a452c`) |
 | 2026-05-21 | **Fix gmailLabels admin import**        | `functions/gmailLabels.js` (commit `312260b`)     |
 | 2026-04-21 | Patch v10.2 — alerte structure Safari   | docs seulement                                    |
 | 2026-04-21 | Patch v10.1 — safe-area iPhone          | `index.html`, `theme.js`, `Layout.jsx`, panier    |
@@ -296,7 +372,13 @@ Préfixe métier explicite, en français/anglais :
 
 > Le fix **312260b** débloque 24h de déploiements échoués sur GitHub
 > Actions. Tout patch qui touche `functions/index.js` doit le préserver
-> (vérifier que `require('./gmailLabels')` reste en place).
+> (vérifier que `export … from "./gmailLabels.js"` reste en place).
+
+> **Module Commande — garde-fous** : `commandesEsabora` (et les autres
+> collections Esabora/achat) sont **neuves**, **hors trio sensible** (trio
+> inchangé : `permissions.js`, `chantiers`, `CommandesInner.jsx`).
+> `esaboraWebhook` et `gmailPollAchat` écrivent en **merge** sur
+> `commandesEsabora` ; `commandes/` et `chantiers/` sont uniquement **lues**.
 
 ---
 
@@ -395,6 +477,9 @@ Une perte d'avancement chantier est **rattrapable** (à ressaisir) mais
 | Cache Firestore                                     | `src/core/DataContext.jsx`          |
 | Règles sécurité prod                                | `firestore.rules`, `storage.rules`  |
 | Config CI/CD                                        | `.github/workflows/`                |
+| Ingestion commandes Esabora (webhook + tri)         | `functions/esaboraImport.js`        |
+| Cœur Gmail réutilisable                             | `functions/lib/gmailCore.js`        |
+| AR achat@ + price-watch                             | `functions/gmailPollAchat.js`       |
 
 ---
 
