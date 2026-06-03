@@ -178,6 +178,13 @@ export { gmailSend } from "./gmailSend.js";
 // commandesEsabora/{numero}. Sweep planifié reprend les pending.
 export { esaboraWebhook, esaboraSweep } from "./esaboraImport.js";
 
+// ─── Module Commande — étape 3 : AR achat@ + price-watch ──────
+// Cf. functions/gmailPollAchat.js (via functions/lib/gmailCore.js)
+// Aspire achat@, matche le numero Esabora sur commandesEsabora/{numero},
+// extrait copie de commande (@esabora.solutions) + AR fournisseur via Claude,
+// contrôle les écarts de prix ligne à ligne, marque les AR manquants.
+export { gmailPollAchat, forceSyncAchat } from "./gmailPollAchat.js";
+
 // ─── Labels Gmail automatiques — v1.18.0 ──────────────────────
 // Cf. functions/gmailLabels.js
 // Quand un mail dans reserveMailsAClasser passe au statut "classe"
