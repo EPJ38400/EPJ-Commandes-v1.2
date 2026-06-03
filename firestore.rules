@@ -232,6 +232,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── commandesEsabora/{numero} ────────────────────────────────
+    // Module Commande (suivi Esabora / AR fournisseurs). Documents écrits
+    // par les Cloud Functions esaboraWebhook + gmailPollAchat (service
+    // account, bypass des rules). Côté app : LECTURE pour tous les employés
+    // (le filtrage de visibilité est fait côté UI via permissions.js), et
+    // ÉCRITURE STRICTEMENT LIMITÉE aux 4 champs d'acquittement AR, réservée
+    // aux rôles pilotage (Assistante+ = Admin/Direction/Conducteur/Assistante).
+    // Aucune création / suppression côté client : seules les Cloud Functions
+    // créent ou suppriment ces documents.
+    match /commandesEsabora/{numero} {
+      allow read: if isEmployee();
+      allow create, delete: if false;
+      allow update: if isAssistante()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['arAcquitte', 'arAcquitPar', 'arAcquitLe', 'arStatut']);
+    }
+
+    // ─── achatEcartsPrix/{numero__refNorm} ────────────────────────
+    // Écarts de prix ligne à ligne (price-watch), écrits par gmailPollAchat
+    // (service account). Lecture seule côté app pour le dashboard achat.
+    match /achatEcartsPrix/{id} {
+      allow read: if isEmployee();
+      allow write: if false;
+    }
+
     // ─── Tout le reste : REFUSÉ ───────────────────────────────────
     // Toute collection non listée ci-dessus retombe sur ce deny-all.
     // Pour ajouter une nouvelle collection, ajouter explicitement sa règle.

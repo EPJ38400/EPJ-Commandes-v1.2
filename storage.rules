@@ -117,6 +117,20 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // ─── achat/<gmailId>/<file> ───────────────────────────────────
+    // Pièces jointes (copies de commande Esabora + AR fournisseurs) aspirées
+    // par la Cloud Function gmailPollAchat depuis la boîte achat@.
+    // Chemin HIÉRARCHIQUE à 2 segments : achat/<gmailId>/<safeAttId>_<nom>
+    // (même convention que mails/<gmailId>/<file> pour gmailPoll).
+    // Écriture par service account uniquement (bypass des rules).
+    // Lecture côté frontend pour l'aperçu PDF dans le dashboard achat
+    // (en complément des URL signées 30 j déjà stockées sur chaque pièce).
+    match /achat/{gmailId}/{file} {
+      allow read: if isEmployee();
+      allow write: if false;          // Seul gmailPollAchat (service account) écrit
+      allow delete: if isAdmin();
+    }
+
     // ─── Tout le reste : REFUSÉ ───────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
