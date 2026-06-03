@@ -152,6 +152,7 @@ async function achatHandler({ gmail, message }) {
     const full = await gmail.users.messages.get({ userId: "me", id: gmailId, format: "full" });
     const msg = full.data;
     const parsed = parseGmailMessage(msg);
+    const isEsaboraCopie = (parsed.fromEmail || "").toLowerCase().endsWith(ESABORA_DOMAIN);
 
     // 3. Détection numero GRATUITE : sujet+corps d'abord, puis texte PDF
     let candidats = extractNumeroCandidates(`${parsed.subject} ${parsed.text}`);
@@ -193,9 +194,23 @@ async function achatHandler({ gmail, message }) {
       const s = await db.collection(COL_COMMANDES_ESABORA).doc(c).get();
       if (s.exists) { numero = c; ceSnap = s; break; }
     }
-    // candidat(s) mais aucune commande encore → NE PAS cacher, retenter au
-    // prochain cycle (la commande arrivera via Zapier). Aucun appel Sonnet.
-    if (!numero) return "pending_commande";
+    // candidat(s) mais aucune commande qui matche encore.
+    if (!numero) {
+      // Copie Esabora (@esabora.solutions) : peut arriver quasi en même temps
+      // que le webhook Zapier → course possible. NE PAS cacher → retry (borné
+      // par la fenêtre 30 j). C'est de la donnée qu'on veut.
+      if (isEsaboraCopie) return "pending_commande";
+      // Tout autre expéditeur : invariant EPJ = la commande est TOUJOURS créée
+      // (webhook Zapier) avant l'AR fournisseur. Donc si aucune commande ne
+      // matche, ce mail n'a rien à voir → cache terminal, lu une seule fois.
+      await db.collection(COL_CACHE).doc(gmailId).set({
+        gmailId, status: "no_match", sujet: parsed.subject,
+        fromEmail: parsed.fromEmail || null,
+        candidats: candidats.slice(0, MAX_CANDIDATS),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return "ignore_no_match";
+    }
 
     // 5. Persistance des PJ (path déterministe, URL 30j)
     const pieces = await downloadAttachments({ gmail, gmailId, payload: msg.payload, prefix: "achat" });
@@ -206,7 +221,6 @@ async function achatHandler({ gmail, message }) {
       pdfBuffer = await fetchAttachmentBuffer(gmail, gmailId, pdfPart.body.attachmentId);
     }
 
-    const isEsaboraCopie = (parsed.fromEmail || "").toLowerCase().endsWith(ESABORA_DOMAIN);
     const apiKey = ANTHROPIC_API_KEY.value();
 
     // 6. Extraction Sonnet (seulement maintenant : on a payé le gate)
