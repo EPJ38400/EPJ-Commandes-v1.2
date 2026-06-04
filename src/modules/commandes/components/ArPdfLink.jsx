@@ -12,9 +12,12 @@ import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { storage } from "../../../firebase";
 import { EPJ } from "../../../core/theme";
 
-export function ArPdfLink({ refObj, label = "Voir AR", onError }) {
+export function ArPdfLink({ refObj, pieces: piecesProp, label = "Voir AR", onError }) {
   const [busy, setBusy] = useState(false);
-  const pieces = (refObj?.pieces || []).filter((p) => p?.kind === "pdf" || /\.pdf$/i.test(p?.nom || ""));
+  // `pieces` explicite prioritaire (déjà résolu/filtré par l'appelant, ex.
+  // resolveArPieces) ; fallback legacy sur refObj.pieces.
+  const source = piecesProp !== undefined ? piecesProp : (refObj?.pieces || []);
+  const pieces = (source || []).filter((p) => p?.kind === "pdf" || /\.pdf$/i.test(p?.nom || ""));
 
   if (!pieces.length) {
     return <span style={{ color: EPJ.gray300, fontSize: 12 }}>—</span>;

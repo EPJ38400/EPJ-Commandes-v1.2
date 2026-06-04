@@ -70,3 +70,31 @@ export const ORIGINE_META = {
   APP:     { label: "App",     color: EPJ.blue },
   ESABORA: { label: "Esabora", color: EPJ.gray500 },
 };
+
+// ─── Pièces de l'AR fournisseur ───────────────────────────────
+// Résout les PDF qui sont VRAIMENT l'AR fournisseur d'une commande
+// (commandesEsabora), et JAMAIS la copie de commande EPJ.
+//
+//  • Aucun AR reçu (arStatut ≠ RECU) → [] (le bouton « Voir AR » disparaît).
+//  • La branche AR de gmailPollAchat stocke toutes les PJ PDF du mail
+//    fournisseur dans arRef.pieces : si le fournisseur a ré-attaché notre
+//    bon de commande, la copie EPJ s'y retrouve. On l'exclut en la comparant
+//    à copieRef.pieces (même path/id, ou même nom de fichier).
+function isPdfPiece(p) {
+  return !!p && (p.kind === "pdf" || /\.pdf$/i.test(p.nom || ""));
+}
+function normName(n) {
+  return String(n || "").trim().toLowerCase();
+}
+function pieceKey(p) {
+  return p?.path || p?.id || p?.url || normName(p?.nom) || null;
+}
+
+export function resolveArPieces(ce) {
+  if (!ce || ce.arStatut !== "RECU") return [];
+  const arPieces = (ce.arRef?.pieces || []).filter(isPdfPiece);
+  const copy = ce.copieRef?.pieces || [];
+  const copyKeys = new Set(copy.map(pieceKey).filter(Boolean));
+  const copyNames = new Set(copy.map((p) => normName(p.nom)).filter(Boolean));
+  return arPieces.filter((p) => !copyKeys.has(pieceKey(p)) && !copyNames.has(normName(p.nom)));
+}

@@ -31,7 +31,7 @@ import { Spinner } from "../../core/components/Spinner";
 import { EsaboraHistory } from "./EsaboraHistory";
 import { ArPdfLink } from "./components/ArPdfLink";
 import { useIsNarrow } from "./components/useIsNarrow";
-import { fmtMoney, fmtDate, fmtPct, daysSince } from "./components/esaboraFormat";
+import { fmtMoney, fmtDate, fmtPct, daysSince, resolveArPieces } from "./components/esaboraFormat";
 import { KpisAchat } from "./components/KpisAchat";
 import { FiltresBarreAchat, FILTRES_DEFAUT } from "./components/FiltresBarreAchat";
 import { EcartStatutBadge } from "./components/EcartStatutBadge";
@@ -334,7 +334,7 @@ export function AchatDashboard({ onBack }) {
                     key={cmd.numero}
                     cmd={cmd}
                     isNarrow={isNarrow}
-                    arRef={ceByNumero.get(cmd.numero)?.arRef}
+                    arPieces={resolveArPieces(ceByNumero.get(cmd.numero))}
                     onReclamer={() => openReclam(cmd)}
                     onCloturer={() => setClotureModal({ commande: cmd })}
                   />
@@ -478,7 +478,7 @@ function ManquantRow({ c, isNarrow, onAcquitter, onSansAR }) {
 
 // Carte = 1 commande, avec ses N lignes d'écart à l'intérieur + actions
 // au niveau commande (statut global dérivé).
-function CommandCard({ cmd, isNarrow, arRef, onReclamer, onCloturer }) {
+function CommandCard({ cmd, isNarrow, arPieces, onReclamer, onCloturer }) {
   const resolu = cmd.statut === "RESOLU";
   const n = cmd.lignes.length;
   return (
@@ -521,7 +521,7 @@ function CommandCard({ cmd, isNarrow, arRef, onReclamer, onCloturer }) {
           {!resolu && (
             <button onClick={onCloturer} style={btnStyle(EPJ.gray900, true)}>Clôturer</button>
           )}
-          <ArPdfLink refObj={arRef} />
+          <ArPdfLink pieces={arPieces} />
         </div>
       </div>
 

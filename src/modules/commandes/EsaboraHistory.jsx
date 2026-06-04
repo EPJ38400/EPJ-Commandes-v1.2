@@ -17,7 +17,7 @@ import { Spinner } from "../../core/components/Spinner";
 import { ArStatusBadge } from "./components/ArStatusBadge";
 import { ArPdfLink } from "./components/ArPdfLink";
 import { useIsNarrow } from "./components/useIsNarrow";
-import { fmtMoney, fmtDate, ORIGINE_META } from "./components/esaboraFormat";
+import { fmtMoney, fmtDate, ORIGINE_META, resolveArPieces } from "./components/esaboraFormat";
 
 const FILTERS = [
   { key: "all", label: "Tous" },
@@ -190,7 +190,7 @@ function TableRow({ r }) {
       </div>
       <div><OrigineCell r={r} /></div>
       <div><ArStatusBadge statut={r.arStatut} acquitte={r.arAcquitte} size="sm" /></div>
-      <div><ArPdfLink refObj={r.arRef} /></div>
+      <div><ArPdfLink pieces={resolveArPieces(r)} /></div>
     </div>
   );
 }
@@ -213,7 +213,7 @@ function CardRow({ r }) {
       <Line k="Total HT"><b>{fmtMoney(r.totalHT)}</b></Line>
       <Line k="État">{r.etat || "—"}</Line>
       <Line k="Origine"><OrigineCell r={r} /></Line>
-      <Line k="AR"><ArPdfLink refObj={r.arRef} /></Line>
+      <Line k="AR"><ArPdfLink pieces={resolveArPieces(r)} /></Line>
     </div>
   );
 }
