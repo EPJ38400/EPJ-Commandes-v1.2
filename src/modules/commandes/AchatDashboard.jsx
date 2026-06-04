@@ -1,20 +1,26 @@
 // ═══════════════════════════════════════════════════════════════
-//  AchatDashboard — Écran 2 du Module Commande (front)
-//  Premier dashboard de la Collection Dashboards.
+//  AchatDashboard — Écran 2 du Module Commande (front) — V2
 //
-//  • Bandeau KPI : AR manquants · écarts ouverts · montant total écarts.
+//  • Bandeau 4 KPIs (KpisAchat) : écarts ouverts · montant à récupérer ·
+//    top fournisseur · récupéré ce mois.
 //  • Section A : AR manquants à relancer (+ Acquitter / Sans AR attendu).
-//  • Section B : écarts de prix à vérifier (+ Voir AR).
+//  • Section B : écarts de prix — barre de 6 filtres (FiltresBarreAchat),
+//    badge de cycle de vie (Ouvert/Réclamé/Résolu), actions :
+//      – Préparer brouillon IA → Cloud Function prepareAchatReclamation
+//        (Claude Haiku rédige, brouillon créé dans achat@).
+//      – Clôturer → Cloud Function clotureEcartAchat (Accordé/Refusé/Abandonné).
+//      – Voir AR (PDF) / Voir brouillon (lien Gmail).
 //  • Section C : historique des commandes par chantier (EsaboraHistory).
 //
 //  Lectures live : commandesEsabora + achatEcartsPrix (onSnapshot).
-//  Écritures bornées (merge:true) : arAcquitte / arStatut uniquement,
-//  alignées sur les Firestore rules. Robuste au permission-denied tant que
-//  les rules ne sont pas déployées (affiche des états vides, pas de crash).
+//  Écritures cycle de vie des écarts : via Cloud Functions (service account).
+//  Écritures AR manquant (acquitte / arStatut) : client, bornées aux rules.
+//  Robuste au permission-denied (états vides, pas de crash).
 // ═══════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../../firebase";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { app, db } from "../../firebase";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { useToast } from "../../core/components/Toast";
@@ -25,6 +31,22 @@ import { EsaboraHistory } from "./EsaboraHistory";
 import { ArPdfLink } from "./components/ArPdfLink";
 import { useIsNarrow } from "./components/useIsNarrow";
 import { fmtMoney, fmtDate, fmtPct, daysSince } from "./components/esaboraFormat";
+import { KpisAchat } from "./components/KpisAchat";
+import { FiltresBarreAchat, FILTRES_DEFAUT } from "./components/FiltresBarreAchat";
+import { EcartStatutBadge } from "./components/EcartStatutBadge";
+import { EcartClotureModal } from "./components/EcartClotureModal";
+import { PrepareReclamationModal } from "./components/PrepareReclamationModal";
+
+const fns = getFunctions(app, "europe-west1");
+const fnPrepareReclamation = httpsCallable(fns, "prepareAchatReclamation");
+const fnClotureEcart = httpsCallable(fns, "clotureEcartAchat");
+
+const PERIODE_LABEL = {
+  "30": "sur 30 derniers jours",
+  "90": "sur 90 derniers jours",
+  "365": "sur 12 mois",
+  ALL: "toutes périodes",
+};
 
 export function AchatDashboard({ onBack }) {
   const { user } = useAuth();
@@ -37,6 +59,15 @@ export function AchatDashboard({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
   const [selectedChantier, setSelectedChantier] = useState("ALL");
+  const [filters, setFilters] = useState(FILTRES_DEFAUT);
+
+  // Modales
+  const [reclamModal, setReclamModal] = useState(null);   // { ecart }
+  const [reclamBusy, setReclamBusy] = useState(false);
+  const [reclamResult, setReclamResult] = useState(null);
+  const [reclamError, setReclamError] = useState(null);
+  const [clotureModal, setClotureModal] = useState(null); // { ecart }
+  const [clotureBusy, setClotureBusy] = useState(false);
 
   useEffect(() => {
     let gotCe = false;
@@ -69,14 +100,73 @@ export function AchatDashboard({ onBack }) {
     [ce]
   );
 
+  // Options de filtres auto-alimentées par les écarts présents.
+  const fournisseurOptions = useMemo(
+    () => [...new Set(ecarts.map((e) => e.fournisseur).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [ecarts]
+  );
+  const chantierFilterOptions = useMemo(
+    () => [...new Set(ecarts.map((e) => e.chantierNum).filter(Boolean))].sort((a, b) => `${a}`.localeCompare(`${b}`)),
+    [ecarts]
+  );
+
+  // Prédicat de filtre (option `skipStatut` pour les KPIs cumulés).
+  const passe = (e, skipStatut = false) => {
+    const statut = e.statut || "OUVERT";
+    if (!skipStatut && filters.statut !== "ALL" && statut !== filters.statut) return false;
+    if (!matchPeriode(e, filters.periode)) return false;
+    if (filters.fournisseur !== "ALL" && (e.fournisseur || "") !== filters.fournisseur) return false;
+    if (filters.typeEcart !== "ALL" && ecartType(e) !== filters.typeEcart) return false;
+    if (filters.chantier !== "ALL" && (e.chantierNum || "") !== filters.chantier) return false;
+    const min = Number(filters.montantMin) || 0;
+    if (min > 0 && Math.abs(Number(e.ecart) || 0) < min) return false;
+    return true;
+  };
+
+  const filteredEcarts = useMemo(
+    () => ecarts
+      .filter((e) => passe(e))
+      .sort((a, b) => Math.abs(Number(b.ecart) || 0) - Math.abs(Number(a.ecart) || 0)),
+    [ecarts, filters]
+  );
+
   const kpis = useMemo(() => {
-    const montant = ecarts.reduce((s, e) => s + Math.abs(Number(e.ecart) || 0), 0);
+    // Cartes 1-3 : base = filtres courants SAUF le statut, sous-ensemble OUVERT.
+    const base = ecarts.filter((e) => passe(e, true));
+    const ouverts = base.filter((e) => (e.statut || "OUVERT") === "OUVERT");
+    const ouvertsMontant = ouverts.reduce((s, e) => s + Math.abs(Number(e.ecart) || 0), 0);
+
+    const groups = {};
+    ouverts.forEach((e) => {
+      const f = e.fournisseur || "—";
+      if (!groups[f]) groups[f] = { nom: f, count: 0, montant: 0 };
+      groups[f].count += 1;
+      groups[f].montant += Math.abs(Number(e.ecart) || 0);
+    });
+    let topFournisseur = null;
+    Object.values(groups).forEach((g) => {
+      if (!topFournisseur || g.count > topFournisseur.count
+        || (g.count === topFournisseur.count && g.montant > topFournisseur.montant)) {
+        topFournisseur = g;
+      }
+    });
+
+    // Carte 4 : récupéré ce mois civil (toutes périodes), clôturé ACCORDE.
+    const now = new Date();
+    const recus = ecarts.filter((e) =>
+      e.statut === "RESOLU" && e.clotureRaison === "ACCORDE"
+      && sameMonth(e.clotureLe, now.getFullYear(), now.getMonth()));
+    const recupereMoisMontant = recus.reduce((s, e) => s + Math.abs(Number(e.ecart) || 0), 0);
+
     return {
-      manquants: arManquants.length,
-      ecarts: ecarts.length,
-      montant,
+      ouvertsCount: ouverts.length,
+      ouvertsMontant,
+      topFournisseur,
+      recupereMoisCount: recus.length,
+      recupereMoisMontant,
+      periodeLabel: PERIODE_LABEL[filters.periode] || "",
     };
-  }, [arManquants, ecarts]);
+  }, [ecarts, filters]);
 
   const chantierOptions = useMemo(
     () => [...chantiers]
@@ -111,6 +201,42 @@ export function AchatDashboard({ onBack }) {
     }
   };
 
+  // ─── Réclamation IA ─────────────────────────────────────────
+  const openReclam = (e) => {
+    setReclamResult(null);
+    setReclamError(null);
+    setReclamModal({ ecart: e });
+  };
+  const doReclam = async (customEmail) => {
+    if (!reclamModal?.ecart) return;
+    setReclamBusy(true);
+    setReclamError(null);
+    try {
+      const res = await fnPrepareReclamation({ ecartId: reclamModal.ecart._id, customEmail: customEmail || null });
+      setReclamResult(res.data);
+      toast("✓ Brouillon prêt dans achat@");
+    } catch (err) {
+      setReclamError(traduireErreur(err));
+    } finally {
+      setReclamBusy(false);
+    }
+  };
+
+  // ─── Clôture ────────────────────────────────────────────────
+  const doCloture = async (raison, commentaire) => {
+    if (!clotureModal?.ecart) return;
+    setClotureBusy(true);
+    try {
+      await fnClotureEcart({ ecartId: clotureModal.ecart._id, raison, commentaire: commentaire || null });
+      toast("✓ Écart clôturé");
+      setClotureModal(null);
+    } catch (err) {
+      toast(traduireErreur(err));
+    } finally {
+      setClotureBusy(false);
+    }
+  };
+
   return (
     <div style={{ paddingBottom: 24 }}>
       <ModuleSubHeader
@@ -136,18 +262,7 @@ export function AchatDashboard({ onBack }) {
         <div style={{ padding: 16 }}><Spinner label="Chargement du dashboard achat…" /></div>
       ) : (
         <>
-          {/* Bandeau KPI */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isNarrow ? "1fr" : "repeat(3, 1fr)",
-              gap: 10, marginBottom: 18,
-            }}
-          >
-            <KpiCard label="AR manquants à relancer" value={kpis.manquants} accent={EPJ.red} icon="⚠" />
-            <KpiCard label="Écarts de prix ouverts" value={kpis.ecarts} accent={EPJ.orange} icon="≠" />
-            <KpiCard label="Montant total des écarts" value={fmtMoney(kpis.montant)} accent={EPJ.blue} icon="€" isText />
-          </div>
+          <KpisAchat kpis={kpis} isNarrow={isNarrow} />
 
           {/* Section A — AR manquants */}
           <SectionCard title="AR manquants à relancer" count={arManquants.length} accent={EPJ.red}>
@@ -169,13 +284,26 @@ export function AchatDashboard({ onBack }) {
           </SectionCard>
 
           {/* Section B — Écarts prix */}
-          <SectionCard title="Écarts de prix à vérifier" count={ecarts.length} accent={EPJ.orange}>
-            {ecarts.length === 0 ? (
-              <Empty text="Aucun écart de prix détecté." />
+          <SectionCard title="Écarts de prix" count={filteredEcarts.length} accent={EPJ.orange}>
+            <FiltresBarreAchat
+              value={filters}
+              onChange={setFilters}
+              fournisseurOptions={fournisseurOptions}
+              chantierOptions={chantierFilterOptions}
+            />
+            {filteredEcarts.length === 0 ? (
+              <Empty text={ecarts.length === 0 ? "Aucun écart de prix détecté." : "Aucun écart ne correspond aux filtres."} />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {ecarts.map((e) => (
-                  <EcartRow key={e._id} e={e} isNarrow={isNarrow} arRef={ceByNumero.get(e.numero)?.arRef} />
+                {filteredEcarts.map((e) => (
+                  <EcartRow
+                    key={e._id}
+                    e={e}
+                    isNarrow={isNarrow}
+                    arRef={ceByNumero.get(e.numero)?.arRef}
+                    onReclamer={() => openReclam(e)}
+                    onCloturer={() => setClotureModal({ ecart: e })}
+                  />
                 ))}
               </div>
             )}
@@ -203,31 +331,71 @@ export function AchatDashboard({ onBack }) {
           </SectionCard>
         </>
       )}
+
+      {reclamModal && (
+        <PrepareReclamationModal
+          ecart={reclamModal.ecart}
+          defaultEmail=""
+          busy={reclamBusy}
+          result={reclamResult}
+          error={reclamError}
+          onClose={() => setReclamModal(null)}
+          onConfirm={doReclam}
+        />
+      )}
+      {clotureModal && (
+        <EcartClotureModal
+          ecart={clotureModal.ecart}
+          busy={clotureBusy}
+          onClose={() => setClotureModal(null)}
+          onConfirm={doCloture}
+        />
+      )}
     </div>
   );
+}
+
+// ─── Helpers de filtre ────────────────────────────────────────
+function tsToMs(value) {
+  if (!value) return null;
+  if (typeof value === "object" && typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value === "object" && typeof value.seconds === "number") return value.seconds * 1000;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function matchPeriode(e, periode) {
+  if (periode === "ALL") return true;
+  const ms = tsToMs(e.dateConstat);
+  if (ms == null) return true; // pas de date de constat → on ne masque pas
+  const days = (Date.now() - ms) / 86_400_000;
+  return days <= Number(periode);
+}
+
+// Mappe la source price-watch sur le type d'écart (forward-compat AR↔Fact…).
+function ecartType(e) {
+  if (e.typeEcart) return e.typeEcart;
+  if (e.source === "PRICE_WATCH") return "CMD_AR";
+  return null;
+}
+
+function sameMonth(value, year, month) {
+  const ms = tsToMs(value);
+  if (ms == null) return false;
+  const d = new Date(ms);
+  return d.getFullYear() === year && d.getMonth() === month;
+}
+
+function traduireErreur(err) {
+  const code = err?.code || "";
+  const msg = err?.message || "Erreur inattendue.";
+  if (code.includes("permission-denied")) return "Action réservée aux rôles de pilotage.";
+  if (code.includes("failed-precondition")) return "Destinataire introuvable : précise l'adresse du fournisseur.";
+  if (code.includes("unauthenticated")) return "Session expirée, reconnecte-toi.";
+  return msg;
 }
 
 // ─── Sous-composants ──────────────────────────────────────────
-
-function KpiCard({ label, value, accent, icon, isText = false }) {
-  return (
-    <div
-      style={{
-        background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
-        borderLeft: `3px solid ${accent}`, borderRadius: 12,
-        padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4,
-      }}
-    >
-      <div style={{ fontSize: 11, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
-        {icon} {label}
-      </div>
-      <div style={{ fontFamily: font.display, fontSize: isText ? 24 : 30, color: accent, lineHeight: 1.1 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function SectionCard({ title, count, accent = EPJ.gray700, children }) {
   return (
     <div
@@ -282,14 +450,17 @@ function ManquantRow({ c, isNarrow, onAcquitter, onSansAR }) {
   );
 }
 
-function EcartRow({ e, isNarrow, arRef }) {
+function EcartRow({ e, isNarrow, arRef, onReclamer, onCloturer }) {
   const up = (Number(e.ecart) || 0) > 0;
+  const statut = e.statut || "OUVERT";
+  const resolu = statut === "RESOLU";
   return (
     <div
       style={{
         border: `1px solid ${EPJ.gray200}`, borderRadius: 12, padding: 12,
         display: "flex", flexDirection: isNarrow ? "column" : "row",
         alignItems: isNarrow ? "stretch" : "center", gap: 12,
+        opacity: resolu ? 0.72 : 1,
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -297,6 +468,15 @@ function EcartRow({ e, isNarrow, arRef }) {
           <span style={{ fontWeight: 700, fontFamily: font.mono, fontSize: 13 }}>{e.numero}</span>
           <span style={{ fontSize: 12, color: EPJ.gray700 }}>{e.reference || "—"}</span>
           <span style={{ fontSize: 11, color: EPJ.gray500 }}>{e.fournisseur || ""}</span>
+          <EcartStatutBadge statut={statut} size="sm" />
+          {resolu && e.clotureRaison && (
+            <span
+              title={e.clotureCommentaire || ""}
+              style={{ fontSize: 10.5, fontWeight: 700, color: EPJ.gray500, background: `${EPJ.gray500}14`, padding: "2px 7px", borderRadius: 999 }}
+            >
+              {RAISON_LABEL[e.clotureRaison] || e.clotureRaison}
+            </span>
+          )}
         </div>
         {e.designation && (
           <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.designation}>
@@ -312,12 +492,30 @@ function EcartRow({ e, isNarrow, arRef }) {
           </span>
         </div>
       </div>
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center", justifyContent: isNarrow ? "flex-start" : "flex-end" }}>
+        {!resolu && statut !== "RECLAME" && (
+          <button onClick={onReclamer} style={btnStyle(EPJ.blue)}>Préparer brouillon IA</button>
+        )}
+        {!resolu && statut === "RECLAME" && (
+          <>
+            {e.reclameDraftUrl && (
+              <a href={e.reclameDraftUrl} target="_blank" rel="noreferrer" style={{ ...btnStyle(EPJ.blue, true), textDecoration: "none", display: "inline-block" }}>
+                Voir brouillon ↗
+              </a>
+            )}
+            <button onClick={onReclamer} style={btnStyle(EPJ.gray500, true)}>Régénérer</button>
+          </>
+        )}
+        {!resolu && (
+          <button onClick={onCloturer} style={btnStyle(EPJ.gray900, true)}>Clôturer</button>
+        )}
         <ArPdfLink refObj={arRef} />
       </div>
     </div>
   );
 }
+
+const RAISON_LABEL = { ACCORDE: "Accordé", REFUSE: "Refusé", ABANDONNE: "Abandonné" };
 
 function btnStyle(color, ghost = false) {
   return {
