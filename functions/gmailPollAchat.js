@@ -54,6 +54,9 @@ const CONFIG_DOC = "main";
 
 const CLAUDE_MODEL_AR = "claude-sonnet-4-6";
 const ESABORA_DOMAIN = "@esabora.solutions";
+// Domaine EPJ : un mail venant d'une adresse interne (ex. copie de BC qui
+// atterrit dans achat@) n'est JAMAIS un AR fournisseur — cf. incident 235236.
+const EPJ_DOMAIN = "@epj-electricite.com";
 const SCOPE_QUERY = "in:inbox has:attachment newer_than:30d";
 const PRIX_EPSILON = 0.01; // 1 centime
 const DEFAULT_ALERTE_JOURS = 2;
@@ -152,7 +155,21 @@ async function achatHandler({ gmail, message }) {
     const full = await gmail.users.messages.get({ userId: "me", id: gmailId, format: "full" });
     const msg = full.data;
     const parsed = parseGmailMessage(msg);
-    const isEsaboraCopie = (parsed.fromEmail || "").toLowerCase().endsWith(ESABORA_DOMAIN);
+    const fromEmail = (parsed.fromEmail || "").toLowerCase();
+    const isEsaboraCopie = fromEmail.endsWith(ESABORA_DOMAIN);
+
+    // GARDE-FOU 235236 : un mail venant d'une adresse EPJ (copie de BC
+    // ré-envoyée / atterrie dans achat@) n'est NI un AR fournisseur NI la
+    // copie Esabora autoritative. Le traiter comme AR écraserait le vrai AR
+    // (arRef) avec le BC. On le neutralise par un cache terminal.
+    if (fromEmail.endsWith(EPJ_DOMAIN)) {
+      await db.collection(COL_CACHE).doc(gmailId).set({
+        gmailId, status: "ignore_self_epj", sujet: parsed.subject,
+        fromEmail: parsed.fromEmail || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return "ignore_self_epj";
+    }
 
     // 3. Détection numero GRATUITE : sujet+corps d'abord, puis texte PDF
     let candidats = extractNumeroCandidates(`${parsed.subject} ${parsed.text}`);
