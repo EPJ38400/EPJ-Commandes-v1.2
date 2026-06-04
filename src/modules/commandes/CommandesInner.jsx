@@ -70,11 +70,16 @@ const font = "'Inter','Segoe UI',-apple-system,sans-serif";
 const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"},"Scindée":{bg:"#F5F5F5",color:"#9E9E9E",icon:"📂"}};
 
 // Affichage statut. Les enfants de scission ("-1"/"-2") suivent le cycle normal
-// d'une commande (Envoyée aux achats → Commandée …) : pas de libellé spécial,
-// on affiche leur statut réel comme n'importe quelle commande.
+// d'une commande (Envoyée aux achats → Commandée …). Seul l'AFFICHAGE diffère :
+// une fois réellement commandé, un enfant de scission (createdBySplit) montre
+// "Partiellement commandée" (c'est une fraction de la commande d'origine).
+// Le statut réel reste "Commandée" → filtres et logique inchangés.
 function getStatusDisplay(order) {
   if (!order || !order.statut) return { bg:"#eee", color:"#333", icon:"", label:"—" };
   const base = STATUS_COLORS[order.statut] || { bg:"#eee", color:"#333", icon:"" };
+  if (order.createdBySplit === true && order.statut === "Commandée") {
+    return { ...base, label: "Partiellement commandée" };
+  }
   return { ...base, label: order.statut };
 }
 
