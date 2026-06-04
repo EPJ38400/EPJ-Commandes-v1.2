@@ -1,12 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
-//  PrepareReclamationModal — prépare un brouillon de réclamation IA.
-//  • Affiche le contexte de l'écart.
+//  PrepareReclamationModal — prépare UN brouillon de réclamation IA
+//  pour UNE commande (toutes ses lignes en écart dans un seul mail).
+//  • Liste les N lignes qui seront incluses.
 //  • Laisse valider/corriger l'adresse destinataire (pré-remplie).
 //  • Lance la génération (Claude Haiku) → brouillon dans achat@.
 //  • Affiche le lien direct vers le brouillon Gmail une fois prêt.
 //
 //  Appelle onConfirm(customEmail|null). Le parent gère l'appel à la
-//  Cloud Function et passe `result` ({ draftWebUrl, destinataire }).
+//  Cloud Function (input { numero, customEmail }) et passe `result`
+//  ({ draftWebUrl, destinataire, nbEcarts }).
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { EPJ } from "../../../core/theme";
@@ -15,18 +17,18 @@ import { ModalShell } from "./ModalShell";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onConfirm, busy = false, result = null, error = null }) {
+export function PrepareReclamationModal({ commande, defaultEmail = "", onClose, onConfirm, busy = false, result = null, error = null }) {
   const [email, setEmail] = useState(defaultEmail || "");
-  const e = ecart || {};
-  const up = (Number(e.ecart) || 0) > 0;
+  const c = commande || {};
+  const lignes = (c.lignes || []).filter((l) => (l.statut || "OUVERT") !== "RESOLU");
   const emailValide = !email || EMAIL_RE.test(email.trim());
 
   return (
     <ModalShell
       title="Préparer un brouillon IA"
-      subtitle={`Réclamation · commande ${e.numero || "—"}`}
+      subtitle={`Réclamation · commande ${c.numero || "—"}${c.fournisseur ? ` · ${c.fournisseur}` : ""}`}
       onClose={busy ? undefined : onClose}
-      maxWidth={500}
+      maxWidth={540}
       footer={
         result ? (
           <button onClick={onClose} style={solidBtn(EPJ.green)}>Terminé</button>
@@ -35,27 +37,15 @@ export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onC
             <button onClick={onClose} disabled={busy} style={ghostBtn}>Annuler</button>
             <button
               onClick={() => onConfirm(email.trim() || null)}
-              disabled={busy || !emailValide}
-              style={{ ...solidBtn(EPJ.blue), opacity: busy || !emailValide ? 0.5 : 1 }}
+              disabled={busy || !emailValide || lignes.length === 0}
+              style={{ ...solidBtn(EPJ.blue), opacity: busy || !emailValide || lignes.length === 0 ? 0.5 : 1 }}
             >
-              {busy ? "Génération…" : "Générer le brouillon"}
+              {busy ? "Génération…" : `Générer le brouillon (${lignes.length})`}
             </button>
           </>
         )
       }
     >
-      <div style={{ fontSize: 13, color: EPJ.gray700, marginBottom: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontWeight: 600 }}>{e.reference || "—"}</span>
-        {e.fournisseur && <span style={{ fontSize: 12, color: EPJ.gray500 }}>· {e.fournisseur}</span>}
-        <span style={{ width: "100%", height: 0 }} />
-        <span>{fmtMoney(e.prixUnitaireCommande)}</span>
-        <span style={{ color: EPJ.gray300 }}>→</span>
-        <span style={{ fontWeight: 700 }}>{fmtMoney(e.prixUnitaireAR)}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: up ? EPJ.red : EPJ.green, background: `${up ? EPJ.red : EPJ.green}14`, padding: "2px 8px", borderRadius: 999 }}>
-          {up ? "+" : ""}{fmtMoney(e.ecart)} ({fmtPct(e.ecartPct)})
-        </span>
-      </div>
-
       {result ? (
         <div
           style={{
@@ -65,6 +55,7 @@ export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onC
         >
           <div style={{ fontWeight: 700, color: EPJ.green, marginBottom: 6 }}>✓ Brouillon prêt dans Gmail</div>
           <div style={{ marginBottom: 10 }}>
+            {result.nbEcarts != null && <>Couvre <b>{result.nbEcarts} écart{result.nbEcarts > 1 ? "s" : ""}</b>.<br /></>}
             Destinataire : <b>{result.destinataire}</b><br />
             Le brouillon est dans la boîte <b>achat@epj-electricite.com</b>. Ouvre-le, relis et envoie.
           </div>
@@ -79,6 +70,15 @@ export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onC
         </div>
       ) : (
         <>
+          <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
+            {lignes.length} ligne{lignes.length > 1 ? "s" : ""} dans le mail
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+            {lignes.map((l, i) => (
+              <LigneRow key={l._id || i} l={l} />
+            ))}
+          </div>
+
           <label style={{ fontSize: 12, fontWeight: 600, color: EPJ.gray700, display: "block", marginBottom: 6 }}>
             Adresse du fournisseur
           </label>
@@ -95,9 +95,7 @@ export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onC
             }}
           />
           <div style={{ fontSize: 11.5, color: EPJ.gray500, marginTop: 6 }}>
-            {defaultEmail
-              ? "Pré-rempli depuis l'AR / la mémoire fournisseur. Corrige si besoin — l'adresse sera mémorisée."
-              : "Aucune adresse connue : saisis celle du fournisseur. Elle sera mémorisée."}
+            Laisse vide pour utiliser l'adresse mémorisée du fournisseur ou l'expéditeur de l'AR. Sinon saisis/corrige : elle sera mémorisée.
           </div>
           {!emailValide && (
             <div style={{ fontSize: 12, color: EPJ.red, marginTop: 6 }}>Adresse e-mail invalide.</div>
@@ -110,6 +108,28 @@ export function PrepareReclamationModal({ ecart, defaultEmail = "", onClose, onC
         </>
       )}
     </ModalShell>
+  );
+}
+
+function LigneRow({ l }) {
+  const up = (Number(l.ecart) || 0) > 0;
+  return (
+    <div style={{ border: `1px solid ${EPJ.gray200}`, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, color: EPJ.gray700 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontWeight: 700, color: EPJ.gray900 }}>{l.reference || "—"}</span>
+        <span>{fmtMoney(l.prixUnitaireCommande)}</span>
+        <span style={{ color: EPJ.gray300 }}>→</span>
+        <span style={{ fontWeight: 700 }}>{fmtMoney(l.prixUnitaireAR)}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: up ? EPJ.red : EPJ.green, background: `${up ? EPJ.red : EPJ.green}14`, padding: "1px 7px", borderRadius: 999 }}>
+          {up ? "+" : ""}{fmtMoney(l.ecart)} ({fmtPct(l.ecartPct)})
+        </span>
+      </div>
+      {l.designation && (
+        <div style={{ fontSize: 11.5, color: EPJ.gray500, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={l.designation}>
+          {l.designation}
+        </div>
+      )}
+    </div>
   );
 }
 

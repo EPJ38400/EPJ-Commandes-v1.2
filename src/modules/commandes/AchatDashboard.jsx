@@ -4,11 +4,12 @@
 //  • Bandeau 4 KPIs (KpisAchat) : écarts ouverts · montant à récupérer ·
 //    top fournisseur · récupéré ce mois.
 //  • Section A : AR manquants à relancer (+ Acquitter / Sans AR attendu).
-//  • Section B : écarts de prix — barre de 6 filtres (FiltresBarreAchat),
-//    badge de cycle de vie (Ouvert/Réclamé/Résolu), actions :
-//      – Préparer brouillon IA → Cloud Function prepareAchatReclamation
-//        (Claude Haiku rédige, brouillon créé dans achat@).
-//      – Clôturer → Cloud Function clotureEcartAchat (Accordé/Refusé/Abandonné).
+//  • Section B : écarts de prix REGROUPÉS PAR COMMANDE (1 carte = 1 commande
+//    avec ses N lignes d'écart). Barre de 6 filtres (FiltresBarreAchat),
+//    statut global dérivé (Ouvert/Réclamé/Résolu), actions AU NIVEAU COMMANDE :
+//      – Préparer brouillon IA → prepareAchatReclamation({ numero }) :
+//        un seul mail listant toutes les lignes, brouillon créé dans achat@.
+//      – Clôturer → clotureEcartAchat({ numero }) : clôture groupée.
 //      – Voir AR (PDF) / Voir brouillon (lien Gmail).
 //  • Section C : historique des commandes par chantier (EsaboraHistory).
 //
@@ -61,12 +62,12 @@ export function AchatDashboard({ onBack }) {
   const [selectedChantier, setSelectedChantier] = useState("ALL");
   const [filters, setFilters] = useState(FILTRES_DEFAUT);
 
-  // Modales
-  const [reclamModal, setReclamModal] = useState(null);   // { ecart }
+  // Modales (au niveau commande)
+  const [reclamModal, setReclamModal] = useState(null);   // { commande }
   const [reclamBusy, setReclamBusy] = useState(false);
   const [reclamResult, setReclamResult] = useState(null);
   const [reclamError, setReclamError] = useState(null);
-  const [clotureModal, setClotureModal] = useState(null); // { ecart }
+  const [clotureModal, setClotureModal] = useState(null); // { commande }
   const [clotureBusy, setClotureBusy] = useState(false);
 
   useEffect(() => {
@@ -100,48 +101,79 @@ export function AchatDashboard({ onBack }) {
     [ce]
   );
 
-  // Options de filtres auto-alimentées par les écarts présents.
+  // Regroupement des écarts par commande (numero). Une commande = un seul
+  // fournisseur (codeFournisseur) → grouper par numero suffit.
+  const commands = useMemo(() => {
+    const map = new Map();
+    ecarts.forEach((e) => {
+      const num = e.numero || "—";
+      if (!map.has(num)) {
+        map.set(num, { numero: num, fournisseur: e.fournisseur || null, chantierNum: e.chantierNum || null, lignes: [] });
+      }
+      const g = map.get(num);
+      g.lignes.push(e);
+      if (!g.fournisseur && e.fournisseur) g.fournisseur = e.fournisseur;
+      if (!g.chantierNum && e.chantierNum) g.chantierNum = e.chantierNum;
+    });
+    return [...map.values()].map((g) => {
+      const statuts = g.lignes.map((l) => l.statut || "OUVERT");
+      let statut = "RESOLU";
+      if (statuts.some((s) => s === "OUVERT")) statut = "OUVERT";
+      else if (statuts.some((s) => s === "RECLAME")) statut = "RECLAME";
+      const montantTotal = g.lignes.reduce((s, l) => s + Math.abs(Number(l.ecart) || 0), 0);
+      const dateMax = Math.max(0, ...g.lignes.map((l) => tsToMs(l.dateConstat) || 0));
+      const reclameDraftUrl = g.lignes.find((l) => l.reclameDraftUrl)?.reclameDraftUrl || null;
+      const raisons = [...new Set(g.lignes.filter((l) => l.statut === "RESOLU").map((l) => l.clotureRaison).filter(Boolean))];
+      const clotureRaison = statut === "RESOLU" && raisons.length === 1 ? raisons[0] : null;
+      const clotureCommentaire = g.lignes.find((l) => l.clotureCommentaire)?.clotureCommentaire || null;
+      return { ...g, statut, montantTotal, dateMax, reclameDraftUrl, clotureRaison, clotureCommentaire };
+    });
+  }, [ecarts]);
+
+  // Options de filtres auto-alimentées par les commandes présentes.
   const fournisseurOptions = useMemo(
-    () => [...new Set(ecarts.map((e) => e.fournisseur).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [ecarts]
+    () => [...new Set(commands.map((c) => c.fournisseur).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [commands]
   );
   const chantierFilterOptions = useMemo(
-    () => [...new Set(ecarts.map((e) => e.chantierNum).filter(Boolean))].sort((a, b) => `${a}`.localeCompare(`${b}`)),
-    [ecarts]
+    () => [...new Set(commands.map((c) => c.chantierNum).filter(Boolean))].sort((a, b) => `${a}`.localeCompare(`${b}`)),
+    [commands]
   );
 
-  // Prédicat de filtre (option `skipStatut` pour les KPIs cumulés).
-  const passe = (e, skipStatut = false) => {
-    const statut = e.statut || "OUVERT";
-    if (!skipStatut && filters.statut !== "ALL" && statut !== filters.statut) return false;
-    if (!matchPeriode(e, filters.periode)) return false;
-    if (filters.fournisseur !== "ALL" && (e.fournisseur || "") !== filters.fournisseur) return false;
-    if (filters.typeEcart !== "ALL" && ecartType(e) !== filters.typeEcart) return false;
-    if (filters.chantier !== "ALL" && (e.chantierNum || "") !== filters.chantier) return false;
+  // Prédicat de filtre au NIVEAU COMMANDE (skipStatut pour les KPIs cumulés).
+  const passeCmd = (cmd, skipStatut = false) => {
+    if (!skipStatut && filters.statut !== "ALL" && cmd.statut !== filters.statut) return false;
+    if (filters.periode !== "ALL" && cmd.dateMax) {
+      const days = (Date.now() - cmd.dateMax) / 86_400_000;
+      if (days > Number(filters.periode)) return false;
+    }
+    if (filters.fournisseur !== "ALL" && (cmd.fournisseur || "") !== filters.fournisseur) return false;
+    if (filters.typeEcart !== "ALL" && !cmd.lignes.some((l) => ecartType(l) === filters.typeEcart)) return false;
+    if (filters.chantier !== "ALL" && (cmd.chantierNum || "") !== filters.chantier) return false;
     const min = Number(filters.montantMin) || 0;
-    if (min > 0 && Math.abs(Number(e.ecart) || 0) < min) return false;
+    if (min > 0 && cmd.montantTotal < min) return false;
     return true;
   };
 
-  const filteredEcarts = useMemo(
-    () => ecarts
-      .filter((e) => passe(e))
-      .sort((a, b) => Math.abs(Number(b.ecart) || 0) - Math.abs(Number(a.ecart) || 0)),
-    [ecarts, filters]
+  const filteredCommands = useMemo(
+    () => commands
+      .filter((c) => passeCmd(c))
+      .sort((a, b) => b.montantTotal - a.montantTotal),
+    [commands, filters]
   );
 
   const kpis = useMemo(() => {
-    // Cartes 1-3 : base = filtres courants SAUF le statut, sous-ensemble OUVERT.
-    const base = ecarts.filter((e) => passe(e, true));
-    const ouverts = base.filter((e) => (e.statut || "OUVERT") === "OUVERT");
-    const ouvertsMontant = ouverts.reduce((s, e) => s + Math.abs(Number(e.ecart) || 0), 0);
+    // Cartes 1-3 : lignes des commandes passant les filtres SAUF le statut.
+    const baseLines = commands.filter((c) => passeCmd(c, true)).flatMap((c) => c.lignes);
+    const ouverts = baseLines.filter((l) => (l.statut || "OUVERT") === "OUVERT");
+    const ouvertsMontant = ouverts.reduce((s, l) => s + Math.abs(Number(l.ecart) || 0), 0);
 
     const groups = {};
-    ouverts.forEach((e) => {
-      const f = e.fournisseur || "—";
+    ouverts.forEach((l) => {
+      const f = l.fournisseur || "—";
       if (!groups[f]) groups[f] = { nom: f, count: 0, montant: 0 };
       groups[f].count += 1;
-      groups[f].montant += Math.abs(Number(e.ecart) || 0);
+      groups[f].montant += Math.abs(Number(l.ecart) || 0);
     });
     let topFournisseur = null;
     Object.values(groups).forEach((g) => {
@@ -166,7 +198,7 @@ export function AchatDashboard({ onBack }) {
       recupereMoisMontant,
       periodeLabel: PERIODE_LABEL[filters.periode] || "",
     };
-  }, [ecarts, filters]);
+  }, [commands, ecarts, filters]);
 
   const chantierOptions = useMemo(
     () => [...chantiers]
@@ -201,18 +233,19 @@ export function AchatDashboard({ onBack }) {
     }
   };
 
-  // ─── Réclamation IA ─────────────────────────────────────────
-  const openReclam = (e) => {
+  // ─── Réclamation IA (par commande) ──────────────────────────
+  const openReclam = (commande) => {
     setReclamResult(null);
     setReclamError(null);
-    setReclamModal({ ecart: e });
+    setReclamModal({ commande });
   };
   const doReclam = async (customEmail) => {
-    if (!reclamModal?.ecart) return;
+    const numero = reclamModal?.commande?.numero;
+    if (!numero) return;
     setReclamBusy(true);
     setReclamError(null);
     try {
-      const res = await fnPrepareReclamation({ ecartId: reclamModal.ecart._id, customEmail: customEmail || null });
+      const res = await fnPrepareReclamation({ numero, customEmail: customEmail || null });
       setReclamResult(res.data);
       toast("✓ Brouillon prêt dans achat@");
     } catch (err) {
@@ -222,13 +255,14 @@ export function AchatDashboard({ onBack }) {
     }
   };
 
-  // ─── Clôture ────────────────────────────────────────────────
+  // ─── Clôture (par commande) ─────────────────────────────────
   const doCloture = async (raison, commentaire) => {
-    if (!clotureModal?.ecart) return;
+    const numero = clotureModal?.commande?.numero;
+    if (!numero) return;
     setClotureBusy(true);
     try {
-      await fnClotureEcart({ ecartId: clotureModal.ecart._id, raison, commentaire: commentaire || null });
-      toast("✓ Écart clôturé");
+      await fnClotureEcart({ numero, raison, commentaire: commentaire || null });
+      toast("✓ Commande clôturée");
       setClotureModal(null);
     } catch (err) {
       toast(traduireErreur(err));
@@ -283,26 +317,26 @@ export function AchatDashboard({ onBack }) {
             )}
           </SectionCard>
 
-          {/* Section B — Écarts prix */}
-          <SectionCard title="Écarts de prix" count={filteredEcarts.length} accent={EPJ.orange}>
+          {/* Section B — Écarts prix regroupés par commande */}
+          <SectionCard title="Écarts de prix par commande" count={filteredCommands.length} accent={EPJ.orange}>
             <FiltresBarreAchat
               value={filters}
               onChange={setFilters}
               fournisseurOptions={fournisseurOptions}
               chantierOptions={chantierFilterOptions}
             />
-            {filteredEcarts.length === 0 ? (
-              <Empty text={ecarts.length === 0 ? "Aucun écart de prix détecté." : "Aucun écart ne correspond aux filtres."} />
+            {filteredCommands.length === 0 ? (
+              <Empty text={commands.length === 0 ? "Aucun écart de prix détecté." : "Aucune commande ne correspond aux filtres."} />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {filteredEcarts.map((e) => (
-                  <EcartRow
-                    key={e._id}
-                    e={e}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {filteredCommands.map((cmd) => (
+                  <CommandCard
+                    key={cmd.numero}
+                    cmd={cmd}
                     isNarrow={isNarrow}
-                    arRef={ceByNumero.get(e.numero)?.arRef}
-                    onReclamer={() => openReclam(e)}
-                    onCloturer={() => setClotureModal({ ecart: e })}
+                    arRef={ceByNumero.get(cmd.numero)?.arRef}
+                    onReclamer={() => openReclam(cmd)}
+                    onCloturer={() => setClotureModal({ commande: cmd })}
                   />
                 ))}
               </div>
@@ -334,7 +368,7 @@ export function AchatDashboard({ onBack }) {
 
       {reclamModal && (
         <PrepareReclamationModal
-          ecart={reclamModal.ecart}
+          commande={reclamModal.commande}
           defaultEmail=""
           busy={reclamBusy}
           result={reclamResult}
@@ -345,7 +379,7 @@ export function AchatDashboard({ onBack }) {
       )}
       {clotureModal && (
         <EcartClotureModal
-          ecart={clotureModal.ecart}
+          commande={clotureModal.commande}
           busy={clotureBusy}
           onClose={() => setClotureModal(null)}
           onConfirm={doCloture}
@@ -362,14 +396,6 @@ function tsToMs(value) {
   if (typeof value === "object" && typeof value.seconds === "number") return value.seconds * 1000;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d.getTime();
-}
-
-function matchPeriode(e, periode) {
-  if (periode === "ALL") return true;
-  const ms = tsToMs(e.dateConstat);
-  if (ms == null) return true; // pas de date de constat → on ne masque pas
-  const days = (Date.now() - ms) / 86_400_000;
-  return days <= Number(periode);
 }
 
 // Mappe la source price-watch sur le type d'écart (forward-compat AR↔Fact…).
@@ -390,7 +416,7 @@ function traduireErreur(err) {
   const code = err?.code || "";
   const msg = err?.message || "Erreur inattendue.";
   if (code.includes("permission-denied")) return "Action réservée aux rôles de pilotage.";
-  if (code.includes("failed-precondition")) return "Destinataire introuvable : précise l'adresse du fournisseur.";
+  if (code.includes("failed-precondition")) return msg; // message déjà explicite (destinataire / scope)
   if (code.includes("unauthenticated")) return "Session expirée, reconnecte-toi.";
   return msg;
 }
@@ -450,67 +476,82 @@ function ManquantRow({ c, isNarrow, onAcquitter, onSansAR }) {
   );
 }
 
-function EcartRow({ e, isNarrow, arRef, onReclamer, onCloturer }) {
-  const up = (Number(e.ecart) || 0) > 0;
-  const statut = e.statut || "OUVERT";
-  const resolu = statut === "RESOLU";
+// Carte = 1 commande, avec ses N lignes d'écart à l'intérieur + actions
+// au niveau commande (statut global dérivé).
+function CommandCard({ cmd, isNarrow, arRef, onReclamer, onCloturer }) {
+  const resolu = cmd.statut === "RESOLU";
+  const n = cmd.lignes.length;
   return (
-    <div
-      style={{
-        border: `1px solid ${EPJ.gray200}`, borderRadius: 12, padding: 12,
-        display: "flex", flexDirection: isNarrow ? "column" : "row",
-        alignItems: isNarrow ? "stretch" : "center", gap: 12,
-        opacity: resolu ? 0.72 : 1,
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 700, fontFamily: font.mono, fontSize: 13 }}>{e.numero}</span>
-          <span style={{ fontSize: 12, color: EPJ.gray700 }}>{e.reference || "—"}</span>
-          <span style={{ fontSize: 11, color: EPJ.gray500 }}>{e.fournisseur || ""}</span>
-          <EcartStatutBadge statut={statut} size="sm" />
-          {resolu && e.clotureRaison && (
-            <span
-              title={e.clotureCommentaire || ""}
-              style={{ fontSize: 10.5, fontWeight: 700, color: EPJ.gray500, background: `${EPJ.gray500}14`, padding: "2px 7px", borderRadius: 999 }}
-            >
-              {RAISON_LABEL[e.clotureRaison] || e.clotureRaison}
-            </span>
-          )}
-        </div>
-        {e.designation && (
-          <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.designation}>
-            {e.designation}
-          </div>
-        )}
-        <div style={{ fontSize: 13, color: EPJ.gray900, marginTop: 5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span>{fmtMoney(e.prixUnitaireCommande)}</span>
-          <span style={{ color: EPJ.gray300 }}>→</span>
-          <span style={{ fontWeight: 700 }}>{fmtMoney(e.prixUnitaireAR)}</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: up ? EPJ.red : EPJ.green, background: `${up ? EPJ.red : EPJ.green}14`, padding: "2px 8px", borderRadius: 999 }}>
-            {up ? "+" : ""}{fmtMoney(e.ecart)} ({fmtPct(e.ecartPct)})
-          </span>
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center", justifyContent: isNarrow ? "flex-start" : "flex-end" }}>
-        {!resolu && statut !== "RECLAME" && (
-          <button onClick={onReclamer} style={btnStyle(EPJ.blue)}>Préparer brouillon IA</button>
-        )}
-        {!resolu && statut === "RECLAME" && (
-          <>
-            {e.reclameDraftUrl && (
-              <a href={e.reclameDraftUrl} target="_blank" rel="noreferrer" style={{ ...btnStyle(EPJ.blue, true), textDecoration: "none", display: "inline-block" }}>
-                Voir brouillon ↗
-              </a>
+    <div style={{ border: `1px solid ${EPJ.gray200}`, borderRadius: 12, padding: 12, opacity: resolu ? 0.72 : 1 }}>
+      {/* En-tête commande */}
+      <div style={{ display: "flex", flexDirection: isNarrow ? "column" : "row", alignItems: isNarrow ? "stretch" : "center", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 700, fontFamily: font.mono, fontSize: 14 }}>{cmd.numero}</span>
+            {cmd.fournisseur && <span style={{ fontSize: 12.5, color: EPJ.gray700 }}>{cmd.fournisseur}</span>}
+            {cmd.chantierNum && <span style={{ fontSize: 11, color: EPJ.gray500 }}>· chantier {cmd.chantierNum}</span>}
+            <EcartStatutBadge statut={cmd.statut} size="sm" />
+            {resolu && cmd.clotureRaison && (
+              <span
+                title={cmd.clotureCommentaire || ""}
+                style={{ fontSize: 10.5, fontWeight: 700, color: EPJ.gray500, background: `${EPJ.gray500}14`, padding: "2px 7px", borderRadius: 999 }}
+              >
+                {RAISON_LABEL[cmd.clotureRaison] || cmd.clotureRaison}
+              </span>
             )}
-            <button onClick={onReclamer} style={btnStyle(EPJ.gray500, true)}>Régénérer</button>
-          </>
-        )}
-        {!resolu && (
-          <button onClick={onCloturer} style={btnStyle(EPJ.gray900, true)}>Clôturer</button>
-        )}
-        <ArPdfLink refObj={arRef} />
+          </div>
+          <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 4 }}>
+            {n} ligne{n > 1 ? "s" : ""} en écart · total <b style={{ color: EPJ.gray900 }}>{fmtMoney(cmd.montantTotal)}</b>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center", justifyContent: isNarrow ? "flex-start" : "flex-end" }}>
+          {!resolu && cmd.statut !== "RECLAME" && (
+            <button onClick={onReclamer} style={btnStyle(EPJ.blue)}>Préparer brouillon IA</button>
+          )}
+          {!resolu && cmd.statut === "RECLAME" && (
+            <>
+              {cmd.reclameDraftUrl && (
+                <a href={cmd.reclameDraftUrl} target="_blank" rel="noreferrer" style={{ ...btnStyle(EPJ.blue, true), textDecoration: "none", display: "inline-block" }}>
+                  Voir brouillon ↗
+                </a>
+              )}
+              <button onClick={onReclamer} style={btnStyle(EPJ.gray500, true)}>Régénérer</button>
+            </>
+          )}
+          {!resolu && (
+            <button onClick={onCloturer} style={btnStyle(EPJ.gray900, true)}>Clôturer</button>
+          )}
+          <ArPdfLink refObj={arRef} />
+        </div>
       </div>
+
+      {/* Lignes d'écart de la commande */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${EPJ.gray200}` }}>
+        {cmd.lignes.map((l, i) => (
+          <LigneEcart key={l._id || i} l={l} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LigneEcart({ l }) {
+  const up = (Number(l.ecart) || 0) > 0;
+  const resolu = (l.statut || "OUVERT") === "RESOLU";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: EPJ.gray700, opacity: resolu ? 0.7 : 1 }}>
+      <span style={{ fontWeight: 700, color: EPJ.gray900 }}>{l.reference || "—"}</span>
+      {l.designation && (
+        <span style={{ flex: 1, minWidth: 80, color: EPJ.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={l.designation}>
+          {l.designation}
+        </span>
+      )}
+      <span>{fmtMoney(l.prixUnitaireCommande)}</span>
+      <span style={{ color: EPJ.gray300 }}>→</span>
+      <span style={{ fontWeight: 700 }}>{fmtMoney(l.prixUnitaireAR)}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: up ? EPJ.red : EPJ.green, background: `${up ? EPJ.red : EPJ.green}14`, padding: "1px 7px", borderRadius: 999 }}>
+        {up ? "+" : ""}{fmtMoney(l.ecart)} ({fmtPct(l.ecartPct)})
+      </span>
     </div>
   );
 }

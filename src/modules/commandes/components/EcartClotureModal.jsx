@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-//  EcartClotureModal — clôture d'un écart de prix.
+//  EcartClotureModal — clôture groupée des écarts d'UNE commande.
 //  3 issues : Accordé (vert) / Refusé (rouge) / Abandonné (gris) +
-//  commentaire optionnel. Appelle onConfirm(raison, commentaire).
+//  commentaire optionnel. Tous les écarts de la commande partagent le
+//  même destin (V2). Appelle onConfirm(raison, commentaire).
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { EPJ } from "../../../core/theme";
@@ -11,20 +12,20 @@ import { ModalShell } from "./ModalShell";
 const RAISONS = [
   { code: "ACCORDE",   label: "Accordé",   hint: "Le fournisseur régularise / accepte", color: EPJ.green },
   { code: "REFUSE",    label: "Refusé",    hint: "Le fournisseur refuse",               color: EPJ.red },
-  { code: "ABANDONNE", label: "Abandonné", hint: "On laisse tomber cet écart",          color: EPJ.gray500 },
+  { code: "ABANDONNE", label: "Abandonné", hint: "On laisse tomber ces écarts",         color: EPJ.gray500 },
 ];
 
-export function EcartClotureModal({ ecart, onClose, onConfirm, busy = false }) {
+export function EcartClotureModal({ commande, onClose, onConfirm, busy = false }) {
   const [raison, setRaison] = useState(null);
   const [commentaire, setCommentaire] = useState("");
 
-  const e = ecart || {};
-  const up = (Number(e.ecart) || 0) > 0;
+  const c = commande || {};
+  const lignes = c.lignes || [];
 
   return (
     <ModalShell
-      title="Clôturer l'écart"
-      subtitle={`Commande ${e.numero || "—"} · ${e.reference || "—"}`}
+      title="Clôturer la commande"
+      subtitle={`Commande ${c.numero || "—"}${c.fournisseur ? ` · ${c.fournisseur}` : ""}`}
       onClose={busy ? undefined : onClose}
       footer={
         <>
@@ -39,13 +40,22 @@ export function EcartClotureModal({ ecart, onClose, onConfirm, busy = false }) {
         </>
       }
     >
-      <div style={{ fontSize: 13, color: EPJ.gray700, marginBottom: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <span>{fmtMoney(e.prixUnitaireCommande)}</span>
-        <span style={{ color: EPJ.gray300 }}>→</span>
-        <span style={{ fontWeight: 700 }}>{fmtMoney(e.prixUnitaireAR)}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: up ? EPJ.red : EPJ.green, background: `${up ? EPJ.red : EPJ.green}14`, padding: "2px 8px", borderRadius: 999 }}>
-          {up ? "+" : ""}{fmtMoney(e.ecart)} ({fmtPct(e.ecartPct)})
-        </span>
+      <div style={{ fontSize: 12.5, color: EPJ.gray700, marginBottom: 12 }}>
+        <b>{lignes.length} écart{lignes.length > 1 ? "s" : ""}</b> de cette commande {lignes.length > 1 ? "seront clôturés ensemble" : "sera clôturé"}.
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
+        {lignes.map((l, i) => {
+          const up = (Number(l.ecart) || 0) > 0;
+          return (
+            <div key={l._id || i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12, color: EPJ.gray700 }}>
+              <span style={{ fontWeight: 700, color: EPJ.gray900 }}>{l.reference || "—"}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: up ? EPJ.red : EPJ.green }}>
+                {up ? "+" : ""}{fmtMoney(l.ecart)} ({fmtPct(l.ecartPct)})
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
