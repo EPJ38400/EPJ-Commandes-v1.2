@@ -23,7 +23,7 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 const COL_ECARTS = "achatEcartsPrix";
-const RAISONS = ["ACCORDE", "REFUSE", "ABANDONNE"];
+const RAISONS = ["ACCORDE", "REFUSE", "ABANDONNE", "AUTRE"];
 const PILOTAGE = ["Admin", "Direction", "Conducteur travaux", "Assistante"];
 
 export const clotureEcartAchat = onCall(
@@ -48,6 +48,10 @@ export const clotureEcartAchat = onCall(
     }
     if (!RAISONS.includes(raison)) {
       throw new HttpsError("invalid-argument", `raison invalide (attendu : ${RAISONS.join(" | ")}).`);
+    }
+    // La raison "AUTRE" exige un commentaire : c'est lui qui porte le motif.
+    if (raison === "AUTRE" && !(commentaire && commentaire.trim())) {
+      throw new HttpsError("invalid-argument", "Un commentaire est obligatoire pour la raison « Autre ».");
     }
 
     const ecartsSnap = await db.collection(COL_ECARTS).where("numero", "==", numero).get();
