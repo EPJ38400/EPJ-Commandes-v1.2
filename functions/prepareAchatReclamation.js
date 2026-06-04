@@ -1,21 +1,21 @@
 // ═══════════════════════════════════════════════════════════════
 //  functions/prepareAchatReclamation.js — Dashboard achat V2
 //
-//  Callable HTTPS : prépare un BROUILLON de réclamation fournisseur pour
-//  un écart de prix (achatEcartsPrix/{ecartId}).
+//  Callable HTTPS : prépare UN brouillon de réclamation fournisseur pour
+//  UNE commande (regroupe TOUS ses écarts de prix ouverts dans un seul mail).
 //
 //  Workflow :
-//    1. Lit l'écart + la commande Esabora associée (contexte prix).
+//    1. Charge tous les écarts NON résolus de la commande (achatEcartsPrix
+//       where numero == numero) + la commande Esabora associée.
 //    2. Résout le destinataire :
 //         customEmail fourni  → utilisé + mémorisé fournisseursContacts.
 //         sinon fournisseursContacts/{codeFournisseur}.email (mémoire).
 //         sinon expéditeur de l'AR original
 //               (gmailAchatExtractions/{arRef.gmailId}.fromEmail).
-//    3. Claude Haiku 4.5 rédige objet + corps du mail (JSON strict).
-//    4. Crée un BROUILLON dans la boîte achat@ (Gmail API, refresh token
-//       GMAIL_ACHAT_REFRESH_TOKEN). L'utilisateur valide et envoie depuis
-//       Gmail comme d'habitude.
-//    5. Merge sur l'écart : statut="RECLAME", reclame* (qui/quand/draftId).
+//    3. Claude Haiku 4.5 rédige objet + corps listant TOUTES les lignes.
+//    4. Crée UN brouillon dans la boîte achat@ (Gmail API, refresh token
+//       GMAIL_ACHAT_REFRESH_TOKEN — scope gmail.compose requis).
+//    5. Batch sur les écarts : statut="RECLAME", reclame* (qui/quand/draft).
 //
 //  ⚠ Pas d'OAuth par utilisateur dans cette app : le brouillon vit dans
 //  achat@ (boîte métier des achats, là où l'AR est arrivé).
@@ -59,34 +59,33 @@ export const prepareAchatReclamation = onCall(
       throw new HttpsError("permission-denied", "Réservé aux rôles de pilotage.");
     }
 
-    const ecartId = String(request.data?.ecartId || "").trim();
+    const numero = String(request.data?.numero || "").trim();
     const customEmail = request.data?.customEmail != null
       ? String(request.data.customEmail).trim()
       : null;
-    if (!ecartId) {
-      throw new HttpsError("invalid-argument", "ecartId manquant.");
+    if (!numero) {
+      throw new HttpsError("invalid-argument", "numero manquant.");
     }
     if (customEmail && !isEmail(customEmail)) {
       throw new HttpsError("invalid-argument", "Adresse e-mail invalide.");
     }
 
-    // 1. Écart + commande
-    const ecartRef = db.collection(COL_ECARTS).doc(ecartId);
-    const ecartSnap = await ecartRef.get();
-    if (!ecartSnap.exists) {
-      throw new HttpsError("not-found", `Écart ${ecartId} introuvable.`);
+    // 1. Tous les écarts NON résolus de la commande
+    const ecartsSnap = await db.collection(COL_ECARTS).where("numero", "==", numero).get();
+    const ecartsDocs = ecartsSnap.docs.filter((d) => (d.data()?.statut || "OUVERT") !== "RESOLU");
+    if (!ecartsDocs.length) {
+      throw new HttpsError("failed-precondition", `Aucun écart ouvert pour la commande ${numero}.`);
     }
-    const ecart = ecartSnap.data() || {};
-    const numero = ecart.numero || null;
+    const lignes = ecartsDocs.map((d) => d.data());
 
+    // Commande Esabora associée (codeFournisseur, expéditeur AR)
     let ce = {};
-    if (numero) {
-      const ceSnap = await db.collection(COL_COMMANDES_ESABORA).doc(numero).get();
-      if (ceSnap.exists) ce = ceSnap.data() || {};
-    }
+    const ceSnap = await db.collection(COL_COMMANDES_ESABORA).doc(numero).get();
+    if (ceSnap.exists) ce = ceSnap.data() || {};
 
-    const codeFournisseur = sanitizeId(ce.codeFournisseur || ecart.fournisseur || "INCONNU");
-    const fournisseurNom = ce.arRef?.fournisseur || ecart.fournisseur || "votre société";
+    const fournisseurRef = ce.codeFournisseur || lignes.find((l) => l.fournisseur)?.fournisseur || "INCONNU";
+    const codeFournisseur = sanitizeId(fournisseurRef);
+    const fournisseurNom = ce.arRef?.fournisseur || lignes.find((l) => l.fournisseur)?.fournisseur || "votre société";
 
     // 2. Destinataire
     let destinataire = customEmail;
@@ -105,19 +104,10 @@ export const prepareAchatReclamation = onCall(
       );
     }
 
-    // 3. Rédaction IA
-    const ia = await redigerReclamation(ANTHROPIC_API_KEY.value(), {
-      numero, fournisseurNom,
-      reference: ecart.reference,
-      designation: ecart.designation,
-      prixCommande: ecart.prixUnitaireCommande,
-      prixAR: ecart.prixUnitaireAR,
-      ecart: ecart.ecart,
-      ecartPct: ecart.ecartPct,
-      quantite: ecart.quantite,
-    });
-    const objet = (ia?.objet || `Écart de prix — commande ${numero || ""}`).trim();
-    const corps = (ia?.corps || corpsFallback({ numero, fournisseurNom, ecart })).trim();
+    // 3. Rédaction IA (toutes les lignes)
+    const ia = await redigerReclamation(ANTHROPIC_API_KEY.value(), { numero, fournisseurNom, lignes });
+    const objet = (ia?.objet || `Écart de prix — commande ${numero}`).trim();
+    const corps = (ia?.corps || corpsFallback({ numero, lignes })).trim();
 
     // 4. Brouillon dans achat@
     const gmail = buildGmailClient({
@@ -141,8 +131,17 @@ export const prepareAchatReclamation = onCall(
       draftId = res.data.id;
       draftMessageId = res.data.message?.id || null;
     } catch (e) {
-      console.error("[prepareAchatReclamation] échec création brouillon:", e.message);
-      throw new HttpsError("internal", "Impossible de créer le brouillon Gmail.");
+      const detail = e?.errors?.[0]?.message || e?.message || String(e);
+      console.error("[prepareAchatReclamation] échec création brouillon:", detail);
+      // Cas le plus probable : token achat@ en gmail.readonly (pas de droit
+      // d'écriture). On le rend explicite côté UI plutôt qu'un "internal" opaque.
+      if (/scope|insufficient|permission|403/i.test(detail)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Le compte achat@ n'a pas le droit de créer des brouillons (scope gmail.compose manquant). Régénérer GMAIL_ACHAT_REFRESH_TOKEN avec ce scope.",
+        );
+      }
+      throw new HttpsError("internal", `Brouillon Gmail impossible : ${detail}`);
     }
     const draftWebUrl = draftMessageId
       ? `https://mail.google.com/mail/u/0/#drafts/${draftMessageId}`
@@ -156,61 +155,73 @@ export const prepareAchatReclamation = onCall(
       creePar: request.auth.uid,
     }, { merge: true });
 
-    // 5b. Merge sur l'écart : statut RECLAME + traçabilité
-    await ecartRef.set({
-      statut: "RECLAME",
-      reclameLe: admin.firestore.FieldValue.serverTimestamp(),
-      reclamePar: request.auth.uid,
-      reclameMailMessageId: draftId,
-      reclameDraftUrl: draftWebUrl,
-    }, { merge: true });
+    // 5b. Batch : tous les écarts de la commande → RECLAME + traçabilité
+    const batch = db.batch();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    for (const d of ecartsDocs) {
+      batch.set(d.ref, {
+        statut: "RECLAME",
+        reclameLe: now,
+        reclamePar: request.auth.uid,
+        reclameMailMessageId: draftId,
+        reclameDraftUrl: draftWebUrl,
+      }, { merge: true });
+    }
+    await batch.commit();
 
-    return { success: true, draftId, draftWebUrl, destinataire };
+    return { success: true, draftId, draftWebUrl, destinataire, nbEcarts: ecartsDocs.length };
   },
 );
 
 // ═══════════════════════════════════════════════════════════════
 //  Rédaction IA — objet + corps en JSON strict (Claude Haiku 4.5)
 // ═══════════════════════════════════════════════════════════════
-async function redigerReclamation(apiKey, ctx) {
-  const ecartTxt = ctx.ecart != null ? `${ctx.ecart > 0 ? "+" : ""}${ctx.ecart} € HT/u` : "écart constaté";
-  const pctTxt = ctx.ecartPct != null ? ` (${ctx.ecartPct > 0 ? "+" : ""}${ctx.ecartPct} %)` : "";
+async function redigerReclamation(apiKey, { numero, fournisseurNom, lignes }) {
+  const lignesTxt = lignes.map((l, i) => {
+    const cmd = l.prixUnitaireCommande != null ? `${l.prixUnitaireCommande} € HT` : "?";
+    const ar = l.prixUnitaireAR != null ? `${l.prixUnitaireAR} € HT` : "?";
+    const ec = l.ecart != null ? `${l.ecart > 0 ? "+" : ""}${l.ecart} € HT/u` : "?";
+    const pct = l.ecartPct != null ? ` (${l.ecartPct > 0 ? "+" : ""}${l.ecartPct} %)` : "";
+    return `${i + 1}. Réf ${l.reference || "?"}${l.designation ? ` — ${l.designation}` : ""}${l.quantite != null ? ` · qté ${l.quantite}` : ""} : commandé ${cmd}, confirmé sur AR ${ar}, écart ${ec}${pct}`;
+  }).join("\n");
+
   const system = "Tu es l'assistant achats d'EPJ Électricité Générale (PME du bâtiment). Tu rédiges des courriers professionnels, courtois et factuels, en français. Tu réponds UNIQUEMENT en JSON valide, sans texte avant/après.";
-  const prompt = `Rédige un e-mail de réclamation à un fournisseur pour un écart de prix entre notre commande et son accusé de réception (AR).
+  const prompt = `Rédige UN e-mail de réclamation à un fournisseur pour PLUSIEURS écarts de prix constatés sur une même commande, entre notre bon de commande et son accusé de réception (AR).
 
 Contexte :
-- Fournisseur : ${ctx.fournisseurNom}
-- N° de commande : ${ctx.numero || "(non précisé)"}
-- Référence article : ${ctx.reference || "(non précisée)"}
-- Désignation : ${ctx.designation || "(non précisée)"}
-- Quantité : ${ctx.quantite != null ? ctx.quantite : "(non précisée)"}
-- Prix unitaire commandé : ${ctx.prixCommande != null ? ctx.prixCommande + " € HT" : "(inconnu)"}
-- Prix unitaire confirmé sur l'AR : ${ctx.prixAR != null ? ctx.prixAR + " € HT" : "(inconnu)"}
-- Écart : ${ecartTxt}${pctTxt}
+- Fournisseur : ${fournisseurNom}
+- N° de commande : ${numero}
+- Nombre de lignes en écart : ${lignes.length}
+
+Lignes en écart :
+${lignesTxt}
 
 Consignes :
-- Ton courtois mais ferme. Demande l'alignement sur le prix commandé OU une explication écrite.
-- Cite précisément la référence, le n° de commande et les deux prix.
+- UN SEUL e-mail couvrant TOUTES les lignes ci-dessus (ne pas en omettre).
+- Présente les lignes sous forme de liste claire et lisible (référence, prix commandé, prix AR, écart) dans le corps.
+- Ton courtois mais ferme. Demande l'alignement sur les prix commandés OU une explication écrite, pour chaque ligne.
+- Cite le n° de commande. Pas de markdown : texte brut avec sauts de ligne.
 - Signature : "Service Achats — EPJ Électricité Générale". Pas de coordonnées inventées.
-- Pas de markdown, texte brut avec sauts de ligne.
 
 Réponds STRICTEMENT : { "objet": "...", "corps": "..." }`;
 
-  return callClaudeJson({ apiKey, model: CLAUDE_MODEL, system, content: prompt, maxTokens: 1200 });
+  return callClaudeJson({ apiKey, model: CLAUDE_MODEL, system, content: prompt, maxTokens: 1500 });
 }
 
-function corpsFallback({ numero, fournisseurNom, ecart }) {
-  const e = ecart || {};
+function corpsFallback({ numero, lignes }) {
+  const lignesTxt = lignes.map((l) => {
+    const cmd = l.prixUnitaireCommande != null ? `${l.prixUnitaireCommande} € HT` : "?";
+    const ar = l.prixUnitaireAR != null ? `${l.prixUnitaireAR} € HT` : "?";
+    const ec = l.ecart != null ? `${l.ecart > 0 ? "+" : ""}${l.ecart} € HT/u` : "?";
+    return `- ${l.reference || ""}${l.designation ? " — " + l.designation : ""} : commandé ${cmd}, AR ${ar} (écart ${ec})`;
+  }).join("\n");
   return `Bonjour,
 
-Nous constatons un écart de prix sur votre accusé de réception concernant la commande ${numero || "(réf. à préciser)"}.
+Nous constatons ${lignes.length > 1 ? `${lignes.length} écarts de prix` : "un écart de prix"} sur votre accusé de réception concernant la commande ${numero}.
 
-Article : ${e.reference || ""} ${e.designation ? "— " + e.designation : ""}
-Prix commandé : ${e.prixUnitaireCommande != null ? e.prixUnitaireCommande + " € HT" : "?"}
-Prix confirmé (AR) : ${e.prixUnitaireAR != null ? e.prixUnitaireAR + " € HT" : "?"}
-Écart : ${e.ecart != null ? (e.ecart > 0 ? "+" : "") + e.ecart + " € HT/u" : "?"}
+${lignesTxt}
 
-Merci de bien vouloir aligner ce prix sur notre commande, ou de nous transmettre une explication écrite.
+Merci de bien vouloir aligner ces prix sur notre commande, ou de nous transmettre une explication écrite pour chaque ligne concernée.
 
 Cordialement,
 Service Achats — EPJ Électricité Générale`;

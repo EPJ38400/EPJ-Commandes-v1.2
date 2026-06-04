@@ -1,15 +1,19 @@
 // ═══════════════════════════════════════════════════════════════
 //  functions/clotureEcartAchat.js — Module Commande, Dashboard achat V2
 //
-//  Callable HTTPS : clôture un écart de prix (achatEcartsPrix/{ecartId}).
-//  L'utilisateur (Assistante+) tranche le sort d'un écart :
+//  Callable HTTPS : clôture TOUS les écarts de prix d'une commande
+//  (achatEcartsPrix where numero == numero) en une seule fois.
+//  L'utilisateur (Assistante+) tranche le sort de la commande :
 //    • ACCORDE   — le fournisseur a régularisé / accepte l'avoir.
 //    • REFUSE    — le fournisseur refuse.
 //    • ABANDONNE — on laisse tomber.
 //  → statut = "RESOLU" + traçabilité (qui / quand / raison / commentaire).
 //
-//  Écriture en service account (merge) : les rules client gardent
-//  achatEcartsPrix en lecture seule. Aucune autre collection touchée.
+//  V2 : une commande = un destin (clôture groupée). La clôture ligne par
+//  ligne est une évolution V3 si besoin.
+//
+//  Écriture en service account (batch merge) : les rules client gardent
+//  achatEcartsPrix en lecture seule.
 // ═══════════════════════════════════════════════════════════════
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
@@ -33,33 +37,37 @@ export const clotureEcartAchat = onCall(
       throw new HttpsError("permission-denied", "Réservé aux rôles de pilotage.");
     }
 
-    const ecartId = String(request.data?.ecartId || "").trim();
+    const numero = String(request.data?.numero || "").trim();
     const raison = String(request.data?.raison || "").trim();
     const commentaire = request.data?.commentaire != null
       ? String(request.data.commentaire).slice(0, 2000)
       : null;
 
-    if (!ecartId) {
-      throw new HttpsError("invalid-argument", "ecartId manquant.");
+    if (!numero) {
+      throw new HttpsError("invalid-argument", "numero manquant.");
     }
     if (!RAISONS.includes(raison)) {
       throw new HttpsError("invalid-argument", `raison invalide (attendu : ${RAISONS.join(" | ")}).`);
     }
 
-    const ref = db.collection(COL_ECARTS).doc(ecartId);
-    const snap = await ref.get();
-    if (!snap.exists) {
-      throw new HttpsError("not-found", `Écart ${ecartId} introuvable.`);
+    const ecartsSnap = await db.collection(COL_ECARTS).where("numero", "==", numero).get();
+    if (ecartsSnap.empty) {
+      throw new HttpsError("not-found", `Aucun écart pour la commande ${numero}.`);
     }
 
-    await ref.set({
-      statut: "RESOLU",
-      clotureRaison: raison,
-      clotureCommentaire: commentaire,
-      clotureLe: admin.firestore.FieldValue.serverTimestamp(),
-      cloturePar: request.auth.uid,
-    }, { merge: true });
+    const batch = db.batch();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    for (const d of ecartsSnap.docs) {
+      batch.set(d.ref, {
+        statut: "RESOLU",
+        clotureRaison: raison,
+        clotureCommentaire: commentaire,
+        clotureLe: now,
+        cloturePar: request.auth.uid,
+      }, { merge: true });
+    }
+    await batch.commit();
 
-    return { success: true };
+    return { success: true, nbEcarts: ecartsSnap.size };
   },
 );
