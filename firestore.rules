@@ -257,6 +257,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ─── fournisseursContacts/{codeFournisseur} ───────────────────
+    // Mémoire des adresses de réclamation par fournisseur. Écrite par la
+    // Cloud Function prepareAchatReclamation (service account, bypass rules)
+    // quand l'utilisateur valide/corrige le destinataire d'un brouillon.
+    // Lecture seule côté app (pré-remplissage du modal de réclamation) ;
+    // aucune écriture client (cohérent avec achatEcartsPrix / commandesEsabora).
+    match /fournisseursContacts/{codeFournisseur} {
+      allow read: if isEmployee();
+      allow write: if false;
+    }
+
     // ─── Tout le reste : REFUSÉ ───────────────────────────────────
     // Toute collection non listée ci-dessus retombe sur ce deny-all.
     // Pour ajouter une nouvelle collection, ajouter explicitement sa règle.
