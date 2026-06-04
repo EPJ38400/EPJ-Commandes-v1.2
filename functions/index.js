@@ -185,6 +185,16 @@ export { esaboraWebhook, esaboraSweep } from "./esaboraImport.js";
 // contrôle les écarts de prix ligne à ligne, marque les AR manquants.
 export { gmailPollAchat, forceSyncAchat } from "./gmailPollAchat.js";
 
+// ─── Module Commande — Dashboard achat V2 : réclamations / clôtures ──
+// Cf. functions/prepareAchatReclamation.js + functions/clotureEcartAchat.js
+// prepareAchatReclamation : Claude Haiku rédige une réclamation fournisseur
+// pour un écart de prix → brouillon créé dans achat@ → écart passe "RECLAME".
+// clotureEcartAchat : clôt un écart (ACCORDE | REFUSE | ABANDONNE) → "RESOLU".
+// Écritures service account (achatEcartsPrix / fournisseursContacts restent
+// en lecture seule côté rules client).
+export { prepareAchatReclamation } from "./prepareAchatReclamation.js";
+export { clotureEcartAchat } from "./clotureEcartAchat.js";
+
 // ─── Labels Gmail automatiques — v1.18.0 ──────────────────────
 // Cf. functions/gmailLabels.js
 // Quand un mail dans reserveMailsAClasser passe au statut "classe"
