@@ -69,17 +69,16 @@ const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray
 const font = "'Inter','Segoe UI',-apple-system,sans-serif";
 const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"},"Scindée":{bg:"#F5F5F5",color:"#9E9E9E",icon:"📂"}};
 
-// v1.17.3 — Pour les commandes issues d'une scission (split), on garde la
-// couleur du statut technique (ex: violet "Commandée") mais on change le LIBELLÉ
-// pour rappeler que c'est une commande partielle par rapport à l'originale.
-//  • "-1" (createdBySplit, statut "Commandée") → libellé "Commandée partiellement"
-//    avec couleur violette de "Commandée"
+// Affichage statut. Les enfants de scission ("-1"/"-2") suivent le cycle normal
+// d'une commande (Envoyée aux achats → Commandée …). Seul l'AFFICHAGE diffère :
+// une fois réellement commandé, un enfant de scission (createdBySplit) montre
+// "Partiellement commandée" (c'est une fraction de la commande d'origine).
+// Le statut réel reste "Commandée" → filtres et logique inchangés.
 function getStatusDisplay(order) {
   if (!order || !order.statut) return { bg:"#eee", color:"#333", icon:"", label:"—" };
   const base = STATUS_COLORS[order.statut] || { bg:"#eee", color:"#333", icon:"" };
-  // Cas spécial : commande "-1" issue d'un split → libellé enrichi
   if (order.createdBySplit === true && order.statut === "Commandée") {
-    return { ...base, label: "Commandée partiellement" };
+    return { ...base, label: "Partiellement commandée" };
   }
   return { ...base, label: order.statut };
 }
@@ -455,7 +454,10 @@ export function CommandesInner({ onExitModule }) {
     const safe = (history || []).filter(h =>
       h && h.num &&
       h.statut !== "Scindée" &&
-      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats") &&
+      // Reliquat "-2" parqué : masqué tant qu'il est dans "À commander" (Validée).
+      // Dès qu'il est commandé (→ Envoyée aux achats / Commandée), il réapparaît.
+      !(h.createdBySplit === true && h.commanderPlusTard === true && h.statut === "Validée")
     );
     const scope = can(user, "commandes", "view", rolesConfig);
     if (scope === "all") {
@@ -1289,9 +1291,10 @@ export function CommandesInner({ onExitModule }) {
   // Cas 1 — Tout commandé : update mère statut "Commandée" (rétrocompatible)
   // Cas 2 — Passage partiel : scission de la mère en deux commandes filles
   //          • CMD-XXXX-NNNN-1 : items effectivement commandés, statut "Commandée",
-  //            réceptionnable par le demandeur
-  //          • CMD-XXXX-NNNN-2 : items reliquat, statut "Envoyée aux achats",
-  //            à re-passer par l'agent achats
+  //            réceptionnable par le demandeur. PAS de push Esabora auto :
+  //            visible dans l'historique, l'agent la pousse via "Envoyer dans Esabora".
+  //          • CMD-XXXX-NNNN-2 : items reliquat, statut "Validée" + commanderPlusTard,
+  //            NON poussée, parquée dans "À commander" (hors pipeline achats).
   //          La mère prend le statut "Scindée" et est masquée des listes.
   const performPartialPass = async (order, { orderedByIndex }) => {
     if (!order || !order._id) return false;
@@ -1372,6 +1375,9 @@ export function CommandesInner({ onExitModule }) {
         parentOrderNum: order.num,
         createdBySplit: true,
         splitAt: nowISO,
+        // createdAt : sans lui les enfants tombent en bas du tri history (l.~297)
+        // et deviennent invisibles en pratique — ils doivent trier comme une commande normale.
+        createdAt: nowISO,
       };
 
       // 2.d — Payload enfant 1 (commandé, réceptionnable)
@@ -1379,9 +1385,12 @@ export function CommandesInner({ onExitModule }) {
         ...inheritedFields,
         num: child1Num,
         date: todayFR,
-        statut: "Commandée",
-        dateCommande: nowISO,
-        remarques: `Partie commandée de ${order.num}${order.remarques ? " — " + order.remarques : ""}`,
+        // "Valider partiel" ne commande rien : -1 part dans le pipeline achats
+        // comme une commande normale prête à envoyer. C'est le bouton Esabora
+        // qui la fera passer "Commandée" (et rejoindre l'historique).
+        statut: "Envoyée aux achats",
+        dateEnvoiAchats: nowISO,
+        remarques: `Partie sélectionnée de ${order.num}${order.remarques ? " — " + order.remarques : ""}`,
         items: orderedItems,
         passLog: payload.passLog,
       };
@@ -1391,8 +1400,8 @@ export function CommandesInner({ onExitModule }) {
         ...inheritedFields,
         num: child2Num,
         date: todayFR,
-        statut: "Envoyée aux achats",
-        dateEnvoiAchats: nowISO,
+        statut: "Validée",
+        commanderPlusTard: true,
         remarques: `Reliquat de passage de ${order.num}${order.remarques ? " — " + order.remarques : ""}`,
         items: reliquatItems,
       };
@@ -1419,7 +1428,7 @@ export function CommandesInner({ onExitModule }) {
           at: nowISO,
           previousStatut: order.statut || "",
           newStatut: "Scindée",
-          summary: `Scindée → ${child1Num} (commandée) + ${child2Num} (reliquat)`,
+          summary: `Scindée → ${child1Num} (à envoyer aux achats) + ${child2Num} (à commander plus tard)`,
         };
         const editHistory = Array.isArray(order.editHistory)
           ? [...order.editHistory, splitHistEntry]
@@ -1428,7 +1437,7 @@ export function CommandesInner({ onExitModule }) {
           statut: "Scindée",
           splitAt: nowISO,
           splitInto: [
-            { id: child1Ref.id, num: child1Num, role: "commandée" },
+            { id: child1Ref.id, num: child1Num, role: "a_envoyer" },
             { id: child2Ref.id, num: child2Num, role: "reliquat" },
           ],
           splitBy: user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "—",
@@ -1439,28 +1448,18 @@ export function CommandesInner({ onExitModule }) {
         console.warn("[v1.17] Mère pas marquée Scindée (enfants OK) :", motherErr);
       }
 
-      // 2.h — SMS au demandeur : sa commande -1 a été passée
-      try {
-        const demandeur = findUserByUid(order.userId, dynUsers);
-        if (demandeur) {
-          await smsCommandePassee({
-            smsTemplates,
-            demandeur,
-            numCmd: child1Num,
-            chantier: order.chantier || "",
-            orderId: child1Ref.id,
-          });
-        }
-      } catch (smsErr) {
-        console.warn("[v1.17] SMS passage partiel non bloquant:", smsErr);
-      }
+      // Pas de SMS "commande passée" ici : "Valider partiel" ne commande rien.
+      // -1 part en "Envoyée aux achats" ; le SMS partira quand elle sera
+      // réellement passée chez le fournisseur (markOrderAsCommandee).
 
-      showT(`🛒 Scission validée — ${child1Num} commandée, ${child2Num} reste à passer`);
+      showT(`✅ Scission validée — ${child1Num} à envoyer, ${child2Num} à commander plus tard`);
 
-      // Si on était sur la fiche mère, on retourne à la liste (la mère n'existe plus en UX)
-      if (selectedOrder && selectedOrder._id === order._id) {
-        setSelectedOrder(null);
-      }
+      // La mère devient "Scindée" (masquée). On ramène TOUJOURS l'utilisateur sur
+      // "À commander" (les deux enfants y sont visibles). Sans ce setView, rester
+      // sur "orderDetail" avec selectedOrder vidé ne matche aucune vue → le
+      // composant finit par `return null` → écran blanc.
+      setSelectedOrder(null);
+      setView('toOrder');
       return true;
     } catch (err) {
       console.error("[v1.17] Erreur passage partiel:", err);
@@ -2531,7 +2530,10 @@ export function CommandesInner({ onExitModule }) {
       h.statut !== "Scindée" &&
       // v1.17.3 — Exclure les reliquats de scission ("-2") en attente d'achat
       // (ils s'affichent dans "À commander", pas dans l'historique du demandeur)
-      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats") &&
+      // Reliquat "-2" parqué "Commander plus tard" : masqué tant qu'il est en "Validée".
+      // Dès qu'il est commandé (→ Envoyée aux achats / Commandée), il réapparaît.
+      !(h.createdBySplit === true && h.commanderPlusTard === true && h.statut === "Validée")
     );
     // v1.12.1 — Utilise can() au lieu de user.fonction (cf. myHistoryCount)
     const scope = can(user, "commandes", "view", rolesConfig);
@@ -2620,8 +2622,16 @@ export function CommandesInner({ onExitModule }) {
           order={partialPassOrder}
           onClose={() => setPartialPassOrder(null)}
           onConfirm={async ({ orderedByIndex }) => {
-            const ok = await performPartialPass(partialPassOrder, { orderedByIndex });
-            if (ok) setPartialPassOrder(null);
+            try {
+              await performPartialPass(partialPassOrder, { orderedByIndex });
+            } catch (e) {
+              console.error("[v1.17] Scission — exception onConfirm:", e);
+              showT("❌ Erreur — réessayez");
+            } finally {
+              // Toujours fermer la modale : empêche tout écran blanc même si une
+              // erreur survient après les écritures Firestore.
+              setPartialPassOrder(null);
+            }
           }}
         />
       )}
@@ -3214,8 +3224,16 @@ export function CommandesInner({ onExitModule }) {
           order={partialPassOrder}
           onClose={() => setPartialPassOrder(null)}
           onConfirm={async ({ orderedByIndex }) => {
-            const ok = await performPartialPass(partialPassOrder, { orderedByIndex });
-            if (ok) setPartialPassOrder(null);
+            try {
+              await performPartialPass(partialPassOrder, { orderedByIndex });
+            } catch (e) {
+              console.error("[v1.17] Scission — exception onConfirm:", e);
+              showT("❌ Erreur — réessayez");
+            } finally {
+              // Toujours fermer la modale : empêche tout écran blanc même si une
+              // erreur survient après les écritures Firestore.
+              setPartialPassOrder(null);
+            }
           }}
         />
       )}
@@ -3256,6 +3274,9 @@ export function CommandesInner({ onExitModule }) {
                       <div style={{fontSize:14,fontWeight:800,color:EPJ.dark}}>
                         {o.urgent && <span style={{color:EPJ.red,marginRight:4}}>⚠️</span>}
                         {o.num}
+                        {o.commanderPlusTard === true && (
+                          <span style={{marginLeft:6,fontSize:10,fontWeight:700,background:`${EPJ.orange}22`,color:'#E65100',padding:'2px 6px',borderRadius:4,whiteSpace:'nowrap'}}>⏳ Commander plus tard</span>
+                        )}
                       </div>
                       <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
                     </div>
