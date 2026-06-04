@@ -455,7 +455,10 @@ export function CommandesInner({ onExitModule }) {
     const safe = (history || []).filter(h =>
       h && h.num &&
       h.statut !== "Scindée" &&
-      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats") &&
+      // Reliquat "-2" parqué : masqué tant qu'il est dans "À commander" (Validée).
+      // Dès qu'il est commandé (→ Envoyée aux achats / Commandée), il réapparaît.
+      !(h.createdBySplit === true && h.commanderPlusTard === true && h.statut === "Validée")
     );
     const scope = can(user, "commandes", "view", rolesConfig);
     if (scope === "all") {
@@ -1289,9 +1292,10 @@ export function CommandesInner({ onExitModule }) {
   // Cas 1 — Tout commandé : update mère statut "Commandée" (rétrocompatible)
   // Cas 2 — Passage partiel : scission de la mère en deux commandes filles
   //          • CMD-XXXX-NNNN-1 : items effectivement commandés, statut "Commandée",
-  //            réceptionnable par le demandeur
-  //          • CMD-XXXX-NNNN-2 : items reliquat, statut "Envoyée aux achats",
-  //            à re-passer par l'agent achats
+  //            réceptionnable par le demandeur. PAS de push Esabora auto :
+  //            visible dans l'historique, l'agent la pousse via "Envoyer dans Esabora".
+  //          • CMD-XXXX-NNNN-2 : items reliquat, statut "Validée" + commanderPlusTard,
+  //            NON poussée, parquée dans "À commander" (hors pipeline achats).
   //          La mère prend le statut "Scindée" et est masquée des listes.
   const performPartialPass = async (order, { orderedByIndex }) => {
     if (!order || !order._id) return false;
@@ -1372,6 +1376,9 @@ export function CommandesInner({ onExitModule }) {
         parentOrderNum: order.num,
         createdBySplit: true,
         splitAt: nowISO,
+        // createdAt : sans lui les enfants tombent en bas du tri history (l.~297)
+        // et deviennent invisibles en pratique — ils doivent trier comme une commande normale.
+        createdAt: nowISO,
       };
 
       // 2.d — Payload enfant 1 (commandé, réceptionnable)
@@ -1391,8 +1398,8 @@ export function CommandesInner({ onExitModule }) {
         ...inheritedFields,
         num: child2Num,
         date: todayFR,
-        statut: "Envoyée aux achats",
-        dateEnvoiAchats: nowISO,
+        statut: "Validée",
+        commanderPlusTard: true,
         remarques: `Reliquat de passage de ${order.num}${order.remarques ? " — " + order.remarques : ""}`,
         items: reliquatItems,
       };
@@ -2531,7 +2538,10 @@ export function CommandesInner({ onExitModule }) {
       h.statut !== "Scindée" &&
       // v1.17.3 — Exclure les reliquats de scission ("-2") en attente d'achat
       // (ils s'affichent dans "À commander", pas dans l'historique du demandeur)
-      !(h.createdBySplit === true && h.statut === "Envoyée aux achats")
+      !(h.createdBySplit === true && h.statut === "Envoyée aux achats") &&
+      // Reliquat "-2" parqué "Commander plus tard" : masqué tant qu'il est en "Validée".
+      // Dès qu'il est commandé (→ Envoyée aux achats / Commandée), il réapparaît.
+      !(h.createdBySplit === true && h.commanderPlusTard === true && h.statut === "Validée")
     );
     // v1.12.1 — Utilise can() au lieu de user.fonction (cf. myHistoryCount)
     const scope = can(user, "commandes", "view", rolesConfig);
@@ -3256,6 +3266,9 @@ export function CommandesInner({ onExitModule }) {
                       <div style={{fontSize:14,fontWeight:800,color:EPJ.dark}}>
                         {o.urgent && <span style={{color:EPJ.red,marginRight:4}}>⚠️</span>}
                         {o.num}
+                        {o.commanderPlusTard === true && (
+                          <span style={{marginLeft:6,fontSize:10,fontWeight:700,background:`${EPJ.orange}22`,color:'#E65100',padding:'2px 6px',borderRadius:4,whiteSpace:'nowrap'}}>⏳ Commander plus tard</span>
+                        )}
                       </div>
                       <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
                     </div>
