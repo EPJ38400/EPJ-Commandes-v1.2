@@ -57,7 +57,11 @@ const ESABORA_DOMAIN = "@esabora.solutions";
 // Domaine EPJ : un mail venant d'une adresse interne (ex. copie de BC qui
 // atterrit dans achat@) n'est JAMAIS un AR fournisseur — cf. incident 235236.
 const EPJ_DOMAIN = "@epj-electricite.com";
-const SCOPE_QUERY = "in:inbox has:attachment newer_than:30d";
+// Scope élargi : on ne se limite plus à in:inbox pour capter aussi les mails
+// rangés hors boîte de réception (archivés / classés). Le matching par numero
+// (commande existante dans commandesEsabora) + la logique sender-based restent
+// les seuls garde-fous d'exploitation.
+const SCOPE_QUERY = "has:attachment newer_than:30d";
 const PRIX_EPSILON = 0.01; // 1 centime
 const DEFAULT_ALERTE_JOURS = 2;
 const MAX_CANDIDATS = 8;
