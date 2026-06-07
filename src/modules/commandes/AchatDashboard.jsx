@@ -41,6 +41,7 @@ import { PrepareReclamationModal } from "./components/PrepareReclamationModal";
 const fns = getFunctions(app, "europe-west1");
 const fnPrepareReclamation = httpsCallable(fns, "prepareAchatReclamation");
 const fnClotureEcart = httpsCallable(fns, "clotureEcartAchat");
+const fnForceSyncAchat = httpsCallable(fns, "forceSyncAchat");
 
 const PERIODE_LABEL = {
   "30": "sur 30 derniers jours",
@@ -69,6 +70,9 @@ export function AchatDashboard({ onBack }) {
   const [reclamError, setReclamError] = useState(null);
   const [clotureModal, setClotureModal] = useState(null); // { commande }
   const [clotureBusy, setClotureBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  const canSync = ["Admin", "Direction"].includes(user?.role);
 
   useEffect(() => {
     let gotCe = false;
@@ -255,6 +259,23 @@ export function AchatDashboard({ onBack }) {
     }
   };
 
+  // ─── Relance manuelle de la recherche des AR ────────────────
+  const doSyncAchat = async () => {
+    setSyncBusy(true);
+    try {
+      const res = await fnForceSyncAchat({});
+      const d = res?.data || {};
+      const ar = d.counts?.ar || 0;
+      const traites = d.nbNouveaux || 0;
+      const manquants = d.arMarquesManquants || 0;
+      toast(`✓ Recherche terminée — ${ar} AR reçu${ar > 1 ? "s" : ""}, ${traites} mail${traites > 1 ? "s" : ""} traité${traites > 1 ? "s" : ""}${manquants ? ` · ${manquants} AR manquant${manquants > 1 ? "s" : ""}` : ""}`);
+    } catch (err) {
+      toast(traduireErreur(err));
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
   // ─── Clôture (par commande) ─────────────────────────────────
   const doCloture = async (raison, commentaire) => {
     const numero = clotureModal?.commande?.numero;
@@ -296,6 +317,24 @@ export function AchatDashboard({ onBack }) {
         <div style={{ padding: 16 }}><Spinner label="Chargement du dashboard achat…" /></div>
       ) : (
         <>
+          {canSync && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+              <button
+                onClick={doSyncAchat}
+                disabled={syncBusy}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  border: `1px solid ${EPJ.blue}`, background: syncBusy ? `${EPJ.blue}12` : EPJ.blue,
+                  color: syncBusy ? EPJ.blue : "#fff", borderRadius: 10,
+                  padding: "9px 14px", fontSize: 12.5, fontWeight: 700,
+                  cursor: syncBusy ? "default" : "pointer", opacity: syncBusy ? 0.8 : 1,
+                }}
+              >
+                {syncBusy && <Spinner size={14} />}
+                {syncBusy ? "Recherche en cours…" : "↻ Relancer la recherche des AR"}
+              </button>
+            </div>
+          )}
           <KpisAchat kpis={kpis} isNarrow={isNarrow} />
 
           {/* Section A — AR manquants */}
