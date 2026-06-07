@@ -40,7 +40,7 @@ export function AdminFournisseurs({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
-  const authorized = ["Admin", "Direction"].includes(user?.role);
+  const authorized = (user?.roles || []).some((r) => ["Admin", "Direction"].includes(r));
 
   useEffect(() => {
     if (!authorized) { setLoading(false); return; }

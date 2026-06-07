@@ -73,7 +73,7 @@ export function AchatDashboard({ onBack }) {
   const [clotureBusy, setClotureBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
 
-  const canSync = ["Admin", "Direction"].includes(user?.role);
+  const canSync = (user?.roles || []).some((r) => ["Admin", "Direction"].includes(r));
 
   useEffect(() => {
     let gotCe = false;
