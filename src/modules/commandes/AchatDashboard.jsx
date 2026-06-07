@@ -3,12 +3,13 @@
 //
 //  • Bandeau 4 KPIs (KpisAchat) : écarts ouverts · montant à récupérer ·
 //    top fournisseur · récupéré ce mois.
-//  • Section A : AR manquants à relancer (+ Acquitter / Sans AR attendu).
+//  • Section A : AR manquants à relancer (+ Relancer / Acquitter / Sans AR).
+//      – Relancer → prepareAchatReclamation({ numero, mode:"relance" }).
 //  • Section B : écarts de prix REGROUPÉS PAR COMMANDE (1 carte = 1 commande
 //    avec ses N lignes d'écart). Barre de 6 filtres (FiltresBarreAchat),
 //    statut global dérivé (Ouvert/Réclamé/Résolu), actions AU NIVEAU COMMANDE :
-//      – Préparer brouillon IA → prepareAchatReclamation({ numero }) :
-//        un seul mail listant toutes les lignes, brouillon créé dans achat@.
+//      – Préparer réclamation → prepareAchatReclamation({ numero, mode:"ecart" }) :
+//        gabarit déterministe (prix + quantités), brouillon créé dans achat@.
 //      – Clôturer → clotureEcartAchat({ numero }) : clôture groupée.
 //      – Voir AR (PDF) / Voir brouillon (lien Gmail).
 //  • Section C : historique des commandes par chantier (EsaboraHistory).
@@ -237,11 +238,11 @@ export function AchatDashboard({ onBack }) {
     }
   };
 
-  // ─── Réclamation IA (par commande) ──────────────────────────
-  const openReclam = (commande) => {
+  // ─── Réclamation / relance (par commande) ───────────────────
+  const openReclam = (commande, mode = "ecart") => {
     setReclamResult(null);
     setReclamError(null);
-    setReclamModal({ commande });
+    setReclamModal({ commande, mode });
   };
   const doReclam = async (customEmail) => {
     const numero = reclamModal?.commande?.numero;
@@ -249,7 +250,11 @@ export function AchatDashboard({ onBack }) {
     setReclamBusy(true);
     setReclamError(null);
     try {
-      const res = await fnPrepareReclamation({ numero, customEmail: customEmail || null });
+      const res = await fnPrepareReclamation({
+        numero,
+        customEmail: customEmail || null,
+        mode: reclamModal?.mode || "ecart",
+      });
       setReclamResult(res.data);
       toast("✓ Brouillon prêt dans achat@");
     } catch (err) {
@@ -348,6 +353,7 @@ export function AchatDashboard({ onBack }) {
                     key={c._id}
                     c={c}
                     isNarrow={isNarrow}
+                    onRelancer={() => openReclam(c, "relance")}
                     onAcquitter={() => acquitter(c.numero || c._id)}
                     onSansAR={() => sansAR(c.numero || c._id)}
                   />
@@ -374,7 +380,7 @@ export function AchatDashboard({ onBack }) {
                     cmd={cmd}
                     isNarrow={isNarrow}
                     arPieces={resolveArPieces(ceByNumero.get(cmd.numero))}
-                    onReclamer={() => openReclam(cmd)}
+                    onReclamer={() => openReclam(cmd, "ecart")}
                     onCloturer={() => setClotureModal({ commande: cmd })}
                   />
                 ))}
@@ -408,6 +414,7 @@ export function AchatDashboard({ onBack }) {
       {reclamModal && (
         <PrepareReclamationModal
           commande={reclamModal.commande}
+          mode={reclamModal.mode}
           defaultEmail=""
           busy={reclamBusy}
           result={reclamResult}
@@ -483,7 +490,7 @@ function SectionCard({ title, count, accent = EPJ.gray700, children }) {
   );
 }
 
-function ManquantRow({ c, isNarrow, onAcquitter, onSansAR }) {
+function ManquantRow({ c, isNarrow, onRelancer, onAcquitter, onSansAR }) {
   const age = daysSince(c.dateCommande);
   return (
     <div
@@ -507,7 +514,8 @@ function ManquantRow({ c, isNarrow, onAcquitter, onSansAR }) {
           {(c.codeFournisseur || c.arRef?.fournisseur || "Fournisseur ?")} · <b>{fmtMoney(c.totalHT)}</b>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+        <button onClick={onRelancer} style={btnStyle(EPJ.orange)}>Relancer</button>
         <button onClick={onAcquitter} style={btnStyle(EPJ.blue)}>Acquitter AR</button>
         <button onClick={onSansAR} style={btnStyle(EPJ.gray500, true)}>Sans AR attendu</button>
       </div>
@@ -545,7 +553,7 @@ function CommandCard({ cmd, isNarrow, arPieces, onReclamer, onCloturer }) {
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center", justifyContent: isNarrow ? "flex-start" : "flex-end" }}>
           {!resolu && cmd.statut !== "RECLAME" && (
-            <button onClick={onReclamer} style={btnStyle(EPJ.blue)}>Préparer brouillon IA</button>
+            <button onClick={onReclamer} style={btnStyle(EPJ.blue)}>Préparer réclamation</button>
           )}
           {!resolu && cmd.statut === "RECLAME" && (
             <>
