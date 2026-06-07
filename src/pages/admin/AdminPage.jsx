@@ -18,6 +18,7 @@ import { AdminChantiersReception } from "./AdminChantiersReception";
 import { AdminCompany } from "./AdminCompany";
 import { AdminUserSignatures } from "./AdminUserSignatures";
 import { AdminSettings } from "./AdminSettings"; // v10.J
+import { AdminFournisseurs } from "./AdminFournisseurs";
 
 export function AdminPage({ onExit }) {
   const [section, setSection] = useState(null);
@@ -52,6 +53,7 @@ export function AdminPage({ onExit }) {
   if (section === "company") return <AdminCompany onBack={() => setSection(null)}/>;
   if (section === "signatures") return <AdminUserSignatures onBack={() => setSection(null)}/>;
   if (section === "settings") return <AdminSettings onBack={() => setSection(null)}/>; // v10.J
+  if (section === "fournisseurs") return <AdminFournisseurs onBack={() => setSection(null)}/>;
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 24 }}>
@@ -112,6 +114,11 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="✍" accent={EPJ.orange} title="Signatures techniciens"
         subtitle="Signature type de chaque utilisateur (imprimée sur les quitus)"
         onClick={() => setSection("signatures")}/>
+
+      <GroupTitle>Achats & fournisseurs</GroupTitle>
+      <AdminSection icon="🏭" accent={EPJ.blue} title="Contacts fournisseurs"
+        subtitle="Fiches fournisseurs et contacts (relance AR, consultations) — référentiel partagé"
+        onClick={() => setSection("fournisseurs")}/>
 
       <GroupTitle>Communication</GroupTitle>
       <AdminSection icon="📱" accent={EPJ.green} title="Modèles SMS"
