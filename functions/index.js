@@ -187,11 +187,12 @@ export { gmailPollAchat, forceSyncAchat } from "./gmailPollAchat.js";
 
 // ─── Module Commande — Dashboard achat V2 : réclamations / clôtures ──
 // Cf. functions/prepareAchatReclamation.js + functions/clotureEcartAchat.js
-// prepareAchatReclamation : Claude Haiku rédige une réclamation fournisseur
-// pour un écart de prix → brouillon créé dans achat@ → écart passe "RECLAME".
+// prepareAchatReclamation : gabarit déterministe (pas d'IA) — mode "ecart"
+// (prix + quantités) ou "relance" (AR manquant) → brouillon créé dans achat@
+// → écarts de prix passent "RECLAME". Contacts résolus/capturés dans la
+// collection fournisseurs (source unique).
 // clotureEcartAchat : clôt un écart (ACCORDE | REFUSE | ABANDONNE) → "RESOLU".
-// Écritures service account (achatEcartsPrix / fournisseursContacts restent
-// en lecture seule côté rules client).
+// Écritures service account (achatEcartsPrix en lecture seule côté rules client).
 export { prepareAchatReclamation } from "./prepareAchatReclamation.js";
 export { clotureEcartAchat } from "./clotureEcartAchat.js";
 

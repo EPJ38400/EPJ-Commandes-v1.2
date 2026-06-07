@@ -46,6 +46,41 @@ export function fmtDate(value) {
   });
 }
 
+// Comme fmtDate, mais conserve la chaîne brute si elle n'est pas parsable
+// (les dates de livraison AR peuvent être libellées "semaine 23", "fin mai"…).
+export function fmtDateOrRaw(value) {
+  const d = toDate(value);
+  if (d) return fmtDate(d);
+  const s = String(value || "").trim();
+  return s || "—";
+}
+
+// Dérive l'affichage "livraison" d'une commande Esabora :
+//   • arStatut ≠ RECU            → "En attente AR" (pas de plage).
+//   • sinon : plage min → max, depuis dateLivraisonMin/Max (backend) si présents,
+//     sinon recalculée depuis lignesAR[].dateLivraisonPrevue.
+// Retourne { label, min, max } (min/max = ISO ou null).
+export function deriveLivraison(ce) {
+  if (!ce || ce.arStatut !== "RECU") {
+    return { label: "En attente AR", min: null, max: null };
+  }
+  let min = ce.dateLivraisonMin || null;
+  let max = ce.dateLivraisonMax || null;
+  if (!min || !max) {
+    const ds = (ce.lignesAR || [])
+      .map((l) => toDate(l?.dateLivraisonPrevue))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    if (ds.length) {
+      min = min || ds[0].toISOString().slice(0, 10);
+      max = max || ds[ds.length - 1].toISOString().slice(0, 10);
+    }
+  }
+  if (!min && !max) return { label: "—", min: null, max: null };
+  const a = fmtDate(min), b = fmtDate(max);
+  return { label: a === b ? a : `${a} → ${b}`, min, max };
+}
+
 // Ancienneté en jours pleins depuis la date donnée (≥ 0), null si invalide.
 export function daysSince(value) {
   const d = toDate(value);

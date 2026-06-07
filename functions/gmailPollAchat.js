@@ -57,7 +57,11 @@ const ESABORA_DOMAIN = "@esabora.solutions";
 // Domaine EPJ : un mail venant d'une adresse interne (ex. copie de BC qui
 // atterrit dans achat@) n'est JAMAIS un AR fournisseur — cf. incident 235236.
 const EPJ_DOMAIN = "@epj-electricite.com";
-const SCOPE_QUERY = "in:inbox has:attachment newer_than:30d";
+// Scope élargi : on ne se limite plus à in:inbox pour capter aussi les mails
+// rangés hors boîte de réception (archivés / classés). Le matching par numero
+// (commande existante dans commandesEsabora) + la logique sender-based restent
+// les seuls garde-fous d'exploitation.
+const SCOPE_QUERY = "has:attachment newer_than:30d";
 const PRIX_EPSILON = 0.01; // 1 centime
 const DEFAULT_ALERTE_JOURS = 2;
 const MAX_CANDIDATS = 8;
@@ -271,6 +275,7 @@ async function achatHandler({ gmail, message }) {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     } else {
+      const { min: dateLivraisonMin, max: dateLivraisonMax } = livraisonRange(extraction.lignesAR);
       await ceRef.set({
         lignesAR: extraction.lignesAR || [],
         totalAR: numOrNull(extraction.totalAR),
@@ -281,6 +286,8 @@ async function achatHandler({ gmail, message }) {
           dateAR: extraction.dateAR || parsed.date,
           pieces: piecesPdf,
         },
+        dateLivraisonMin,
+        dateLivraisonMax,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     }
@@ -566,6 +573,19 @@ function numOrNull(v) {
 
 function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// Plage de livraison (min/max ISO AAAA-MM-JJ) calculée depuis les dates de
+// livraison prévues des lignes AR. Ignore les libellés non parsables
+// ("semaine 23"…). Retourne { min:null, max:null } si aucune date exploitable.
+function livraisonRange(lignesAR) {
+  const dates = (Array.isArray(lignesAR) ? lignesAR : [])
+    .map((l) => tsToDate(l?.dateLivraisonPrevue))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  if (!dates.length) return { min: null, max: null };
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { min: iso(dates[0]), max: iso(dates[dates.length - 1]) };
 }
 
 function tsToDate(ts) {
