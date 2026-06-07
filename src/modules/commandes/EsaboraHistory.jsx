@@ -9,7 +9,7 @@
 //  Functions). Tri par dateCommande décroissante côté client (pas d'index
 //  composite requis).
 // ═══════════════════════════════════════════════════════════════
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font } from "../../core/theme";
@@ -17,7 +17,7 @@ import { Spinner } from "../../core/components/Spinner";
 import { ArStatusBadge } from "./components/ArStatusBadge";
 import { ArPdfLink } from "./components/ArPdfLink";
 import { useIsNarrow } from "./components/useIsNarrow";
-import { fmtMoney, fmtDate, ORIGINE_META, resolveArPieces } from "./components/esaboraFormat";
+import { fmtMoney, fmtDate, fmtDateOrRaw, deriveLivraison, ORIGINE_META, resolveArPieces } from "./components/esaboraFormat";
 
 const FILTERS = [
   { key: "all", label: "Tous" },
@@ -27,11 +27,13 @@ const FILTERS = [
   { key: "ECART", label: "Avec écart" },
 ];
 
-const GRID = "84px 92px minmax(120px,1fr) 110px minmax(100px,1fr) 96px 130px 80px";
+// Colonnes : chevron · N° · Date · Fournisseur · Total HT · État · Origine ·
+// AR · Livraison (dérivée) · Actions.
+const GRID = "26px 84px 92px minmax(120px,1fr) 110px minmax(100px,1fr) 96px 110px minmax(130px,1fr) 80px";
 // Largeur mini sous laquelle le tableau scrolle horizontalement (somme des
 // colonnes fixes/min + gaps) — évite le troncage des colonnes de droite sur
 // desktop dans un conteneur étroit.
-const TABLE_MIN_WIDTH = 880;
+const TABLE_MIN_WIDTH = 1080;
 
 export function EsaboraHistory({ chantierNum = null }) {
   const isNarrow = useIsNarrow();
@@ -39,6 +41,8 @@ export function EsaboraHistory({ chantierNum = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
+  const toggleExpand = (id) => setExpandedId((cur) => (cur === id ? null : id));
 
   useEffect(() => {
     setLoading(true);
@@ -118,7 +122,9 @@ export function EsaboraHistory({ chantierNum = null }) {
         <NoticeBox kind="empty" text="Aucune commande Esabora pour ce filtre." />
       ) : isNarrow ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {visible.map((r) => <CardRow key={r._id} r={r} />)}
+          {visible.map((r) => (
+            <CardRow key={r._id} r={r} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
+          ))}
         </div>
       ) : (
         <div style={{ border: `1px solid ${EPJ.gray200}`, borderRadius: 12, overflow: "hidden" }}>
@@ -138,10 +144,15 @@ export function EsaboraHistory({ chantierNum = null }) {
                   letterSpacing: 0.4,
                 }}
               >
-                <div>N°</div><div>Date</div><div>Fournisseur</div><div>Total HT</div>
-                <div>État</div><div>Origine</div><div>AR</div><div>Actions</div>
+                <div /><div>N°</div><div>Date</div><div>Fournisseur</div><div>Total HT</div>
+                <div>État</div><div>Origine</div><div>AR</div><div>Livraison</div><div>Actions</div>
               </div>
-              {visible.map((r) => <TableRow key={r._id} r={r} />)}
+              {visible.map((r) => (
+                <Fragment key={r._id}>
+                  <TableRow r={r} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
+                  {expandedId === r._id && <DetailLignes r={r} />}
+                </Fragment>
+              ))}
             </div>
           </div>
         </div>
@@ -173,9 +184,11 @@ function OrigineCell({ r }) {
   );
 }
 
-function TableRow({ r }) {
+function TableRow({ r, expanded, onToggle }) {
+  const liv = deriveLivraison(r);
   return (
     <div
+      onClick={onToggle}
       style={{
         display: "grid",
         gridTemplateColumns: GRID,
@@ -185,8 +198,11 @@ function TableRow({ r }) {
         fontSize: 13,
         color: EPJ.gray900,
         alignItems: "center",
+        cursor: "pointer",
+        background: expanded ? EPJ.gray50 : undefined,
       }}
     >
+      <div style={{ color: EPJ.gray400, fontSize: 12, textAlign: "center" }}>{expanded ? "▾" : "▸"}</div>
       <div style={{ fontWeight: 700, fontFamily: font.mono }}>{r.numero}</div>
       <div style={{ color: EPJ.gray700 }}>{fmtDate(r.dateCommande)}</div>
       <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={fournisseurLabel(r)}>
@@ -198,12 +214,50 @@ function TableRow({ r }) {
       </div>
       <div><OrigineCell r={r} /></div>
       <div><ArStatusBadge statut={r.arStatut} acquitte={r.arAcquitte} size="sm" /></div>
-      <div><ArPdfLink pieces={resolveArPieces(r)} /></div>
+      <div style={{ fontSize: 12, color: liv.min ? EPJ.gray900 : EPJ.gray500, fontStyle: liv.min ? "normal" : "italic", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={liv.label}>
+        {liv.label}
+      </div>
+      <div onClick={(e) => e.stopPropagation()}><ArPdfLink pieces={resolveArPieces(r)} /></div>
     </div>
   );
 }
 
-function CardRow({ r }) {
+// Panneau détail (déplié) : dates de livraison par ligne AR.
+function DetailLignes({ r }) {
+  const lignes = Array.isArray(r.lignesAR) ? r.lignesAR : [];
+  const liv = deriveLivraison(r);
+  return (
+    <div style={{ borderTop: `1px solid ${EPJ.gray100}`, background: EPJ.gray50, padding: "10px 14px 14px 48px" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
+        Livraison prévue : <span style={{ color: liv.min ? EPJ.gray900 : EPJ.gray500 }}>{liv.label}</span>
+      </div>
+      {lignes.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: EPJ.gray500 }}>
+          {r.arStatut === "RECU" ? "Aucune ligne d'AR enregistrée." : "Lignes disponibles après réception de l'AR."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {lignes.map((l, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: EPJ.gray700, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, fontFamily: font.mono, color: EPJ.gray900, minWidth: 90 }}>{l.reference || "—"}</span>
+              <span style={{ flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={l.designation || ""}>
+                {l.designation || "—"}
+              </span>
+              {l.quantite != null && <span style={{ color: EPJ.gray500 }}>qté {l.quantite}{l.unite ? ` ${l.unite}` : ""}</span>}
+              <span style={{ fontWeight: 600, color: l.dateLivraisonPrevue ? EPJ.gray900 : EPJ.gray400 }}>
+                livr. {l.dateLivraisonPrevue ? fmtDateOrRaw(l.dateLivraisonPrevue) : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CardRow({ r, expanded, onToggle }) {
+  const liv = deriveLivraison(r);
+  const lignes = Array.isArray(r.lignesAR) ? r.lignesAR : [];
   const Line = ({ k, children }) => (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
       <span style={{ color: EPJ.gray500, fontSize: 11, fontWeight: 600 }}>{k}</span>
@@ -221,7 +275,42 @@ function CardRow({ r }) {
       <Line k="Total HT"><b>{fmtMoney(r.totalHT)}</b></Line>
       <Line k="État">{r.etat || "—"}</Line>
       <Line k="Origine"><OrigineCell r={r} /></Line>
+      <Line k="Livraison">
+        <span style={{ color: liv.min ? EPJ.gray900 : EPJ.gray500, fontStyle: liv.min ? "normal" : "italic" }}>{liv.label}</span>
+      </Line>
       <Line k="AR"><ArPdfLink pieces={resolveArPieces(r)} /></Line>
+
+      <button
+        onClick={onToggle}
+        style={{ marginTop: 2, alignSelf: "flex-start", background: "none", border: "none", color: EPJ.blue, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}
+      >
+        {expanded ? "Masquer le détail ▴" : "Détail lignes ▾"}
+      </button>
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${EPJ.gray100}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          {lignes.length === 0 ? (
+            <div style={{ fontSize: 12, color: EPJ.gray500 }}>
+              {r.arStatut === "RECU" ? "Aucune ligne d'AR enregistrée." : "Lignes disponibles après réception de l'AR."}
+            </div>
+          ) : (
+            lignes.map((l, i) => (
+              <div key={i} style={{ fontSize: 12.5, color: EPJ.gray700 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontFamily: font.mono, color: EPJ.gray900 }}>{l.reference || "—"}</span>
+                  <span style={{ fontWeight: 600, color: l.dateLivraisonPrevue ? EPJ.gray900 : EPJ.gray400 }}>
+                    livr. {l.dateLivraisonPrevue ? fmtDateOrRaw(l.dateLivraisonPrevue) : "—"}
+                  </span>
+                </div>
+                {l.designation && (
+                  <div style={{ fontSize: 11.5, color: EPJ.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={l.designation}>
+                    {l.designation}{l.quantite != null ? ` · qté ${l.quantite}${l.unite ? ` ${l.unite}` : ""}` : ""}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
