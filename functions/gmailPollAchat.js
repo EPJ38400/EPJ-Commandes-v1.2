@@ -275,6 +275,7 @@ async function achatHandler({ gmail, message }) {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     } else {
+      const { min: dateLivraisonMin, max: dateLivraisonMax } = livraisonRange(extraction.lignesAR);
       await ceRef.set({
         lignesAR: extraction.lignesAR || [],
         totalAR: numOrNull(extraction.totalAR),
@@ -285,6 +286,8 @@ async function achatHandler({ gmail, message }) {
           dateAR: extraction.dateAR || parsed.date,
           pieces: piecesPdf,
         },
+        dateLivraisonMin,
+        dateLivraisonMax,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     }
@@ -570,6 +573,19 @@ function numOrNull(v) {
 
 function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// Plage de livraison (min/max ISO AAAA-MM-JJ) calculée depuis les dates de
+// livraison prévues des lignes AR. Ignore les libellés non parsables
+// ("semaine 23"…). Retourne { min:null, max:null } si aucune date exploitable.
+function livraisonRange(lignesAR) {
+  const dates = (Array.isArray(lignesAR) ? lignesAR : [])
+    .map((l) => tsToDate(l?.dateLivraisonPrevue))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  if (!dates.length) return { min: null, max: null };
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { min: iso(dates[0]), max: iso(dates[dates.length - 1]) };
 }
 
 function tsToDate(ts) {
