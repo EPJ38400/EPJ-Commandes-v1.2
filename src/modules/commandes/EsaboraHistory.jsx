@@ -28,6 +28,10 @@ const FILTERS = [
 ];
 
 const GRID = "84px 92px minmax(120px,1fr) 110px minmax(100px,1fr) 96px 130px 80px";
+// Largeur mini sous laquelle le tableau scrolle horizontalement (somme des
+// colonnes fixes/min + gaps) — évite le troncage des colonnes de droite sur
+// desktop dans un conteneur étroit.
+const TABLE_MIN_WIDTH = 880;
 
 export function EsaboraHistory({ chantierNum = null }) {
   const isNarrow = useIsNarrow();
@@ -118,24 +122,28 @@ export function EsaboraHistory({ chantierNum = null }) {
         </div>
       ) : (
         <div style={{ border: `1px solid ${EPJ.gray200}`, borderRadius: 12, overflow: "hidden" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: GRID,
-              gap: 8,
-              padding: "10px 12px",
-              background: EPJ.gray50,
-              fontSize: 11,
-              fontWeight: 700,
-              color: EPJ.gray500,
-              textTransform: "uppercase",
-              letterSpacing: 0.4,
-            }}
-          >
-            <div>N°</div><div>Date</div><div>Fournisseur</div><div>Total HT</div>
-            <div>État</div><div>Origine</div><div>AR</div><div>Actions</div>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: TABLE_MIN_WIDTH }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: GRID,
+                  gap: 8,
+                  padding: "10px 12px",
+                  background: EPJ.gray50,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: EPJ.gray500,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                }}
+              >
+                <div>N°</div><div>Date</div><div>Fournisseur</div><div>Total HT</div>
+                <div>État</div><div>Origine</div><div>AR</div><div>Actions</div>
+              </div>
+              {visible.map((r) => <TableRow key={r._id} r={r} />)}
+            </div>
           </div>
-          {visible.map((r) => <TableRow key={r._id} r={r} />)}
         </div>
       )}
     </div>
