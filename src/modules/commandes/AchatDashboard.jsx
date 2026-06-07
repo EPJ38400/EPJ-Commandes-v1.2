@@ -72,6 +72,7 @@ export function AchatDashboard({ onBack }) {
   const [clotureModal, setClotureModal] = useState(null); // { commande }
   const [clotureBusy, setClotureBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [showTreated, setShowTreated] = useState(false);
 
   const canSync = (user?.roles || []).some((r) => ["Admin", "Direction"].includes(r));
 
@@ -103,6 +104,21 @@ export function AchatDashboard({ onBack }) {
     () => ce
       .filter((c) => c.arStatut === "MANQUANT" && !c.arAcquitte)
       .sort((a, b) => (daysSince(b.dateCommande) || 0) - (daysSince(a.dateCommande) || 0)),
+    [ce]
+  );
+
+  // Commandes traitées (acquittées ou « sans AR »), dérivées du snapshot déjà
+  // chargé — 20 plus récentes, pour pouvoir ANNULER l'action.
+  const traitees = useMemo(
+    () => ce
+      .filter((c) => c.arAcquitte === true || c.arStatut === "SANS_AR")
+      .map((c) => ({
+        ...c,
+        _kind: c.arStatut === "SANS_AR" ? "SANS_AR" : "ACQUITTE",
+        _treatedAt: tsToMs(c.arAcquitLe) || tsToMs(c.updatedAt) || 0,
+      }))
+      .sort((a, b) => b._treatedAt - a._treatedAt)
+      .slice(0, 20),
     [ce]
   );
 
@@ -216,6 +232,7 @@ export function AchatDashboard({ onBack }) {
   const uid = user?.uid || user?._id || null;
 
   const acquitter = async (numero) => {
+    if (!window.confirm(`Commande ${numero} : acquitter l'AR ?\nElle sortira des relances (action annulable ensuite).`)) return;
     try {
       await setDoc(
         doc(db, "commandesEsabora", numero),
@@ -229,10 +246,34 @@ export function AchatDashboard({ onBack }) {
   };
 
   const sansAR = async (numero) => {
-    if (!window.confirm(`Commande ${numero} : marquer « Sans AR attendu » ?\nElle sortira des relances.`)) return;
+    if (!window.confirm(`Commande ${numero} : marquer « Sans AR attendu » ?\nElle sortira des relances (action annulable ensuite).`)) return;
     try {
       await setDoc(doc(db, "commandesEsabora", numero), { arStatut: "SANS_AR" }, { merge: true });
       toast("✓ Marqué sans AR");
+    } catch {
+      toast("Action refusée (droits ou règles non déployées)");
+    }
+  };
+
+  // ─── UNDO (réversibilité acquit / sans-AR) ──────────────────
+  const desacquitter = async (numero) => {
+    try {
+      await setDoc(
+        doc(db, "commandesEsabora", numero),
+        { arAcquitte: false, arAcquitPar: null, arAcquitLe: null },
+        { merge: true }
+      );
+      toast("↩︎ Acquittement annulé");
+    } catch {
+      toast("Action refusée (droits ou règles non déployées)");
+    }
+  };
+
+  const annulerSansAR = async (ce) => {
+    const statut = ce.lignesAR?.length ? "RECU" : "MANQUANT";
+    try {
+      await setDoc(doc(db, "commandesEsabora", ce.numero || ce._id), { arStatut: statut }, { merge: true });
+      toast("↩︎ Remis en attente");
     } catch {
       toast("Action refusée (droits ou règles non déployées)");
     }
@@ -361,6 +402,32 @@ export function AchatDashboard({ onBack }) {
               </div>
             )}
           </SectionCard>
+
+          {/* Sous-section repliable — commandes traitées (annulables) */}
+          {traitees.length > 0 && (
+            <div style={{ background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
+              <button
+                onClick={() => setShowTreated((v) => !v)}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                <span style={{ color: EPJ.gray400, fontSize: 13 }}>{showTreated ? "▾" : "▸"}</span>
+                <span style={{ fontFamily: font.display, fontSize: 18, color: EPJ.gray900 }}>Traitées récemment</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray500, background: `${EPJ.gray500}14`, padding: "2px 9px", borderRadius: 999 }}>{traitees.length}</span>
+              </button>
+              {showTreated && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                  {traitees.map((c) => (
+                    <TreatedRow
+                      key={c._id}
+                      c={c}
+                      isNarrow={isNarrow}
+                      onUndo={() => (c._kind === "SANS_AR" ? annulerSansAR(c) : desacquitter(c.numero || c._id))}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Section B — Écarts prix regroupés par commande */}
           <SectionCard title="Écarts de prix par commande" count={filteredCommands.length} accent={EPJ.orange}>
@@ -518,6 +585,35 @@ function ManquantRow({ c, isNarrow, onRelancer, onAcquitter, onSansAR }) {
         <button onClick={onRelancer} style={btnStyle(EPJ.orange)}>Relancer</button>
         <button onClick={onAcquitter} style={btnStyle(EPJ.blue)}>Acquitter AR</button>
         <button onClick={onSansAR} style={btnStyle(EPJ.gray500, true)}>Sans AR attendu</button>
+      </div>
+    </div>
+  );
+}
+
+// Ligne « traitée » (acquittée ou sans AR) — annulable.
+function TreatedRow({ c, isNarrow, onUndo }) {
+  const sansAR = c._kind === "SANS_AR";
+  return (
+    <div
+      style={{
+        border: `1px solid ${EPJ.gray200}`, borderRadius: 12, padding: "10px 12px",
+        display: "flex", flexDirection: isNarrow ? "column" : "row",
+        alignItems: isNarrow ? "stretch" : "center", gap: 10,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, fontFamily: font.mono, fontSize: 14 }}>{c.numero}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: sansAR ? EPJ.gray500 : EPJ.green, background: `${sansAR ? EPJ.gray500 : EPJ.green}14`, padding: "2px 8px", borderRadius: 999 }}>
+            {sansAR ? "Sans AR attendu" : "Acquitté"}
+          </span>
+        </div>
+        <div style={{ fontSize: 13, color: EPJ.gray700, marginTop: 4 }}>
+          {(c.codeFournisseur || c.arRef?.fournisseur || "Fournisseur ?")} · <b>{fmtMoney(c.totalHT)}</b>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <button onClick={onUndo} style={btnStyle(EPJ.gray700, true)}>Annuler</button>
       </div>
     </div>
   );
