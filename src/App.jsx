@@ -108,10 +108,8 @@ function Router() {
     return null;
   })();
 
-  const useFullWidth =
-    route === "dashboard:direction" ||
-    route === "admin";
-
+  // Lot 0 desktop : la largeur du cadre est désormais pilotée par le shell
+  // (Layout, seuil 760 px), plus par route. Plus de calcul fullWidth ici.
   const headerOnBack = route === "home" ? null : () => setRoute("home");
 
   // ─── v1.12.0 — Changement de mot de passe libre (depuis menu) ───
@@ -134,7 +132,6 @@ function Router() {
       onBack={headerOnBack}
       onOpenAdmin={() => setRoute("admin")}
       onChangePassword={() => setRoute("change-password")}
-      fullWidth={useFullWidth}
     >
       <OutillageRappelWatcher/>
       <ReservesRappelWatcher/>
