@@ -10,12 +10,17 @@ import { LOGO_HEADER, BG_LOGIN } from "./logo";
 import { useAuth } from "./AuthContext";
 import { useData } from "./DataContext";
 import { can } from "./permissions";
+import { useViewportWidth } from "./useViewport";
 
 export function Layout({
   children, currentModule, onHome, onBack,
-  onOpenAdmin, onChangePassword, fullWidth = false,
+  onOpenAdmin, onChangePassword,
 }) {
   const { user, logout } = useAuth();
+
+  // Cadre piloté par le shell (Lot 0 desktop) : > 760 px ⇒ cadre large
+  // (1320), aligné sur la bascule table↔carte. Plus de décision par route.
+  const fullWidth = useViewportWidth() > 760;
 
   return (
     <>
@@ -69,7 +74,7 @@ export function Layout({
   );
 }
 
-function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, onChangePassword }) {
+function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, onChangePassword, fullWidth = false }) {
   const { rolesConfig } = useData();
   const isAdmin = can(user, "_admin", null, rolesConfig);
 
@@ -95,7 +100,7 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, on
       paddingRight: "env(safe-area-inset-right)",
     }}>
       <div style={{
-        maxWidth: 520, margin: "0 auto",
+        maxWidth: fullWidth ? 1320 : 520, margin: "0 auto",
         padding: "10px 12px",
         display: "flex", alignItems: "center", gap: 8,
       }}>
