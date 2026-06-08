@@ -38,7 +38,7 @@ Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
 ### Vercel — team « EPJ's projects » [V]
 | Projet | Framework | Prod | Note |
 |---|---|---|---|
-| epj-commandes-v1-2 | Vite | READY | HEAD `main` = `93b8b3c` (acquit AR réversible) |
+| epj-commandes-v1-2 | Vite | READY | HEAD `main` = `2c55249` (AR EN_ATTENTE visibles) |
 | epj-mcp | JS pur | READY | FIGÉ depuis ~15 mai |
 
 À clarifier (bénin) : domaines custom `app.epj-electricite.fr` /
@@ -162,7 +162,13 @@ Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
 fournisseur → `lignesAR` + `arStatut: RECU`) ; price-watch ligne à ligne
 (normalisation des préfixes fabricant) → `achatEcartsPrix`.
 
-**Dashboard achat (front + functions, mergés `62c8b27` puis `93b8b3c`)** :
+**Dashboard achat (front + functions, mergés `62c8b27` → `93b8b3c` → `2c55249`)** :
+- **Section « AR à suivre »** (`AchatDashboard.jsx`, ex « AR manquants à relancer ») :
+  affiche les commandes **MANQUANT** (AR en retard) **ET EN_ATTENTE** (AR pas
+  encore reçu) non acquittées → une commande est visible dès qu'elle part, donc
+  acquittable tout de suite (cas dernière minute sans AR). Badges distincts :
+  « En attente · depuis Xj » (gris, depuis `copieRef.dateCopie`/`createdAt`) vs
+  « En retard · Xj » (orange/rouge). Tri : retard d'abord, puis EN_ATTENTE date desc.
 - **Résync manuelle** : bouton « ↻ Relancer la recherche des AR » (`forceSyncAchat`) ;
   scope élargi `has:attachment newer_than:30d` (capte les AR rangés hors inbox).
   Visible Admin/Direction (lecture `user.roles`).
