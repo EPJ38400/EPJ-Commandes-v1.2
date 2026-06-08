@@ -100,10 +100,24 @@ export function AchatDashboard({ onBack }) {
     return m;
   }, [ce]);
 
+  // AR à suivre = AR en retard (MANQUANT) ET commandes fraîchement passées dont
+  // l'AR n'est pas encore arrivé (EN_ATTENTE) → visibles dès le départ, donc
+  // acquittables tout de suite (cas « dernière minute, pas d'AR »).
   const arManquants = useMemo(
     () => ce
-      .filter((c) => c.arStatut === "MANQUANT" && !c.arAcquitte)
-      .sort((a, b) => (daysSince(b.dateCommande) || 0) - (daysSince(a.dateCommande) || 0)),
+      .filter((c) => (c.arStatut === "MANQUANT" || c.arStatut === "EN_ATTENTE") && !c.arAcquitte)
+      .sort((a, b) => {
+        const rank = (s) => (s === "MANQUANT" ? 0 : 1); // en retard d'abord
+        const r = rank(a.arStatut) - rank(b.arStatut);
+        if (r !== 0) return r;
+        if (a.arStatut === "MANQUANT") {
+          // les plus anciennes (les plus en retard) en tête
+          return (daysSince(b.dateCommande) || 0) - (daysSince(a.dateCommande) || 0);
+        }
+        // EN_ATTENTE : par date décroissante (les plus récentes en tête)
+        return (tsToMs(b.copieRef?.dateCopie) || tsToMs(b.createdAt) || 0)
+          - (tsToMs(a.copieRef?.dateCopie) || tsToMs(a.createdAt) || 0);
+      }),
     [ce]
   );
 
@@ -384,9 +398,9 @@ export function AchatDashboard({ onBack }) {
           <KpisAchat kpis={kpis} isNarrow={isNarrow} />
 
           {/* Section A — AR manquants */}
-          <SectionCard title="AR manquants à relancer" count={arManquants.length} accent={EPJ.red}>
+          <SectionCard title="AR à suivre" count={arManquants.length} accent={EPJ.red}>
             {arManquants.length === 0 ? (
-              <Empty text="Aucun AR manquant. 🎉" />
+              <Empty text="Aucune commande en attente d'AR. 🎉" />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {arManquants.map((c) => (
@@ -558,7 +572,12 @@ function SectionCard({ title, count, accent = EPJ.gray700, children }) {
 }
 
 function ManquantRow({ c, isNarrow, onRelancer, onAcquitter, onSansAR }) {
-  const age = daysSince(c.dateCommande);
+  const enAttente = c.arStatut === "EN_ATTENTE";
+  const ageRetard = daysSince(c.dateCommande);
+  const refAttente = tsToMs(c.copieRef?.dateCopie) ?? tsToMs(c.createdAt);
+  const ageAttente = refAttente != null
+    ? Math.max(0, Math.floor((Date.now() - refAttente) / 86_400_000))
+    : null;
   return (
     <div
       style={{
@@ -571,9 +590,13 @@ function ManquantRow({ c, isNarrow, onRelancer, onAcquitter, onSansAR }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontFamily: font.mono, fontSize: 14 }}>{c.numero}</span>
           <span style={{ fontSize: 12, color: EPJ.gray500 }}>{fmtDate(c.dateCommande)}</span>
-          {age != null && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: age >= 7 ? EPJ.red : EPJ.orange, background: `${age >= 7 ? EPJ.red : EPJ.orange}14`, padding: "2px 8px", borderRadius: 999 }}>
-              {age} j
+          {enAttente ? (
+            <span style={{ fontSize: 11, fontWeight: 700, color: EPJ.gray500, background: `${EPJ.gray500}14`, padding: "2px 8px", borderRadius: 999 }}>
+              En attente{ageAttente != null ? ` · depuis ${ageAttente} j` : ""}
+            </span>
+          ) : (
+            <span style={{ fontSize: 11, fontWeight: 700, color: ageRetard >= 7 ? EPJ.red : EPJ.orange, background: `${ageRetard >= 7 ? EPJ.red : EPJ.orange}14`, padding: "2px 8px", borderRadius: 999 }}>
+              En retard{ageRetard != null ? ` · ${ageRetard} j` : ""}
             </span>
           )}
         </div>
