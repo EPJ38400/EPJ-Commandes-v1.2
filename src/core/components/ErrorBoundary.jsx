@@ -110,7 +110,7 @@ export class ErrorBoundary extends Component {
               </pre>
             )}
             <button onClick={this.reset} style={{
-              background: "#4A90D9",
+              background: EPJ.blue,
               color: EPJ.white,
               border: "none",
               borderRadius: 8,

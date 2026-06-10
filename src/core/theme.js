@@ -11,6 +11,10 @@ export const EPJ = {
   green:      "#98D038",   // vert pomme charte (ex #A8C536)
   red:        "#E53935",
 
+  // Accents métier / signal (≠ palette de marque)
+  urgent:     "#E65100",   // signal d'alerte / retard — volontairement distinct d'EPJ.orange
+  catEtude:   "#8E44AD",   // couleur métier catégorie « ÉTUDE / TMA » (avancement)
+
   // Échelle de gris
   gray900:    "#1A1A1A",
   gray700:    "#3D3D3D",

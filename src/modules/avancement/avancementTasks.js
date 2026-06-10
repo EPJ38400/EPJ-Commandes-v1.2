@@ -15,7 +15,7 @@ import { EPJ } from "../../core/theme";
 
 export const FACTORY_CATEGORIES = [
   {
-    id: "etude", num: 1, label: "ÉTUDE / TMA", color: "#8E44AD",
+    id: "etude", num: 1, label: "ÉTUDE / TMA", color: EPJ.catEtude,
     generated: false,
     tasks: [
       { id: "etude-1", label: "Préparation du dossier chantier" },

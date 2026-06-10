@@ -8,7 +8,7 @@ import { EPJ, font } from "../../core/theme";
 import { totalHoursForBuilding } from "./avancementTasks";
 
 const FACTORY_META = {
-  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: "#8E44AD" },
+  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: EPJ.catEtude },
   beton:     { num: 2, label: "INCORPORATION BÉTON",         color: EPJ.gray500 },
   divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: EPJ.orange },
   placo:     { num: 4, label: "AVANCEMENT PLACO",            color: EPJ.red },

@@ -11,7 +11,7 @@ export const OUTIL_STATUTS = {
   disponible:    { label: "Disponible",    color: EPJ.green, icon: "✓" },
   sorti:         { label: "Sorti",         color: EPJ.orange, icon: "→" },
   en_retard:     { label: "En retard",     color: EPJ.red, icon: "⏰" },
-  maintenance:   { label: "Maintenance",   color: "#8E44AD", icon: "🛠" },
+  maintenance:   { label: "Maintenance",   color: EPJ.catEtude, icon: "🛠" },
   hors_service:  { label: "Hors service",  color: EPJ.gray500, icon: "✕" },
   affecte:       { label: "Attribué",      color: EPJ.blue, icon: "👤" },
 };

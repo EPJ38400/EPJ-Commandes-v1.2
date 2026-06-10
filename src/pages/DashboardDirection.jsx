@@ -271,7 +271,7 @@ export function DashboardDirection({ onBack, onGoto }) {
             sub={stats.reservesBloquantes.length > 0
               ? `dont ${stats.reservesBloquantes.length} bloquante${stats.reservesBloquantes.length > 1 ? "s" : ""}` : null}
             icon="📝"
-            color="#8E44AD"
+            color={EPJ.catEtude}
             onClick={() => onGoto && onGoto("module:reserves")}
           />
           <Kpi
@@ -486,7 +486,7 @@ function AlertsBanner({ stats, onGoto }) {
     alerts.push({
       icon: "⏳",
       text: `${stats.commandesAValider.length} commande${stats.commandesAValider.length > 1 ? "s" : ""} à valider`,
-      color: "#E65100",
+      color: EPJ.urgent,
       action: () => onGoto && onGoto("module:commandes"),
     });
   }
@@ -601,7 +601,7 @@ function ReserveLine({ reserve, onClick }) {
 function CommandeLine({ commande: cmd, users, onClick }) {
   const inRetard = cmd.dateReception && isLate(cmd.dateReception);
   const aValider = cmd.statut === "En attente de validation";
-  const color = cmd.urgent ? EPJ.red : inRetard ? EPJ.orange : aValider ? "#E65100" : EPJ.blue;
+  const color = cmd.urgent ? EPJ.red : inRetard ? EPJ.orange : aValider ? EPJ.urgent : EPJ.blue;
   return (
     <div className="mini-line" onClick={onClick}>
       <div style={{

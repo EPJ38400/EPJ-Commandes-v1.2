@@ -15,7 +15,7 @@ import { renderSmsTemplate, canGererCatalogue } from "../../modules/parc-machine
 // Les modules où un SMS peut être utilisé
 const MODULE_OPTIONS = [
   { id: "parc-machines", label: "Parc machines", color: EPJ.orange },
-  { id: "reserves-quitus", label: "Réserves & quitus", color: "#8E44AD" },
+  { id: "reserves-quitus", label: "Réserves & quitus", color: EPJ.catEtude },
   { id: "commandes", label: "Commandes", color: EPJ.blue },
   { id: "avancement", label: "Avancement", color: EPJ.green },
   { id: "autre", label: "Autre", color: EPJ.gray500 },

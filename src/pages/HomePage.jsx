@@ -47,7 +47,7 @@ const MODULES_META = [
     title: "Réserves & quitus",
     subtitle: "Suivi SAV & garantie",
     icon: "📝",
-    accent: "#8E44AD",
+    accent: EPJ.catEtude,
     enabled: true,
   },
   {
@@ -301,8 +301,8 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           style={{
             marginBottom: 10, padding: "12px 14px",
             background: EPJ.warningBg,
-            border: "1px solid #E6510040",
-            borderLeft: "3px solid #E65100",
+            border: `1px solid ${EPJ.urgent}40`,
+            borderLeft: `3px solid ${EPJ.urgent}`,
             borderRadius: 10,
             cursor: "pointer",
             display: "flex", alignItems: "center", gap: 12,
@@ -317,7 +317,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
               Un monteur attend ta validation — tape ici.
             </div>
           </div>
-          <span style={{ color: "#E65100", fontSize: 18, fontWeight: 700 }}>→</span>
+          <span style={{ color: EPJ.urgent, fontSize: 18, fontWeight: 700 }}>→</span>
         </div>
       )}
 
