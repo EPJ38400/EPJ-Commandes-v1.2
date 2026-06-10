@@ -439,13 +439,20 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   `<DataTable>` dense (cartes auto PWA) + formulaire full `<Field>`/`<Button>`.
   Affichage only (logique/Firestore/schémas inchangés) ; sorti du top 10 audit
   (était #2). **Calibre tous les écrans DS-2 suivants** — s'en inspirer.
+- **2026-06 · DS-2 module Avancement** (mergé prod, PR #5) · 4 écrans repeints :
+  `AvancementModule` (liste → `<DataTable>` + `<StatCard>` + `<Banner>`),
+  `AvancementChantier` (cœur saisie terrain — tokens only, gestes inchangés,
+  CTA validation → `<Button primary>`), `AvancementHistory` (snapshots →
+  `<DataTable>`), `AvancementEvolution` (matrice pivot bespoke tokenisée).
+  **Zone sensible `chantiers`** : 9 écritures Firestore vérifiées identiques à
+  main à l'octet près. `exportUtils.js`/`avancementTasks.js` intouchés.
 
 ### Chantier en cours — DS-2 repeinte écrans
 
 - **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
   l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
-- **Pilote `AdminOutillage` = FAIT** (cf. briques actives). Ordre restant :
-  **Avancement** (prochain), **Réserves**, **Dashboard Direction**,
+- **Pilote `AdminOutillage` + module `Avancement` = FAITS** (cf. briques actives).
+  Ordre restant : **Réserves** (prochain), **Dashboard Direction**,
   **Home** (composant `Tile` inclus).
 - **Trio `CommandesInner.jsx` = DERNIER lot**, **GO écrit dédié** — absorbera design +
   responsive + signature souris **en une seule fois**.
@@ -488,6 +495,40 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   `AvancementEvolution` reste une table bespoke tokenisée. → variante
   `PivotTable` si un 2e écran en a besoin (sinon laisser bespoke).
   *(relevé sur Avancement)*
+
+---
+
+## 14. Performance — boot & chargement
+
+### PERF-1 (mergé prod, PR #6) — boot iPhone
+- **Code-splitting** : `React.lazy` + `<Suspense>` dans `App.jsx` pour les
+  modules (commandes/avancement/parc/réserves), `AdminPage` et les pages
+  secondaires (dashboards, change-password). Restent statiques au boot :
+  `LoginPage`, `HomePage`, `Layout`, watchers. Fallback = `Spinner` existant.
+- **`vendor-xlsx` sorti du boot** : tiré uniquement par les chunks lazy
+  commandes/admin. `CommandesInner.jsx` non touché (xlsx sort mécaniquement).
+- **Quitus PDF en import dynamique** : `quitusPdfGenerator` n'est plus importé
+  statiquement (warning Vite éteint). `QuitusActions` **précharge** le module à
+  la montée et appelle `openQuitusWindow` en **synchrone** au clic → `window.open`
+  reste dans le geste utilisateur (bloqueur pop-up iOS évité).
+- **Fonts** : `@import` Google Fonts retiré de `globalCss` (render-blocking) →
+  `<link rel=preconnect/stylesheet>` dans `index.html` (parallèle au JS).
+  Familles/graisses inchangées.
+- **`vite.config.js`** : forme fonction `defineConfig(({ mode }) => …)` pour le
+  drop des `console.log` (robustesse vs `process.env.NODE_ENV`).
+- **Gain** : bundle JS gzippé au boot **≈396 → ≈189 Ko** (chunk `index`
+  233 → **25 Ko gz**).
+
+### PERF à faire
+- **PERF-2** : la donnée chargée au boot (`DataContext` ouvre tous les listeners
+  Firestore dès l'auth). **À investiguer** : `tasksConfig/default` documenté
+  comme « toujours absent » (cf. §8) — vérifier l'impact / le lazy-load des
+  collections non critiques au premier écran.
+- **PERF-3** : service worker / precache PWA (offline + cache des chunks lazy).
+- **Reliquat** : 2e `@import` Google Fonts inline dans **`CommandesInner.jsx:1584`**
+  (sans impact boot — chunk lazy — mais même anti-pattern, partiellement
+  redondant avec le `<link>`). → à traiter dans le **lot trio CommandesInner**
+  (interdit hors GO dédié).
 
 ---
 
