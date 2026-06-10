@@ -3,15 +3,23 @@
 //  - Liste de tous les mois figés avec résumé
 //  - Consultation détaillée d'un mois figé
 //  - Export PDF + Excel
+//
+//  DS-2 : repeinte design-system + desktop (conforme
+//  docs/DIRECTION_ARTISTIQUE.md). Affichage uniquement — snapshots,
+//  exports et l'unique écriture Firestore (deleteSnapshot) INCHANGÉS.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
 import { db } from "../../firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
+import { useViewport } from "../../core/useViewport";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { Button } from "../../core/components/Button";
+import { DataTable } from "../../core/components/DataTable";
 import {
   DEFAULT_BUILDING_CONFIG, totalHoursForTask, totalHoursForBuilding,
 } from "./avancementTasks";
@@ -38,6 +46,7 @@ function snapshotUnitLabel(sb, key) {
 export function AvancementHistory({ chantier, onBack }) {
   const { user } = useAuth();
   const { users } = useData();
+  const isPwa = useViewport() === "mobile";
   const toast = useToast();
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [activeTab, setActiveTab] = useState("list"); // "list" | "evolution"
@@ -62,6 +71,25 @@ export function AvancementHistory({ chantier, onBack }) {
     } catch (e) { toast("❌ " + e.message); }
   };
 
+  // Lignes augmentées pour la table (résumés via les helpers existants)
+  const rows = useMemo(() => months.map(month => {
+    const snapshot = snapshots[month];
+    const { pct, totalHours } = summarizeSnapshot(snapshot);
+    const firstBuildingId = Object.keys(snapshot || {})[0];
+    const sb = snapshot?.[firstBuildingId];
+    const frozenAt = sb?.frozenAt ? new Date(sb.frozenAt) : null;
+    const frozenBy = sb?.frozenBy ? users.find(u => u.id === sb.frozenBy) : null;
+    return {
+      month,
+      _label: formatMonth(month),
+      _pct: pct,
+      _hours: totalHours,
+      _unites: Object.keys(snapshot || {}).length,
+      _frozenAt: frozenAt,
+      _frozenBy: frozenBy ? `${frozenBy.prenom} ${frozenBy.nom}` : "",
+    };
+  }), [months, snapshots, users]);
+
   // Vue détail d'un mois
   if (selectedMonth) {
     return (
@@ -76,66 +104,127 @@ export function AvancementHistory({ chantier, onBack }) {
     );
   }
 
-  return (
-    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{
-          background: EPJ.gray100, border: "none", borderRadius: 10,
-          padding: "9px 14px", fontSize: 13, fontWeight: 600,
-          color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-          whiteSpace: "nowrap", flexShrink: 0,
-        }}>← Retour</button>
+  const columns = [
+    {
+      key: "month", header: "Mois", width: 160,
+      render: (_v, row) => (
+        <span style={{ fontWeight: fontWeight.medium, color: EPJ.gray900 }}>
+          🔒 {row._label}
+        </span>
+      ),
+    },
+    {
+      key: "_frozenAt", header: "Figé le", width: 200, sortable: false,
+      render: (v, row) => (
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray500 }}>
+          {v ? v.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+          {row._frozenBy ? ` · ${row._frozenBy}` : ""}
+        </span>
+      ),
+    },
+    { key: "_unites", header: "Unités", numeric: true, width: 80 },
+    {
+      key: "_hours", header: "Heures", numeric: true, width: 90,
+      render: (v) => v > 0 ? `${v.toFixed(1)}h` : <span style={{ color: EPJ.gray400 }}>—</span>,
+    },
+    {
+      key: "_pct", header: "Avancement", numeric: true, width: 200,
+      render: (v) => <ProgressBarCell pct={v} />,
+    },
+    {
+      key: "_actions", header: "", sortable: false, align: "right", width: 130,
+      render: (_v, row) => (
+        <div style={{ display: "inline-flex", gap: space.xs, justifyContent: "flex-end" }}
+          onClick={(e) => e.stopPropagation()}>
+          <IconBtn title="Exporter PDF" onClick={() => exportSnapshotToPdf(chantier, row.month, snapshots[row.month])}>📄</IconBtn>
+          <IconBtn title="Exporter Excel" onClick={async () => {
+            try { await exportSnapshotToExcel(chantier, row.month, snapshots[row.month]); }
+            catch (err) { alert("Erreur export Excel : " + err.message); }
+          }}>📊</IconBtn>
+          {canDelete && (
+            <IconBtn title="Supprimer" danger onClick={() => deleteSnapshot(row.month)}>🗑</IconBtn>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const renderCard = (row) => (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: space.md, marginBottom: space.sm + 2 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: font.display, fontSize: 20, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.15,
-          }}>Historique figé</div>
-          <div style={{
-            fontSize: 10, color: EPJ.gray500, letterSpacing: 0.3,
-            textTransform: "uppercase", fontWeight: 600, marginTop: 1,
-          }}>
-            {chantier.num} • {chantier.nom}
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: 3 }}>
+            <span style={{ fontSize: fontSize.lg - 2 }}>🔒</span>
+            <div style={{
+              fontFamily: font.display, fontSize: fontSize.lg - 2, fontWeight: fontWeight.regular,
+              color: EPJ.gray900, letterSpacing: "-0.01em",
+            }}>{row._label}</div>
+          </div>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs, lineHeight: 1.5 }}>
+            {row._frozenAt && `Figé le ${row._frozenAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`}
+            {row._frozenBy && ` par ${row._frozenBy}`}
+            {row._unites > 1 && ` • ${row._unites} unités`}
+            {row._hours > 0 && ` • ⏱ ${row._hours.toFixed(1)}h`}
           </div>
         </div>
+        <div style={{
+          fontSize: fontSize.xl, fontWeight: fontWeight.semibold, color: pctColor(row._pct),
+          fontVariantNumeric: "tabular-nums",
+        }}>{row._pct}%</div>
       </div>
+
+      <div style={{ height: 6, borderRadius: radius.pill, background: EPJ.gray100, overflow: "hidden", marginBottom: space.sm + 2 }}>
+        <div style={{
+          width: `${row._pct}%`, height: "100%",
+          background: pctColor(row._pct), transition: "width .4s ease",
+        }}/>
+      </div>
+
+      <div style={{ display: "flex", gap: space.xs + 2, flexWrap: "wrap" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <Button variant="secondary" full onClick={() => setSelectedMonth(row.month)}>👁 Consulter</Button>
+        </div>
+        <Button variant="ghost" onClick={() => exportSnapshotToPdf(chantier, row.month, snapshots[row.month])}>📄 PDF</Button>
+        <Button variant="ghost" onClick={async () => {
+          try { await exportSnapshotToExcel(chantier, row.month, snapshots[row.month]); }
+          catch (err) { alert("Erreur export Excel : " + err.message); }
+        }}>📊 Excel</Button>
+        {canDelete && (
+          <IconBtn title="Supprimer" danger pwa onClick={() => deleteSnapshot(row.month)}>🗑</IconBtn>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
+      <ModuleSubHeader
+        moduleName="Chantier"
+        title="Historique figé"
+        subtitle={`${chantier.num} • ${chantier.nom}`}
+        onBackToModuleHome={onBack}
+      />
 
       {/* Onglets Liste / Évolution */}
       {months.length > 0 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-          <button
-            onClick={() => setActiveTab("list")}
-            style={{
-              flex: 1,
-              padding: "10px 12px", borderRadius: 8,
-              border: `1px solid ${activeTab === "list" ? EPJ.gray900 : EPJ.gray200}`,
-              background: activeTab === "list" ? EPJ.gray900 : EPJ.white,
-              color: activeTab === "list" ? EPJ.white : EPJ.gray700,
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: font.body,
-            }}
-          >📜 Liste ({months.length})</button>
-          <button
-            onClick={() => setActiveTab("evolution")}
-            style={{
-              flex: 1,
-              padding: "10px 12px", borderRadius: 8,
-              border: `1px solid ${activeTab === "evolution" ? EPJ.gray900 : EPJ.gray200}`,
-              background: activeTab === "evolution" ? EPJ.gray900 : EPJ.white,
-              color: activeTab === "evolution" ? EPJ.white : EPJ.gray700,
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: font.body,
-            }}
-          >📈 Évolution</button>
+        <div style={{ display: "flex", gap: space.xs, marginBottom: space.md }}>
+          <TabChip active={activeTab === "list"} onClick={() => setActiveTab("list")} isPwa={isPwa}>
+            📜 Liste ({months.length})
+          </TabChip>
+          <TabChip active={activeTab === "evolution"} onClick={() => setActiveTab("evolution")} isPwa={isPwa}>
+            📈 Évolution
+          </TabChip>
         </div>
       )}
 
       {months.length === 0 ? (
-        <div className="epj-card" style={{ padding: 24, textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>📜</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900, marginBottom: 6 }}>
+        <div style={{ ...panelStyle, padding: space.xl, textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: space.sm + 2 }}>📜</div>
+          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900, marginBottom: space.xs + 2 }}>
             Aucun mois figé pour l'instant
           </div>
-          <div style={{ fontSize: 12, color: EPJ.gray500, lineHeight: 1.5 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.5 }}>
             Une fois une situation figée depuis l'écran d'avancement du chantier,
             elle apparaîtra ici pour consultation et export.
           </div>
@@ -143,90 +232,14 @@ export function AvancementHistory({ chantier, onBack }) {
       ) : activeTab === "evolution" ? (
         <AvancementEvolution chantier={chantier} />
       ) : (
-        months.map(month => (
-          <SnapshotCard
-            key={month}
-            month={month}
-            snapshot={snapshots[month]}
-            chantier={chantier}
-            users={users}
-            canDelete={canDelete}
-            onOpen={() => setSelectedMonth(month)}
-            onDelete={() => deleteSnapshot(month)}
-          />
-        ))
+        <DataTable
+          columns={columns}
+          rows={rows}
+          keyField="month"
+          onRowClick={(row) => setSelectedMonth(row.month)}
+          renderCard={renderCard}
+        />
       )}
-    </div>
-  );
-}
-
-// ─── Carte résumé d'un mois figé ────────────────────────────
-function SnapshotCard({ month, snapshot, chantier, users, canDelete, onOpen, onDelete }) {
-  const { pct, totalHours } = useMemo(() => summarizeSnapshot(snapshot), [snapshot]);
-
-  const firstBuildingId = Object.keys(snapshot || {})[0];
-  const sb = snapshot?.[firstBuildingId];
-  const frozenAt = sb?.frozenAt ? new Date(sb.frozenAt) : null;
-  const frozenBy = sb?.frozenBy ? users.find(u => u.id === sb.frozenBy) : null;
-  const buildingsCount = Object.keys(snapshot || {}).length;
-
-  const barColor = pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray500;
-
-  return (
-    <div className="epj-card clickable" onClick={onOpen} style={{ padding: "14px 16px", marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-            <span style={{ fontSize: 18 }}>🔒</span>
-            <div style={{
-              fontFamily: font.display, fontSize: 18, fontWeight: 400,
-              color: EPJ.gray900, letterSpacing: "-0.01em",
-            }}>{formatMonth(month)}</div>
-          </div>
-          <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 4, lineHeight: 1.5 }}>
-            {frozenAt && `Figé le ${frozenAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`}
-            {frozenBy && ` par ${frozenBy.prenom} ${frozenBy.nom}`}
-            {buildingsCount > 1 && ` • ${buildingsCount} bâtiments`}
-            {totalHours > 0 && ` • ⏱ ${totalHours.toFixed(1)}h`}
-          </div>
-        </div>
-        <div style={{
-          fontSize: 22, fontWeight: 700, color: barColor,
-          fontVariantNumeric: "tabular-nums",
-        }}>{pct}%</div>
-      </div>
-
-      <div style={{ height: 6, borderRadius: 3, background: EPJ.gray100, overflow: "hidden", marginBottom: 10 }}>
-        <div style={{
-          width: `${pct}%`, height: "100%",
-          background: barColor, transition: "width .4s ease",
-        }}/>
-      </div>
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpen(); }}
-          style={actionBtnStyle(EPJ.gray900, EPJ.white)}
-        >👁 Consulter</button>
-        <button
-          onClick={(e) => { e.stopPropagation(); exportSnapshotToPdf(chantier, month, snapshot); }}
-          style={actionBtnStyle(EPJ.orange, EPJ.white)}
-        >📄 PDF</button>
-        <button
-          onClick={async (e) => {
-            e.stopPropagation();
-            try { await exportSnapshotToExcel(chantier, month, snapshot); }
-            catch (err) { alert("Erreur export Excel : " + err.message); }
-          }}
-          style={actionBtnStyle(EPJ.green, EPJ.white)}
-        >📊 Excel</button>
-        {canDelete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            style={actionBtnStyle(`${EPJ.red}10`, EPJ.red, `1px solid ${EPJ.red}44`)}
-          >🗑</button>
-        )}
-      </div>
     </div>
   );
 }
@@ -234,6 +247,7 @@ function SnapshotCard({ month, snapshot, chantier, users, canDelete, onOpen, onD
 // ─── Détail d'un mois figé ───────────────────────────────────
 function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChantier }) {
   const { pct, totalHours } = useMemo(() => summarizeSnapshot(snapshot), [snapshot]);
+  const isPwa = useViewport() === "mobile";
   const buildingIds = Object.keys(snapshot || {});
   const [activeBuildingId, setActiveBuildingId] = useState(buildingIds[0]);
   const sb = snapshot[activeBuildingId];
@@ -244,8 +258,6 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
 
   const categories = useMemo(() => categoriesFromSnapshot(sb), [sb]);
 
-  const barColor = pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray500;
-
   const { buildingPct, buildingHours } = useMemo(() => {
     return {
       buildingPct: computeBuildingPct(categories, sb?.progress),
@@ -255,88 +267,69 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
   const buildingColor = buildingPct === 100 ? EPJ.green : buildingPct >= 60 ? EPJ.blue : buildingPct >= 30 ? EPJ.orange : EPJ.gray500;
 
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{
-          background: EPJ.gray100, border: "none", borderRadius: 10,
-          padding: "9px 14px", fontSize: 13, fontWeight: 600,
-          color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-          whiteSpace: "nowrap", flexShrink: 0,
-        }}>← Retour</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: EPJ.orange, letterSpacing: 0.4, textTransform: "uppercase" }}>
-            🔒 Situation figée
-          </div>
-          <div style={{
-            fontFamily: font.display, fontSize: 22, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.15,
-          }}>{formatMonth(month)}</div>
-          <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 2, lineHeight: 1.4 }}>
-            {chantier.num} • {chantier.nom}
-            {frozenAt && ` — Figé le ${frozenAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`}
-            {frozenBy && ` par ${frozenBy.prenom} ${frozenBy.nom}`}
-          </div>
-        </div>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
+      <ModuleSubHeader
+        moduleName="Historique"
+        title={formatMonth(month)}
+        subtitle="🔒 Situation figée"
+        onBackToModuleHome={onBack}
+      />
+      <div style={{
+        fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.4,
+        marginTop: -space.sm, marginBottom: space.md,
+      }}>
+        {chantier.num} • {chantier.nom}
+        {frozenAt && ` — Figé le ${frozenAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`}
+        {frozenBy && ` par ${frozenBy.prenom} ${frozenBy.nom}`}
       </div>
 
       {/* Boutons export */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        <button
-          onClick={() => exportSnapshotToPdf(chantier, month, snapshot)}
-          style={{
-            flex: 1, background: EPJ.orange, color: EPJ.white, border: "none",
-            borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", fontFamily: font.body,
-          }}
-        >📄 Exporter PDF</button>
-        <button
-          onClick={async () => {
-            try { await exportSnapshotToExcel(chantier, month, snapshot); }
-            catch (err) { alert("Erreur export Excel : " + err.message); }
-          }}
-          style={{
-            flex: 1, background: EPJ.green, color: EPJ.white, border: "none",
-            borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", fontFamily: font.body,
-          }}
-        >📊 Exporter Excel</button>
+      <div style={{ display: "flex", gap: space.xs + 2, marginBottom: space.md }}>
+        <div style={{ flex: 1 }}>
+          <Button variant="secondary" full
+            onClick={() => exportSnapshotToPdf(chantier, month, snapshot)}
+          >📄 Exporter PDF</Button>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Button variant="secondary" full
+            onClick={async () => {
+              try { await exportSnapshotToExcel(chantier, month, snapshot); }
+              catch (err) { alert("Erreur export Excel : " + err.message); }
+            }}
+          >📊 Exporter Excel</Button>
+        </div>
       </div>
 
       {/* Onglets bâtiments */}
       {buildingIds.length > 1 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
+        <div style={{ display: "flex", gap: space.xs, marginBottom: space.sm + 2, overflowX: "auto", paddingBottom: space.xs }}>
           {buildingIds.map(bId => (
-            <button key={bId} onClick={() => setActiveBuildingId(bId)} style={{
-              padding: "8px 14px", borderRadius: 8,
-              border: `1px solid ${activeBuildingId === bId ? EPJ.gray900 : EPJ.gray200}`,
-              background: activeBuildingId === bId ? EPJ.gray900 : EPJ.white,
-              color: activeBuildingId === bId ? EPJ.white : EPJ.gray700,
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
-            }}>{snapshotUnitLabel(snapshot[bId], bId)}</button>
+            <TabChip key={bId} active={activeBuildingId === bId} onClick={() => setActiveBuildingId(bId)} isPwa={isPwa} flexNone>
+              {snapshotUnitLabel(snapshot[bId], bId)}
+            </TabChip>
           ))}
         </div>
       )}
 
       {/* Avancement global du bâtiment */}
-      <div className="epj-card" style={{ padding: "14px 16px", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+      <div style={{ ...panelStyle, padding: space.lg, marginBottom: space.md }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.sm }}>
+          <div style={microLabel}>
             Avancement{buildingIds.length > 1 ? ` — ${snapshotUnitLabel(snapshot[activeBuildingId], activeBuildingId)}` : ""}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: buildingColor, fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.semibold, color: buildingColor, fontVariantNumeric: "tabular-nums" }}>
             {buildingPct}%
           </div>
         </div>
-        <div style={{ height: 8, borderRadius: 4, background: EPJ.gray100, overflow: "hidden" }}>
+        <div style={{ height: 8, borderRadius: radius.pill, background: EPJ.gray100, overflow: "hidden" }}>
           <div style={{
             width: `${buildingPct}%`, height: "100%",
-            background: `linear-gradient(90deg, ${buildingColor}, ${buildingColor}DD)`,
+            background: buildingColor,
             transition: "width .4s ease",
           }}/>
         </div>
         {buildingHours > 0 && (
-          <div style={{ marginTop: 8, fontSize: 11, color: EPJ.gray500 }}>
+          <div style={{ marginTop: space.sm, fontSize: fontSize.xs, color: EPJ.gray500 }}>
             ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{buildingHours.toFixed(1)} h</b> cumulées
           </div>
         )}
@@ -363,53 +356,54 @@ function ReadOnlyCategoryBlock({ category, progress, hoursSessions, legacyHours 
   const accent = category.color;
 
   return (
-    <div className="epj-card" style={{ padding: 0, marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ ...panelStyle, padding: 0, marginBottom: space.sm, overflow: "hidden" }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
-          padding: "12px 14px", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 10,
+          padding: `${space.md}px ${space.lg - 2}px`, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: space.sm + 2,
           borderLeft: `3px solid ${accent}`,
         }}
       >
         <div style={{
-          fontSize: 10, fontWeight: 700, background: `${accent}22`, color: accent,
-          padding: "3px 7px", borderRadius: 4, fontFamily: "monospace",
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+          background: `${accent}22`, color: accent,
+          padding: `2px ${space.xs + 3}px`, borderRadius: radius.sm, fontFamily: font.mono,
         }}>{category.num}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>{category.label}</div>
-          <div style={{ height: 4, marginTop: 5, borderRadius: 2, background: EPJ.gray100, overflow: "hidden" }}>
+          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>{category.label}</div>
+          <div style={{ height: 4, marginTop: space.xs + 1, borderRadius: radius.pill, background: EPJ.gray100, overflow: "hidden" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: accent, transition: "width .3s ease" }}/>
           </div>
         </div>
         <div style={{
-          fontSize: 13, fontWeight: 700, color: accent,
+          fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: accent,
           fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right",
         }}>{pct}%</div>
-        <span style={{ color: EPJ.gray500, fontSize: 12, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s" }}>▸</span>
+        <span style={{ color: EPJ.gray500, fontSize: fontSize.xs, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s" }}>▸</span>
       </div>
 
       {expanded && (
-        <div style={{ padding: "4px 14px 14px", borderTop: `1px solid ${EPJ.gray100}` }}>
+        <div style={{ padding: `${space.xs}px ${space.lg - 2}px ${space.lg - 2}px`, borderTop: `1px solid ${EPJ.gray100}` }}>
           {category.tasks.map(task => {
             const p = Number(progress?.[task.id] || 0);
             const h = totalHoursForTask(hoursSessions[task.id], legacyHours[task.id]);
-            const pctColor = p === 100 ? EPJ.green : p > 0 ? EPJ.blue : EPJ.gray300;
+            const taskColor = p === 100 ? EPJ.green : p > 0 ? EPJ.blue : EPJ.gray300;
             return (
               <div key={task.id} style={{
-                padding: "10px 0", borderTop: `1px solid ${EPJ.gray100}`,
-                display: "flex", alignItems: "center", gap: 10,
+                padding: `${space.sm + 2}px 0`, borderTop: `1px solid ${EPJ.gray100}`,
+                display: "flex", alignItems: "center", gap: space.sm + 2,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: EPJ.gray900, fontWeight: 500 }}>{task.label}</div>
+                  <div style={{ fontSize: fontSize.sm, color: EPJ.gray900, fontWeight: fontWeight.medium }}>{task.label}</div>
                   {h > 0 && (
-                    <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 2 }}>
+                    <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
                       ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{h.toFixed(1)}h</b>
                     </div>
                   )}
                 </div>
                 <div style={{
-                  fontSize: 13, fontWeight: 700, color: pctColor,
+                  fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: taskColor,
                   fontVariantNumeric: "tabular-nums", minWidth: 44, textAlign: "right",
                 }}>{p}%</div>
               </div>
@@ -473,14 +467,75 @@ function summarizeSnapshot(snapshot) {
   };
 }
 
-function actionBtnStyle(bg, color, border = "none") {
-  return {
-    flex: 1, background: bg, color, border,
-    borderRadius: 8, padding: "8px 10px",
-    fontSize: 12, fontWeight: 600,
-    cursor: "pointer", fontFamily: font.body,
-    minWidth: 60,
-  };
+// ─── Styles & helpers DS-2 ───────────────────────────────────
+const panelStyle = {
+  background: EPJ.white,
+  border: `1px solid ${EPJ.gray200}`,
+  borderRadius: radius.lg,
+};
+const microLabel = {
+  fontSize: fontSize.xs, color: EPJ.gray500, fontWeight: fontWeight.medium,
+  textTransform: "uppercase", letterSpacing: "0.03em",
+};
+
+function pctColor(pct) {
+  return pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray500;
+}
+
+function ProgressBarCell({ pct }) {
+  const color = pctColor(pct);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+      <div style={{
+        flex: 1, height: 6, borderRadius: radius.pill,
+        background: EPJ.gray100, overflow: "hidden",
+      }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, transition: "width .4s ease" }}/>
+      </div>
+      <span style={{
+        fontSize: fontSize.sm, fontWeight: fontWeight.medium, color,
+        fontVariantNumeric: "tabular-nums", minWidth: 38, textAlign: "right",
+      }}>{pct}%</span>
+    </div>
+  );
+}
+
+// Onglet (Liste/Évolution, bâtiments) — actif = bleu EPJ (nav active DA)
+function TabChip({ active, onClick, children, isPwa, flexNone }) {
+  return (
+    <button onClick={onClick} style={{
+      flex: flexNone ? "0 0 auto" : 1,
+      padding: `${space.sm}px ${space.lg - 2}px`,
+      minHeight: isPwa ? 44 : 36,
+      borderRadius: radius.md,
+      border: `1px solid ${active ? EPJ.blue : EPJ.gray200}`,
+      background: active ? EPJ.blue : EPJ.white,
+      color: active ? EPJ.white : EPJ.gray700,
+      fontSize: fontSize.sm, fontWeight: fontWeight.medium, cursor: "pointer",
+      fontFamily: font.body, whiteSpace: "nowrap",
+      transition: "background .15s ease, border-color .15s ease",
+    }}>{children}</button>
+  );
+}
+
+// Bouton d'action dense (cellule tableau / carte) — cf. backlog Primitives v1.1
+function IconBtn({ children, onClick, danger, title, pwa }) {
+  const [hover, setHover] = useState(false);
+  const size = pwa ? 44 : 34;
+  return (
+    <button type="button" title={title} aria-label={title} onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: size, height: size, borderRadius: radius.md, border: "none",
+        background: hover ? (danger ? EPJ.dangerBg : EPJ.gray100) : "transparent",
+        color: danger ? EPJ.redText : EPJ.gray600,
+        fontSize: 15, cursor: "pointer", fontFamily: font.body,
+        transition: "background .12s ease",
+      }}>
+      {children}
+    </button>
+  );
 }
 
 function formatMonth(ym) {
