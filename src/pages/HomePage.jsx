@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { useMemo } from "react";
 import { EPJ, font } from "../core/theme";
+import { Banner } from "../core/components/Banner";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
 import { can } from "../core/permissions";
@@ -269,245 +270,101 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
 
       {/* Bannière rappel outils en retard */}
       {(notifications["parc-machines"]?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="danger"
+          icon="⏰"
+          title={`${notifications["parc-machines"].count} outil${notifications["parc-machines"].count > 1 ? "s" : ""} en retard`}
+          text="Tape ici pour voir la liste et envoyer les SMS de rappel."
           onClick={() => onOpenModule("parc-machines")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.red}10`,
-            border: `1px solid ${EPJ.red}40`,
-            borderLeft: `3px solid ${EPJ.red}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>⏰</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications["parc-machines"].count} outil{notifications["parc-machines"].count > 1 ? "s" : ""} en retard
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Tape ici pour voir la liste et envoyer les SMS de rappel.
-            </div>
-          </div>
-          <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.D — Bannière COMMANDES À VALIDER (conducteur / admin) */}
       {(notifications.commandesAValider?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="warning"
+          icon="⏳"
+          title={`${notifications.commandesAValider.count} commande${notifications.commandesAValider.count > 1 ? "s" : ""} à valider`}
+          text="Un monteur attend ta validation — tape ici."
           onClick={() => onOpenModule("commandes")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: EPJ.warningBg,
-            border: `1px solid ${EPJ.urgent}40`,
-            borderLeft: `3px solid ${EPJ.urgent}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>⏳</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.commandesAValider.count} commande{notifications.commandesAValider.count > 1 ? "s" : ""} à valider
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Un monteur attend ta validation — tape ici.
-            </div>
-          </div>
-          <span style={{ color: EPJ.urgent, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.D — Bannière COMMANDES VALIDÉES EN ATTENTE D'ENVOI */}
       {(notifications.commandesAEnvoyer?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="info"
+          icon="📤"
+          title={`${notifications.commandesAEnvoyer.count} commande${notifications.commandesAEnvoyer.count > 1 ? "s" : ""} à envoyer`}
+          text="Commandes validées mais pas encore envoyées aux achats."
           onClick={() => onOpenModule("commandes")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.blue}10`,
-            border: `1px solid ${EPJ.blue}40`,
-            borderLeft: `3px solid ${EPJ.blue}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>📤</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.commandesAEnvoyer.count} commande{notifications.commandesAEnvoyer.count > 1 ? "s" : ""} à envoyer
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Commandes validées mais pas encore envoyées aux achats.
-            </div>
-          </div>
-          <span style={{ color: EPJ.blue, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.D — Bannière COMMANDES EN RETARD de réception */}
       {(notifications.commandesEnRetard?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="danger"
+          icon="⏰"
+          title={`${notifications.commandesEnRetard.count} commande${notifications.commandesEnRetard.count > 1 ? "s" : ""} en retard de livraison`}
+          text="La date de réception prévue est dépassée."
           onClick={() => onOpenModule("commandes")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.red}10`,
-            border: `1px solid ${EPJ.red}40`,
-            borderLeft: `3px solid ${EPJ.red}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>⏰</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.commandesEnRetard.count} commande{notifications.commandesEnRetard.count > 1 ? "s" : ""} en retard de livraison
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              La date de réception prévue est dépassée.
-            </div>
-          </div>
-          <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.L — Bannière COMMANDES À ENVOYER DANS ESABORA */}
       {(notifications.commandesAEsabora?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="info"
+          icon="🔗"
+          title={`${notifications.commandesAEsabora.count} commande${notifications.commandesAEsabora.count > 1 ? "s" : ""} à envoyer dans Esabora`}
+          text="Pas encore synchronisée avec l'ERP."
           onClick={() => onOpenModule("commandes")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.blue}10`,
-            border: `1px solid ${EPJ.blue}40`,
-            borderLeft: `3px solid ${EPJ.blue}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>🔗</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.commandesAEsabora.count} commande{notifications.commandesAEsabora.count > 1 ? "s" : ""} à envoyer dans Esabora
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Pas encore synchronisée avec l'ERP.
-            </div>
-          </div>
-          <span style={{ color: EPJ.blue, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.C — Bannière rappel RDV imminents (priorité haute) */}
       {(notifications.rdvImminents?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="warning"
+          icon="📅"
+          title={`${notifications.rdvImminents.count} RDV prévu${notifications.rdvImminents.count > 1 ? "s" : ""} dans les 48 h`}
+          text="Tape ici pour voir tes prochains rendez-vous d'intervention."
           onClick={() => onOpenModule("reserves")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.orange}14`,
-            border: `1px solid ${EPJ.orange}55`,
-            borderLeft: `3px solid ${EPJ.orange}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>📅</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.rdvImminents.count} RDV prévu{notifications.rdvImminents.count > 1 ? "s" : ""} dans les 48 h
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Tape ici pour voir tes prochains rendez-vous d'intervention.
-            </div>
-          </div>
-          <span style={{ color: EPJ.orange, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* v10.C — Bannière "réserves à traiter" (attribuées, pas en retard) */}
       {(notifications.reservesATraiter?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="info"
+          icon="📝"
+          title={`${notifications.reservesATraiter.count} réserve${notifications.reservesATraiter.count > 1 ? "s" : ""} à traiter`}
+          text="Tape ici pour voir tes réserves attribuées à planifier ou à lever."
           onClick={() => onOpenModule("reserves")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.blue}10`,
-            border: `1px solid ${EPJ.blue}40`,
-            borderLeft: `3px solid ${EPJ.blue}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>📝</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.reservesATraiter.count} réserve{notifications.reservesATraiter.count > 1 ? "s" : ""} à traiter
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Tape ici pour voir tes réserves attribuées à planifier ou à lever.
-            </div>
-          </div>
-          <span style={{ color: EPJ.blue, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* Bannière rappel réserves en retard */}
       {(notifications.reserves?.count || 0) > 0 && (
-        <div
+        <Banner
+          tone="danger"
+          icon="📝"
+          title={`${notifications.reserves.count} réserve${notifications.reserves.count > 1 ? "s" : ""} en retard`}
+          text="Tape ici pour voir les réserves non traitées dans les délais."
           onClick={() => onOpenModule("reserves")}
-          style={{
-            marginBottom: 10, padding: "12px 14px",
-            background: `${EPJ.red}10`,
-            border: `1px solid ${EPJ.red}40`,
-            borderLeft: `3px solid ${EPJ.red}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>📝</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              {notifications.reserves.count} réserve{notifications.reserves.count > 1 ? "s" : ""} en retard
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              Tape ici pour voir les réserves non traitées dans les délais.
-            </div>
-          </div>
-          <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* Bannière rappel avancement du mois */}
       {showRappelAvancement && (
-        <div
+        <Banner
+          tone="danger"
+          icon="⏰"
+          title={`Avancement de ${currentMonthLabel()} à remplir`}
+          text={`${notifications.avancement.label} — tape ici pour accéder au module.`}
           onClick={() => onOpenModule("avancement")}
-          style={{
-            marginBottom: 14, padding: "12px 14px",
-            background: `${EPJ.red}0A`,
-            border: `1px solid ${EPJ.red}30`,
-            borderLeft: `3px solid ${EPJ.red}`,
-            borderRadius: 10,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 22 }}>⏰</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
-              Avancement de {currentMonthLabel()} à remplir
-            </div>
-            <div style={{ fontSize: 11, color: EPJ.gray600, marginTop: 2, lineHeight: 1.4 }}>
-              {notifications.avancement.label} — tape ici pour accéder au module.
-            </div>
-          </div>
-          <span style={{ color: EPJ.red, fontSize: 18, fontWeight: 700 }}>→</span>
-        </div>
+        />
       )}
 
       {/* Grille de tuiles */}

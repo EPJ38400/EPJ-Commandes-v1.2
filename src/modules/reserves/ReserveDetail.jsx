@@ -17,6 +17,7 @@ import {
 } from "./reservesUtils";
 import { AttachmentsManager } from "./AttachmentsManager";
 import { QuitusActions } from "./QuitusActions";
+import { Badge } from "../../core/components/Badge";
 // v10.N — SMS attribution + demande levée
 import { smsReserveAttribuee, smsReserveDemandeLevee, findUserByUid } from "../../core/smsService";
 import { canDemanderLevee } from "./reservesRappel";
@@ -271,10 +272,10 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* Badges */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-        <Badge color={st.color} icon={st.icon} label={st.label}/>
-        <Badge color={pr.color} icon={pr.icon} label={pr.label}/>
-        {cat && <Badge color={EPJ.gray700} icon={cat.icon} label={cat.label}/>}
-        {retard && <Badge color={EPJ.red} icon="⏰" label="En retard"/>}
+        <Badge status={reserve.statut} icon={st.icon} label={st.label}/>
+        <Badge tone={reserve.priorite === "bloquante" ? "danger" : "warning"} icon={pr.icon} label={pr.label}/>
+        {cat && <Badge tone="neutral" icon={cat.icon} label={cat.label}/>}
+        {retard && <Badge tone="danger" icon="⏰" label="En retard"/>}
       </div>
 
       {/* Photo */}
@@ -659,15 +660,6 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 }
 
 // ─── Sous-composants ─────────────────────────────────────
-function Badge({ color, icon, label }) {
-  return (
-    <span style={{
-      fontSize: 11, padding: "4px 8px", borderRadius: 6,
-      background: `${color}22`, color, fontWeight: 600,
-    }}>{icon} {label}</span>
-  );
-}
-
 function InfoRow({ label, value, multiline }) {
   return (
     <div style={{ marginBottom: 6 }}>

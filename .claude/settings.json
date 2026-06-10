@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(npm run build:*)",
       "Bash(npm run audit:tokens:*)",
