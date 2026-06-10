@@ -4,22 +4,40 @@
 // ═══════════════════════════════════════════════════════════════
 
 export const EPJ = {
-  // Couleurs identité EPJ (inchangées)
+  // Couleurs identité EPJ (charte vérifiée logo + print officiels, 2026-06-10)
   dark:       "#3D3D3D",
-  blue:       "#00A3E0",
-  orange:     "#F5841F",
-  green:      "#A8C536",
+  blue:       "#00A3E0",   // couleur de travail — conforme au dégradé du logo
+  orange:     "#F8A018",   // orange doré charte (ex #F5841F)
+  green:      "#98D038",   // vert pomme charte (ex #A8C536)
   red:        "#E53935",
+
+  // Accents métier / signal (≠ palette de marque)
+  urgent:     "#E65100",   // signal d'alerte / retard — volontairement distinct d'EPJ.orange
+  catEtude:   "#8E44AD",   // couleur métier catégorie « ÉTUDE / TMA » (avancement)
 
   // Échelle de gris
   gray900:    "#1A1A1A",
   gray700:    "#3D3D3D",
+  gray600:    "#545454",   // interpolé entre gray700 (#3D3D3D) et gray500 (#6B6B6B)
   gray500:    "#6B6B6B",
+  gray400:    "#999999",   // interpolé entre gray500 (#6B6B6B) et gray300 (#C7C7C7)
   gray300:    "#C7C7C7",
   gray200:    "#EAEAEA",
   gray100:    "#F4F5F7",
   gray50:     "#FAFAFA",
   white:      "#FFFFFF",
+
+  // Fonds sémantiques doux (valeurs Material déjà utilisées dans le code, teintes inchangées)
+  successBg:  "#E8F5E9",
+  warningBg:  "#FFF3E0",
+  dangerBg:   "#FFEBEE",
+  infoBg:     "#E3F2FD",
+
+  // Texte sémantique foncé — lisible sur fonds clairs/doux (teinte foncée de chaque famille)
+  greenText:  "#4C7A14",
+  orangeText: "#9A6200",
+  redText:    "#B71C1C",
+  blueText:   "#006B94",
 
   // Alias rétrocompat
   gray:       "#6B6B6B",
@@ -36,6 +54,18 @@ export const fontString = font.body;
 
 export const radius = { sm: 6, md: 10, lg: 12, xl: 16, pill: 999 };
 export const space  = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
+
+// Échelle typo (tailles en px, graisses) — adoption progressive (DS-1 et lots opportunistes)
+export const fontSize   = { xs: 12, sm: 13, md: 14, base: 16, lg: 20, xl: 24 };
+export const fontWeight = { regular: 400, medium: 500, semibold: 600, bold: 700 };
+
+// Ombres — 3 niveaux + focus, repris des boxShadow les plus fréquents du code
+export const shadow = {
+  sm:    "0 1px 2px rgba(0,0,0,0.1)",
+  md:    "0 4px 16px rgba(0,0,0,.04)",
+  lg:    "0 20px 50px rgba(0,0,0,.08)",
+  focus: `0 0 0 3px ${EPJ.blue}1A`,
+};
 
 export const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');

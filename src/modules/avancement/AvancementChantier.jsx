@@ -326,7 +326,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
               background: editTasksMode ? EPJ.orange : EPJ.gray100,
               border: "none", borderRadius: 8, padding: "8px 12px",
               fontSize: 12, fontWeight: 600,
-              color: editTasksMode ? "#fff" : EPJ.gray700,
+              color: editTasksMode ? EPJ.white : EPJ.gray700,
               cursor: "pointer", fontFamily: font.body, whiteSpace: "nowrap",
             }}
           >{editTasksMode ? "✓ Terminé" : "✏ Tâches"}</button>
@@ -352,7 +352,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
           📜 Historique
           {snapshotsCount > 0 && (
             <span style={{
-              background: EPJ.orange, color: "#fff",
+              background: EPJ.orange, color: EPJ.white,
               fontSize: 10, fontWeight: 700, padding: "1px 5px",
               borderRadius: 10, marginLeft: 2,
             }}>{snapshotsCount}</span>
@@ -362,7 +362,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
           <button
             onClick={freezeMonth}
             style={{
-              background: EPJ.gray900, color: "#fff", border: "none",
+              background: EPJ.gray900, color: EPJ.white, border: "none",
               borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600,
               cursor: "pointer", fontFamily: font.body, whiteSpace: "nowrap",
             }}
@@ -421,7 +421,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
               padding: "8px 14px", borderRadius: 8,
               border: `1px solid ${activeUnit.id === u.id ? EPJ.gray900 : (u.kind === "soussol" ? `${EPJ.blue}55` : EPJ.gray200)}`,
               background: activeUnit.id === u.id ? EPJ.gray900 : EPJ.white,
-              color: activeUnit.id === u.id ? "#fff" : (u.kind === "soussol" ? EPJ.blue : EPJ.gray700),
+              color: activeUnit.id === u.id ? EPJ.white : (u.kind === "soussol" ? EPJ.blue : EPJ.gray700),
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
             }}>
@@ -610,7 +610,7 @@ function ValidationAvancementBloc({ chantier, avancementValidations }) {
         disabled={saving}
         style={{
           width: "100%",
-          background: EPJ.green, color: "#fff", border: "none",
+          background: EPJ.green, color: EPJ.white, border: "none",
           borderRadius: 10, padding: "12px 16px",
           fontSize: 13, fontWeight: 700,
           cursor: saving ? "wait" : "pointer",
@@ -723,7 +723,7 @@ function CategoryBlock({
                 onClick={() => { if (newLabel.trim()) { onAddTask(newLabel); setNewLabel(""); } }}
                 disabled={!newLabel.trim()}
                 style={{
-                  background: EPJ.gray900, color: "#fff", border: "none",
+                  background: EPJ.gray900, color: EPJ.white, border: "none",
                   borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 600,
                   cursor: newLabel.trim() ? "pointer" : "not-allowed",
                   opacity: newLabel.trim() ? 1 : 0.45, fontFamily: font.body,
@@ -977,7 +977,7 @@ function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession,
           onClick={submitAdd}
           disabled={!hoursInput}
           style={{
-            background: EPJ.blue, color: "#fff", border: "none",
+            background: EPJ.blue, color: EPJ.white, border: "none",
             borderRadius: 6, padding: "8px 12px", fontSize: 12, fontWeight: 700,
             cursor: hoursInput ? "pointer" : "not-allowed",
             opacity: hoursInput ? 1 : 0.45, fontFamily: font.body,

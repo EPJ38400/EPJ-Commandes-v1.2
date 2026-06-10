@@ -1,3 +1,4 @@
+import { EPJ } from "../../core/theme";
 // ═══════════════════════════════════════════════════════════════
 //  Catalogue des tâches d'avancement — 3 couches
 //  1. FACTORY (dans le code, ci-dessous, jamais perdu)
@@ -14,7 +15,7 @@
 
 export const FACTORY_CATEGORIES = [
   {
-    id: "etude", num: 1, label: "ÉTUDE / TMA", color: "#8E44AD",
+    id: "etude", num: 1, label: "ÉTUDE / TMA", color: EPJ.catEtude,
     generated: false,
     tasks: [
       { id: "etude-1", label: "Préparation du dossier chantier" },
@@ -24,12 +25,12 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "beton", num: 2, label: "INCORPORATION BÉTON", color: "#6B6B6B",
+    id: "beton", num: 2, label: "INCORPORATION BÉTON", color: EPJ.gray500,
     generated: "beton", // généré selon la config
     tasks: [], // généré
   },
   {
-    id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: "#F5841F",
+    id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: EPJ.orange,
     generated: false,
     tasks: [
       { id: "divers-1", label: "Installation de chantier" },
@@ -42,12 +43,12 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "placo", num: 4, label: "AVANCEMENT PLACO", color: "#E53935",
+    id: "placo", num: 4, label: "AVANCEMENT PLACO", color: EPJ.red,
     generated: "placo",
     tasks: [],
   },
   {
-    id: "logements", num: 5, label: "ÉQUIPEMENT DES LOGEMENTS", color: "#00A3E0",
+    id: "logements", num: 5, label: "ÉQUIPEMENT DES LOGEMENTS", color: EPJ.blue,
     generated: false,
     tasks: [
       { id: "log-1",  label: "Appareillage" },
@@ -65,7 +66,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: "#00A3E0",
+    id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: EPJ.blue,
     generated: false,
     tasks: [
       { id: "com-1",  label: "Colonne Montante + colonne de terre" },
@@ -84,7 +85,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "controle", num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536",
+    id: "controle", num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green,
     generated: false,
     tasks: [
       { id: "ctrl-1", label: "Pré Réception colonne ENEDIS" },
@@ -177,9 +178,9 @@ export const SOUSSOL_EQUIP_TASKS = [
 // Catégories d'un sous-sol commun : béton + placo (générés) + équipement (éditable)
 function buildSousSolCategories(cfg) {
   return [
-    { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: "#6B6B6B", generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
-    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: "#E53935", generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
-    { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: "#00A3E0", generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
+    { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: EPJ.gray500, generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
+    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: EPJ.red, generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
+    { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: EPJ.blue, generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
   ];
 }
 

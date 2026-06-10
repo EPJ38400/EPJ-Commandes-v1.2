@@ -315,7 +315,7 @@ export function ParcOutilRetour({ outil, sortie, onBack, onDone }) {
           flex: 1, background: EPJ.gray100, color: EPJ.gray700,
         }}>Annuler</button>
         <button onClick={save} disabled={saving} className="epj-btn" style={{
-          flex: 2, background: etatRetour === "abime" ? EPJ.orange : EPJ.green, color: "#fff",
+          flex: 2, background: etatRetour === "abime" ? EPJ.orange : EPJ.green, color: EPJ.white,
           opacity: saving ? 0.6 : 1,
         }}>
           {saving ? "Enregistrement…" : (etatRetour === "abime" ? "⚠ Valider le retour (abîmé)" : "✓ Valider le retour")}

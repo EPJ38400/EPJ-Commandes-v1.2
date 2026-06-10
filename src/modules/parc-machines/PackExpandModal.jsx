@@ -143,7 +143,7 @@ export function PackExpandModal({ pack, outils, outillageSorties, outillageCateg
               width: 24, height: 24, borderRadius: 5,
               background: packMaitreDispo ? EPJ.orange : EPJ.gray300,
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#fff", fontSize: 14, fontWeight: 800, flexShrink: 0,
+              color: EPJ.white, fontSize: 14, fontWeight: 800, flexShrink: 0,
             }}>{packMaitreDispo ? "✓" : "✕"}</div>
             <div style={{
               width: 36, height: 36, borderRadius: 6,
@@ -203,7 +203,7 @@ export function PackExpandModal({ pack, outils, outillageSorties, outillageCateg
                     border: `2px solid ${checked ? EPJ.orange : EPJ.gray300}`,
                     background: checked ? EPJ.orange : EPJ.white,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#fff", fontSize: 14, fontWeight: 800, flexShrink: 0,
+                    color: EPJ.white, fontSize: 14, fontWeight: 800, flexShrink: 0,
                   }}>{checked ? "✓" : ""}</div>
                   <div style={{
                     width: 34, height: 34, borderRadius: 6,
@@ -258,7 +258,7 @@ export function PackExpandModal({ pack, outils, outillageSorties, outillageCateg
             disabled={selectedCount === 0}
             style={{
               flex: 2, padding: "12px 16px", borderRadius: 10,
-              background: EPJ.orange, color: "#fff",
+              background: EPJ.orange, color: EPJ.white,
               border: "none", fontSize: 12, fontWeight: 700,
               cursor: selectedCount === 0 ? "not-allowed" : "pointer",
               fontFamily: font.body,

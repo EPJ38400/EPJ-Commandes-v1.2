@@ -126,7 +126,7 @@ export function MailTimeline({
             className="epj-btn"
             style={{
               flex: 1, minWidth: 120,
-              background: EPJ.blue, color: "#fff",
+              background: EPJ.blue, color: EPJ.white,
               fontSize: 12, padding: "10px 12px",
             }}
           >
@@ -177,7 +177,7 @@ export function MailTimeline({
         <div style={{
           padding: 14,
           borderTop: `1px solid ${EPJ.gray200}`,
-          background: "#fffdf5",
+          background: EPJ.warningBg,
         }}>
           <div style={{
             fontSize: 11, fontWeight: 700, color: EPJ.orange,
@@ -206,7 +206,7 @@ export function MailTimeline({
               onClick={handleSendNote}
               disabled={!noteText.trim() || savingNote}
               className="epj-btn"
-              style={{ flex: 2, background: EPJ.orange, color: "#fff", fontSize: 12 }}
+              style={{ flex: 2, background: EPJ.orange, color: EPJ.white, fontSize: 12 }}
             >
               {savingNote ? "Enregistrement…" : "✓ Enregistrer la note"}
             </button>
@@ -235,7 +235,7 @@ function EmptyState({ onJoindreMail }) {
           onClick={onJoindreMail}
           className="epj-btn"
           style={{
-            marginTop: 12, background: EPJ.blue, color: "#fff",
+            marginTop: 12, background: EPJ.blue, color: EPJ.white,
             fontSize: 11, padding: "8px 14px",
           }}
         >
@@ -249,14 +249,14 @@ function EmptyState({ onJoindreMail }) {
 // ─── Événement interne (note, photo, signature, statut) ─────
 function EventItem({ event }) {
   const ICONS = {
-    note:       { icon: "📝", label: "Note interne", color: EPJ.orange, bg: "#fff8e6" },
+    note:       { icon: "📝", label: "Note interne", color: EPJ.orange, bg: EPJ.warningBg },
     photo:      { icon: "📷", label: "Photo",        color: EPJ.gray700, bg: EPJ.gray50 },
-    signature:  { icon: "✍",  label: "Signature",    color: EPJ.green,  bg: "#f1f8e6" },
+    signature:  { icon: "✍",  label: "Signature",    color: EPJ.green,  bg: EPJ.successBg },
     statut:     { icon: "🔄", label: "Changement",   color: EPJ.gray700, bg: EPJ.gray50 },
     creation:   { icon: "📝", label: "Création",     color: EPJ.gray500, bg: EPJ.gray50 },
-    quitus:     { icon: "✅", label: "Quitus",       color: EPJ.green,  bg: "#f1f8e6" },
-    attribution:{ icon: "👤", label: "Attribution",  color: EPJ.blue,   bg: "#e6f7fc" },
-    rdv:        { icon: "📅", label: "RDV",          color: EPJ.orange, bg: "#fff4e6" },
+    quitus:     { icon: "✅", label: "Quitus",       color: EPJ.green,  bg: EPJ.successBg },
+    attribution:{ icon: "👤", label: "Attribution",  color: EPJ.blue,   bg: EPJ.infoBg },
+    rdv:        { icon: "📅", label: "RDV",          color: EPJ.orange, bg: EPJ.warningBg },
   };
   const cfg = ICONS[event.kind] || ICONS.note;
   const date = formatDateShort(event.date);

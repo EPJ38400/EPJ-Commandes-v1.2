@@ -77,7 +77,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
       ctx.lineJoin = "round";
       ctx.strokeStyle = effectiveStroke;
       ctx.lineWidth = 2.2;
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = EPJ.white;
       ctx.fillRect(0, 0, rect.width, height);
 
       // Restaurer le contenu précédent OU la valeur initiale (mode 2)
@@ -153,7 +153,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const dpr = window.devicePixelRatio || 1;
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = EPJ.white;
     ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
     setPointCount(0);
     initialValueDrawn.current = false;
@@ -226,7 +226,7 @@ export const SignaturePad = forwardRef(function SignaturePad({
           border: `2px ${isEmpty && required ? "dashed" : "solid"} ${
             isEmpty && required ? EPJ.red + "60" : EPJ.gray300
           }`,
-          background: "#fff",
+          background: EPJ.white,
           overflow: "hidden",
           touchAction: "none",
           opacity: disabled ? 0.6 : 1,

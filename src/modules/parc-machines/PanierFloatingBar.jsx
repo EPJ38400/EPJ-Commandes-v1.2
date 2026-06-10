@@ -19,7 +19,7 @@ export function PanierFloatingBar({ onContinue }) {
       position: "fixed",
       bottom: 0, left: 0, right: 0,
       background: EPJ.gray900,
-      color: "#fff",
+      color: EPJ.white,
       // Safe-area : le padding du bas s'adapte (home indicator iPhone)
       padding: "12px max(14px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left))",
       boxShadow: "0 -4px 20px rgba(0,0,0,.15)",
@@ -31,7 +31,7 @@ export function PanierFloatingBar({ onContinue }) {
     }}>
       <div style={{
         width: 42, height: 42, borderRadius: 10,
-        background: EPJ.orange, color: "#fff",
+        background: EPJ.orange, color: EPJ.white,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 20, fontWeight: 800, flexShrink: 0,
         fontVariantNumeric: "tabular-nums",
@@ -42,7 +42,7 @@ export function PanierFloatingBar({ onContinue }) {
         <div style={{ fontSize: 13, fontWeight: 700 }}>
           Panier de sortie
         </div>
-        <div style={{ fontSize: 11, color: "#E0E0E0", marginTop: 1 }}>
+        <div style={{ fontSize: 11, color: EPJ.gray200, marginTop: 1 }}>
           {panier.count} outil{panier.count > 1 ? "s" : ""} sélectionné{panier.count > 1 ? "s" : ""}
         </div>
       </div>
@@ -50,7 +50,7 @@ export function PanierFloatingBar({ onContinue }) {
         onClick={panier.clear}
         style={{
           background: "rgba(255,255,255,.12)",
-          color: "#fff", border: "none", borderRadius: 8,
+          color: EPJ.white, border: "none", borderRadius: 8,
           padding: "8px 10px", fontSize: 11, fontWeight: 600,
           cursor: "pointer", fontFamily: font.body,
           flexShrink: 0,
@@ -60,7 +60,7 @@ export function PanierFloatingBar({ onContinue }) {
         onClick={onContinue}
         style={{
           background: EPJ.orange,
-          color: "#fff", border: "none", borderRadius: 8,
+          color: EPJ.white, border: "none", borderRadius: 8,
           padding: "10px 14px", fontSize: 12, fontWeight: 700,
           cursor: "pointer",
           fontFamily: font.body,

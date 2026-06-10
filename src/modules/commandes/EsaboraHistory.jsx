@@ -108,7 +108,7 @@ export function EsaboraHistory({ chantierNum = null }) {
                 borderRadius: 999,
                 border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
                 background: active ? EPJ.gray900 : EPJ.white,
-                color: active ? "#fff" : EPJ.gray700,
+                color: active ? EPJ.white : EPJ.gray700,
                 cursor: "pointer",
               }}
             >

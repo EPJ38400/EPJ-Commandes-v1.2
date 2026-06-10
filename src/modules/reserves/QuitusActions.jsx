@@ -146,7 +146,7 @@ export function QuitusActions({ reserve, chantier, company, technicien, users, r
         <button onClick={openPdf} className="epj-btn" style={{
           width: "100%",
           background: `linear-gradient(135deg, ${EPJ.blue}, ${EPJ.green})`,
-          color: "#fff", fontSize: 14, fontWeight: 700,
+          color: EPJ.white, fontSize: 14, fontWeight: 700,
           padding: "12px",
         }}>
           📄 Générer / Voir le quitus PDF
@@ -155,7 +155,7 @@ export function QuitusActions({ reserve, chantier, company, technicien, users, r
           <button onClick={() => setShowEmailForm(true)}
                   disabled={uploading}
                   className="epj-btn" style={{
-            flex: 2, background: EPJ.orange, color: "#fff",
+            flex: 2, background: EPJ.orange, color: EPJ.white,
             fontSize: 13, fontWeight: 700, padding: "10px",
             opacity: uploading ? 0.5 : 1,
           }}>
@@ -266,7 +266,7 @@ function EmailForm({ reserve, chantier, company, technomFull, reservesEmetteurs,
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: "#fff", width: "100%", maxWidth: 520,
+          background: EPJ.white, width: "100%", maxWidth: 520,
           maxHeight: "92vh", overflowY: "auto",
           borderTopLeftRadius: 16, borderTopRightRadius: 16,
           padding: 16,
@@ -342,7 +342,7 @@ function EmailForm({ reserve, chantier, company, technomFull, reservesEmetteurs,
         <button onClick={prepareAndSend}
                 disabled={sending || !toEmail}
                 className="epj-btn" style={{
-          width: "100%", background: EPJ.blue, color: "#fff",
+          width: "100%", background: EPJ.blue, color: EPJ.white,
           fontSize: 14, fontWeight: 700, padding: "12px",
           opacity: (sending || !toEmail) ? 0.5 : 1,
         }}>

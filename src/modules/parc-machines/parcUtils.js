@@ -2,17 +2,18 @@
 //  parcUtils.js — Helpers du module Parc Machines (v8)
 // ═══════════════════════════════════════════════════════════════
 import { storage } from "../../firebase";
+import { EPJ } from "../../core/theme";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { getRoles } from "../../core/permissions";
 
 // ─── Statut d'un outil ──────────────────────────────────────
 export const OUTIL_STATUTS = {
-  disponible:    { label: "Disponible",    color: "#A8C536", icon: "✓" },
-  sorti:         { label: "Sorti",         color: "#F5841F", icon: "→" },
-  en_retard:     { label: "En retard",     color: "#E53935", icon: "⏰" },
-  maintenance:   { label: "Maintenance",   color: "#8E44AD", icon: "🛠" },
-  hors_service:  { label: "Hors service",  color: "#6B6B6B", icon: "✕" },
-  affecte:       { label: "Attribué",      color: "#00A3E0", icon: "👤" },
+  disponible:    { label: "Disponible",    color: EPJ.green, icon: "✓" },
+  sorti:         { label: "Sorti",         color: EPJ.orange, icon: "→" },
+  en_retard:     { label: "En retard",     color: EPJ.red, icon: "⏰" },
+  maintenance:   { label: "Maintenance",   color: EPJ.catEtude, icon: "🛠" },
+  hors_service:  { label: "Hors service",  color: EPJ.gray500, icon: "✕" },
+  affecte:       { label: "Attribué",      color: EPJ.blue, icon: "👤" },
 };
 
 // ─── Date utils ─────────────────────────────────────────────

@@ -103,7 +103,7 @@ export function AdminChantiersReception({ onBack }) {
                     flex: 1, background: EPJ.gray100, color: EPJ.gray700, fontSize: 12,
                   }}>Annuler</button>
                   <button onClick={() => saveDate(c)} disabled={saving} className="epj-btn" style={{
-                    flex: 2, background: EPJ.blue, color: "#fff", fontSize: 12,
+                    flex: 2, background: EPJ.blue, color: EPJ.white, fontSize: 12,
                   }}>{saving ? "⏳" : "💾 Enregistrer"}</button>
                 </div>
               </div>

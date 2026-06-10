@@ -88,7 +88,7 @@ export function AdminUserSignatures({ onBack }) {
             }}>Signature actuelle</div>
             <img src={selectedUser.signatureUrl} alt="signature actuelle" style={{
               width: "100%", maxHeight: 150, objectFit: "contain",
-              background: "#fff", borderRadius: 6,
+              background: EPJ.white, borderRadius: 6,
               border: `1px solid ${EPJ.gray200}`,
             }}/>
             <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 6, textAlign: "center" }}>
@@ -113,7 +113,7 @@ export function AdminUserSignatures({ onBack }) {
           }}>Annuler</button>
           <button onClick={saveSignature} disabled={saving || !drawnPng}
                   className="epj-btn" style={{
-            flex: 2, background: EPJ.blue, color: "#fff",
+            flex: 2, background: EPJ.blue, color: EPJ.white,
             opacity: (saving || !drawnPng) ? 0.5 : 1,
           }}>
             {saving ? "⏳ Enregistrement…" : "💾 Enregistrer"}
@@ -150,7 +150,7 @@ export function AdminUserSignatures({ onBack }) {
           <div style={{
             width: 44, height: 44, borderRadius: 22,
             background: u.signatureUrl ? EPJ.green : EPJ.gray100,
-            color: u.signatureUrl ? "#fff" : EPJ.gray500,
+            color: u.signatureUrl ? EPJ.white : EPJ.gray500,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 18, fontWeight: 700, flexShrink: 0,
           }}>
@@ -167,14 +167,14 @@ export function AdminUserSignatures({ onBack }) {
           {u.signatureUrl && (
             <img src={u.signatureUrl} alt="" style={{
               height: 32, objectFit: "contain",
-              background: "#fff", borderRadius: 4,
+              background: EPJ.white, borderRadius: 4,
               border: `1px solid ${EPJ.gray200}`,
               padding: 2,
             }}/>
           )}
           <div style={{ display: "flex", gap: 4 }}>
             <button onClick={() => setSelectedUserId(u._id)} style={{
-              background: EPJ.blue, color: "#fff", border: "none",
+              background: EPJ.blue, color: EPJ.white, border: "none",
               borderRadius: 6, padding: "6px 10px", fontSize: 12,
               cursor: "pointer", fontFamily: font.body,
             }}>{u.signatureUrl ? "✏ Modifier" : "+ Ajouter"}</button>

@@ -271,7 +271,7 @@ export function ParcOutilSortie({ outil, onBack, onDone }) {
           flex: 1, background: EPJ.gray100, color: EPJ.gray700,
         }}>Annuler</button>
         <button onClick={save} disabled={saving} className="epj-btn" style={{
-          flex: 2, background: EPJ.orange, color: "#fff",
+          flex: 2, background: EPJ.orange, color: EPJ.white,
           opacity: saving ? 0.6 : 1,
         }}>
           {saving ? "Enregistrement…" : "📤 Valider la sortie"}

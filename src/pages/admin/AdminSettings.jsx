@@ -312,7 +312,7 @@ function ToggleSwitch({ checked, onChange, disabled }) {
     >
       <span style={{
         position: "absolute", top: 3, left: checked ? 26 : 3,
-        width: 22, height: 22, borderRadius: 11, background: "#fff",
+        width: 22, height: 22, borderRadius: 11, background: EPJ.white,
         transition: "left 120ms ease",
         boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
       }}/>

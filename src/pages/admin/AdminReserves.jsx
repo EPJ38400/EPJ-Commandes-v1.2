@@ -90,7 +90,7 @@ export function AdminReserves({ onBack }) {
           <button key={id} onClick={() => { setTab(id); setEditing(null); }} style={{
             padding: "8px 12px", borderRadius: 8, border: "none", cursor: "pointer",
             background: tab === id ? EPJ.gray900 : EPJ.gray100,
-            color: tab === id ? "#fff" : EPJ.gray700, fontSize: 12, fontWeight: 600,
+            color: tab === id ? EPJ.white : EPJ.gray700, fontSize: 12, fontWeight: 600,
             fontFamily: font.body, whiteSpace: "nowrap",
           }}>{lbl}</button>
         ))}
@@ -103,7 +103,7 @@ export function AdminReserves({ onBack }) {
             ⚠ Aucune catégorie ou émetteur installé. Initialise avec les valeurs par défaut (modifiables après) :
           </div>
           <button onClick={seedDefaults} disabled={seeding} className="epj-btn" style={{
-            width: "100%", background: EPJ.orange, color: "#fff", fontSize: 13,
+            width: "100%", background: EPJ.orange, color: EPJ.white, fontSize: 13,
           }}>{seeding ? "⏳ Installation…" : "⚙ Installer valeurs par défaut"}</button>
         </div>
       )}
@@ -112,7 +112,7 @@ export function AdminReserves({ onBack }) {
       {tab === "categories" && (
         <>
           <button onClick={() => { setEditing("new_cat"); setForm({ label: "", icon: "📦", ordre: 10, actif: true }); }}
-                  className="epj-btn" style={{ width: "100%", background: EPJ.green, color: "#fff", marginBottom: 10 }}>
+                  className="epj-btn" style={{ width: "100%", background: EPJ.green, color: EPJ.white, marginBottom: 10 }}>
             + Nouvelle catégorie
           </button>
           {editing === "new_cat" && (
@@ -132,7 +132,7 @@ export function AdminReserves({ onBack }) {
                 <button onClick={() => { setEditing(null); setForm({}); }} className="epj-btn"
                         style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
                 <button onClick={() => saveItem("reservesCategories", form)} disabled={saving || !form.label}
-                        className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: "#fff" }}>
+                        className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: EPJ.white }}>
                   💾 Créer
                 </button>
               </div>
@@ -162,7 +162,7 @@ export function AdminReserves({ onBack }) {
       {tab === "emetteurs" && (
         <>
           <button onClick={() => { setEditing("new_em"); setForm({ label: "", ordre: 10, actif: true }); }}
-                  className="epj-btn" style={{ width: "100%", background: EPJ.green, color: "#fff", marginBottom: 10 }}>
+                  className="epj-btn" style={{ width: "100%", background: EPJ.green, color: EPJ.white, marginBottom: 10 }}>
             + Nouvel émetteur
           </button>
           {editing === "new_em" && (
@@ -174,7 +174,7 @@ export function AdminReserves({ onBack }) {
                 <button onClick={() => { setEditing(null); setForm({}); }} className="epj-btn"
                         style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
                 <button onClick={() => saveItem("reservesEmetteurs", form)} disabled={saving || !form.label}
-                        className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: "#fff" }}>
+                        className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: EPJ.white }}>
                   💾 Créer
                 </button>
               </div>
@@ -235,7 +235,7 @@ export function AdminReserves({ onBack }) {
                   </div>
                   {canSms && (
                     <button onClick={sendSms} className="epj-btn" style={{
-                      marginTop: 8, width: "100%", background: EPJ.orange, color: "#fff",
+                      marginTop: 8, width: "100%", background: EPJ.orange, color: EPJ.white,
                       fontSize: 12, padding: "8px",
                     }}>📱 Envoyer SMS relance à {affecte.prenom}</button>
                   )}

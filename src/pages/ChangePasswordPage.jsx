@@ -133,7 +133,7 @@ export function ChangePasswordPage({ mode = "free", onDone, onCancel }) {
                 onClick={handleContinue}
                 className="epj-btn"
                 style={{
-                  width: "100%", background: EPJ.gray900, color: "#fff",
+                  width: "100%", background: EPJ.gray900, color: EPJ.white,
                   fontSize: 14, fontWeight: 600, padding: "14px",
                 }}
               >
@@ -233,7 +233,7 @@ export function ChangePasswordPage({ mode = "free", onDone, onCancel }) {
                 className="epj-btn"
                 disabled={pending || !currentPwd || !newPwd || !confirmPwd}
                 style={{
-                  width: "100%", background: EPJ.gray900, color: "#fff",
+                  width: "100%", background: EPJ.gray900, color: EPJ.white,
                   fontSize: 14, fontWeight: 600, padding: "14px",
                   marginBottom: forced ? 10 : 8,
                 }}

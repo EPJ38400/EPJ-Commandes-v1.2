@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
 
+import { EPJ } from "./core/theme";
 import { DataProvider, useData } from "./core/DataContext";
 import { AuthProvider, useAuth } from "./core/AuthContext";
 import { ToastProvider } from "./core/components/Toast";
@@ -187,16 +188,16 @@ function PlaceholderScreen({ title, onBack }) {
   return (
     <div style={{ padding: "32px 8px", textAlign: "center" }}>
       <div style={{ fontSize: 44, marginBottom: 12 }}>🛠️</div>
-      <div style={{ fontSize: 18, fontWeight: 600, color: "#1A1A1A", marginBottom: 6 }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: EPJ.gray900, marginBottom: 6 }}>
         {title}
       </div>
-      <div style={{ fontSize: 13, color: "#6B6B6B", marginBottom: 20 }}>
+      <div style={{ fontSize: 13, color: EPJ.gray500, marginBottom: 20 }}>
         À construire dans une prochaine livraison du Socle.
       </div>
       <button
         onClick={onBack}
         style={{
-          background: "#1A1A1A", color: "#fff", border: "none",
+          background: EPJ.gray900, color: EPJ.white, border: "none",
           borderRadius: 10, padding: "10px 18px",
           fontSize: 13, fontWeight: 600, cursor: "pointer",
         }}

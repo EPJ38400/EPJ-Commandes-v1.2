@@ -191,7 +191,7 @@ export function AdminRolesTypes({ onBack }) {
                 padding: "6px 12px", borderRadius: 8,
                 border: `1px solid ${draft._admin === v ? EPJ.gray900 : EPJ.gray200}`,
                 background: draft._admin === v ? EPJ.gray900 : EPJ.white,
-                color: draft._admin === v ? "#fff" : EPJ.gray700,
+                color: draft._admin === v ? EPJ.white : EPJ.gray700,
                 fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
               }}>{v ? "Oui" : "Non"}</button>
             ))}
@@ -221,7 +221,7 @@ export function AdminRolesTypes({ onBack }) {
                     padding: "4px 10px", borderRadius: 6,
                     border: `1px solid ${currentVal === v ? EPJ.gray900 : EPJ.gray200}`,
                     background: currentVal === v ? EPJ.gray900 : EPJ.white,
-                    color: currentVal === v ? "#fff" : EPJ.gray700,
+                    color: currentVal === v ? EPJ.white : EPJ.gray700,
                     fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
                   }}>{v ? "Oui" : "Non"}</button>
                 ))}
@@ -249,7 +249,7 @@ export function AdminRolesTypes({ onBack }) {
             ♻ Valeurs usine
           </button>
         )}
-        <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: "#fff" }}>
+        <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: EPJ.white }}>
           {saving ? "Enregistrement…" : "Enregistrer les droits"}
         </button>
       </div>

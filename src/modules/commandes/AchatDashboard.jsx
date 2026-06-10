@@ -385,7 +385,7 @@ export function AchatDashboard({ onBack }) {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
                   border: `1px solid ${EPJ.blue}`, background: syncBusy ? `${EPJ.blue}12` : EPJ.blue,
-                  color: syncBusy ? EPJ.blue : "#fff", borderRadius: 10,
+                  color: syncBusy ? EPJ.blue : EPJ.white, borderRadius: 10,
                   padding: "9px 14px", fontSize: 12.5, fontWeight: 700,
                   cursor: syncBusy ? "default" : "pointer", opacity: syncBusy ? 0.8 : 1,
                 }}
@@ -728,7 +728,7 @@ function btnStyle(color, ghost = false) {
   return {
     border: `1px solid ${color}${ghost ? "55" : ""}`,
     background: ghost ? `${color}10` : color,
-    color: ghost ? color : "#fff",
+    color: ghost ? color : EPJ.white,
     borderRadius: 9, padding: "8px 12px",
     fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
   };

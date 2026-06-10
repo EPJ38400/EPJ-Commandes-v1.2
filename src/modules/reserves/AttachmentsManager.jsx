@@ -129,7 +129,7 @@ export function AttachmentsManager({
                   <button onClick={() => handleRemove(att)} style={{
                     position: "absolute", top: 3, right: 3,
                     width: 22, height: 22, borderRadius: "50%",
-                    background: "rgba(0,0,0,0.6)", color: "#fff",
+                    background: "rgba(0,0,0,0.6)", color: EPJ.white,
                     border: "none", cursor: "pointer", fontSize: 11,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>×</button>
@@ -156,7 +156,7 @@ export function AttachmentsManager({
               <div style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "10px 12px", marginBottom: 5,
-                background: "#fff",
+                background: EPJ.white,
                 border: `1px solid ${EPJ.gray200}`, borderRadius: 8,
                 cursor: "pointer",
               }}>

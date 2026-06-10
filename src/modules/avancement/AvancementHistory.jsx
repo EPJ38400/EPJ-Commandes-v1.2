@@ -19,14 +19,14 @@ import { exportSnapshotToPdf, exportSnapshotToExcel } from "./exportUtils";
 import { AvancementEvolution } from "./AvancementEvolution";
 
 const FACTORY_META = {
-  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: "#8E44AD" },
-  beton:     { num: 2, label: "INCORPORATION BÉTON",         color: "#6B6B6B" },
-  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: "#F5841F" },
-  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: "#E53935" },
-  logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
-  communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
-  ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
-  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
+  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: EPJ.catEtude },
+  beton:     { num: 2, label: "INCORPORATION BÉTON",         color: EPJ.gray500 },
+  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: EPJ.orange },
+  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: EPJ.red },
+  logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: EPJ.blue },
+  communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: EPJ.blue },
+  ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: EPJ.blue },
+  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green },
 };
 const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
 
@@ -109,7 +109,7 @@ export function AvancementHistory({ chantier, onBack }) {
               padding: "10px 12px", borderRadius: 8,
               border: `1px solid ${activeTab === "list" ? EPJ.gray900 : EPJ.gray200}`,
               background: activeTab === "list" ? EPJ.gray900 : EPJ.white,
-              color: activeTab === "list" ? "#fff" : EPJ.gray700,
+              color: activeTab === "list" ? EPJ.white : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body,
             }}
@@ -121,7 +121,7 @@ export function AvancementHistory({ chantier, onBack }) {
               padding: "10px 12px", borderRadius: 8,
               border: `1px solid ${activeTab === "evolution" ? EPJ.gray900 : EPJ.gray200}`,
               background: activeTab === "evolution" ? EPJ.gray900 : EPJ.white,
-              color: activeTab === "evolution" ? "#fff" : EPJ.gray700,
+              color: activeTab === "evolution" ? EPJ.white : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body,
             }}
@@ -206,11 +206,11 @@ function SnapshotCard({ month, snapshot, chantier, users, canDelete, onOpen, onD
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <button
           onClick={(e) => { e.stopPropagation(); onOpen(); }}
-          style={actionBtnStyle(EPJ.gray900, "#fff")}
+          style={actionBtnStyle(EPJ.gray900, EPJ.white)}
         >👁 Consulter</button>
         <button
           onClick={(e) => { e.stopPropagation(); exportSnapshotToPdf(chantier, month, snapshot); }}
-          style={actionBtnStyle(EPJ.orange, "#fff")}
+          style={actionBtnStyle(EPJ.orange, EPJ.white)}
         >📄 PDF</button>
         <button
           onClick={async (e) => {
@@ -218,7 +218,7 @@ function SnapshotCard({ month, snapshot, chantier, users, canDelete, onOpen, onD
             try { await exportSnapshotToExcel(chantier, month, snapshot); }
             catch (err) { alert("Erreur export Excel : " + err.message); }
           }}
-          style={actionBtnStyle(EPJ.green, "#fff")}
+          style={actionBtnStyle(EPJ.green, EPJ.white)}
         >📊 Excel</button>
         {canDelete && (
           <button
@@ -284,7 +284,7 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
         <button
           onClick={() => exportSnapshotToPdf(chantier, month, snapshot)}
           style={{
-            flex: 1, background: EPJ.orange, color: "#fff", border: "none",
+            flex: 1, background: EPJ.orange, color: EPJ.white, border: "none",
             borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 600,
             cursor: "pointer", fontFamily: font.body,
           }}
@@ -295,7 +295,7 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
             catch (err) { alert("Erreur export Excel : " + err.message); }
           }}
           style={{
-            flex: 1, background: EPJ.green, color: "#fff", border: "none",
+            flex: 1, background: EPJ.green, color: EPJ.white, border: "none",
             borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 600,
             cursor: "pointer", fontFamily: font.body,
           }}
@@ -310,7 +310,7 @@ function SnapshotDetail({ chantier, month, snapshot, users, onBack, onBackToChan
               padding: "8px 14px", borderRadius: 8,
               border: `1px solid ${activeBuildingId === bId ? EPJ.gray900 : EPJ.gray200}`,
               background: activeBuildingId === bId ? EPJ.gray900 : EPJ.white,
-              color: activeBuildingId === bId ? "#fff" : EPJ.gray700,
+              color: activeBuildingId === bId ? EPJ.white : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
             }}>{snapshotUnitLabel(snapshot[bId], bId)}</button>
@@ -430,7 +430,7 @@ function categoriesFromSnapshot(sb) {
   return [...known, ...extra].map(id => {
     const data = sb.categories[id];
     if (!data) return null;
-    const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: "#3D3D3D" };
+    const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: EPJ.dark };
     return {
       id, num: meta.num, label: meta.label, color: meta.color,
       tasks: data.tasks || [],

@@ -105,7 +105,7 @@ function TabButton({ active, onClick, children }) {
         padding: "10px 8px", borderRadius: 8,
         border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
         background: active ? EPJ.gray900 : EPJ.white,
-        color: active ? "#fff" : EPJ.gray700,
+        color: active ? EPJ.white : EPJ.gray700,
         fontSize: 11, fontWeight: 600, cursor: "pointer",
         fontFamily: font.body, whiteSpace: "nowrap",
       }}

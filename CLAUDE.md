@@ -334,6 +334,18 @@ tarifs fournisseurs, démarches post-devis) · **Cockpits par rôle** + IA perso
 - **Chantier desktop** : passer toute l'app en affichage PC (progressif, module
   par module, **touchera le trio sensible**). Décision archi : **arbre responsive
   unique** (desktop + PWA même base), PAS d'archi « deux arbres ».
+- **Design-system — Lot DS-0** (branche `feature/design-lot0`, **preprod, NON mergé**) :
+  socle de tokens dans `src/core/theme.js` + résorption des hex redondants. Ajouts
+  `theme.js` : **`EPJ.gray600`/`gray400`** (fix bug — 47 réfs résolvaient en `undefined`),
+  fonds doux `successBg/warningBg/dangerBg/infoBg`, échelles `fontSize`/`fontWeight`,
+  tokens `shadow` (sm/md/lg/focus). Swaps 1:1 (rendu identique) `#fff→EPJ.white`,
+  `#00A3E0→blue`, gris d'échelle, marque `red/green/orange`, 2 fonds doux → **180 swaps,
+  ~58 fichiers**. **Hors périmètre (exclus)** : trio sensible, code manipulant `chantiers`,
+  générateurs print (`*pdf*`, `exportUtils.js`, `reservesUtils.js`), `globalCss`. Tokens
+  typo/shadow/`*Bg` **définis mais non encore consommés** (adoption DS-1). Restent à
+  arbitrer : hex « proches non identiques » (gris hors échelle, fonds ambre voisins) →
+  décision design avant swap. **DS-1** = extraction de primitives (Banner/Alert ×53 sites,
+  Badge, ListRow, Button/Field).
 
 Les modules 1 à 4 sont en **stabilisation / finitions**, pas de redéveloppement.
 Toute refonte d'un module existant doit être justifiée et validée par PJ.
@@ -397,6 +409,7 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Schémas Firestore Parc Machines | `ARCHITECTURE.md` |
 | Schéma collection mails | `firestore/SCHEMA_MAILS.js` |
 | Permissions par rôle (factory) | `src/core/permissions.js` |
+| Design tokens (couleurs/typo/radius/space/shadow) | `src/core/theme.js` (objet `EPJ` + `font`/`radius`/`space`/`fontSize`/`fontWeight`/`shadow`/`globalCss`) |
 | Auth + refresh JWT | `src/core/AuthContext.jsx` |
 | Cache Firestore | `src/core/DataContext.jsx` |
 | Règles sécurité prod | `firestore.rules`, `storage.rules` |

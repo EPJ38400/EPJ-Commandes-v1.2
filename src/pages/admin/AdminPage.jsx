@@ -76,7 +76,7 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="🔒" accent={EPJ.green} title="Droits des utilisateurs"
         subtitle="Ajuster les permissions d'un utilisateur en particulier"
         onClick={() => setSection("rights")}/>
-      <AdminSection icon="🎭" accent="#8E44AD" title="Rôles types"
+      <AdminSection icon="🎭" accent={EPJ.catEtude} title="Rôles types"
         subtitle="Modifier les droits par défaut d'un rôle (impacte tous les utilisateurs)"
         onClick={() => setSection("roles")}/>
 
@@ -84,7 +84,7 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="🏗" accent={EPJ.orange} title="Chantiers"
         subtitle="Créer, modifier, archiver et affecter les équipes"
         onClick={() => setSection("chantiers")}/>
-      <AdminSection icon="📋" accent="#E53935" title="Modèle d'avancement"
+      <AdminSection icon="📋" accent={EPJ.red} title="Modèle d'avancement"
         subtitle="Personnaliser les tâches par défaut pour tous les chantiers"
         onClick={() => setSection("tasks")}/>
 
@@ -95,12 +95,12 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="📁" accent={EPJ.blue} title="Catégories d'outillage"
         subtitle="Familles d'outils (ajouter, renommer, réordonner)"
         onClick={() => setSection("categories-outillage")}/>
-      <AdminSection icon="⚠️" accent="#E53935" title="Pannes récurrentes"
+      <AdminSection icon="⚠️" accent={EPJ.red} title="Pannes récurrentes"
         subtitle="Types de pannes au retour d'un outil abîmé"
         onClick={() => setSection("pannes")}/>
 
       <GroupTitle>Réserves & garanties</GroupTitle>
-      <AdminSection icon="📝" accent="#8E44AD" title="Config réserves"
+      <AdminSection icon="📝" accent={EPJ.catEtude} title="Config réserves"
         subtitle="Catégories, émetteurs, retards, garanties GPA/biennale"
         onClick={() => setSection("reserves-config")}/>
       <AdminSection icon="📅" accent={EPJ.green} title="Réceptions & garanties"
@@ -126,7 +126,7 @@ export function AdminPage({ onExit }) {
         onClick={() => setSection("sms")}/>
 
       <GroupTitle>Paramètres généraux</GroupTitle>
-      <AdminSection icon="⚙️" accent="#455A64" title="Paramètres & intégrations"
+      <AdminSection icon="⚙️" accent={EPJ.gray600} title="Paramètres & intégrations"
         subtitle="Activer/désactiver les briques en place (Make, OCR, Esabora…)"
         onClick={() => setSection("settings")}/>
     </div>

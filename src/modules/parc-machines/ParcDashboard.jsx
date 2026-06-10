@@ -263,7 +263,7 @@ function RetardsBlock({ sortiesEnRetard, users, outils, chantiers, smsTemplates 
                 disabled={!hasPhone && !!u}
                 style={{
                   background: hasPhone ? EPJ.red : EPJ.gray300,
-                  color: "#fff", border: "none", borderRadius: 8,
+                  color: EPJ.white, border: "none", borderRadius: 8,
                   padding: "8px 12px", fontSize: 11, fontWeight: 700,
                   cursor: hasPhone ? "pointer" : "not-allowed",
                   fontFamily: "Inter, sans-serif",

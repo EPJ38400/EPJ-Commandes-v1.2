@@ -177,7 +177,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
           className="epj-btn"
           style={{
             width: "100%",
-            background: "#FFF4E6",
+            background: EPJ.warningBg,
             color: EPJ.orange,
             border: `1px solid ${EPJ.orange}`,
             marginBottom: 12,
@@ -193,7 +193,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
           <span>📥 Mails à classer</span>
           <span style={{
             background: EPJ.orange,
-            color: "#fff",
+            color: EPJ.white,
             borderRadius: 12,
             padding: "2px 10px",
             fontSize: 12,
@@ -213,7 +213,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
             className="epj-btn"
             style={{
               width: "100%",
-              background: "#EEF2FF",
+              background: EPJ.infoBg,
               color: EPJ.blue,
               border: `1px solid ${EPJ.blue}`,
               fontSize: 13,
@@ -289,7 +289,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
       {/* Bouton création */}
       {canCreate && (
         <button onClick={() => onCreate()} className="epj-btn" style={{
-          width: "100%", background: EPJ.blue, color: "#fff", marginBottom: 12,
+          width: "100%", background: EPJ.blue, color: EPJ.white, marginBottom: 12,
           fontSize: 14, padding: "12px",
         }}>+ Nouvelle réserve</button>
       )}
@@ -329,7 +329,7 @@ function modeBtnStyle(active) {
   return {
     flex: 1, padding: "8px 10px", fontSize: 12, fontWeight: 600,
     border: "none", borderRadius: 6, cursor: "pointer",
-    background: active ? "#fff" : "transparent",
+    background: active ? EPJ.white : "transparent",
     color: active ? EPJ.gray900 : EPJ.gray500,
     fontFamily: font.body,
     boxShadow: active ? "0 1px 3px rgba(0,0,0,.08)" : "none",

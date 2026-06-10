@@ -8,14 +8,14 @@ import { EPJ, font } from "../../core/theme";
 import { totalHoursForBuilding } from "./avancementTasks";
 
 const FACTORY_META = {
-  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: "#8E44AD" },
-  beton:     { num: 2, label: "INCORPORATION BÉTON",         color: "#6B6B6B" },
-  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: "#F5841F" },
-  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: "#E53935" },
-  logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
-  communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
-  ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
-  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
+  etude:     { num: 1, label: "ÉTUDE / TMA",                 color: EPJ.catEtude },
+  beton:     { num: 2, label: "INCORPORATION BÉTON",         color: EPJ.gray500 },
+  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: EPJ.orange },
+  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: EPJ.red },
+  logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: EPJ.blue },
+  communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: EPJ.blue },
+  ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: EPJ.blue },
+  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green },
 };
 const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
 
@@ -109,7 +109,7 @@ export function AvancementEvolution({ chantier }) {
               padding: "8px 14px", borderRadius: 8,
               border: `1px solid ${activeBuildingId === bId ? EPJ.gray900 : EPJ.gray200}`,
               background: activeBuildingId === bId ? EPJ.gray900 : EPJ.white,
-              color: activeBuildingId === bId ? "#fff" : EPJ.gray700,
+              color: activeBuildingId === bId ? EPJ.white : EPJ.gray700,
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
             }}>{unitLabelFor(bId)}</button>
@@ -154,7 +154,7 @@ export function AvancementEvolution({ chantier }) {
               <tr style={{ background: EPJ.gray900 }}>
                 <td style={{
                   ...tdStyleLeft,
-                  color: "#fff", fontWeight: 700, fontSize: 11,
+                  color: EPJ.white, fontWeight: 700, fontSize: 11,
                   textTransform: "uppercase", letterSpacing: 0.4,
                 }}>
                   Avancement global
@@ -315,7 +315,7 @@ function PctCell({ pct, prev, bold, dark }) {
   }
 
   const pctColor = dark
-    ? "#fff"
+    ? EPJ.white
     : pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray700;
 
   return (
@@ -330,7 +330,7 @@ function PctCell({ pct, prev, bold, dark }) {
       {delta !== null && (
         <div style={{
           fontSize: 9, fontWeight: 600,
-          color: dark && deltaColor === EPJ.gray400 ? "#ffffff99" : deltaColor,
+          color: dark && deltaColor === EPJ.gray400 ? `${EPJ.white}99` : deltaColor,
           marginTop: 2,
         }}>
           {deltaArrow}{delta > 0 ? "+" : ""}{delta !== 0 ? `${delta}%` : ""}
@@ -372,7 +372,7 @@ function buildUnifiedCategories(months, snapshots, buildingId) {
   const extra = Object.keys(catMap).filter(id => !CAT_ORDER.includes(id));
   return [...known, ...extra]
     .map(id => {
-      const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: "#3D3D3D" };
+      const meta = FACTORY_META[id] || { num: 0, label: id.toUpperCase(), color: EPJ.gray700 };
       const tasks = Array.from(catMap[id].tasks.entries())
         .map(([tid, label]) => ({ id: tid, label }));
       return {

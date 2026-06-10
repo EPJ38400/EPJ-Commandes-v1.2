@@ -107,7 +107,7 @@ export function ForgotPasswordPage({ onBack }) {
                 onClick={onBack}
                 className="epj-btn"
                 style={{
-                  width: "100%", background: EPJ.gray900, color: "#fff",
+                  width: "100%", background: EPJ.gray900, color: EPJ.white,
                   fontSize: 14, fontWeight: 600, padding: "14px",
                 }}
               >
@@ -164,7 +164,7 @@ export function ForgotPasswordPage({ onBack }) {
                 className="epj-btn"
                 disabled={pending || !email}
                 style={{
-                  width: "100%", background: EPJ.gray900, color: "#fff",
+                  width: "100%", background: EPJ.gray900, color: EPJ.white,
                   fontSize: 14, fontWeight: 600, padding: "14px",
                   marginBottom: 10,
                 }}

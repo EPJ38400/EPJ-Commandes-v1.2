@@ -47,7 +47,7 @@ const MODULES_META = [
     title: "Réserves & quitus",
     subtitle: "Suivi SAV & garantie",
     icon: "📝",
-    accent: "#8E44AD",
+    accent: EPJ.catEtude,
     enabled: true,
   },
   {
@@ -300,9 +300,9 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           onClick={() => onOpenModule("commandes")}
           style={{
             marginBottom: 10, padding: "12px 14px",
-            background: "#FFF3E0",
-            border: "1px solid #E6510040",
-            borderLeft: "3px solid #E65100",
+            background: EPJ.warningBg,
+            border: `1px solid ${EPJ.urgent}40`,
+            borderLeft: `3px solid ${EPJ.urgent}`,
             borderRadius: 10,
             cursor: "pointer",
             display: "flex", alignItems: "center", gap: 12,
@@ -317,7 +317,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
               Un monteur attend ta validation — tape ici.
             </div>
           </div>
-          <span style={{ color: "#E65100", fontSize: 18, fontWeight: 700 }}>→</span>
+          <span style={{ color: EPJ.urgent, fontSize: 18, fontWeight: 700 }}>→</span>
         </div>
       )}
 
@@ -569,7 +569,7 @@ function Tile({ meta, notif, onClick, isFullWidth, index }) {
       {hasNotif && (
         <div style={{
           position: "absolute", top: 10, right: 10,
-          background: EPJ.red, color: "#fff",
+          background: EPJ.red, color: EPJ.white,
           minWidth: 22, height: 22, borderRadius: 999,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 11, fontWeight: 800,

@@ -657,7 +657,7 @@ export function AdminOutillage({ onBack }) {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={cancel} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
           <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-            flex: 2, background: EPJ.gray900, color: "#fff",
+            flex: 2, background: EPJ.gray900, color: EPJ.white,
             opacity: saving || uploadingPhoto ? 0.6 : 1,
           }}>
             {saving ? "Enregistrement…" : (isNew ? "Créer l'outil" : "Enregistrer")}
@@ -860,7 +860,7 @@ export function AdminOutillage({ onBack }) {
                   style={{
                     flex: 1, padding: "10px 12px", borderRadius: 6,
                     background: importPreview.mode === "replace" ? EPJ.red : EPJ.blue,
-                    color: "#fff", border: "none", fontSize: 12, fontWeight: 700,
+                    color: EPJ.white, border: "none", fontSize: 12, fontWeight: 700,
                     cursor: importing ? "not-allowed" : "pointer",
                     opacity: (importing || importPreview.valid.length === 0) ? 0.5 : 1,
                     fontFamily: font.body,
@@ -885,7 +885,7 @@ export function AdminOutillage({ onBack }) {
       )}
 
       <button onClick={startNew} disabled={outillageCategories.length === 0} className="epj-btn" style={{
-        width: "100%", background: EPJ.gray900, color: "#fff", marginBottom: 12,
+        width: "100%", background: EPJ.gray900, color: EPJ.white, marginBottom: 12,
         opacity: outillageCategories.length === 0 ? 0.5 : 1,
       }}>+ Ajouter un outil</button>
 
@@ -1003,7 +1003,7 @@ function filterChipStyle(active) {
     padding: "6px 10px", borderRadius: 999,
     border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
     background: active ? EPJ.gray900 : EPJ.white,
-    color: active ? "#fff" : EPJ.gray700,
+    color: active ? EPJ.white : EPJ.gray700,
     fontSize: 11, fontWeight: 600, cursor: "pointer",
     fontFamily: "Inter, sans-serif",
   };
@@ -1103,7 +1103,7 @@ function PackContentEditor({ form, setForm, outils, outillageCategories }) {
                     onClick={() => removeFromPack(p.outilId)}
                     style={{
                       marginLeft: 8, padding: "2px 6px",
-                      background: EPJ.red, color: "#fff", border: "none",
+                      background: EPJ.red, color: EPJ.white, border: "none",
                       borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
                     }}
                   >✕</button>

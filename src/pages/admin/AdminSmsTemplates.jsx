@@ -15,7 +15,7 @@ import { renderSmsTemplate, canGererCatalogue } from "../../modules/parc-machine
 // Les modules où un SMS peut être utilisé
 const MODULE_OPTIONS = [
   { id: "parc-machines", label: "Parc machines", color: EPJ.orange },
-  { id: "reserves-quitus", label: "Réserves & quitus", color: "#8E44AD" },
+  { id: "reserves-quitus", label: "Réserves & quitus", color: EPJ.catEtude },
   { id: "commandes", label: "Commandes", color: EPJ.blue },
   { id: "avancement", label: "Avancement", color: EPJ.green },
   { id: "autre", label: "Autre", color: EPJ.gray500 },
@@ -436,7 +436,7 @@ export function AdminSmsTemplates({ onBack }) {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={cancel} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
           <button onClick={save} disabled={saving} className="epj-btn" style={{
-            flex: 2, background: EPJ.gray900, color: "#fff", opacity: saving ? 0.6 : 1,
+            flex: 2, background: EPJ.gray900, color: EPJ.white, opacity: saving ? 0.6 : 1,
           }}>{saving ? "…" : (isNew ? "Créer" : "Enregistrer")}</button>
         </div>
       </div>
@@ -478,7 +478,7 @@ export function AdminSmsTemplates({ onBack }) {
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button onClick={startNew} className="epj-btn" style={{
-          flex: 1, background: EPJ.gray900, color: "#fff",
+          flex: 1, background: EPJ.gray900, color: EPJ.white,
         }}>+ Nouveau modèle</button>
         {DEFAULT_TEMPLATES.some(t => !smsTemplates.find(x => x.id === t.id)) && (
           <button onClick={importDefaults} className="epj-btn" style={{
@@ -563,7 +563,7 @@ function filterChipStyle(active, color) {
     padding: "5px 9px", borderRadius: 999,
     border: `1px solid ${active ? c : EPJ.gray200}`,
     background: active ? (color ? `${color}15` : c) : EPJ.white,
-    color: active ? (color || "#fff") : EPJ.gray700,
+    color: active ? (color || EPJ.white) : EPJ.gray700,
     fontSize: 10, fontWeight: 600, cursor: "pointer",
     fontFamily: "Inter, sans-serif",
   };

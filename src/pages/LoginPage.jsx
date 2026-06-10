@@ -131,7 +131,7 @@ export function LoginPage() {
                 onClick={() => { setError(""); setShowForgot(true); }}
                 style={{
                   background: "none", border: "none", padding: 0,
-                  color: EPJ.blue || "#00A3E0", fontSize: 12, fontWeight: 600,
+                  color: EPJ.blue || EPJ.blue, fontSize: 12, fontWeight: 600,
                   cursor: "pointer", fontFamily: font.body,
                   textDecoration: "underline",
                 }}
@@ -156,7 +156,7 @@ export function LoginPage() {
               className="epj-btn"
               disabled={pending || !id || !pwd}
               style={{
-                width: "100%", background: EPJ.gray900, color: "#fff",
+                width: "100%", background: EPJ.gray900, color: EPJ.white,
                 fontSize: 14, fontWeight: 600, padding: "14px",
               }}
             >

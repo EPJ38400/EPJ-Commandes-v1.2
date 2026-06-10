@@ -423,14 +423,14 @@ export function ParcOutilDetail({ outil, onBack }) {
                     {t.signatureFrom && (
                       <img src={t.signatureFrom} alt="sig-from" style={{
                         height: 40, borderRadius: 4,
-                        background: "#fff", border: `1px solid ${EPJ.gray200}`,
+                        background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
                         flex: 1, objectFit: "contain",
                       }}/>
                     )}
                     {t.signatureTo && (
                       <img src={t.signatureTo} alt="sig-to" style={{
                         height: 40, borderRadius: 4,
-                        background: "#fff", border: `1px solid ${EPJ.gray200}`,
+                        background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
                         flex: 1, objectFit: "contain",
                       }}/>
                     )}
@@ -448,7 +448,7 @@ export function ParcOutilDetail({ outil, onBack }) {
       {effectiveStatus === "disponible" && userCanSortir && (
         <button onClick={() => setFlow("sortie")} style={{
           width: "100%", padding: "14px 0", marginBottom: 10,
-          background: EPJ.orange, color: "#fff", border: "none",
+          background: EPJ.orange, color: EPJ.white, border: "none",
           borderRadius: 10, fontSize: 14, fontWeight: 700,
           cursor: "pointer", fontFamily: font.body,
         }}>📤 Sortir cet outil</button>
@@ -476,7 +476,7 @@ export function ParcOutilDetail({ outil, onBack }) {
               }}
               style={{
                 width: "100%", padding: "14px 0", marginBottom: 8,
-                background: EPJ.orange, color: "#fff", border: "none",
+                background: EPJ.orange, color: EPJ.white, border: "none",
                 borderRadius: 10, fontSize: 14, fontWeight: 700,
                 cursor: "pointer", fontFamily: font.body,
               }}>
@@ -486,7 +486,7 @@ export function ParcOutilDetail({ outil, onBack }) {
           {canRetour && (
             <button onClick={() => setFlow("retour")} style={{
               width: "100%", padding: "14px 0", marginBottom: 8,
-              background: EPJ.green, color: "#fff", border: "none",
+              background: EPJ.green, color: EPJ.white, border: "none",
               borderRadius: 10, fontSize: 14, fontWeight: 700,
               cursor: "pointer", fontFamily: font.body,
             }}>✓ Enregistrer le retour{outil.isPack && sortiesEnfantsPack.length > 0 ? " (pack maître seul)" : ""}</button>
@@ -494,7 +494,7 @@ export function ParcOutilDetail({ outil, onBack }) {
           {canTransfer && (
             <button onClick={() => setFlow("transfert")} style={{
               width: "100%", padding: "14px 0", marginBottom: 10,
-              background: EPJ.blue, color: "#fff", border: "none",
+              background: EPJ.blue, color: EPJ.white, border: "none",
               borderRadius: 10, fontSize: 14, fontWeight: 700,
               cursor: "pointer", fontFamily: font.body,
             }}>🔄 Transférer à une autre personne</button>

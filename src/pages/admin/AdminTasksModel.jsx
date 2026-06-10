@@ -146,7 +146,7 @@ export function AdminTasksModel({ onBack }) {
         )}
         <button className="epj-btn" onClick={save} disabled={saving || !dirty}
           style={{
-            flex: 2, background: EPJ.gray900, color: "#fff",
+            flex: 2, background: EPJ.gray900, color: EPJ.white,
             opacity: (saving || !dirty) ? 0.55 : 1,
           }}>
           {saving ? "Enregistrement…" : dirty ? "Enregistrer le modèle" : "✓ À jour"}
@@ -215,7 +215,7 @@ function CategoryEditor({ category, onAddTask, onUpdateTaskLabel, onDeleteTask, 
               onClick={() => { if (newLabel.trim()) { onAddTask(newLabel); setNewLabel(""); } }}
               disabled={!newLabel.trim()}
               style={{
-                background: EPJ.gray900, color: "#fff", border: "none",
+                background: EPJ.gray900, color: EPJ.white, border: "none",
                 borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 600,
                 cursor: newLabel.trim() ? "pointer" : "not-allowed",
                 opacity: newLabel.trim() ? 1 : 0.45, fontFamily: font.body,
