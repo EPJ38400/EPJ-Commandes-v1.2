@@ -1,13 +1,22 @@
 // ═══════════════════════════════════════════════════════════════
 //  AvancementModule — Module 3 Avancement chantier
 //  Liste des chantiers accessibles → écran détail par chantier
+//
+//  DS-2 : repeinte design-system + desktop (conforme
+//  docs/DIRECTION_ARTISTIQUE.md). Affichage uniquement — scope de
+//  lecture, calculs d'avancement et navigation INCHANGÉS.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
+import { useViewport } from "../../core/useViewport";
 import { can } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { Banner } from "../../core/components/Banner";
+import { Badge } from "../../core/components/Badge";
+import { StatCard } from "../../core/components/StatCard";
+import { DataTable } from "../../core/components/DataTable";
 import { AvancementChantier } from "./AvancementChantier";
 import {
   overallProgress, overallProgressSousSol, DEFAULT_BUILDING_CONFIG,
@@ -20,7 +29,8 @@ import {
 
 export function AvancementModule({ onExitModule }) {
   const { user } = useAuth();
-  const { chantiers, rolesConfig, users, tasksConfig, avancementValidations } = useData();
+  const { chantiers, rolesConfig, users, tasksConfig, avancementValidations, loaded } = useData();
+  const isPwa = useViewport() === "mobile";
   const [selectedChantierNum, setSelectedChantierNum] = useState(null);
 
   const viewScope = can(user, "avancement", "view", rolesConfig);
@@ -41,6 +51,47 @@ export function AvancementModule({ onExitModule }) {
     return [];
   }, [chantiers, user, viewScope]);
 
+  // Lignes augmentées pour la table : avancement global par chantier
+  // (mêmes calculs que l'ancienne ChantierCard — moyenne sur toutes les
+  // unités bâtiments + sous-sols communs), validation du mois courant.
+  const rows = useMemo(() => visibleChantiers.map(ch => {
+    const buildings = resolveBuildings(ch);
+    const sousSols = getChantierSousSols(ch);
+    let totalProgress = 0;
+    let count = 0;
+    buildings.forEach(b => {
+      const prog = ch.avancementProgress?.[b.id] || {};
+      totalProgress += overallProgress(
+        b.config || DEFAULT_BUILDING_CONFIG, prog,
+        tasksConfig, ch.avancementTasksOverride, b.id,
+      );
+      count++;
+    });
+    sousSols.forEach(ss => {
+      const prog = ch.avancementProgress?.[ss.id] || {};
+      totalProgress += overallProgressSousSol(
+        { nbNiveaux: ss.nbNiveaux ?? 1 }, prog,
+        tasksConfig, ch.avancementTasksOverride, ss.id,
+      );
+      count++;
+    });
+    const pct = count > 0 ? Math.round(totalProgress / count) : 0;
+    return {
+      num: ch.num,
+      nom: ch.nom,
+      adresse: ch.adresse || "",
+      _unites: buildings.length + sousSols.length,
+      _nbBatiments: buildings.length,
+      _pct: pct,
+      _valide: isAvancementValide(ch.num, currentMonthKey(), avancementValidations),
+    };
+  }), [visibleChantiers, tasksConfig, avancementValidations]);
+
+  const nbValides = rows.filter(r => r._valide).length;
+  const avgPct = rows.length > 0
+    ? Math.round(rows.reduce((s, r) => s + r._pct, 0) / rows.length)
+    : 0;
+
   // Vue détail d'un chantier
   if (selectedChantierNum) {
     const ch = chantiers.find(c => c.num === selectedChantierNum);
@@ -58,21 +109,118 @@ export function AvancementModule({ onExitModule }) {
     );
   }
 
+  const columns = [
+    {
+      key: "nom", header: "Chantier",
+      render: (v, row) => (
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+            <span style={{
+              fontFamily: font.mono, fontSize: fontSize.xs,
+              padding: `1px ${space.xs + 2}px`, borderRadius: radius.sm,
+              background: EPJ.gray100, color: EPJ.gray700,
+            }}>{row.num}</span>
+            <span style={{
+              fontWeight: fontWeight.medium, color: EPJ.gray900,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{v}</span>
+          </div>
+          {row.adresse && (
+            <div style={{
+              fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 1,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{row.adresse}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "_unites", header: "Unités", numeric: true, width: 80,
+      render: (v) => v > 1 ? v : <span style={{ color: EPJ.gray400 }}>1</span>,
+    },
+    {
+      key: "_pct", header: "Avancement", numeric: true, width: 220,
+      render: (v) => <ProgressBarCell pct={v} />,
+    },
+    {
+      key: "_valide", header: "Mois en cours", sortable: false, width: 160,
+      render: (v) => v
+        ? <Badge tone="success" dot label={`${currentMonthLabel()} validé`} />
+        : <Badge tone="neutral" label="À valider" />,
+    },
+  ];
+
+  const renderCard = (row) => (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: space.md }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: 3, flexWrap: "wrap" }}>
+            <span style={{
+              fontFamily: font.mono, fontSize: fontSize.xs,
+              padding: `1px ${space.xs + 2}px`, borderRadius: radius.sm,
+              background: EPJ.gray100, color: EPJ.gray700,
+            }}>{row.num}</span>
+            {row._nbBatiments > 1 && (
+              <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.orangeText }}>
+                {row._nbBatiments} bâtiments
+              </span>
+            )}
+            {row._valide && (
+              <Badge tone="success" dot label={`${currentMonthLabel()} validé`} />
+            )}
+          </div>
+          <div style={{
+            fontWeight: fontWeight.medium, fontSize: fontSize.base,
+            color: EPJ.gray900, lineHeight: 1.2,
+          }}>
+            {row.nom}
+          </div>
+          {row.adresse && (
+            <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
+              {row.adresse}
+            </div>
+          )}
+        </div>
+        <div style={{
+          fontSize: fontSize.xl, fontWeight: fontWeight.semibold,
+          color: pctColor(row._pct), fontVariantNumeric: "tabular-nums",
+        }}>
+          {row._pct}%
+        </div>
+      </div>
+
+      {/* Barre de progression — l'élément central de la carte terrain */}
+      <div style={{
+        marginTop: space.sm + 2, height: 6, borderRadius: radius.pill,
+        background: EPJ.gray100, overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${row._pct}%`, height: "100%",
+          background: pctColor(row._pct),
+          transition: "width .4s ease",
+        }}/>
+      </div>
+    </div>
+  );
+
   // Vue liste
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
       {/* En-tête module — v10.G */}
       <ModuleSubHeader
         moduleName="Avancement"
         title="Avancement chantier"
-        subtitle="Module"
+        subtitle={`${visibleChantiers.length} chantier${visibleChantiers.length > 1 ? "s" : ""} actif${visibleChantiers.length > 1 ? "s" : ""}`}
         onBackToModuleHome={null}
       />
 
       {visibleChantiers.length === 0 ? (
-        <div className="epj-card" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🏗</div>
-          <div style={{ fontSize: 13, color: EPJ.gray500 }}>
+        <div style={{
+          background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
+          borderRadius: radius.lg, padding: space.xl, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: space.sm }}>🏗</div>
+          <div style={{ fontSize: fontSize.sm, color: EPJ.gray500 }}>
             Aucun chantier à afficher.{" "}
             {viewScope !== "all" && "Demandez à l'administrateur de vous affecter à un chantier."}
           </div>
@@ -85,127 +233,77 @@ export function AvancementModule({ onExitModule }) {
             const nonValides = visibleChantiers.filter(c => !isAvancementValide(c.num, monthKey, avancementValidations));
             if (nonValides.length === 0) {
               return (
-                <div style={{
-                  marginBottom: 14, padding: "12px 14px",
-                  background: `${EPJ.green}08`, borderLeft: `3px solid ${EPJ.green}`,
-                  borderRadius: 8,
-                  fontSize: 12, color: EPJ.gray700, lineHeight: 1.5,
-                }}>
-                  ✓ <b style={{ color: EPJ.green }}>Avancement de {currentMonthLabel()} validé</b> pour tous tes chantiers. Merci !
-                </div>
+                <Banner
+                  tone="success"
+                  icon="✓"
+                  title={`Avancement de ${currentMonthLabel()} validé`}
+                  text="Tous tes chantiers sont validés. Merci !"
+                />
               );
             }
             return (
-              <div style={{
-                marginBottom: 14, padding: "12px 14px",
-                background: `${EPJ.red}08`, borderLeft: `3px solid ${EPJ.red}`,
-                borderRadius: 8,
-                fontSize: 12, color: EPJ.gray700, lineHeight: 1.5,
-              }}>
-                ⏰ <b style={{ color: EPJ.red }}>Rappel de fin de mois</b> —
-                {" "}{nonValides.length} chantier{nonValides.length > 1 ? "s" : ""} restant{nonValides.length > 1 ? "s" : ""} à valider pour {currentMonthLabel()}.
-                Renseigne l'avancement puis clique sur <b>« J'ai terminé mon avancement »</b> dans chaque chantier.
-              </div>
+              <Banner
+                tone="danger"
+                icon="⏰"
+                title="Rappel de fin de mois"
+                text={`${nonValides.length} chantier${nonValides.length > 1 ? "s" : ""} restant${nonValides.length > 1 ? "s" : ""} à valider pour ${currentMonthLabel()}. Renseigne l'avancement puis clique sur « J'ai terminé mon avancement » dans chaque chantier.`}
+              />
             );
           })()}
 
-          {visibleChantiers.map(ch => (
-            <ChantierCard
-              key={ch.num} chantier={ch}
-              tasksConfig={tasksConfig}
-              monthValide={isAvancementValide(ch.num, currentMonthKey(), avancementValidations)}
-              onClick={() => setSelectedChantierNum(ch.num)}
-            />
-          ))}
+          {/* Rangée KPI — dérivés des lignes déjà calculées */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isPwa ? "1fr 1fr" : "repeat(4, 1fr)",
+            gap: space.md, marginBottom: space.lg,
+          }}>
+            <StatCard label="Chantiers actifs" value={rows.length} loading={!loaded?.chantiers} />
+            <StatCard label="Avancement moyen" value={`${avgPct}%`} loading={!loaded?.chantiers} />
+            <StatCard label={`Validés · ${currentMonthLabel()}`} value={nbValides} loading={!loaded?.chantiers} />
+            <StatCard label="Restants à valider" value={rows.length - nbValides} loading={!loaded?.chantiers} />
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={rows}
+            keyField="num"
+            onRowClick={(row) => setSelectedChantierNum(row.num)}
+            renderCard={renderCard}
+            loading={!loaded?.chantiers}
+            empty={{
+              icon: "🏗",
+              title: "Aucun chantier à afficher",
+            }}
+          />
         </>
       )}
     </div>
   );
 }
 
-function ChantierCard({ chantier, tasksConfig, onClick, monthValide }) {
-  // Calcule l'avancement global (moyenne sur toutes les unités : bâtiments + sous-sols communs)
-  const buildings = resolveBuildings(chantier);
-  const sousSols = getChantierSousSols(chantier);
+// Couleur de progression par seuils (logique d'affichage existante, inchangée)
+function pctColor(pct) {
+  return pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray500;
+}
 
-  let totalProgress = 0;
-  let count = 0;
-  buildings.forEach(b => {
-    const prog = chantier.avancementProgress?.[b.id] || {};
-    totalProgress += overallProgress(
-      b.config || DEFAULT_BUILDING_CONFIG, prog,
-      tasksConfig, chantier.avancementTasksOverride, b.id,
-    );
-    count++;
-  });
-  sousSols.forEach(ss => {
-    const prog = chantier.avancementProgress?.[ss.id] || {};
-    totalProgress += overallProgressSousSol(
-      { nbNiveaux: ss.nbNiveaux ?? 1 }, prog,
-      tasksConfig, chantier.avancementTasksOverride, ss.id,
-    );
-    count++;
-  });
-  const pct = count > 0 ? Math.round(totalProgress / count) : 0;
-
-  const barColor = pct === 100 ? EPJ.green : pct >= 60 ? EPJ.blue : pct >= 30 ? EPJ.orange : EPJ.gray500;
-
+// Cellule barre + % (tabular-nums aligné à droite)
+function ProgressBarCell({ pct }) {
+  const color = pctColor(pct);
   return (
-    <div
-      className="epj-card clickable"
-      onClick={onClick}
-      style={{ padding: "14px 16px", marginBottom: 10 }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-            <span style={{
-              fontFamily: "monospace", fontSize: 10, fontWeight: 700,
-              padding: "2px 7px", borderRadius: 4,
-              background: EPJ.gray100, color: EPJ.gray700,
-            }}>{chantier.num}</span>
-            {buildings.length > 1 && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: EPJ.orange }}>
-                {buildings.length} bâtiments
-              </span>
-            )}
-            {monthValide && (
-              <span style={{
-                fontSize: 9, fontWeight: 700,
-                padding: "2px 6px", borderRadius: 4,
-                background: `${EPJ.green}15`, color: EPJ.green,
-                letterSpacing: 0.3,
-              }}>✓ {currentMonthLabel()} validé</span>
-            )}
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 14, color: EPJ.gray900, lineHeight: 1.2 }}>
-            {chantier.nom}
-          </div>
-          {chantier.adresse && (
-            <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2 }}>
-              {chantier.adresse}
-            </div>
-          )}
-        </div>
-        <div style={{
-          fontSize: 22, fontWeight: 700, color: barColor,
-          fontVariantNumeric: "tabular-nums",
-        }}>
-          {pct}%
-        </div>
-      </div>
-
-      {/* Barre de progression */}
+    <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
       <div style={{
-        marginTop: 10, height: 6, borderRadius: 3,
+        flex: 1, height: 6, borderRadius: radius.pill,
         background: EPJ.gray100, overflow: "hidden",
       }}>
         <div style={{
-          width: `${pct}%`, height: "100%",
-          background: barColor,
+          width: `${pct}%`, height: "100%", background: color,
           transition: "width .4s ease",
         }}/>
       </div>
+      <span style={{
+        fontSize: fontSize.sm, fontWeight: fontWeight.medium, color,
+        fontVariantNumeric: "tabular-nums", minWidth: 38, textAlign: "right",
+      }}>{pct}%</span>
     </div>
   );
 }
