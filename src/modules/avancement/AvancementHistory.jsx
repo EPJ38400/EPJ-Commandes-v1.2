@@ -21,12 +21,12 @@ import { AvancementEvolution } from "./AvancementEvolution";
 const FACTORY_META = {
   etude:     { num: 1, label: "ÉTUDE / TMA",                 color: "#8E44AD" },
   beton:     { num: 2, label: "INCORPORATION BÉTON",         color: "#6B6B6B" },
-  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: "#F5841F" },
-  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: "#E53935" },
+  divers:    { num: 3, label: "AVANCEMENT DIVERS",           color: EPJ.orange },
+  placo:     { num: 4, label: "AVANCEMENT PLACO",            color: EPJ.red },
   logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
   communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
   ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
-  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
+  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green },
 };
 const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
 
