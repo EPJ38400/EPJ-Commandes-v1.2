@@ -334,18 +334,9 @@ tarifs fournisseurs, démarches post-devis) · **Cockpits par rôle** + IA perso
 - **Chantier desktop** : passer toute l'app en affichage PC (progressif, module
   par module, **touchera le trio sensible**). Décision archi : **arbre responsive
   unique** (desktop + PWA même base), PAS d'archi « deux arbres ».
-- **Design-system — Lot DS-0** (branche `feature/design-lot0`, **preprod, NON mergé**) :
-  socle de tokens dans `src/core/theme.js` + résorption des hex redondants. Ajouts
-  `theme.js` : **`EPJ.gray600`/`gray400`** (fix bug — 47 réfs résolvaient en `undefined`),
-  fonds doux `successBg/warningBg/dangerBg/infoBg`, échelles `fontSize`/`fontWeight`,
-  tokens `shadow` (sm/md/lg/focus). Swaps 1:1 (rendu identique) `#fff→EPJ.white`,
-  `#00A3E0→blue`, gris d'échelle, marque `red/green/orange`, 2 fonds doux → **180 swaps,
-  ~58 fichiers**. **Hors périmètre (exclus)** : trio sensible, code manipulant `chantiers`,
-  générateurs print (`*pdf*`, `exportUtils.js`, `reservesUtils.js`), `globalCss`. Tokens
-  typo/shadow/`*Bg` **définis mais non encore consommés** (adoption DS-1). Restent à
-  arbitrer : hex « proches non identiques » (gris hors échelle, fonds ambre voisins) →
-  décision design avant swap. **DS-1** = extraction de primitives (Banner/Alert ×53 sites,
-  Badge, ListRow, Button/Field).
+- **Design-system** : socle **DS-0** (tokens charte) + **DS-1** (primitives
+  `src/core/components/`) **mergés en prod** (cf. §13). Suite = **DS-2** (repeinte
+  écran par écran, fusionnée desktop) — détail et ordre des écrans en §13.
 
 Les modules 1 à 4 sont en **stabilisation / finitions**, pas de redéveloppement.
 Toute refonte d'un module existant doit être justifiée et validée par PJ.
@@ -410,6 +401,8 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Schéma collection mails | `firestore/SCHEMA_MAILS.js` |
 | Permissions par rôle (factory) | `src/core/permissions.js` |
 | Design tokens (couleurs/typo/radius/space/shadow) | `src/core/theme.js` (objet `EPJ` + `font`/`radius`/`space`/`fontSize`/`fontWeight`/`shadow`/`globalCss`) |
+| Primitives UI (DS-1) | `src/core/components/` (Banner, Badge, Button, Field, StatCard, DataTable, ListRow, ChatPanel + `useInteractive`) |
+| Loi du design (charte) | `docs/DIRECTION_ARTISTIQUE.md` · audit reliquat : `npm run audit:tokens` |
 | Auth + refresh JWT | `src/core/AuthContext.jsx` |
 | Cache Firestore | `src/core/DataContext.jsx` |
 | Règles sécurité prod | `firestore.rules`, `storage.rules` |
@@ -422,6 +415,38 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Dashboard achat (front) | `src/modules/commandes/AchatDashboard.jsx` |
 | Historique commandes Esabora (front) | `src/modules/commandes/EsaboraHistory.jsx` |
 | Admin contacts fournisseurs | `src/pages/admin/AdminFournisseurs.jsx` |
+
+---
+
+## 13. Design System — briques actives & chantier DS-2
+
+### Briques actives & fixes critiques
+
+- **Lot 0 desktop** (mergé) · `useViewport` (`src/core/useViewport.js`), `Layout`
+  pilote `fullWidth` (seuil 760 → cadre 1320). Source unique des bascules de largeur.
+- **Socle DS-0** (mergé, `657b6fd`) · tokens charte complets dans `src/core/theme.js`
+  (`gray600`/`gray400`, fonds doux `*Bg`, textes `*Text`, `fontSize`, `fontWeight`,
+  `shadow`, accents `urgent`/`catEtude`) + audit `scripts/audit-tokens.mjs`
+  (`npm run audit:tokens`). `docs/DIRECTION_ARTISTIQUE.md` = loi du design.
+- **2026-06 · DS-1 primitives** (Banner, Badge, Button, Field, StatCard, DataTable,
+  ListRow, ChatPanel) · `src/core/components/`, conformes `docs/DIRECTION_ARTISTIQUE.md`.
+  Mergé en prod (PR #3). Écrans témoins : `HomePage` (bannières → `<Banner>`),
+  `ReserveDetail` (statuts → `<Badge>`). Bascule densité PWA/desktop **dans** les
+  primitives (via `useViewport`).
+
+### Chantier en cours — DS-2 repeinte écrans
+
+- **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
+  l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
+- **Pilote : `AdminOutillage`.** Ordre ensuite : **Avancement**, **Réserves**,
+  **Dashboard Direction**, **Home** (composant `Tile` inclus).
+- **Trio `CommandesInner.jsx` = DERNIER lot**, **GO écrit dédié** — absorbera design +
+  responsive + signature souris **en une seule fois**.
+- **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
+  dimensions/espacements littéraux → `radius.*`/`space.*`, 41 `rgba` → tokens `shadow`
+  au fil des écrans.
+- **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
+  chaque ticket DS-2**).
 
 ---
 
