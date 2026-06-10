@@ -240,7 +240,7 @@ export function AdminChantiers({ onBack }) {
           <button className="epj-btn" onClick={cancel} style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
             Annuler
           </button>
-          <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: "#fff" }}>
+          <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: EPJ.white }}>
             {saving ? "Enregistrement…" : (isNew ? "Créer le chantier" : "Enregistrer")}
           </button>
         </div>
@@ -261,7 +261,7 @@ export function AdminChantiers({ onBack }) {
     <div style={{ paddingTop: 12, paddingBottom: 24 }}>
       <SectionHeader title="Chantiers" onBack={onBack}/>
 
-      <button onClick={startNew} className="epj-btn" style={{ width: "100%", background: EPJ.gray900, color: "#fff", marginBottom: 14 }}>
+      <button onClick={startNew} className="epj-btn" style={{ width: "100%", background: EPJ.gray900, color: EPJ.white, marginBottom: 14 }}>
         + Nouveau chantier
       </button>
 
@@ -390,7 +390,7 @@ function MultiSelectDropdown({ label, candidates, selected, onToggle }) {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     flexShrink: 0, transition: "all .15s",
                   }}>
-                    {checked && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                    {checked && <span style={{ color: EPJ.white, fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                   </div>
                   <div style={{ fontSize: 13, color: EPJ.gray900, flex: 1 }}>
                     {u.prenom} {u.nom}
@@ -466,7 +466,7 @@ function FilterTab({ active, onClick, children }) {
       flex: 1, padding: "8px 12px", borderRadius: 8,
       border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
       background: active ? EPJ.gray900 : EPJ.white,
-      color: active ? "#fff" : EPJ.gray700,
+      color: active ? EPJ.white : EPJ.gray700,
       fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
     }}>{children}</button>
   );
@@ -752,7 +752,7 @@ function BuildingsEditor({ buildings, sousSolsCommuns, onChangeBuildings, onChan
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: 8,
-                  background: EPJ.blue, color: "#fff",
+                  background: EPJ.blue, color: EPJ.white,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 16, flexShrink: 0,
                 }}>🅿</div>

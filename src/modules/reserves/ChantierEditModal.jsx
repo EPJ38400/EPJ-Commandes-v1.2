@@ -165,7 +165,7 @@ export function ChantierEditModal({
       padding: 16, zIndex: 1000,
     }}>
       <div style={{
-        background: "#fff", borderRadius: 10, maxWidth: 460, width: "100%",
+        background: EPJ.white, borderRadius: 10, maxWidth: 460, width: "100%",
         padding: 20, boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
         fontFamily: font.body,
       }}>
@@ -244,7 +244,7 @@ export function ChantierEditModal({
             disabled={saving}
             className="epj-btn"
             style={{
-              background: EPJ.blue, color: "#fff",
+              background: EPJ.blue, color: EPJ.white,
               padding: "8px 14px", fontSize: 13, fontWeight: 600,
             }}
           >
