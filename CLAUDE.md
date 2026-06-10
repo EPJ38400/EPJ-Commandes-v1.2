@@ -471,7 +471,23 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   trop lourd ligne par ligne, contre la rareté du rouge DA §1.1). Contournement
   actuel = `IconBtn` local (dupliqué par écran). → ajouter `size="sm"` + variante
   `danger-ghost`/`neutral`, **ou** primitive **`IconButton`** dédiée (candidate à
-  promouvoir depuis les `IconBtn` locaux). *(relevé sur AdminOutillage)*
+  promouvoir depuis les `IconBtn` locaux). *(relevé sur AdminOutillage ; `IconBtn`
+  re-dupliqué sur AvancementHistory — 2e occurrence, candidature confirmée)*
+- **`<Field>`** — un `onBlur` passé via `...rest` écrase le `onBlur` interne
+  (reset du focus) → anneau bleu persistant après blur. Conséquence : les inputs
+  à blur-save (rename inline des tâches, AvancementChantier) restent en
+  `.epj-input`. → composer les handlers (`onBlur` externe APRÈS le reset interne).
+  *(relevé sur Avancement)*
+- **`<Field>`** — pas de variante « inline dense » (sans wrapper pleine largeur,
+  hauteur/padding compacts, largeur fixe) : le formulaire heures+date+ajouter de
+  `HoursPanel` reste en inputs bespoke tokenisés. → prop `dense`/`width` ou
+  primitive `InlineField`. *(relevé sur Avancement)*
+- **`<DataTable>`** — ne couvre pas les **matrices pivot** : colonnes dynamiques
+  par période, 1re colonne sticky, lignes hiérarchiques dépliables
+  (catégorie → tâches), cellules à double contenu (valeur + delta coloré).
+  `AvancementEvolution` reste une table bespoke tokenisée. → variante
+  `PivotTable` si un 2e écran en a besoin (sinon laisser bespoke).
+  *(relevé sur Avancement)*
 
 ---
 

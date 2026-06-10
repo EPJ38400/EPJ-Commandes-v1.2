@@ -2,9 +2,15 @@
 //  AvancementEvolution — Vue comparative des mois figés
 //  Tableau : colonnes = mois figés, lignes = catégories/tâches
 //  Delta coloré entre chaque mois + vue globale
+//
+//  DS-2 : repeinte tokens only. La matrice pivot (colonnes = mois,
+//  1re colonne sticky, lignes dépliables, cellules delta) est bespoke —
+//  hors périmètre <DataTable> (cf. backlog Primitives v1.1). Logique
+//  de calcul et structure INCHANGÉES.
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useMemo } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
+import { useViewport } from "../../core/useViewport";
 import { totalHoursForBuilding } from "./avancementTasks";
 
 const FACTORY_META = {
@@ -20,6 +26,7 @@ const FACTORY_META = {
 const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
 
 export function AvancementEvolution({ chantier }) {
+  const isPwa = useViewport() === "mobile";
   const snapshots = chantier.avancementSnapshots || {};
   const months = useMemo(
     () => Object.keys(snapshots).sort(), // ordre chronologique croissant
@@ -55,12 +62,12 @@ export function AvancementEvolution({ chantier }) {
 
   if (months.length === 0) {
     return (
-      <div className="epj-card" style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>📈</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900, marginBottom: 6 }}>
+      <div style={{ ...panelStyle, padding: space.xl, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: space.sm + 2 }}>📈</div>
+        <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900, marginBottom: space.xs + 2 }}>
           Aucune donnée d'évolution
         </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500, lineHeight: 1.5 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.5 }}>
           La vue d'évolution apparaît quand au moins un mois a été figé.
         </div>
       </div>
@@ -69,12 +76,12 @@ export function AvancementEvolution({ chantier }) {
 
   if (months.length === 1) {
     return (
-      <div className="epj-card" style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>📈</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900, marginBottom: 6 }}>
+      <div style={{ ...panelStyle, padding: space.xl, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: space.sm + 2 }}>📈</div>
+        <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900, marginBottom: space.xs + 2 }}>
           Un seul mois figé pour l'instant
         </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500, lineHeight: 1.5 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.5 }}>
           La vue d'évolution comparera les progressions<br/>une fois que tu auras figé au moins 2 mois.
         </div>
       </div>
@@ -103,25 +110,32 @@ export function AvancementEvolution({ chantier }) {
     <div>
       {/* Onglets bâtiments */}
       {allBuildingIds.length > 1 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
-          {allBuildingIds.map(bId => (
-            <button key={bId} onClick={() => setActiveBuildingId(bId)} style={{
-              padding: "8px 14px", borderRadius: 8,
-              border: `1px solid ${activeBuildingId === bId ? EPJ.gray900 : EPJ.gray200}`,
-              background: activeBuildingId === bId ? EPJ.gray900 : EPJ.white,
-              color: activeBuildingId === bId ? EPJ.white : EPJ.gray700,
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
-            }}>{unitLabelFor(bId)}</button>
-          ))}
+        <div style={{ display: "flex", gap: space.xs, marginBottom: space.sm + 2, overflowX: "auto", paddingBottom: space.xs }}>
+          {allBuildingIds.map(bId => {
+            const active = activeBuildingId === bId;
+            return (
+              <button key={bId} onClick={() => setActiveBuildingId(bId)} style={{
+                padding: `${space.sm}px ${space.lg - 2}px`,
+                minHeight: isPwa ? 44 : 36,
+                borderRadius: radius.md,
+                border: `1px solid ${active ? EPJ.blue : EPJ.gray200}`,
+                background: active ? EPJ.blue : EPJ.white,
+                color: active ? EPJ.white : EPJ.gray700,
+                fontSize: fontSize.sm, fontWeight: fontWeight.medium, cursor: "pointer",
+                fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
+                transition: "background .15s ease, border-color .15s ease",
+              }}>{unitLabelFor(bId)}</button>
+            );
+          })}
         </div>
       )}
 
       {/* Légende codes couleur */}
-      <div className="epj-card" style={{
-        padding: "10px 12px", marginBottom: 10,
-        display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center",
-        fontSize: 10, color: EPJ.gray700,
+      <div style={{
+        ...panelStyle,
+        padding: `${space.sm + 2}px ${space.md}px`, marginBottom: space.sm + 2,
+        display: "flex", gap: space.md + 2, flexWrap: "wrap", alignItems: "center",
+        fontSize: fontSize.xs, color: EPJ.gray700,
       }}>
         <LegendItem color={EPJ.green} label="≥+10%" arrow="↑" />
         <LegendItem color={EPJ.blue} label="+1 à +9%" arrow="↗" />
@@ -130,7 +144,7 @@ export function AvancementEvolution({ chantier }) {
       </div>
 
       {/* Tableau évolution */}
-      <div className="epj-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ ...panelStyle, padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{
             width: "100%", borderCollapse: "collapse",
@@ -154,8 +168,8 @@ export function AvancementEvolution({ chantier }) {
               <tr style={{ background: EPJ.gray900 }}>
                 <td style={{
                   ...tdStyleLeft,
-                  color: EPJ.white, fontWeight: 700, fontSize: 11,
-                  textTransform: "uppercase", letterSpacing: 0.4,
+                  color: EPJ.white, fontWeight: fontWeight.medium, fontSize: fontSize.xs,
+                  textTransform: "uppercase", letterSpacing: "0.03em",
                 }}>
                   Avancement global
                 </td>
@@ -192,20 +206,20 @@ export function AvancementEvolution({ chantier }) {
                         borderLeft: `3px solid ${cat.color}`,
                         paddingLeft: 9,
                       }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: space.xs + 2 }}>
                           <span style={{
                             color: EPJ.gray500,
                             transform: expanded ? "rotate(90deg)" : "none",
                             transition: "transform .2s",
-                            fontSize: 11,
+                            fontSize: fontSize.xs,
                           }}>▸</span>
                           <span style={{
-                            fontSize: 9, fontWeight: 700,
+                            fontSize: fontSize.xs, fontWeight: fontWeight.medium,
                             background: `${cat.color}22`, color: cat.color,
-                            padding: "2px 5px", borderRadius: 3,
-                            fontFamily: "monospace",
+                            padding: `1px ${space.xs + 1}px`, borderRadius: radius.sm - 3,
+                            fontFamily: font.mono,
                           }}>{cat.num}</span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: EPJ.gray900 }}>
+                          <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>
                             {cat.label}
                           </span>
                         </div>
@@ -232,8 +246,8 @@ export function AvancementEvolution({ chantier }) {
                         <tr key={task.id} style={{ background: `${EPJ.gray50}66` }}>
                           <td style={{
                             ...tdStyleLeft,
-                            paddingLeft: 30,
-                            fontSize: 11, color: EPJ.gray700,
+                            paddingLeft: space.xxl - 2,
+                            fontSize: fontSize.xs, color: EPJ.gray700,
                             borderLeft: `3px solid transparent`,
                           }}>
                             {task.label}
@@ -256,8 +270,8 @@ export function AvancementEvolution({ chantier }) {
               <tr style={{ borderTop: `2px solid ${EPJ.gray300}`, background: `${EPJ.blue}08` }}>
                 <td style={{
                   ...tdStyleLeft,
-                  fontSize: 11, fontWeight: 700, color: EPJ.gray700,
-                  textTransform: "uppercase", letterSpacing: 0.3,
+                  fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray700,
+                  textTransform: "uppercase", letterSpacing: "0.03em",
                 }}>
                   ⏱ Heures cumulées
                 </td>
@@ -267,13 +281,13 @@ export function AvancementEvolution({ chantier }) {
                   return (
                     <td key={row.month} style={{
                       ...tdStyle,
-                      fontSize: 11, fontWeight: 700, color: EPJ.blue,
+                      fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: EPJ.blueText,
                       background: i === months.length - 1 ? `${EPJ.orange}08` : "transparent",
                     }}>
                       {row.hours > 0 ? `${row.hours.toFixed(0)}h` : "—"}
                       {delta !== null && delta > 0 && (
                         <div style={{
-                          fontSize: 9, fontWeight: 500, color: EPJ.gray500,
+                          fontSize: fontSize.xs, fontWeight: fontWeight.regular, color: EPJ.gray500,
                           marginTop: 2,
                         }}>+{delta.toFixed(0)}h</div>
                       )}
@@ -287,8 +301,8 @@ export function AvancementEvolution({ chantier }) {
       </div>
 
       <div style={{
-        marginTop: 10, fontSize: 10, color: EPJ.gray500,
-        lineHeight: 1.5, padding: "0 4px",
+        marginTop: space.sm + 2, fontSize: fontSize.xs, color: EPJ.gray500,
+        lineHeight: 1.5, padding: `0 ${space.xs}px`,
       }}>
         💡 Clique sur une catégorie pour voir le détail tâche par tâche.
         {months.length > 3 && " Fais défiler horizontalement pour voir tous les mois."}
@@ -301,7 +315,7 @@ export function AvancementEvolution({ chantier }) {
 function PctCell({ pct, prev, bold, dark }) {
   if (pct === null || pct === undefined) {
     return (
-      <td style={{ ...tdStyle, color: EPJ.gray300, fontSize: 11, background: dark ? EPJ.gray900 : "transparent" }}>—</td>
+      <td style={{ ...tdStyle, color: EPJ.gray300, fontSize: fontSize.xs, background: dark ? EPJ.gray900 : "transparent" }}>—</td>
     );
   }
 
@@ -321,15 +335,15 @@ function PctCell({ pct, prev, bold, dark }) {
   return (
     <td style={{
       ...tdStyle,
-      fontSize: bold ? 12 : 11,
-      fontWeight: bold ? 700 : 600,
+      fontSize: bold ? fontSize.sm : fontSize.xs,
+      fontWeight: bold ? fontWeight.semibold : fontWeight.medium,
       color: pctColor,
       background: dark ? EPJ.gray900 : "transparent",
     }}>
       <div>{pct}%</div>
       {delta !== null && (
         <div style={{
-          fontSize: 9, fontWeight: 600,
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium,
           color: dark && deltaColor === EPJ.gray400 ? `${EPJ.white}99` : deltaColor,
           marginTop: 2,
         }}>
@@ -342,8 +356,8 @@ function PctCell({ pct, prev, bold, dark }) {
 
 function LegendItem({ color, label, arrow }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <span style={{ color, fontWeight: 700, fontSize: 13 }}>{arrow}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
+      <span style={{ color, fontWeight: fontWeight.semibold, fontSize: fontSize.sm }}>{arrow}</span>
       <span>{label}</span>
     </div>
   );
@@ -414,30 +428,35 @@ function formatMonthShort(ym) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
+const panelStyle = {
+  background: EPJ.white,
+  border: `1px solid ${EPJ.gray200}`,
+  borderRadius: radius.lg,
+};
 const thStyle = {
-  padding: "10px 8px", textAlign: "center",
-  fontSize: 10, fontWeight: 700, color: EPJ.gray700,
-  textTransform: "uppercase", letterSpacing: 0.4,
+  padding: `${space.sm + 2}px ${space.sm}px`, textAlign: "center",
+  fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray500,
+  textTransform: "uppercase", letterSpacing: "0.03em",
   borderBottom: `2px solid ${EPJ.gray200}`,
   minWidth: 70, whiteSpace: "nowrap",
 };
 const thStyleLeft = {
   ...thStyle,
   textAlign: "left",
-  minWidth: 170, paddingLeft: 12,
+  minWidth: 170, paddingLeft: space.md,
   position: "sticky", left: 0,
   background: EPJ.gray50,
   zIndex: 2,
 };
 const tdStyle = {
-  padding: "9px 8px", textAlign: "center",
+  padding: `${space.sm}px ${space.sm}px`, textAlign: "center",
   borderBottom: `1px solid ${EPJ.gray100}`,
   whiteSpace: "nowrap",
 };
 const tdStyleLeft = {
   ...tdStyle,
   textAlign: "left",
-  paddingLeft: 12,
+  paddingLeft: space.md,
   position: "sticky", left: 0,
   background: EPJ.white,
   zIndex: 1,

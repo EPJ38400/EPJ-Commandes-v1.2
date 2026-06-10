@@ -1,17 +1,27 @@
 // ═══════════════════════════════════════════════════════════════
-//  AvancementChantier v7
+//  AvancementChantier
 //  - Sessions d'heures cumulatives (avec historique visible)
 //  - Bouton "📜 Historique" pour ouvrir la page AvancementHistory
 //  - Gel mensuel + consultation lecture seule (inchangé)
+//
+//  DS-2 : repeinte design-system + desktop (conforme
+//  docs/DIRECTION_ARTISTIQUE.md). Affichage uniquement — saisie terrain
+//  (slider + 0/50/100 + heures), écritures Firestore et calculs INCHANGÉS.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../../firebase";
 import { doc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
+import { useViewport } from "../../core/useViewport";
 import { useToast } from "../../core/components/Toast";
 import { getRoles } from "../../core/permissions";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { Banner } from "../../core/components/Banner";
+import { Badge } from "../../core/components/Badge";
+import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
 import {
   getCategoriesForConfig, getCategoriesForSousSol, categoryProgress,
   overallProgress, overallProgressSousSol,
@@ -27,6 +37,7 @@ import { AvancementHistory } from "./AvancementHistory";
 export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
   const { user } = useAuth();
   const { tasksConfig, avancementValidations } = useData();
+  const isPwa = useViewport() === "mobile";
   const toast = useToast();
 
   // Mode "historique figé" (ouvre AvancementHistory en plein écran)
@@ -298,115 +309,83 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
   }
 
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
       {/* En-tête */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{
-          background: EPJ.gray100, border: "none", borderRadius: 10,
-          padding: "9px 14px", fontSize: 13, fontWeight: 600,
-          color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-          whiteSpace: "nowrap", flexShrink: 0,
-        }}>← Retour</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: font.display, fontSize: 20, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.15,
-          }}>{chantier.nom}</div>
-          <div style={{
-            fontSize: 10, color: EPJ.gray500, letterSpacing: 0.3,
-            textTransform: "uppercase", fontWeight: 600, marginTop: 1,
-          }}>
-            {chantier.num}{chantier.adresse ? ` • ${chantier.adresse}` : ""}
-          </div>
-        </div>
-        {canEditTasks && (
-          <button
+      <ModuleSubHeader
+        moduleName="Avancement"
+        title={chantier.nom}
+        subtitle={`${chantier.num}${chantier.adresse ? ` • ${chantier.adresse}` : ""}`}
+        onBackToModuleHome={onBack}
+        rightSlot={canEditTasks ? (
+          <Button
+            variant={editTasksMode ? "primary" : "secondary"}
             onClick={() => setEditTasksMode(!editTasksMode)}
-            style={{
-              background: editTasksMode ? EPJ.orange : EPJ.gray100,
-              border: "none", borderRadius: 8, padding: "8px 12px",
-              fontSize: 12, fontWeight: 600,
-              color: editTasksMode ? EPJ.white : EPJ.gray700,
-              cursor: "pointer", fontFamily: font.body, whiteSpace: "nowrap",
-            }}
-          >{editTasksMode ? "✓ Terminé" : "✏ Tâches"}</button>
-        )}
-      </div>
+          >{editTasksMode ? "✓ Terminé" : "✏ Tâches"}</Button>
+        ) : null}
+      />
 
       {/* Actions : Historique + Figer */}
-      <div className="epj-card" style={{ padding: "10px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ fontSize: 10, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+      <div style={{
+        ...panelStyle,
+        padding: `${space.sm + 2}px ${space.md}px`,
+        marginBottom: space.sm + 2,
+        display: "flex", alignItems: "center", gap: space.sm, flexWrap: "wrap",
+      }}>
+        <div style={microLabel}>
           {formatMonth(currentMonth)} <span style={{ color: EPJ.gray400, textTransform: "none" }}>(en cours)</span>
         </div>
         <div style={{ flex: 1 }}/>
-        <button
-          onClick={() => setShowHistory(true)}
-          style={{
-            background: EPJ.gray100, color: EPJ.gray700, border: "none",
-            borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600,
-            cursor: "pointer", fontFamily: font.body, whiteSpace: "nowrap",
-            display: "flex", alignItems: "center", gap: 4,
-          }}
-          title="Historique figé du chantier"
-        >
+        <Button variant="secondary" onClick={() => setShowHistory(true)} title="Historique figé du chantier">
           📜 Historique
           {snapshotsCount > 0 && (
             <span style={{
-              background: EPJ.orange, color: EPJ.white,
-              fontSize: 10, fontWeight: 700, padding: "1px 5px",
-              borderRadius: 10, marginLeft: 2,
+              background: EPJ.blue, color: EPJ.white,
+              fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+              padding: `0 ${space.xs + 2}px`, borderRadius: radius.pill,
+              fontVariantNumeric: "tabular-nums", lineHeight: 1.5,
             }}>{snapshotsCount}</span>
           )}
-        </button>
+        </Button>
         {canFreezeMonth && !currentMonthFrozen && (
-          <button
-            onClick={freezeMonth}
-            style={{
-              background: EPJ.gray900, color: EPJ.white, border: "none",
-              borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600,
-              cursor: "pointer", fontFamily: font.body, whiteSpace: "nowrap",
-            }}
-          >🔒 Figer</button>
+          <Button variant="secondary" onClick={freezeMonth}>🔒 Figer</Button>
         )}
         {canFreezeMonth && currentMonthFrozen && (
-          <div style={{
-            padding: "7px 10px", fontSize: 11, fontWeight: 600,
-            color: EPJ.green, background: `${EPJ.green}12`,
-            border: `1px solid ${EPJ.green}44`, borderRadius: 8, whiteSpace: "nowrap",
-          }}>🔒 Mois figé</div>
+          <Badge tone="success" icon="🔒" label="Mois figé" />
         )}
       </div>
 
       {/* Bandeau mode édition */}
       {editTasksMode && (
-        <div className="epj-card" style={{
-          padding: "10px 12px", marginBottom: 10,
-          fontSize: 11, color: EPJ.gray700, lineHeight: 1.5,
-          background: `${EPJ.orange}10`, borderColor: `${EPJ.orange}44`,
-        }}>
-          <strong style={{ color: EPJ.orange }}>Mode édition</strong> — ajouter, modifier, supprimer ou réordonner les tâches. Béton et Placo sont générés automatiquement.
-        </div>
+        <Banner
+          tone="warning"
+          icon="✏"
+          title="Mode édition"
+          text="Ajouter, modifier, supprimer ou réordonner les tâches. Béton et Placo sont générés automatiquement."
+        />
       )}
 
       {/* Avancement global */}
-      <div className="epj-card" style={{ padding: "14px 16px", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, color: EPJ.gray500, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+      <div style={{ ...panelStyle, padding: space.lg, marginBottom: space.md }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.sm }}>
+          <div style={microLabel}>
             Avancement global{units.length > 1 ? ` — ${activeUnit.headerLabel}` : ""}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: barColor, fontVariantNumeric: "tabular-nums" }}>{globalPct}%</div>
+          <div style={{
+            fontSize: fontSize.xl, fontWeight: fontWeight.semibold,
+            color: barColor, fontVariantNumeric: "tabular-nums",
+          }}>{globalPct}%</div>
         </div>
-        <div style={{ height: 8, borderRadius: 4, background: EPJ.gray100, overflow: "hidden" }}>
+        <div style={{ height: 8, borderRadius: radius.pill, background: EPJ.gray100, overflow: "hidden" }}>
           <div style={{
             width: `${globalPct}%`, height: "100%",
-            background: `linear-gradient(90deg, ${barColor}, ${barColor}DD)`,
+            background: barColor,
             transition: "width .4s ease",
           }}/>
         </div>
         {totalHours > 0 && (
           <div style={{
-            marginTop: 8, fontSize: 11, color: EPJ.gray500,
-            display: "flex", alignItems: "center", gap: 6,
+            marginTop: space.sm, fontSize: fontSize.xs, color: EPJ.gray500,
+            display: "flex", alignItems: "center", gap: space.xs + 2,
           }}>
             ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)} h</b> cumulées sur {activeUnit.kind === "soussol" ? "ce sous-sol" : "ce bâtiment"}
           </div>
@@ -415,19 +394,25 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
 
       {/* Onglets unités (bâtiments + sous-sols communs) */}
       {units.length > 1 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
-          {units.map(u => (
-            <button key={u.id} onClick={() => setActiveUnitId(u.id)} style={{
-              padding: "8px 14px", borderRadius: 8,
-              border: `1px solid ${activeUnit.id === u.id ? EPJ.gray900 : (u.kind === "soussol" ? `${EPJ.blue}55` : EPJ.gray200)}`,
-              background: activeUnit.id === u.id ? EPJ.gray900 : EPJ.white,
-              color: activeUnit.id === u.id ? EPJ.white : (u.kind === "soussol" ? EPJ.blue : EPJ.gray700),
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
-            }}>
-              {u.tabLabel}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: space.xs, marginBottom: space.sm + 2, overflowX: "auto", paddingBottom: space.xs }}>
+          {units.map(u => {
+            const active = activeUnit.id === u.id;
+            return (
+              <button key={u.id} onClick={() => setActiveUnitId(u.id)} style={{
+                padding: `${space.sm}px ${space.lg - 2}px`,
+                minHeight: isPwa ? 44 : 36,
+                borderRadius: radius.md,
+                border: `1px solid ${active ? EPJ.blue : (u.kind === "soussol" ? `${EPJ.blue}55` : EPJ.gray200)}`,
+                background: active ? EPJ.blue : EPJ.white,
+                color: active ? EPJ.white : (u.kind === "soussol" ? EPJ.blueText : EPJ.gray700),
+                fontSize: fontSize.sm, fontWeight: fontWeight.medium, cursor: "pointer",
+                fontFamily: font.body, whiteSpace: "nowrap", flexShrink: 0,
+                transition: "background .15s ease, border-color .15s ease",
+              }}>
+                {u.tabLabel}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -435,33 +420,29 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
       {activeUnit.kind === "batiment" && getBuildingSousSolId(activeUnit.building) && (() => {
         const ss = sousSols.find(s => s.id === getBuildingSousSolId(activeUnit.building));
         return (
-          <div
-            onClick={() => ss && setActiveUnitId(ss.id)}
-            style={{
-              marginBottom: 10, padding: "10px 12px", cursor: ss ? "pointer" : "default",
-              background: `${EPJ.blue}0C`, border: `1px solid ${EPJ.blue}33`,
-              borderRadius: 8, fontSize: 11, color: EPJ.gray700, lineHeight: 1.5,
-            }}
-          >
-            🅿 Sous-sol mutualisé <b>{ss?.nom || "(supprimé)"}</b> — l'avancement du sous-sol est
-            saisi une seule fois.{ss ? " Cliquez ici pour ouvrir l'onglet du sous-sol commun." : ""}
-          </div>
+          <Banner
+            tone="info"
+            icon="🅿"
+            title={`Sous-sol mutualisé ${ss?.nom || "(supprimé)"}`}
+            text={`L'avancement du sous-sol est saisi une seule fois.${ss ? " Cliquez ici pour ouvrir l'onglet du sous-sol commun." : ""}`}
+            onClick={ss ? () => setActiveUnitId(ss.id) : undefined}
+          />
         );
       })()}
 
       {/* Filtre artisan */}
       {!editTasksMode && affectedArtisans.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <label style={{
-            display: "block", fontSize: 10, fontWeight: 600, color: EPJ.gray500,
-            letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 4,
-          }}>Affichage</label>
-          <select className="epj-input" value={filterArtisanId} onChange={e => setFilterArtisanId(e.target.value)} style={{ fontSize: 13 }}>
-            <option value="">Toutes les tâches</option>
-            {affectedArtisans.map(a => (
-              <option key={a.id} value={a.id}>Tâches de {a.prenom} {a.nom}</option>
-            ))}
-          </select>
+        <div style={{ marginBottom: space.sm + 2 }}>
+          <Field
+            as="select"
+            label="Affichage"
+            value={filterArtisanId}
+            onChange={e => setFilterArtisanId(e.target.value)}
+            options={[
+              { value: "", label: "Toutes les tâches" },
+              ...affectedArtisans.map(a => ({ value: a.id, label: `Tâches de ${a.prenom} ${a.nom}` })),
+            ]}
+          />
         </div>
       )}
 
@@ -489,11 +470,12 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
           artisanAssignments={artisanAssignments}
           onAssignArtisan={setArtisanForTask}
           visibleTaskIds={visibleTaskIds}
+          isPwa={isPwa}
         />
       ))}
 
       {visibleTaskIds && visibleTaskIds.size === 0 && (
-        <div className="epj-card" style={{ padding: 16, textAlign: "center", fontSize: 12, color: EPJ.gray500 }}>
+        <div style={{ ...panelStyle, padding: space.lg, textAlign: "center", fontSize: fontSize.sm, color: EPJ.gray500 }}>
           Aucune tâche n'est assignée à cet artisan pour ce bâtiment.
         </div>
       )}
@@ -511,6 +493,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
 function ValidationAvancementBloc({ chantier, avancementValidations }) {
   const { user } = useAuth();
   const { users } = useData();
+  const isPwa = useViewport() === "mobile";
   const toast = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -558,68 +541,43 @@ function ValidationAvancementBloc({ chantier, avancementValidations }) {
       day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
     });
     return (
-      <div style={{
-        marginTop: 20, padding: "14px 16px",
-        background: `${EPJ.green}0A`,
-        border: `1px solid ${EPJ.green}40`,
-        borderLeft: `3px solid ${EPJ.green}`,
-        borderRadius: 10,
-      }}>
-        <div style={{
-          fontSize: 13, fontWeight: 700, color: EPJ.green, marginBottom: 4,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          ✓ Avancement de {currentMonthLabel()} validé
-        </div>
-        <div style={{ fontSize: 11, color: EPJ.gray600, lineHeight: 1.5 }}>
-          Par <b>{validePar ? `${validePar.prenom} ${validePar.nom}` : validation.validePourNom || "—"}</b>
-          {" — "}{dateValidation}
-        </div>
-        <button
-          onClick={annulerValidation}
-          disabled={saving}
-          style={{
-            marginTop: 10,
-            background: "transparent", border: `1px solid ${EPJ.gray300}`,
-            borderRadius: 6, padding: "6px 10px",
-            fontSize: 11, fontWeight: 600, color: EPJ.gray600,
-            cursor: "pointer", fontFamily: font.body,
-          }}
-        >Annuler la validation</button>
+      <div style={{ marginTop: space.xl }}>
+        <Banner
+          tone="success"
+          icon="✓"
+          title={`Avancement de ${currentMonthLabel()} validé`}
+          text={`Par ${validePar ? `${validePar.prenom} ${validePar.nom}` : validation.validePourNom || "—"} — ${dateValidation}`}
+          action={(
+            <Button variant="secondary" onClick={annulerValidation} disabled={saving}>
+              Annuler
+            </Button>
+          )}
+        />
       </div>
     );
   }
 
   return (
-    <div style={{
-      marginTop: 20, padding: "14px 16px",
-      background: `${EPJ.green}08`,
-      border: `1px solid ${EPJ.green}30`,
-      borderRadius: 10,
-    }}>
+    <div style={{ ...panelStyle, padding: space.lg, marginTop: space.xl }}>
       <div style={{
-        fontSize: 13, fontWeight: 700, color: EPJ.gray900, marginBottom: 4,
+        fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+        color: EPJ.gray900, marginBottom: space.xs,
       }}>
         Avancement de {currentMonthLabel()}
       </div>
-      <div style={{ fontSize: 11, color: EPJ.gray600, lineHeight: 1.5, marginBottom: 10 }}>
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray600, lineHeight: 1.5, marginBottom: space.sm + 2 }}>
         Une fois que tu as renseigné toutes les tâches avancées ce mois-ci, clique sur le bouton ci-dessous pour confirmer.
       </div>
-      <button
-        onClick={validerMoisMethod}
-        disabled={saving}
-        style={{
-          width: "100%",
-          background: EPJ.green, color: EPJ.white, border: "none",
-          borderRadius: 10, padding: "12px 16px",
-          fontSize: 13, fontWeight: 700,
-          cursor: saving ? "wait" : "pointer",
-          fontFamily: font.body,
-          opacity: saving ? 0.7 : 1,
-        }}
-      >
-        {saving ? "Enregistrement…" : `✓ J'ai terminé mon avancement de ${currentMonthLabel()}`}
-      </button>
+      <div style={{ display: "flex", justifyContent: isPwa ? "stretch" : "flex-end" }}>
+        <Button
+          variant="primary"
+          full={isPwa}
+          onClick={validerMoisMethod}
+          loading={saving}
+        >
+          ✓ J'ai terminé mon avancement de {currentMonthLabel()}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -631,6 +589,7 @@ function CategoryBlock({
   canEdit, currentUserId, isUserAdmin, allUsers,
   editTasksMode, onAddTask, onUpdateTaskLabel, onDeleteTask, onMoveTask,
   affectedArtisans, artisanAssignments, onAssignArtisan, visibleTaskIds,
+  isPwa,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -646,38 +605,43 @@ function CategoryBlock({
   const isGenerated = !!category.generated;
 
   return (
-    <div className="epj-card" style={{ padding: 0, marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ ...panelStyle, padding: 0, marginBottom: space.sm, overflow: "hidden" }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
-          padding: "12px 14px", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 10,
+          padding: `${space.md}px ${space.lg - 2}px`, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: space.sm + 2,
           borderLeft: `3px solid ${accent}`,
         }}
       >
         <div style={{
-          fontSize: 10, fontWeight: 700, background: `${accent}22`, color: accent,
-          padding: "3px 7px", borderRadius: 4, fontFamily: "monospace",
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+          background: `${accent}22`, color: accent,
+          padding: `2px ${space.xs + 3}px`, borderRadius: radius.sm,
+          fontFamily: font.mono,
         }}>{category.num}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900 }}>
+          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>
             {category.label}
             {editTasksMode && isGenerated && (
-              <span style={{ fontSize: 9, fontWeight: 500, color: EPJ.gray500, marginLeft: 6, fontStyle: "italic" }}>
+              <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.regular, color: EPJ.gray500, marginLeft: space.xs + 2, fontStyle: "italic" }}>
                 (généré)
               </span>
             )}
           </div>
-          <div style={{ height: 4, marginTop: 5, borderRadius: 2, background: EPJ.gray100, overflow: "hidden" }}>
+          <div style={{ height: 4, marginTop: space.xs + 1, borderRadius: radius.pill, background: EPJ.gray100, overflow: "hidden" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: accent, transition: "width .3s ease" }}/>
           </div>
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: accent, fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" }}>{pct}%</div>
-        <span style={{ color: EPJ.gray500, fontSize: 12, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", marginLeft: 2 }}>▸</span>
+        <div style={{
+          fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: accent,
+          fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right",
+        }}>{pct}%</div>
+        <span style={{ color: EPJ.gray500, fontSize: fontSize.xs, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", marginLeft: 2 }}>▸</span>
       </div>
 
       {expanded && (
-        <div style={{ padding: "4px 14px 14px", borderTop: `1px solid ${EPJ.gray100}` }}>
+        <div style={{ padding: `${space.xs}px ${space.lg - 2}px ${space.lg - 2}px`, borderTop: `1px solid ${EPJ.gray100}` }}>
           {filteredTasks.map((task, idx) => editTasksMode && !isGenerated ? (
             <EditableTaskRow
               key={task.id} task={task}
@@ -702,33 +666,29 @@ function CategoryBlock({
               affectedArtisans={affectedArtisans}
               assignedArtisanId={artisanAssignments[task.id]}
               onAssignArtisan={(aid) => onAssignArtisan(task.id, aid)}
+              isPwa={isPwa}
             />
           ))}
 
           {editTasksMode && !isGenerated && (
-            <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-              <input
-                className="epj-input"
-                value={newLabel}
-                onChange={e => setNewLabel(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && newLabel.trim()) {
-                    onAddTask(newLabel); setNewLabel("");
-                  }
-                }}
-                placeholder="Nouvelle tâche…"
-                style={{ fontSize: 13 }}
-              />
-              <button
+            <div style={{ marginTop: space.sm + 2, display: "flex", gap: space.sm, alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <Field
+                  value={newLabel}
+                  onChange={e => setNewLabel(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newLabel.trim()) {
+                      onAddTask(newLabel); setNewLabel("");
+                    }
+                  }}
+                  placeholder="Nouvelle tâche…"
+                />
+              </div>
+              <Button
+                variant="secondary"
                 onClick={() => { if (newLabel.trim()) { onAddTask(newLabel); setNewLabel(""); } }}
                 disabled={!newLabel.trim()}
-                style={{
-                  background: EPJ.gray900, color: EPJ.white, border: "none",
-                  borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 600,
-                  cursor: newLabel.trim() ? "pointer" : "not-allowed",
-                  opacity: newLabel.trim() ? 1 : 0.45, fontFamily: font.body,
-                }}
-              >+</button>
+              >+ Ajouter</Button>
             </div>
           )}
         </div>
@@ -738,11 +698,14 @@ function CategoryBlock({
 }
 
 // ─── Ligne de tâche avec sessions d'heures ──────────────────
+// Saisie terrain : slider + raccourcis 0/50/100 + heures + artisan.
+// Structure et gestes STRICTEMENT identiques — repeinte tokens only.
 function TaskRow({
   task, value, sessions, legacyHoursValue, onChange,
   onAddSession, onDeleteSession,
   canEdit, currentUserId, isUserAdmin, allUsers,
   affectedArtisans, assignedArtisanId, onAssignArtisan,
+  isPwa,
 }) {
   const [showArtisanPicker, setShowArtisanPicker] = useState(false);
   const [showHours, setShowHours] = useState(false);
@@ -750,64 +713,76 @@ function TaskRow({
   const assignedArtisan = affectedArtisans.find(a => a.id === assignedArtisanId);
   const pctColor = value === 100 ? EPJ.green : value > 0 ? EPJ.blue : EPJ.gray300;
   const totalHours = totalHoursForTask(sessions, legacyHoursValue);
+  const iconBtnSize = isPwa ? 44 : 32;
 
   return (
-    <div style={{ padding: "10px 0", borderTop: `1px solid ${EPJ.gray100}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+    <div style={{ padding: `${space.sm + 2}px 0`, borderTop: `1px solid ${EPJ.gray100}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm + 2, marginBottom: space.xs + 2 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: EPJ.gray900, fontWeight: 500 }}>{task.label}</div>
+          <div style={{ fontSize: fontSize.sm, color: EPJ.gray900, fontWeight: fontWeight.medium }}>{task.label}</div>
           {assignedArtisan && (
-            <div style={{ fontSize: 10, color: EPJ.orange, marginTop: 2, fontWeight: 600 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, marginTop: 2, fontWeight: fontWeight.medium }}>
               👤 {assignedArtisan.prenom} {assignedArtisan.nom}
             </div>
           )}
           {totalHours > 0 && !showHours && (
-            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 2 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
               ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)}h</b>
               {sessions && sessions.length > 1 && (
-                <span style={{ marginLeft: 4, color: EPJ.gray400 }}>
+                <span style={{ marginLeft: space.xs, color: EPJ.gray400 }}>
                   ({sessions.length} sessions)
                 </span>
               )}
             </div>
           )}
         </div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: pctColor, fontVariantNumeric: "tabular-nums", minWidth: 40, textAlign: "right" }}>{value}%</div>
+        <div style={{
+          fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: pctColor,
+          fontVariantNumeric: "tabular-nums", minWidth: 40, textAlign: "right",
+        }}>{value}%</div>
         {canEdit && (
           <button
             onClick={() => setShowHours(!showHours)}
             style={{
-              background: totalHours > 0 ? `${EPJ.blue}15` : EPJ.gray100,
-              border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 11,
-              cursor: "pointer", fontFamily: font.body,
-              color: totalHours > 0 ? EPJ.blue : EPJ.gray500,
+              width: iconBtnSize, height: iconBtnSize,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              background: totalHours > 0 ? EPJ.infoBg : EPJ.gray100,
+              border: "none", borderRadius: radius.md, fontSize: fontSize.sm,
+              cursor: "pointer", fontFamily: font.body, flexShrink: 0,
+              color: totalHours > 0 ? EPJ.blueText : EPJ.gray500,
             }}
             title="Heures travaillées"
           >⏱</button>
         )}
         {canEdit && affectedArtisans.length > 0 && (
           <button onClick={() => setShowArtisanPicker(!showArtisanPicker)} style={{
-            background: assignedArtisanId ? `${EPJ.orange}15` : EPJ.gray100,
-            border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11,
-            cursor: "pointer", fontFamily: font.body,
-            color: assignedArtisanId ? EPJ.orange : EPJ.gray500,
+            width: iconBtnSize, height: iconBtnSize,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            background: assignedArtisanId ? EPJ.warningBg : EPJ.gray100,
+            border: "none", borderRadius: radius.md, fontSize: fontSize.sm,
+            cursor: "pointer", fontFamily: font.body, flexShrink: 0,
+            color: assignedArtisanId ? EPJ.orangeText : EPJ.gray500,
           }} title="Assigner à un artisan">👤</button>
         )}
       </div>
 
       {/* Curseur % */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm + 2 }}>
         <input type="range" min="0" max="100" step="5" value={value}
           onChange={e => onChange(Number(e.target.value))} disabled={!canEdit}
           style={{ flex: 1, accentColor: pctColor, cursor: canEdit ? "pointer" : "not-allowed" }}/>
         <div style={{ display: "flex", gap: 3 }}>
           {[0, 50, 100].map(v => (
             <button key={v} onClick={() => canEdit && onChange(v)} disabled={!canEdit} style={{
-              minWidth: 30, padding: "3px 6px", fontSize: 10, fontWeight: 600,
+              minWidth: isPwa ? 38 : 32,
+              minHeight: isPwa ? 36 : 26,
+              padding: `2px ${space.xs + 2}px`,
+              fontSize: fontSize.xs, fontWeight: fontWeight.medium,
               border: `1px solid ${value === v ? pctColor : EPJ.gray200}`,
               background: value === v ? `${pctColor}15` : EPJ.white,
               color: value === v ? pctColor : EPJ.gray500,
-              borderRadius: 4, cursor: canEdit ? "pointer" : "not-allowed", fontFamily: font.body,
+              borderRadius: radius.sm, cursor: canEdit ? "pointer" : "not-allowed", fontFamily: font.body,
+              fontVariantNumeric: "tabular-nums",
             }}>{v}</button>
           ))}
         </div>
@@ -823,21 +798,22 @@ function TaskRow({
           currentUserId={currentUserId}
           isUserAdmin={isUserAdmin}
           allUsers={allUsers}
+          isPwa={isPwa}
         />
       )}
 
       {/* Picker artisan */}
       {showArtisanPicker && (
         <div style={{
-          marginTop: 8, padding: "8px 10px",
-          background: EPJ.gray50, borderRadius: 8,
+          marginTop: space.sm, padding: `${space.sm}px ${space.sm + 2}px`,
+          background: EPJ.gray50, borderRadius: radius.md,
           border: `1px solid ${EPJ.gray200}`,
         }}>
-          <div style={{ fontSize: 10, color: EPJ.gray500, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>Assigner à :</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            <button onClick={() => { onAssignArtisan(null); setShowArtisanPicker(false); }} style={pillStyle(!assignedArtisanId, EPJ.gray700)}>— Aucun —</button>
+          <div style={{ ...microLabel, marginBottom: space.xs + 2 }}>Assigner à :</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
+            <button onClick={() => { onAssignArtisan(null); setShowArtisanPicker(false); }} style={pillStyle(!assignedArtisanId, EPJ.gray700, isPwa)}>— Aucun —</button>
             {affectedArtisans.map(a => (
-              <button key={a.id} onClick={() => { onAssignArtisan(a.id); setShowArtisanPicker(false); }} style={pillStyle(assignedArtisanId === a.id, EPJ.orange)}>
+              <button key={a.id} onClick={() => { onAssignArtisan(a.id); setShowArtisanPicker(false); }} style={pillStyle(assignedArtisanId === a.id, EPJ.orangeText, isPwa)}>
                 {a.prenom} {a.nom}
               </button>
             ))}
@@ -849,7 +825,9 @@ function TaskRow({
 }
 
 // ─── Panel des sessions d'heures ─────────────────────────────
-function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession, currentUserId, isUserAdmin, allUsers }) {
+// Formulaire compact heures + date + ajout : structure inchangée (les
+// inputs restent inline, alignement compact non couvert par <Field>).
+function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession, currentUserId, isUserAdmin, allUsers, isPwa }) {
   const [hoursInput, setHoursInput] = useState("");
   const [dateInput, setDateInput] = useState(new Date().toISOString().slice(0, 10));
 
@@ -871,15 +849,23 @@ function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession,
     setDateInput(new Date().toISOString().slice(0, 10));
   };
 
+  const inputHeight = isPwa ? 44 : 36;
+  const inputStyle = {
+    height: inputHeight, padding: `0 ${space.sm + 2}px`,
+    border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
+    fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+    fontFamily: font.body,
+    background: EPJ.white, color: EPJ.gray900,
+  };
+
   return (
     <div style={{
-      marginTop: 8, padding: "10px 12px",
-      background: EPJ.gray50, borderRadius: 8,
+      marginTop: space.sm, padding: `${space.sm + 2}px ${space.md}px`,
+      background: EPJ.gray50, borderRadius: radius.md,
       border: `1px solid ${EPJ.gray200}`,
     }}>
       <div style={{
-        fontSize: 10, color: EPJ.gray500, marginBottom: 8,
-        fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3,
+        ...microLabel, marginBottom: space.sm,
         display: "flex", justifyContent: "space-between",
       }}>
         <span>Heures travaillées</span>
@@ -892,28 +878,28 @@ function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession,
 
       {/* Liste des sessions */}
       {sortedSessions.length > 0 && (
-        <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ marginBottom: space.sm + 2, display: "flex", flexDirection: "column", gap: space.xs }}>
           {sortedSessions.map(s => {
             const author = s.userId ? allUsers.find(u => u.id === s.userId) : null;
             const canDelete = isUserAdmin || s.userId === currentUserId;
             return (
               <div key={s.id} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "6px 8px", background: EPJ.white, borderRadius: 6,
+                display: "flex", alignItems: "center", gap: space.sm,
+                padding: `${space.xs + 2}px ${space.sm}px`, background: EPJ.white, borderRadius: radius.sm,
                 border: `1px solid ${EPJ.gray200}`,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: space.xs + 2 }}>
                     <span style={{
-                      fontSize: 13, fontWeight: 700, color: EPJ.blue,
+                      fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.blueText,
                       fontVariantNumeric: "tabular-nums",
                     }}>+{Number(s.hours).toFixed(1)}h</span>
-                    <span style={{ fontSize: 10, color: EPJ.gray500 }}>
+                    <span style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
                       {formatShortDate(s.date)}
                     </span>
                   </div>
                   {author && (
-                    <div style={{ fontSize: 9, color: EPJ.gray500, marginTop: 1 }}>
+                    <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 1 }}>
                       {author.prenom} {author.nom}
                     </div>
                   )}
@@ -922,10 +908,12 @@ function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession,
                   <button
                     onClick={() => onDeleteSession(s.id)}
                     style={{
-                      background: `${EPJ.red}10`, color: EPJ.red,
-                      border: `1px solid ${EPJ.red}33`, borderRadius: 4,
-                      padding: "2px 6px", fontSize: 10, fontWeight: 600,
-                      cursor: "pointer", fontFamily: font.body,
+                      background: EPJ.dangerBg, color: EPJ.redText,
+                      border: "none", borderRadius: radius.sm,
+                      width: isPwa ? 36 : 26, height: isPwa ? 36 : 26,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+                      cursor: "pointer", fontFamily: font.body, flexShrink: 0,
                     }}
                     title="Supprimer cette session"
                   >✕</button>
@@ -938,49 +926,38 @@ function HoursPanel({ sessions, legacyHoursValue, onAddSession, onDeleteSession,
 
       {hasLegacy && sortedSessions.length === 0 && (
         <div style={{
-          fontSize: 10, color: EPJ.gray500, fontStyle: "italic",
-          padding: "6px 0", marginBottom: 6,
+          fontSize: fontSize.xs, color: EPJ.gray500, fontStyle: "italic",
+          padding: `${space.xs + 2}px 0`, marginBottom: space.xs + 2,
         }}>
           {Number(legacyHoursValue).toFixed(1)}h héritées de l'ancienne version (pas de détail par session)
         </div>
       )}
 
       {/* Formulaire d'ajout */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: space.xs + 2, alignItems: "center" }}>
         <input
           type="number" step="0.5" min="0"
           value={hoursInput}
           onChange={e => setHoursInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && submitAdd()}
           placeholder="Heures"
-          style={{
-            width: 72, padding: "8px 10px",
-            border: `1px solid ${EPJ.gray200}`, borderRadius: 6,
-            fontSize: 13, fontWeight: 600,
-            fontFamily: font.body, fontVariantNumeric: "tabular-nums",
-            background: EPJ.white, color: EPJ.gray900,
-          }}
+          style={{ ...inputStyle, width: 76, fontVariantNumeric: "tabular-nums" }}
         />
         <input
           type="date"
           value={dateInput}
           onChange={e => setDateInput(e.target.value)}
-          style={{
-            flex: 1, minWidth: 0, padding: "8px 10px",
-            border: `1px solid ${EPJ.gray200}`, borderRadius: 6,
-            fontSize: 12, fontWeight: 500,
-            fontFamily: font.body,
-            background: EPJ.white, color: EPJ.gray900,
-          }}
+          style={{ ...inputStyle, flex: 1, minWidth: 0, fontWeight: fontWeight.regular, fontSize: fontSize.xs }}
         />
         <button
           onClick={submitAdd}
           disabled={!hoursInput}
           style={{
             background: EPJ.blue, color: EPJ.white, border: "none",
-            borderRadius: 6, padding: "8px 12px", fontSize: 12, fontWeight: 700,
+            borderRadius: radius.md, height: inputHeight, padding: `0 ${space.md}px`,
+            fontSize: fontSize.xs, fontWeight: fontWeight.medium,
             cursor: hoursInput ? "pointer" : "not-allowed",
-            opacity: hoursInput ? 1 : 0.45, fontFamily: font.body,
+            opacity: hoursInput ? 1 : 0.5, fontFamily: font.body,
             whiteSpace: "nowrap",
           }}
         >+ Ajouter</button>
@@ -993,7 +970,7 @@ function EditableTaskRow({ task, isFirst, isLast, onUpdateLabel, onDelete, onMov
   const [label, setLabel] = useState(task.label);
   useEffect(() => { setLabel(task.label); }, [task.label]);
   return (
-    <div style={{ padding: "8px 0", borderTop: `1px solid ${EPJ.gray100}`, display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ padding: `${space.sm}px 0`, borderTop: `1px solid ${EPJ.gray100}`, display: "flex", alignItems: "center", gap: space.xs + 2 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <button onClick={() => onMove("up")} disabled={isFirst} style={arrowStyle(isFirst)}>▲</button>
         <button onClick={() => onMove("down")} disabled={isLast} style={arrowStyle(isLast)}>▼</button>
@@ -1003,33 +980,46 @@ function EditableTaskRow({ task, isFirst, isLast, onUpdateLabel, onDelete, onMov
         value={label}
         onChange={e => setLabel(e.target.value)}
         onBlur={() => { if (label.trim() && label !== task.label) onUpdateLabel(label); else setLabel(task.label); }}
-        style={{ flex: 1, fontSize: 12 }}
+        style={{ flex: 1, fontSize: fontSize.sm }}
       />
       <button onClick={onDelete} style={{
-        background: `${EPJ.red}10`, color: EPJ.red,
-        border: `1px solid ${EPJ.red}33`, borderRadius: 6,
-        padding: "6px 10px", fontSize: 11, fontWeight: 600,
+        background: EPJ.dangerBg, color: EPJ.redText,
+        border: "none", borderRadius: radius.sm,
+        padding: `${space.xs + 2}px ${space.sm + 2}px`, fontSize: fontSize.xs, fontWeight: fontWeight.medium,
         cursor: "pointer", fontFamily: font.body,
       }}>🗑</button>
     </div>
   );
 }
 
+// ─── Styles & helpers DS-2 ───────────────────────────────────
+const panelStyle = {
+  background: EPJ.white,
+  border: `1px solid ${EPJ.gray200}`,
+  borderRadius: radius.lg,
+};
+const microLabel = {
+  fontSize: fontSize.xs, color: EPJ.gray500, fontWeight: fontWeight.medium,
+  textTransform: "uppercase", letterSpacing: "0.03em",
+};
+
 function arrowStyle(disabled) {
   return {
     width: 24, height: 18, padding: 0, border: "none",
     background: EPJ.gray100, color: disabled ? EPJ.gray300 : EPJ.gray700,
-    borderRadius: 3, fontSize: 8, cursor: disabled ? "not-allowed" : "pointer",
-    fontFamily: "monospace",
+    borderRadius: radius.sm - 3, fontSize: 8, cursor: disabled ? "not-allowed" : "pointer",
+    fontFamily: font.mono,
   };
 }
-function pillStyle(active, color) {
+function pillStyle(active, color, isPwa) {
   return {
-    padding: "4px 10px", borderRadius: 999,
+    padding: `${space.xs}px ${space.sm + 2}px`,
+    minHeight: isPwa ? 36 : 28,
+    borderRadius: radius.pill,
     border: `1px solid ${active ? color : EPJ.gray200}`,
     background: active ? `${color}15` : EPJ.white,
     color: active ? color : EPJ.gray700,
-    fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
+    fontSize: fontSize.xs, fontWeight: fontWeight.medium, cursor: "pointer", fontFamily: font.body,
   };
 }
 
