@@ -42,7 +42,7 @@ export function PanierFloatingBar({ onContinue }) {
         <div style={{ fontSize: 13, fontWeight: 700 }}>
           Panier de sortie
         </div>
-        <div style={{ fontSize: 11, color: "#E0E0E0", marginTop: 1 }}>
+        <div style={{ fontSize: 11, color: EPJ.gray200, marginTop: 1 }}>
           {panier.count} outil{panier.count > 1 ? "s" : ""} sélectionné{panier.count > 1 ? "s" : ""}
         </div>
       </div>

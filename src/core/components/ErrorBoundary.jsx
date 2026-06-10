@@ -76,7 +76,7 @@ export class ErrorBoundary extends Component {
           justifyContent: "center",
           padding: 20,
           fontFamily: "system-ui, -apple-system, sans-serif",
-          background: "#FAFBFC",
+          background: EPJ.gray50,
         }}>
           <div style={{
             maxWidth: 480,
@@ -90,13 +90,13 @@ export class ErrorBoundary extends Component {
             <h1 style={{ fontSize: 20, marginBottom: 12, color: EPJ.gray900 }}>
               Une erreur est survenue
             </h1>
-            <p style={{ fontSize: 14, color: "#666", marginBottom: 24, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: EPJ.gray500, marginBottom: 24, lineHeight: 1.5 }}>
               L'application a rencontré un problème inattendu.
               L'incident a été enregistré et sera examiné.
             </p>
             {this.state.error && (
               <pre style={{
-                background: "#F5F5F7",
+                background: EPJ.gray100,
                 padding: 12,
                 borderRadius: 6,
                 fontSize: 11,
@@ -104,7 +104,7 @@ export class ErrorBoundary extends Component {
                 maxHeight: 120,
                 overflow: "auto",
                 marginBottom: 16,
-                color: "#444",
+                color: EPJ.gray700,
               }}>
                 {this.state.error.message || String(this.state.error)}
               </pre>

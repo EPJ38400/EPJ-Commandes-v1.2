@@ -22,12 +22,12 @@ export function EmojiPicker({ value, onChange, compact = false }) {
 
   const BLUE = EPJ.blue;
   const GRAY = EPJ.gray500;
-  const GRAY_LIGHT = "#EEEEEE";
+  const GRAY_LIGHT = EPJ.gray200;
 
   const isImageValue = value && (value.startsWith("http") || value.startsWith("data:"));
 
   return (
-    <div style={{ background: EPJ.gray50, borderRadius: 10, padding: 10, border: "1px solid #eee" }}>
+    <div style={{ background: EPJ.gray50, borderRadius: 10, padding: 10, border: `1px solid ${EPJ.gray200}` }}>
       {!compact && (
         <div style={{ fontSize: 11, fontWeight: 700, color: GRAY, marginBottom: 6 }}>
           CHOISIR UNE ICÔNE
@@ -35,7 +35,7 @@ export function EmojiPicker({ value, onChange, compact = false }) {
       )}
 
       {/* Onglets par groupe */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8, borderBottom: "1px solid #e0e0e0", paddingBottom: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8, borderBottom: `1px solid ${EPJ.gray200}`, paddingBottom: 6 }}>
         {EMOJI_GROUPS.map(g => {
           const active = g.id === tabId;
           return (
@@ -90,7 +90,7 @@ export function EmojiPicker({ value, onChange, compact = false }) {
       </div>
 
       {/* Saisie libre (emoji spécifique ou URL d'image) */}
-      <div style={{ marginTop: 10, borderTop: "1px solid #e0e0e0", paddingTop: 10 }}>
+      <div style={{ marginTop: 10, borderTop: `1px solid ${EPJ.gray200}`, paddingTop: 10 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: GRAY, marginBottom: 4 }}>
           OU COLLER UN ÉMOJI / URL D'IMAGE
         </div>

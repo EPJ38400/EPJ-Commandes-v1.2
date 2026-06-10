@@ -271,8 +271,8 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
 
 const miniBtn = {
   width: 30, height: 30,
-  background: "#f0f0f0", border: "none", borderRadius: 6,
-  fontSize: 16, fontWeight: 700, color: "#333",
+  background: EPJ.gray100, border: "none", borderRadius: 6,
+  fontSize: 16, fontWeight: 700, color: EPJ.dark,
   cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center",
 };

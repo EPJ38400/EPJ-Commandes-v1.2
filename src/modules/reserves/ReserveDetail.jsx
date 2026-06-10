@@ -647,7 +647,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
             <button onClick={() => setShowSmsPicker(false)}
               className="epj-btn"
               style={{display:'block',width:'100%',marginTop:8,padding:'10px',
-                      background:'#eee',color:EPJ.dark,fontWeight:600,
+                      background:EPJ.gray200,color:EPJ.dark,fontWeight:600,
                       borderRadius:8,border:'none'}}>
               Annuler
             </button>
