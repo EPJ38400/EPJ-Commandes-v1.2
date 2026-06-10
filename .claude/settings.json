@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm run audit:tokens:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(node scripts/*)",
+      "Bash(git fetch:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push origin feature/*)",
+      "Bash(git push origin fix/*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)"
+    ],
+    "deny": [
+      "Bash(firebase deploy:*)",
+      "Bash(vercel:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git merge:*)",
+      "Bash(rm -rf:*)"
+    ]
+  }
+}
