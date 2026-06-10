@@ -330,7 +330,7 @@ function PctCell({ pct, prev, bold, dark }) {
       {delta !== null && (
         <div style={{
           fontSize: 9, fontWeight: 600,
-          color: dark && deltaColor === EPJ.gray400 ? "#ffffff99" : deltaColor,
+          color: dark && deltaColor === EPJ.gray400 ? `${EPJ.white}99` : deltaColor,
           marginTop: 2,
         }}>
           {deltaArrow}{delta > 0 ? "+" : ""}{delta !== 0 ? `${delta}%` : ""}
