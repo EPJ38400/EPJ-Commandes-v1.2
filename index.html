@@ -21,6 +21,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
 
+    <!-- Polices Google — chargées en parallèle du JS (avant : @import dans
+         globalCss, render-blocking car injecté tardivement par React).
+         Familles/graisses inchangées (700/800 encore utilisées, élagage post-DS-2). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" />
+
     <!-- Titre de l'app -->
     <title>EPJ — Application interne</title>
     <meta name="description" content="Application interne EPJ Électricité Générale — gestion des commandes, chantiers, parc machines." />

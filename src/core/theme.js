@@ -68,7 +68,9 @@ export const shadow = {
 };
 
 export const globalCss = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+  /* Polices Google : chargées via <link rel="preconnect"/"stylesheet"> dans
+     index.html (en parallèle du JS). Plus de @import ici (render-blocking,
+     ne démarrait qu'après injection JS de cette feuille). */
 
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{margin:0;padding:0;min-height:100vh;background:${EPJ.gray50};color:${EPJ.gray900};font-family:${font.body};-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}

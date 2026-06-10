@@ -6,31 +6,50 @@
 //     l'app le redirige automatiquement vers ChangePasswordPage
 //     en mode "forced". Aucun autre écran n'est accessible.
 // ═══════════════════════════════════════════════════════════════
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 
 import { EPJ } from "./core/theme";
 import { DataProvider, useData } from "./core/DataContext";
 import { AuthProvider, useAuth } from "./core/AuthContext";
 import { ToastProvider } from "./core/components/Toast";
 import { Layout } from "./core/Layout";
-import { FullPageSpinner } from "./core/components/Spinner";
+import { Spinner, FullPageSpinner } from "./core/components/Spinner";
 import { can } from "./core/permissions";
 
+// Chemin de boot (login → home) : import statique, doit peindre immédiatement.
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
-import { AdminPage } from "./pages/admin/AdminPage";
-import { DashboardDirection } from "./pages/DashboardDirection";
-import { CollectionDashboards } from "./pages/CollectionDashboards";
-import { ChangePasswordPage } from "./pages/ChangePasswordPage";
-
-import { CommandesModule } from "./modules/commandes/CommandesModule";
-import { AvancementModule } from "./modules/avancement/AvancementModule";
-import { ParcMachinesModule } from "./modules/parc-machines/ParcMachinesModule";
-import { ReservesModule } from "./modules/reserves/ReservesModule";
+// Watchers de rappel : toujours montés dans le shell authentifié, légers.
 import { OutillageRappelWatcher } from "./modules/parc-machines/OutillageRappelWatcher";
 import { ReservesRappelWatcher } from "./modules/reserves/ReservesRappelWatcher";
 
+// ─── Code-splitting (PERF-1) ──────────────────────────────────────
+// Tout ce qui est hors du chemin de boot est chargé à la demande via
+// React.lazy : les modules (commandes/avancement/parc/réserves), l'admin
+// et les pages secondaires sortent du bundle initial (`index`).
+// helper : nos modules/pages sont des exports NOMMÉS → on les remappe en
+// `default` pour React.lazy.
+const named = (loader, key) => lazy(() => loader().then(m => ({ default: m[key] })));
+
+const CommandesModule    = named(() => import("./modules/commandes/CommandesModule"), "CommandesModule");
+const AvancementModule   = named(() => import("./modules/avancement/AvancementModule"), "AvancementModule");
+const ParcMachinesModule = named(() => import("./modules/parc-machines/ParcMachinesModule"), "ParcMachinesModule");
+const ReservesModule     = named(() => import("./modules/reserves/ReservesModule"), "ReservesModule");
+const AdminPage          = named(() => import("./pages/admin/AdminPage"), "AdminPage");
+const DashboardDirection = named(() => import("./pages/DashboardDirection"), "DashboardDirection");
+const CollectionDashboards = named(() => import("./pages/CollectionDashboards"), "CollectionDashboards");
+const ChangePasswordPage = named(() => import("./pages/ChangePasswordPage"), "ChangePasswordPage");
+
 const ROUTE_STORAGE_KEY = "epj_last_route";
+
+// Fallback de chargement d'un écran lazy, dans le cadre du Layout.
+function RouteFallback() {
+  return (
+    <div style={{ padding: "48px 8px", display: "flex", justifyContent: "center" }}>
+      <Spinner label="Chargement…" size={26} />
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -76,15 +95,17 @@ function Router() {
   // on bloque TOUT accès à l'app tant que le mdp n'est pas changé.
   if (mustResetPassword) {
     return (
-      <ChangePasswordPage
-        mode="forced"
-        onDone={() => {
-          // Après reset, le flag passe à false côté Firestore, la sync
-          // automatique va rafraîchir user.mustResetPassword et on
-          // sortira de ce return naturellement.
-          setRoute("home");
-        }}
-      />
+      <Suspense fallback={<FullPageSpinner label="Chargement…"/>}>
+        <ChangePasswordPage
+          mode="forced"
+          onDone={() => {
+            // Après reset, le flag passe à false côté Firestore, la sync
+            // automatique va rafraîchir user.mustResetPassword et on
+            // sortira de ce return naturellement.
+            setRoute("home");
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -118,11 +139,13 @@ function Router() {
   // comme l'écran de login.
   if (route === "change-password") {
     return (
-      <ChangePasswordPage
-        mode="free"
-        onDone={() => setRoute("home")}
-        onCancel={() => setRoute("home")}
-      />
+      <Suspense fallback={<FullPageSpinner label="Chargement…"/>}>
+        <ChangePasswordPage
+          mode="free"
+          onDone={() => setRoute("home")}
+          onCancel={() => setRoute("home")}
+        />
+      </Suspense>
     );
   }
 
@@ -137,6 +160,7 @@ function Router() {
       <OutillageRappelWatcher/>
       <ReservesRappelWatcher/>
 
+      <Suspense fallback={<RouteFallback/>}>
       {route === "home" && (
         <HomePage
           onOpenModule={(mod) => setRoute(`module:${mod}`)}
@@ -180,6 +204,7 @@ function Router() {
       {route === "admin" && (
         <AdminPage onExit={() => setRoute("home")}/>
       )}
+      </Suspense>
     </Layout>
   );
 }

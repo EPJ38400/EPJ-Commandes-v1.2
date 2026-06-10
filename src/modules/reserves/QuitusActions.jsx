@@ -4,9 +4,14 @@
 //  • Envoyer par email (formulaire destinataires + deeplink mailto)
 //  • Copier le lien (URL Firebase partageable)
 // ═══════════════════════════════════════════════════════════════
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EPJ, font } from "../../core/theme";
-import { openQuitusWindow } from "./quitusPdfGenerator";
+// quitusPdfGenerator n'est plus importé statiquement : il était à la fois
+// statique (ici) ET dynamique (reservesUtils) → warning Vite + impossibilité
+// de l'isoler en chunk. On le charge en dynamique. Comme openQuitusWindow
+// ouvre une window.open() qui DOIT rester dans le geste utilisateur (bloqueur
+// de pop-up iOS), on précharge le module à la montée et on appelle en
+// synchrone au clic (cf. openPdf).
 import { generateQuitusPdfBlob, uploadQuitusPdf } from "./reservesUtils";
 import { db } from "../../firebase";
 import { doc, updateDoc } from "firebase/firestore";
@@ -75,13 +80,37 @@ export function QuitusActions({ reserve, chantier, company, technicien, users, r
   const technomFull = reserve.leveeParNom ||
     (technicien ? `${technicien.prenom || ""} ${technicien.nom || ""}`.trim() : "");
 
+  // Précharge le générateur PDF dès la montée du composant : au clic, le
+  // module est déjà résolu et openQuitusWindow s'appelle en synchrone, dans
+  // le geste utilisateur (sinon window.open est bloquée sur iOS).
+  const pdfModRef = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    import("./quitusPdfGenerator.js").then(m => { if (alive) pdfModRef.current = m; });
+    return () => { alive = false; };
+  }, []);
+
+  const buildPdfOpts = () => ({
+    reserve, chantier, company, technicien,
+    clientSigPng: reserve.clientSignaturePng || "",
+    clientNom: reserve.clientSignataireNom || reserve.clientFinal?.nom || "",
+    clientQualite: reserve.clientSignataireQualite || "Client final",
+  });
+
   const openPdf = () => {
-    openQuitusWindow({
-      reserve, chantier, company, technicien,
-      clientSigPng: reserve.clientSignaturePng || "",
-      clientNom: reserve.clientSignataireNom || reserve.clientFinal?.nom || "",
-      clientQualite: reserve.clientSignataireQualite || "Client final",
-    });
+    const mod = pdfModRef.current;
+    if (mod) {
+      // Cas nominal : module préchargé → appel synchrone (geste préservé).
+      mod.openQuitusWindow(buildPdfOpts());
+    } else {
+      // Cas limite : clic avant la fin du préchargement (rare). On charge
+      // puis on ouvre ; le bloqueur de pop-up peut intervenir, openQuitusWindow
+      // affiche déjà l'alerte « autorisez les pop-ups » le cas échéant.
+      import("./quitusPdfGenerator.js").then(m => {
+        pdfModRef.current = m;
+        m.openQuitusWindow(buildPdfOpts());
+      });
+    }
   };
 
   // Upload du PDF vers Firebase si pas déjà fait, retourne l'URL
