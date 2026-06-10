@@ -433,13 +433,20 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   Mergé en prod (PR #3). Écrans témoins : `HomePage` (bannières → `<Banner>`),
   `ReserveDetail` (statuts → `<Badge>`). Bascule densité PWA/desktop **dans** les
   primitives (via `useViewport`).
+- **2026-06 · DS-2 pilote `AdminOutillage`** (mergé prod, PR #4, `64ee571`) ·
+  **étalon DS-2 figé**. `ModuleSubHeader` + rangée `<StatCard>` + barre outils
+  (`<Field>` recherche/catégorie + chips statut `<Button ghost/secondary>`) +
+  `<DataTable>` dense (cartes auto PWA) + formulaire full `<Field>`/`<Button>`.
+  Affichage only (logique/Firestore/schémas inchangés) ; sorti du top 10 audit
+  (était #2). **Calibre tous les écrans DS-2 suivants** — s'en inspirer.
 
 ### Chantier en cours — DS-2 repeinte écrans
 
 - **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
   l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
-- **Pilote : `AdminOutillage`.** Ordre ensuite : **Avancement**, **Réserves**,
-  **Dashboard Direction**, **Home** (composant `Tile` inclus).
+- **Pilote `AdminOutillage` = FAIT** (cf. briques actives). Ordre restant :
+  **Avancement** (prochain), **Réserves**, **Dashboard Direction**,
+  **Home** (composant `Tile` inclus).
 - **Trio `CommandesInner.jsx` = DERNIER lot**, **GO écrit dédié** — absorbera design +
   responsive + signature souris **en une seule fois**.
 - **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
@@ -447,6 +454,24 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   au fil des écrans.
 - **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
   chaque ticket DS-2**).
+
+### Primitives v1.1 — backlog (lot dédié après 2-3 écrans DS-2)
+
+> Limites des primitives DS-1 rencontrées en repeinte. **Ne pas patcher au fil
+> de l'eau** (un patch « en douce » casse l'étalon) : les regrouper et traiter en
+> un lot dédié une fois 2-3 écrans DS-2 faits, pour valider les besoins réels.
+> Compléter cette liste avec les limites de chaque écran avant d'ouvrir le lot.
+
+- **`<Field>`** — n'expose aucun style du contrôle (le `style` passé via `...rest`
+  écrase `baseStyle`). Conséquence : impossible de rendre un input en `font.mono`
+  (réf / n° série dans les formulaires). → prop `inputStyle` (merge) **ou** booléen
+  `mono`. *(relevé sur AdminOutillage)*
+- **`<Button>`** — pas de taille `sm` ni d'override couleur pour `ghost` icon-only :
+  inadapté aux actions denses de tableau (un delete rouge oblige `danger` plein,
+  trop lourd ligne par ligne, contre la rareté du rouge DA §1.1). Contournement
+  actuel = `IconBtn` local (dupliqué par écran). → ajouter `size="sm"` + variante
+  `danger-ghost`/`neutral`, **ou** primitive **`IconButton`** dédiée (candidate à
+  promouvoir depuis les `IconBtn` locaux). *(relevé sur AdminOutillage)*
 
 ---
 
