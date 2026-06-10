@@ -1,31 +1,66 @@
 // ═══════════════════════════════════════════════════════════════
-//  AdminOutillage v8 — Gestion du catalogue du parc machines
-//  + Bouton d'import initial (223 outils, 18 catégories, 8 pannes)
+//  AdminOutillage — Gestion du catalogue du parc machines
+//  + Bouton d'import initial (catégories, pannes) + import/export Excel
 //  Accessible à : Admin + Direction + Assistante
+//
+//  DS-2 (pilote) : repeinte design-system + adaptation desktop.
+//  Conforme à docs/DIRECTION_ARTISTIQUE.md. Affichage uniquement —
+//  logique métier, requêtes Firestore et schémas INCHANGÉS.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useRef } from "react";
 import { db } from "../../firebase";
 import { doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
+import { useViewport } from "../../core/useViewport";
 import { useToast } from "../../core/components/Toast";
-import { getRoles } from "../../core/permissions";
+import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
+import { Badge } from "../../core/components/Badge";
+import { StatCard } from "../../core/components/StatCard";
+import { DataTable } from "../../core/components/DataTable";
 import {
   OUTIL_STATUTS, canGererCatalogue, canImportExportOutils,
   uploadOutilPhoto, deleteOutilPhoto, generateId,
   getCategorieIcon, getCategorieLabel,
+  computeOutilStatut, findSortieEnCours,
 } from "../../modules/parc-machines/parcUtils";
 import { INITIAL_CATEGORIES, INITIAL_PANNES } from "../../modules/parc-machines/initialOutils";
 // v10.M — Import/Export Excel du parc d'outils
 import {
   exportOutilsToExcel, parseOutilsFromExcel, validateImportRows,
-  buildOutilDocFromRow, hasActiveSorties, countActiveSorties,
+  buildOutilDocFromRow, countActiveSorties,
 } from "../../modules/parc-machines/outilsImporter";
+
+// ─── Statut effectif → props <Badge> (table de correspondance locale,
+//     adossée à la table centrale du composant Badge quand elle existe) ──
+const STATUT_BADGE = {
+  disponible:   { status: "Disponible" },
+  maintenance:  { status: "Maintenance" },
+  hors_service: { status: "Hors service" },
+  sorti:        { tone: "info",   label: "Sorti" },
+  en_retard:    { tone: "danger", label: "En retard" },
+  affecte:      { tone: "info",   label: "Attribué" },
+};
+function badgePropsFor(statutEff) {
+  return STATUT_BADGE[statutEff] || { tone: "neutral", label: OUTIL_STATUTS[statutEff]?.label || statutEff };
+}
+
+// Chips de filtre statut (vue liste)
+const STATUT_CHIPS = [
+  { key: "",             label: "Tous" },
+  { key: "disponible",   label: "Disponibles" },
+  { key: "sorti",        label: "Sortis" },
+  { key: "maintenance",  label: "Maintenance" },
+  { key: "hors_service", label: "Hors service" },
+];
 
 export function AdminOutillage({ onBack }) {
   const { user } = useAuth();
-  const { outils, outillageCategories, outillagePannes, users, outillageSorties = [] } = useData();
+  const { outils, outillageCategories, outillagePannes, users, outillageSorties = [], loaded } = useData();
+  const isPwa = useViewport() === "mobile";
   const toast = useToast();
   const [editing, setEditing] = useState(null); // null | "new" | outilId
   const [form, setForm] = useState({});
@@ -33,6 +68,7 @@ export function AdminOutillage({ onBack }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(null);
   const [filter, setFilter] = useState("");
   const [catFilter, setCatFilter] = useState("");
+  const [statutFilter, setStatutFilter] = useState(""); // filtre client (affichage only)
   const [importing, setImporting] = useState(null); // null | "outils" | "categories" | "pannes"
   const fileInputLibraryRef = useRef(null);
   const fileInputCameraRef = useRef(null);
@@ -43,13 +79,17 @@ export function AdminOutillage({ onBack }) {
 
   if (!canGererCatalogue(user)) {
     return (
-      <div style={{ paddingTop: 20 }}>
-        <button onClick={onBack} style={backBtnStyle}>← Retour</button>
-        <div className="epj-card" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900 }}>Accès restreint</div>
-          <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 6 }}>
-            Seuls Admin / Direction / Assistante peuvent gérer le catalogue d'outils.
+      <div style={{ paddingTop: space.xl }}>
+        <div style={{ marginBottom: space.md }}>
+          <Button variant="secondary" icon="←" onClick={onBack}>Retour</Button>
+        </div>
+        <div style={cardPanel()}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: space.sm }}>🔒</div>
+            <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>Accès restreint</div>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs + 2 }}>
+              Seuls Admin / Direction / Assistante peuvent gérer le catalogue d'outils.
+            </div>
           </div>
         </div>
       </div>
@@ -391,286 +431,233 @@ export function AdminOutillage({ onBack }) {
       ? users.find(u => u.id === form.affectationPermanenteUserId)
       : null;
 
-    return (
-      <div style={{ paddingTop: 12, paddingBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <button onClick={cancel} style={backBtnStyle}>← Retour</button>
-          <div style={{
-            fontFamily: font.display, fontSize: 20, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em",
-          }}>{isNew ? "Nouvel outil" : "Modifier l'outil"}</div>
-        </div>
+    const catOptions = [
+      { value: "", label: "— Sélectionner une catégorie —" },
+      ...outillageCategories
+        .filter(c => c.actif !== false)
+        .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+        .map(cat => ({ value: cat.id, label: `${cat.icon} ${cat.label}` })),
+    ];
+    const userOptions = [
+      { value: "", label: "— Aucune affectation (outil partagé) —" },
+      ...[...users]
+        .sort((a, b) => (a.nom || "").localeCompare(b.nom || ""))
+        .map(u => ({ value: u.id, label: `${u.prenom} ${u.nom}` })),
+    ];
 
-        <div className="epj-card" style={{ padding: 14, marginBottom: 14 }}>
+    return (
+      <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
+        <ModuleSubHeader
+          moduleName="Catalogue"
+          title={isNew ? "Nouvel outil" : "Modifier l'outil"}
+          subtitle="Parc machines"
+          onBackToModuleHome={cancel}
+        />
+
+        <div style={{ ...cardPanel(), display: "flex", flexDirection: "column", gap: space.lg }}>
           {/* Photo */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Photo</label>
+          <div>
+            <FieldLabel>Photo</FieldLabel>
             {form.photoURL ? (
-              <div style={{ position: "relative", marginTop: 4 }}>
+              <div style={{ position: "relative", marginTop: space.xs }}>
                 <img src={form.photoURL} alt="outil" style={{
                   width: "100%", maxHeight: 240, objectFit: "cover",
-                  borderRadius: 10, border: `1px solid ${EPJ.gray200}`,
+                  borderRadius: radius.md, border: `1px solid ${EPJ.gray200}`,
                 }}/>
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => fileInputLibraryRef.current?.click()}
-                    disabled={!!uploadingPhoto}
-                    style={photoBtnStyle(EPJ.gray100, EPJ.gray700)}
-                  >🖼 Bibliothèque</button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputCameraRef.current?.click()}
-                    disabled={!!uploadingPhoto}
-                    style={photoBtnStyle(EPJ.gray100, EPJ.gray700)}
-                  >📷 Caméra</button>
-                  <button
-                    type="button"
-                    onClick={handleRemovePhoto}
-                    style={photoBtnStyle(`${EPJ.red}15`, EPJ.red)}
-                  >🗑 Supprimer</button>
+                <div style={{ display: "flex", gap: space.sm, marginTop: space.sm, flexWrap: "wrap" }}>
+                  <Button variant="secondary" disabled={!!uploadingPhoto}
+                    onClick={() => fileInputLibraryRef.current?.click()}>🖼 Bibliothèque</Button>
+                  <Button variant="secondary" disabled={!!uploadingPhoto}
+                    onClick={() => fileInputCameraRef.current?.click()}>📷 Caméra</Button>
+                  <Button variant="ghost" disabled={!!uploadingPhoto}
+                    onClick={handleRemovePhoto}>🗑 Supprimer</Button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: space.sm, marginTop: space.xs }}>
                 {uploadingPhoto ? (
                   <div style={{
-                    width: "100%", padding: "24px 12px", border: `2px dashed ${EPJ.orange}`,
-                    borderRadius: 10, background: `${EPJ.orange}08`,
-                    color: EPJ.orange, fontSize: 13, fontWeight: 600,
+                    width: "100%", padding: `${space.xl}px ${space.md}px`,
+                    border: `2px dashed ${EPJ.orange}`,
+                    borderRadius: radius.md, background: EPJ.warningBg,
+                    color: EPJ.orangeText, fontSize: fontSize.sm, fontWeight: fontWeight.medium,
                     textAlign: "center",
                   }}>📤 Téléversement en cours… ({uploadingPhoto})</div>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => fileInputLibraryRef.current?.click()}
-                      disabled={!!uploadingPhoto}
-                      style={{
-                        width: "100%", padding: "18px 12px", border: `2px dashed ${EPJ.gray300}`,
-                        borderRadius: 10, background: EPJ.gray50,
-                        color: EPJ.gray700, fontSize: 13, fontWeight: 600,
-                        cursor: "pointer", fontFamily: font.body,
-                      }}
-                    >🖼 Choisir depuis la bibliothèque</button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputCameraRef.current?.click()}
-                      disabled={!!uploadingPhoto}
-                      style={{
-                        width: "100%", padding: "18px 12px", border: `2px dashed ${EPJ.gray300}`,
-                        borderRadius: 10, background: EPJ.gray50,
-                        color: EPJ.gray700, fontSize: 13, fontWeight: 600,
-                        cursor: "pointer", fontFamily: font.body,
-                      }}
-                    >📷 Prendre une photo (mobile)</button>
+                    <button type="button" disabled={!!uploadingPhoto} style={dropZoneStyle}
+                      onClick={() => fileInputLibraryRef.current?.click()}>🖼 Choisir depuis la bibliothèque</button>
+                    <button type="button" disabled={!!uploadingPhoto} style={dropZoneStyle}
+                      onClick={() => fileInputCameraRef.current?.click()}>📷 Prendre une photo (mobile)</button>
                   </>
                 )}
               </div>
             )}
             {/* Input pour bibliothèque (pas de capture → laisse iOS proposer le choix) */}
-            <input
-              ref={fileInputLibraryRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoSelect}
-              style={{ display: "none" }}
-            />
+            <input ref={fileInputLibraryRef} type="file" accept="image/*"
+              onChange={handlePhotoSelect} style={{ display: "none" }} />
             {/* Input pour caméra forcée */}
-            <input
-              ref={fileInputCameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handlePhotoSelect}
-              style={{ display: "none" }}
-            />
-            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 6, lineHeight: 1.4 }}>
+            <input ref={fileInputCameraRef} type="file" accept="image/*" capture="environment"
+              onChange={handlePhotoSelect} style={{ display: "none" }} />
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs + 2, lineHeight: 1.4 }}>
               L'image sera compressée (max 1024 px) avant envoi.
             </div>
           </div>
 
-          <FormRow>
-            <label style={labelStyle}>Référence <span style={{ color: EPJ.red }}>*</span></label>
-            <input className="epj-input" value={form.ref}
-              onChange={e => setForm(f => ({ ...f, ref: e.target.value }))}
-              placeholder="ex: PERCEUSE/001"
-              style={{ fontFamily: "monospace" }}/>
-          </FormRow>
+          <Field label="Référence" required value={form.ref}
+            onChange={e => setForm(f => ({ ...f, ref: e.target.value }))}
+            placeholder="ex: PERCEUSE/001" />
 
-          <FormRow>
-            <label style={labelStyle}>Désignation <span style={{ color: EPJ.red }}>*</span></label>
-            <input className="epj-input" value={form.nom}
-              onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
-              placeholder="ex: Perceuse à percussion Makita"/>
-          </FormRow>
+          <Field label="Désignation" required value={form.nom}
+            onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
+            placeholder="ex: Perceuse à percussion Makita" />
 
-          <FormRow>
-            <label style={labelStyle}>Catégorie <span style={{ color: EPJ.red }}>*</span></label>
-            {outillageCategories.length === 0 ? (
-              <div style={{ fontSize: 12, color: EPJ.red, padding: "6px 0" }}>
+          {outillageCategories.length === 0 ? (
+            <div>
+              <FieldLabel required>Catégorie</FieldLabel>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.redText, padding: `${space.xs}px 0` }}>
                 ⚠ Aucune catégorie. Importe d'abord les catégories initiales ou crée-les dans Admin → Catégories outillage.
               </div>
-            ) : (
-              <select
-                className="epj-input"
-                value={form.categorieId || ""}
-                onChange={e => setForm(f => ({ ...f, categorieId: e.target.value }))}
-                style={{ width: "100%" }}
-              >
-                <option value="">— Sélectionner une catégorie —</option>
-                {outillageCategories
-                  .filter(c => c.actif !== false)
-                  .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-                  .map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.label}
-                    </option>
-                  ))}
-              </select>
-            )}
-          </FormRow>
+            </div>
+          ) : (
+            <Field as="select" label="Catégorie" required value={form.categorieId || ""}
+              onChange={e => setForm(f => ({ ...f, categorieId: e.target.value }))}
+              options={catOptions} />
+          )}
 
-          <FormRow>
-            <label style={labelStyle}>Marque</label>
-            <input className="epj-input" value={form.marque}
-              onChange={e => setForm(f => ({ ...f, marque: e.target.value }))}
-              placeholder="ex: Makita, Bosch, Hilti…"/>
-          </FormRow>
+          <Field label="Marque" value={form.marque}
+            onChange={e => setForm(f => ({ ...f, marque: e.target.value }))}
+            placeholder="ex: Makita, Bosch, Hilti…" />
 
-          <FormRow>
-            <label style={labelStyle}>Numéro de série</label>
-            <input className="epj-input" value={form.numSerie}
-              onChange={e => setForm(f => ({ ...f, numSerie: e.target.value }))}
-              placeholder="optionnel" style={{ fontFamily: "monospace" }}/>
-          </FormRow>
+          <Field label="Numéro de série" value={form.numSerie}
+            onChange={e => setForm(f => ({ ...f, numSerie: e.target.value }))}
+            placeholder="optionnel" />
 
-          <FormRow>
-            <label style={labelStyle}>Code-barres</label>
-            <input className="epj-input" value={form.codeBarres}
-              onChange={e => setForm(f => ({ ...f, codeBarres: e.target.value }))}
-              placeholder="optionnel" style={{ fontFamily: "monospace" }}/>
-          </FormRow>
+          <Field label="Code-barres" value={form.codeBarres}
+            onChange={e => setForm(f => ({ ...f, codeBarres: e.target.value }))}
+            placeholder="optionnel" />
 
           {/* AFFECTATION PERMANENTE */}
-          <FormRow>
-            <label style={labelStyle}>Affectation permanente</label>
-            <div style={{
-              fontSize: 11, color: EPJ.gray500, marginBottom: 8, lineHeight: 1.5,
-            }}>
-              Attribue cet outil de façon permanente à un employé (ex: visseuse personnelle d'un monteur).
-              L'outil ne pourra plus être sorti par d'autres jusqu'à retrait de l'affectation.
-            </div>
-            <select className="epj-input"
+          <div>
+            <Field as="select" label="Affectation permanente"
+              hint="Attribue cet outil de façon permanente à un employé (ex: visseuse personnelle d'un monteur). L'outil ne pourra plus être sorti par d'autres jusqu'à retrait de l'affectation."
               value={form.affectationPermanenteUserId || ""}
               onChange={e => setForm(f => ({ ...f, affectationPermanenteUserId: e.target.value || null }))}
-              style={{ width: "100%" }}>
-              <option value="">— Aucune affectation (outil partagé) —</option>
-              {[...users].sort((a, b) => (a.nom || "").localeCompare(b.nom || "")).map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.prenom} {u.nom}
-                </option>
-              ))}
-            </select>
+              options={userOptions} />
             {userAffecte && (
               <div style={{
-                marginTop: 6, padding: "6px 10px",
-                background: `${EPJ.blue}12`, borderRadius: 6,
-                fontSize: 11, color: EPJ.blue, fontWeight: 600,
+                marginTop: space.sm, padding: `${space.xs + 2}px ${space.md - 2}px`,
+                background: EPJ.infoBg, borderRadius: radius.sm,
+                fontSize: fontSize.xs, color: EPJ.blueText, fontWeight: fontWeight.medium,
               }}>👤 Attribué à : {userAffecte.prenom} {userAffecte.nom}</div>
             )}
-          </FormRow>
+          </div>
 
           {/* PACK D'OUTILS */}
-          <FormRow>
-            <label style={labelStyle}>📦 Pack d'outils</label>
-            <div style={{
-              fontSize: 11, color: EPJ.gray500, marginBottom: 8, lineHeight: 1.5,
-            }}>
+          <div>
+            <FieldLabel>📦 Pack d'outils</FieldLabel>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.sm, lineHeight: 1.5 }}>
               Un pack permet de sortir plusieurs outils d'un seul geste. Ex : marteau-piqueur avec ses trépans et mèches.
             </div>
             <label style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "8px 10px", borderRadius: 8,
-              background: form.isPack ? `${EPJ.orange}12` : EPJ.gray50,
+              display: "flex", alignItems: "center", gap: space.sm,
+              padding: `${space.sm}px ${space.md - 2}px`, borderRadius: radius.md,
+              background: form.isPack ? EPJ.warningBg : EPJ.gray50,
               border: `1px solid ${form.isPack ? EPJ.orange : EPJ.gray200}`,
               cursor: "pointer",
             }}>
-              <input
-                type="checkbox"
-                checked={form.isPack === true}
+              <input type="checkbox" checked={form.isPack === true}
                 onChange={e => setForm(f => ({ ...f, isPack: e.target.checked }))}
-                style={{ width: 16, height: 16, cursor: "pointer" }}
-              />
+                style={{ width: 16, height: 16, cursor: "pointer" }} />
               <span style={{
-                fontSize: 12, fontWeight: 600,
-                color: form.isPack ? EPJ.orange : EPJ.gray700,
+                fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+                color: form.isPack ? EPJ.orangeText : EPJ.gray700,
               }}>
                 Cet outil est un pack (contient d'autres outils)
               </span>
             </label>
 
             {form.isPack && (
-              <PackContentEditor
-                form={form}
-                setForm={setForm}
-                outils={outils}
-                outillageCategories={outillageCategories}
-              />
+              <PackContentEditor form={form} setForm={setForm}
+                outils={outils} outillageCategories={outillageCategories} />
             )}
-          </FormRow>
+          </div>
 
-          <FormRow>
-            <label style={labelStyle}>Statut</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {/* STATUT */}
+          <div>
+            <FieldLabel>Statut</FieldLabel>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
               {["disponible", "maintenance", "hors_service"].map(k => {
                 const meta = OUTIL_STATUTS[k];
+                const active = form.statut === k;
                 return (
                   <button key={k} type="button"
                     onClick={() => setForm(f => ({ ...f, statut: k }))}
-                    style={{
-                      padding: "6px 10px", borderRadius: 999,
-                      border: `1px solid ${form.statut === k ? meta.color : EPJ.gray200}`,
-                      background: form.statut === k ? `${meta.color}15` : EPJ.white,
-                      color: form.statut === k ? meta.color : EPJ.gray600,
-                      fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
-                    }}>
+                    style={statutChipStyle(active, meta.color)}>
                     {meta.icon} {meta.label}
                   </button>
                 );
               })}
             </div>
-            <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 4, lineHeight: 1.4 }}>
-              "Sorti", "En retard" et "Attribué" sont calculés automatiquement.
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs, lineHeight: 1.4 }}>
+              « Sorti », « En retard » et « Attribué » sont calculés automatiquement.
             </div>
-          </FormRow>
+          </div>
 
-          <FormRow>
-            <label style={labelStyle}>Notes</label>
-            <textarea className="epj-input" value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              placeholder="Remarques, consignes particulières…"
-              rows={3} style={{ resize: "vertical", minHeight: 60 }}/>
-          </FormRow>
+          <Field as="textarea" label="Notes" value={form.notes}
+            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            placeholder="Remarques, consignes particulières…" rows={3} />
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={cancel} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
-          <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-            flex: 2, background: EPJ.gray900, color: EPJ.white,
-            opacity: saving || uploadingPhoto ? 0.6 : 1,
-          }}>
-            {saving ? "Enregistrement…" : (isNew ? "Créer l'outil" : "Enregistrer")}
-          </button>
+        <div style={{ display: "flex", gap: space.sm, marginTop: space.lg }}>
+          <div style={{ flex: 1 }}>
+            <Button variant="secondary" full onClick={cancel}>Annuler</Button>
+          </div>
+          <div style={{ flex: 2 }}>
+            <Button variant="primary" full onClick={save}
+              loading={saving} disabled={!!uploadingPhoto}>
+              {isNew ? "Créer l'outil" : "Enregistrer"}
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   // ─── Liste ─────────────────────────────────────────────────
-  const sortedOutils = [...outils].sort((a, b) => (a.ref || "").localeCompare(b.ref || ""));
-  const filtered = sortedOutils.filter(o => {
+  // Augmentation des lignes (statut effectif, libellés, affectation) pour
+  // un tri + un rendu propres. computeOutilStatut / findSortieEnCours
+  // dérivent des données déjà chargées (aucune requête nouvelle).
+  const affecteNom = (o) => {
+    if (o.affectationPermanenteUserId) {
+      const u = users.find(x => x.id === o.affectationPermanenteUserId);
+      return u ? `${u.prenom || ""} ${u.nom || ""}`.trim() : "—";
+    }
+    const s = findSortieEnCours(o._id, outillageSorties);
+    if (s) {
+      const u = users.find(x => x.id === s.emprunteurId);
+      return u ? `${u.prenom || ""} ${u.nom || ""}`.trim() : (s.emprunteurNom || "—");
+    }
+    return "—";
+  };
+
+  const augmented = [...outils]
+    .sort((a, b) => (a.ref || "").localeCompare(b.ref || ""))
+    .map(o => {
+      const eff = computeOutilStatut(o, outillageSorties);
+      return {
+        ...o,
+        _statutEff: eff,
+        _statutLabel: badgePropsFor(eff).label || badgePropsFor(eff).status || eff,
+        _catLabel: getCategorieLabel(outillageCategories, o.categorieId),
+        _catIcon: getCategorieIcon(outillageCategories, o.categorieId),
+        _affecteNom: affecteNom(o),
+      };
+    });
+
+  const filtered = augmented.filter(o => {
     if (catFilter && o.categorieId !== catFilter) return false;
+    if (statutFilter && o._statutEff !== statutFilter) return false;
     if (!filter) return true;
     const q = filter.toLowerCase();
     return (
@@ -678,71 +665,155 @@ export function AdminOutillage({ onBack }) {
       (o.nom || "").toLowerCase().includes(q) ||
       (o.marque || "").toLowerCase().includes(q) ||
       (o.numSerie || "").toLowerCase().includes(q) ||
-      (o.codeBarres || "").toLowerCase().includes(q)
+      (o.codeBarres || "").toLowerCase().includes(q) ||
+      (o._catLabel || "").toLowerCase().includes(q)
     );
   });
 
-  return (
-    <div style={{ paddingTop: 12, paddingBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={backBtnStyle}>← Retour</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
+  // Comptages KPI (statut effectif)
+  const nbDispo = augmented.filter(o => o._statutEff === "disponible").length;
+  const nbSorti = augmented.filter(o => o._statutEff === "sorti").length;
+  const nbMaint = augmented.filter(o => o._statutEff === "maintenance").length;
+  const nbHS    = augmented.filter(o => o._statutEff === "hors_service").length;
+  const statutCount = { "": outils.length, disponible: nbDispo, sorti: nbSorti, maintenance: nbMaint, hors_service: nbHS };
+
+  const catOptions = [
+    { value: "", label: "📁 Toutes les catégories" },
+    ...outillageCategories
+      .filter(c => c.actif !== false)
+      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+      .map(cat => ({ value: cat.id, label: `${cat.icon} ${cat.label}` })),
+  ];
+
+  const addBtn = (
+    <Button variant="primary" icon="+" onClick={startNew}
+      disabled={outillageCategories.length === 0} full={isPwa}>
+      Ajouter un outil
+    </Button>
+  );
+
+  const columns = [
+    {
+      key: "ref", header: "Réf", width: 160,
+      render: (v) => <span style={{ fontFamily: font.mono, fontSize: fontSize.sm }}>{v}</span>,
+    },
+    {
+      key: "nom", header: "Outil",
+      render: (v, row) => (
+        <div style={{ minWidth: 0 }}>
           <div style={{
-            fontFamily: font.display, fontSize: 20, fontWeight: 400,
-            color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.15,
-          }}>Catalogue outillage</div>
+            fontWeight: fontWeight.medium, color: EPJ.gray900,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{v}</div>
           <div style={{
-            fontSize: 10, color: EPJ.gray500, letterSpacing: 0.3,
-            textTransform: "uppercase", fontWeight: 600, marginTop: 1,
-          }}>{outils.length} outil{outils.length > 1 ? "s" : ""} — {outillageCategories.length} catégorie{outillageCategories.length > 1 ? "s" : ""}</div>
+            fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 1,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {row._catIcon} {row._catLabel}{row.marque ? ` · ${row.marque}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "_statutLabel", header: "Statut", width: 150,
+      render: (_v, row) => <Badge dot {...badgePropsFor(row._statutEff)} />,
+    },
+    {
+      key: "_affecteNom", header: "Affecté à", width: 180,
+      render: (v) => v && v !== "—"
+        ? v
+        : <span style={{ color: EPJ.gray400 }}>—</span>,
+    },
+    {
+      key: "_actions", header: "", sortable: false, align: "right", width: 110,
+      render: (_v, row) => (
+        <div style={{ display: "inline-flex", gap: space.xs, justifyContent: "flex-end" }}
+          onClick={(e) => e.stopPropagation()}>
+          <IconBtn title="Modifier" onClick={() => startEdit(row)} pwa={isPwa}>✏</IconBtn>
+          <IconBtn title="Supprimer" danger onClick={() => remove(row)} pwa={isPwa}>🗑</IconBtn>
+        </div>
+      ),
+    },
+  ];
+
+  const renderCard = (row) => (
+    <div style={{ display: "flex", gap: space.md, alignItems: "flex-start" }}>
+      {row.photoURL ? (
+        <img src={row.photoURL} alt="" style={{
+          width: 54, height: 54, borderRadius: radius.sm, objectFit: "cover",
+          flexShrink: 0, border: `1px solid ${EPJ.gray200}`,
+        }}/>
+      ) : (
+        <div style={{
+          width: 54, height: 54, borderRadius: radius.sm, background: EPJ.gray100,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 24, flexShrink: 0,
+        }}>{row._catIcon}</div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: font.mono, fontSize: fontSize.sm, color: EPJ.gray900 }}>{row.ref}</div>
+        <div style={{
+          fontSize: fontSize.base, fontWeight: fontWeight.medium, color: EPJ.gray900, marginTop: 1,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{row.nom}</div>
+        <div style={{
+          fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {row._catIcon} {row._catLabel}{row.marque ? ` · ${row.marque}` : ""}
+        </div>
+        <div style={{ marginTop: space.sm, display: "flex", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
+          <Badge dot {...badgePropsFor(row._statutEff)} />
+          {row._affecteNom && row._affecteNom !== "—" && (
+            <span style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>👤 {row._affecteNom}</span>
+          )}
         </div>
       </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: space.xs, flexShrink: 0 }}
+        onClick={(e) => e.stopPropagation()}>
+        <IconBtn title="Modifier" onClick={() => startEdit(row)} pwa />
+        <IconBtn title="Supprimer" danger onClick={() => remove(row)} pwa>🗑</IconBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ paddingTop: space.md, paddingBottom: space.xl }}>
+      <ModuleSubHeader
+        moduleName="Admin"
+        title="Catalogue outillage"
+        subtitle={`${outils.length} outil${outils.length > 1 ? "s" : ""} · ${outillageCategories.length} catégorie${outillageCategories.length > 1 ? "s" : ""}`}
+        onBackToModuleHome={onBack}
+        rightSlot={!isPwa ? addBtn : null}
+      />
+      {isPwa && <div style={{ marginBottom: space.lg }}>{addBtn}</div>}
 
       {/* Bloc imports initiaux — visible tant que tout n'est pas importé */}
       {(outils.length === 0 || outillageCategories.length === 0 || outillagePannes.length === 0) && (
-        <div className="epj-card" style={{
-          padding: 16, marginBottom: 14,
-          background: `${EPJ.orange}0A`,
-          borderLeft: `3px solid ${EPJ.orange}`,
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900, marginBottom: 6 }}>
-            🚀 Imports initiaux
-          </div>
-          <div style={{ fontSize: 11, color: EPJ.gray700, lineHeight: 1.5, marginBottom: 10 }}>
+        <div style={cardPanel(EPJ.orange)}>
+          <div style={panelTitle}>🚀 Imports initiaux</div>
+          <div style={panelText}>
             Importe les données EPJ (18 catégories, 8 pannes récurrentes, 223 outils) pour démarrer rapidement.
             Les étapes 1 et 2 doivent être faites avant l'étape 3.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <button onClick={importCategoriesInitiales}
-              disabled={!!importing || outillageCategories.length > 0}
-              style={{
-                ...seedBtnStyle,
-                opacity: outillageCategories.length > 0 ? 0.5 : 1,
-              }}>
-              {importing === "categories"
-                ? "⏳ Import…"
-                : outillageCategories.length > 0
-                  ? `✓ 1. Catégories importées (${outillageCategories.length})`
-                  : "1. Importer les 18 catégories EPJ"}
-            </button>
-            <button onClick={importPannesInitiales}
-              disabled={!!importing || outillagePannes.length > 0}
-              style={{
-                ...seedBtnStyle,
-                opacity: outillagePannes.length > 0 ? 0.5 : 1,
-              }}>
-              {importing === "pannes"
-                ? "⏳ Import…"
-                : outillagePannes.length > 0
-                  ? `✓ 2. Pannes importées (${outillagePannes.length})`
-                  : "2. Importer les 8 pannes récurrentes"}
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+            <Button variant="secondary" full onClick={importCategoriesInitiales}
+              loading={importing === "categories"}
+              disabled={!!importing || outillageCategories.length > 0}>
+              {outillageCategories.length > 0
+                ? `✓ 1. Catégories importées (${outillageCategories.length})`
+                : "1. Importer les 18 catégories EPJ"}
+            </Button>
+            <Button variant="secondary" full onClick={importPannesInitiales}
+              loading={importing === "pannes"}
+              disabled={!!importing || outillagePannes.length > 0}>
+              {outillagePannes.length > 0
+                ? `✓ 2. Pannes importées (${outillagePannes.length})`
+                : "2. Importer les 8 pannes récurrentes"}
+            </Button>
             {/* v10.M — L'import initial des 223 outils est remplacé par
-                l'import via fichier Excel (bloc dédié ci-dessous).
-                Pour amorcer un parc vide, exporte d'abord le fichier
-                modèle fourni en pièce jointe du CHANGELOG v10.M et
-                réimporte-le. */}
-            <div style={{ fontSize: 11, color: EPJ.gray500, lineHeight: 1.5, marginTop: 4 }}>
+                l'import via fichier Excel (bloc dédié ci-dessous). */}
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.5, marginTop: space.xs }}>
               {outils.length === 0
                 ? "💡 Étape 3 : utilise le bloc « Import / Export du parc » ci-dessous pour charger les outils."
                 : `✓ 3. ${outils.length} outils en base`}
@@ -753,85 +824,48 @@ export function AdminOutillage({ onBack }) {
 
       {/* ─── v10.M — Import / Export Excel du parc ─── */}
       {userCanImportExport && (
-        <div className="epj-card" style={{
-          padding: 16, marginBottom: 14,
-          borderLeft: `3px solid ${EPJ.blue}`,
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900, marginBottom: 6 }}>
-            📥 Import / Export du parc
-          </div>
-          <div style={{ fontSize: 11, color: EPJ.gray700, lineHeight: 1.5, marginBottom: 10 }}>
+        <div style={cardPanel(EPJ.blue)}>
+          <div style={panelTitle}>📥 Import / Export du parc</div>
+          <div style={panelText}>
             Exporte le parc actuel pour le sauvegarder ou le modifier dans Excel.
             Puis réimporte-le en mode <b>mise à jour</b> (ajoute/modifie, conserve l'existant)
             ou <b>tout remplacer</b> (supprime tout et recharge — irréversible).
           </div>
 
-          {/* Bouton Export */}
-          <button onClick={handleExportExcel}
-            disabled={!!importing}
-            style={{
-              ...seedBtnStyle,
-              width: "100%", marginBottom: 6,
-              background: `${EPJ.green}12`,
-              color: EPJ.green,
-              border: `1px solid ${EPJ.green}40`,
-            }}>
-            📤 Exporter le parc actuel ({outils.length} outils)
-          </button>
-
-          {/* Bouton Import Mise à jour */}
-          <button onClick={() => handlePickExcel("update")}
-            disabled={!!importing}
-            style={{
-              ...seedBtnStyle,
-              width: "100%", marginBottom: 6,
-              background: `${EPJ.blue}12`,
-              color: EPJ.blue,
-              border: `1px solid ${EPJ.blue}40`,
-            }}>
-            📥 Importer (Mettre à jour le parc)
-          </button>
-
-          {/* Bouton Tout remplacer */}
-          <button onClick={() => handlePickExcel("replace")}
-            disabled={!!importing}
-            style={{
-              ...seedBtnStyle,
-              width: "100%",
-              background: `${EPJ.red}12`,
-              color: EPJ.red,
-              border: `1px solid ${EPJ.red}40`,
-            }}>
-            🗑 Importer (Tout remplacer — IRRÉVERSIBLE)
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+            <Button variant="secondary" full onClick={handleExportExcel} disabled={!!importing}>
+              📤 Exporter le parc actuel ({outils.length} outils)
+            </Button>
+            <Button variant="secondary" full onClick={() => handlePickExcel("update")} disabled={!!importing}>
+              📥 Importer (mettre à jour le parc)
+            </Button>
+            <Button variant="danger" full onClick={() => handlePickExcel("replace")} disabled={!!importing}>
+              🗑 Importer (tout remplacer — irréversible)
+            </Button>
+          </div>
 
           {/* Input file caché */}
-          <input
-            ref={fileInputExcelRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleExcelFileChosen}
-            style={{ display: "none" }}
-          />
+          <input ref={fileInputExcelRef} type="file" accept=".xlsx,.xls"
+            onChange={handleExcelFileChosen} style={{ display: "none" }} />
 
           {/* Preview avant import */}
           {importPreview && (
             <div style={{
-              marginTop: 12, padding: 12, borderRadius: 8,
-              background: importPreview.mode === "replace" ? `${EPJ.red}08` : `${EPJ.blue}08`,
+              marginTop: space.md, padding: space.md, borderRadius: radius.md,
+              background: importPreview.mode === "replace" ? EPJ.dangerBg : EPJ.infoBg,
               border: `1px solid ${importPreview.mode === "replace" ? EPJ.red : EPJ.blue}40`,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray900, marginBottom: 6 }}>
+              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs + 2 }}>
                 📋 Aperçu de l'import — {importPreview.file}
               </div>
-              <div style={{ fontSize: 11, color: EPJ.gray700, lineHeight: 1.6 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, lineHeight: 1.6 }}>
                 <b>Mode :</b> {importPreview.mode === "replace" ? "🗑 Tout remplacer" : "📥 Mise à jour"}<br/>
                 <b>Lignes lues :</b> {importPreview.totalInFile}<br/>
                 <b>Lignes valides :</b> {importPreview.valid.length}<br/>
                 <b>Nouveaux outils :</b> {importPreview.newCount}<br/>
                 <b>Outils existants mis à jour :</b> {importPreview.existingCount}<br/>
                 {importPreview.errors.length > 0 && (
-                  <span style={{ color: EPJ.red }}>
+                  <span style={{ color: EPJ.redText }}>
                     <b>Erreurs :</b> {importPreview.errors.length}
                   </span>
                 )}
@@ -840,13 +874,13 @@ export function AdminOutillage({ onBack }) {
               {/* Liste des erreurs (max 5) */}
               {importPreview.errors.length > 0 && (
                 <div style={{
-                  marginTop: 8, padding: 8, borderRadius: 6,
-                  background: `${EPJ.red}10`, fontSize: 10, color: EPJ.red, lineHeight: 1.5,
+                  marginTop: space.sm, padding: space.sm, borderRadius: radius.sm,
+                  background: EPJ.dangerBg, fontSize: fontSize.xs, color: EPJ.redText, lineHeight: 1.5,
                   maxHeight: 100, overflowY: "auto",
                 }}>
                   {importPreview.errors.slice(0, 5).map((err, i) => <div key={i}>• {err}</div>)}
                   {importPreview.errors.length > 5 && (
-                    <div style={{ fontWeight: 700, marginTop: 4 }}>
+                    <div style={{ fontWeight: fontWeight.medium, marginTop: space.xs }}>
                       … et {importPreview.errors.length - 5} autre(s) erreur(s)
                     </div>
                   )}
@@ -854,173 +888,155 @@ export function AdminOutillage({ onBack }) {
               )}
 
               {/* Boutons confirmer / annuler */}
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                <button onClick={handleImportConfirm}
-                  disabled={!!importing || importPreview.valid.length === 0}
-                  style={{
-                    flex: 1, padding: "10px 12px", borderRadius: 6,
-                    background: importPreview.mode === "replace" ? EPJ.red : EPJ.blue,
-                    color: EPJ.white, border: "none", fontSize: 12, fontWeight: 700,
-                    cursor: importing ? "not-allowed" : "pointer",
-                    opacity: (importing || importPreview.valid.length === 0) ? 0.5 : 1,
-                    fontFamily: font.body,
-                  }}>
-                  {importing === "excel" ? "⏳ Import en cours…" : `✓ Confirmer (${importPreview.valid.length} outils)`}
-                </button>
-                <button onClick={() => setImportPreview(null)}
-                  disabled={!!importing}
-                  style={{
-                    padding: "10px 12px", borderRadius: 6,
-                    background: "transparent", color: EPJ.gray500,
-                    border: `1px solid ${EPJ.gray300}`, fontSize: 12, fontWeight: 600,
-                    cursor: importing ? "not-allowed" : "pointer",
-                    fontFamily: font.body,
-                  }}>
+              <div style={{ display: "flex", gap: space.sm, marginTop: space.md }}>
+                <div style={{ flex: 1 }}>
+                  <Button variant={importPreview.mode === "replace" ? "danger" : "primary"} full
+                    onClick={handleImportConfirm}
+                    loading={importing === "excel"}
+                    disabled={!!importing || importPreview.valid.length === 0}>
+                    ✓ Confirmer ({importPreview.valid.length} outils)
+                  </Button>
+                </div>
+                <Button variant="ghost" onClick={() => setImportPreview(null)} disabled={!!importing}>
                   Annuler
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      <button onClick={startNew} disabled={outillageCategories.length === 0} className="epj-btn" style={{
-        width: "100%", background: EPJ.gray900, color: EPJ.white, marginBottom: 12,
-        opacity: outillageCategories.length === 0 ? 0.5 : 1,
-      }}>+ Ajouter un outil</button>
-
+      {/* Rangée KPI + barre d'outils + tableau (dès qu'il y a des outils) */}
       {outils.length > 0 && (
         <>
-          <input className="epj-input" value={filter} onChange={e => setFilter(e.target.value)}
-            placeholder="🔍 Rechercher (référence, nom, marque, code-barres…)"
-            style={{ marginBottom: 8 }}/>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-            <select
-              value={catFilter}
-              onChange={e => setCatFilter(e.target.value)}
-              className="epj-input"
-              style={{ flex: 1, fontSize: 12, padding: "8px 12px" }}
-            >
-              <option value="">📁 Toutes les catégories</option>
-              {outillageCategories
-                .filter(c => c.actif !== false)
-                .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-                .map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.label}
-                  </option>
-                ))}
-            </select>
-            {catFilter && (
-              <button
-                onClick={() => setCatFilter("")}
-                style={{
-                  background: EPJ.gray100, border: "none", borderRadius: 6,
-                  padding: "8px 10px", fontSize: 12, fontWeight: 600,
-                  color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-                  flexShrink: 0,
-                }}
-                title="Effacer le filtre"
-              >✕</button>
-            )}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isPwa ? "1fr 1fr" : "repeat(4, 1fr)",
+            gap: space.md, marginBottom: space.lg,
+          }}>
+            <StatCard label="Total" value={outils.length} loading={!loaded?.outils} />
+            <StatCard label="Disponibles" value={nbDispo} loading={!loaded?.outils} />
+            <StatCard label="En maintenance" value={nbMaint} loading={!loaded?.outils} />
+            <StatCard label="Hors service" value={nbHS} loading={!loaded?.outils} />
           </div>
-        </>
-      )}
 
-      {filtered.length === 0 ? (
-        outils.length > 0 ? (
-          <div className="epj-card" style={{ padding: 20, textAlign: "center" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-            <div style={{ fontSize: 13, color: EPJ.gray500 }}>Aucun résultat pour cette recherche.</div>
-          </div>
-        ) : null
-      ) : (
-        filtered.map(o => {
-          const catIcon = getCategorieIcon(outillageCategories, o.categorieId);
-          const catLabel = getCategorieLabel(outillageCategories, o.categorieId);
-          return (
-            <div key={o._id} className="epj-card" style={{ padding: "12px 14px", marginBottom: 8 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                {o.photoURL ? (
-                  <img src={o.photoURL} alt="" style={{
-                    width: 54, height: 54, borderRadius: 8, objectFit: "cover",
-                    flexShrink: 0, border: `1px solid ${EPJ.gray200}`,
-                  }}/>
-                ) : (
-                  <div style={{
-                    width: 54, height: 54, borderRadius: 8,
-                    background: EPJ.gray100, display: "flex", alignItems: "center",
-                    justifyContent: "center", fontSize: 24, flexShrink: 0,
-                  }}>{catIcon}</div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: EPJ.gray900, fontFamily: "monospace" }}>
-                    {o.ref}
-                  </div>
-                  <div style={{ fontSize: 12, color: EPJ.gray700, marginTop: 1 }}>{o.nom}</div>
-                  <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 3 }}>
-                    {catIcon} {catLabel}
-                    {o.marque ? ` • ${o.marque}` : ""}
-                    {o.numSerie ? ` • N° ${o.numSerie}` : ""}
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => startEdit(o)} style={actionBtnStyle(EPJ.gray100, EPJ.gray700)}>✏</button>
-                  <button onClick={() => remove(o)} style={actionBtnStyle(`${EPJ.red}12`, EPJ.red)}>🗑</button>
-                </div>
-              </div>
+          <div style={{
+            display: "flex", flexDirection: isPwa ? "column" : "row",
+            gap: space.md, marginBottom: space.md, alignItems: isPwa ? "stretch" : "center",
+          }}>
+            <div style={{ flex: isPwa ? undefined : 2 }}>
+              <Field value={filter} onChange={e => setFilter(e.target.value)}
+                placeholder="🔍 Rechercher (référence, nom, marque, catégorie…)" />
             </div>
-          );
-        })
+            <div style={{ flex: isPwa ? undefined : 1 }}>
+              <Field as="select" value={catFilter}
+                onChange={e => setCatFilter(e.target.value)} options={catOptions} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.lg }}>
+            {STATUT_CHIPS.map(c => (
+              <Button key={c.key || "all"}
+                variant={statutFilter === c.key ? "secondary" : "ghost"}
+                onClick={() => setStatutFilter(c.key)}>
+                {c.label} ({statutCount[c.key] ?? 0})
+              </Button>
+            ))}
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            keyField="_id"
+            onRowClick={(row) => startEdit(row)}
+            renderCard={renderCard}
+            loading={!loaded?.outils}
+            empty={{
+              icon: "🔍",
+              title: "Aucun outil ne correspond",
+              text: "Modifie la recherche ou les filtres de statut / catégorie.",
+            }}
+          />
+        </>
       )}
     </div>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
-const backBtnStyle = {
-  background: EPJ.gray100, border: "none", borderRadius: 10,
-  padding: "9px 14px", fontSize: 13, fontWeight: 600,
-  color: EPJ.gray700, cursor: "pointer", fontFamily: font.body,
-  whiteSpace: "nowrap", flexShrink: 0,
-};
-const labelStyle = {
-  display: "block", fontSize: 10, fontWeight: 600,
-  color: EPJ.gray500, letterSpacing: 0.4, textTransform: "uppercase",
-  marginBottom: 4,
-};
-const seedBtnStyle = {
-  width: "100%", padding: "9px 12px", borderRadius: 8,
-  border: `1px solid ${EPJ.orange}`, background: `${EPJ.orange}12`,
-  color: EPJ.orange, fontSize: 12, fontWeight: 600,
-  cursor: "pointer", fontFamily: "Inter, sans-serif",
-  textAlign: "left",
-};
-function FormRow({ children }) { return <div style={{ marginBottom: 12 }}>{children}</div>; }
-function filterChipStyle(active) {
+// ─── Styles & helpers DS-2 ───────────────────────────────────
+// Panneau blanc tokenisé (DA §4). accent → bordure gauche sémantique 3px.
+function cardPanel(accent) {
   return {
-    padding: "6px 10px", borderRadius: 999,
-    border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
-    background: active ? EPJ.gray900 : EPJ.white,
-    color: active ? EPJ.white : EPJ.gray700,
-    fontSize: 11, fontWeight: 600, cursor: "pointer",
-    fontFamily: "Inter, sans-serif",
+    background: EPJ.white,
+    border: `1px solid ${EPJ.gray200}`,
+    borderRadius: radius.lg,
+    boxShadow: shadow.sm,
+    padding: space.lg,
+    marginBottom: space.lg,
+    ...(accent ? {
+      borderLeft: `3px solid ${accent}`,
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    } : null),
   };
 }
-function actionBtnStyle(bg, color) {
+const panelTitle = {
+  fontSize: fontSize.sm, fontWeight: fontWeight.semibold,
+  color: EPJ.gray900, marginBottom: space.xs + 2,
+};
+const panelText = {
+  fontSize: fontSize.xs, color: EPJ.gray700, lineHeight: 1.5, marginBottom: space.md,
+};
+const dropZoneStyle = {
+  width: "100%", padding: `${space.lg}px ${space.md}px`, border: `2px dashed ${EPJ.gray300}`,
+  borderRadius: radius.md, background: EPJ.gray50, color: EPJ.gray700,
+  fontSize: fontSize.sm, fontWeight: fontWeight.medium, cursor: "pointer", fontFamily: font.body,
+};
+
+// Label autonome (même rendu que le label interne de <Field>).
+function FieldLabel({ children, required }) {
+  return (
+    <label style={{
+      display: "block", fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+      color: EPJ.gray700, fontFamily: font.body, marginBottom: space.xs + 2,
+    }}>
+      {children}
+      {required && <span style={{ color: EPJ.red, marginLeft: 3 }}>*</span>}
+    </label>
+  );
+}
+
+// Chip de sélection de statut (formulaire) — couleur sémantique quand actif.
+function statutChipStyle(active, color) {
   return {
-    background: bg, color, border: "none", borderRadius: 6,
-    padding: "6px 9px", fontSize: 12, fontWeight: 600,
-    cursor: "pointer", fontFamily: "Inter, sans-serif",
+    padding: `${space.xs + 2}px ${space.md - 2}px`, borderRadius: radius.pill,
+    border: `1px solid ${active ? color : EPJ.gray200}`,
+    background: active ? `${color}15` : EPJ.white,
+    color: active ? color : EPJ.gray600,
+    fontSize: fontSize.xs, fontWeight: fontWeight.medium, cursor: "pointer", fontFamily: font.body,
   };
 }
-function photoBtnStyle(bg, color) {
-  return {
-    flex: 1, background: bg, color, border: "none", borderRadius: 8,
-    padding: "8px 10px", fontSize: 12, fontWeight: 600,
-    cursor: "pointer", fontFamily: "Inter, sans-serif",
-  };
+
+// Bouton d'action dense (cellule tableau / carte). Voir rapport : la
+// primitive <Button> ne couvre pas l'icon-only dense (pas de size sm ni
+// d'override couleur pour ghost) — IconBtn local en attendant.
+function IconBtn({ children = "✏", onClick, danger, title, pwa }) {
+  const [hover, setHover] = useState(false);
+  const size = pwa ? 44 : 34;
+  return (
+    <button type="button" title={title} aria-label={title} onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: size, height: size, borderRadius: radius.md, border: "none",
+        background: hover ? (danger ? EPJ.dangerBg : EPJ.gray100) : "transparent",
+        color: danger ? EPJ.redText : EPJ.gray600,
+        fontSize: 15, cursor: "pointer", fontFamily: font.body,
+        transition: "background .12s ease",
+      }}>
+      {children}
+    </button>
+  );
 }
 
 // ─── Éditeur de contenu d'un pack ────────────────────────────
@@ -1072,141 +1088,119 @@ function PackContentEditor({ form, setForm, outils, outillageCategories }) {
 
   return (
     <div style={{
-      marginTop: 10, padding: 12, borderRadius: 8,
+      marginTop: space.sm + 2, padding: space.md, borderRadius: radius.md,
       background: EPJ.gray50, border: `1px solid ${EPJ.gray200}`,
     }}>
       <div style={{
-        fontSize: 10, fontWeight: 700, color: EPJ.gray500,
-        textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
+        fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray500,
+        textTransform: "uppercase", letterSpacing: 0.4, marginBottom: space.sm,
       }}>Contenu du pack ({packContent.length} outil{packContent.length > 1 ? "s" : ""})</div>
 
       {packContent.length === 0 ? (
         <div style={{
-          fontSize: 11, color: EPJ.gray500, fontStyle: "italic",
-          padding: "8px 0", textAlign: "center",
+          fontSize: fontSize.xs, color: EPJ.gray500, fontStyle: "italic",
+          padding: `${space.sm}px 0`, textAlign: "center",
         }}>Aucun outil dans le pack. Ajoute-en ci-dessous.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: space.xs, marginBottom: space.sm + 2 }}>
           {packContent.map(p => {
             const o = outils.find(x => x._id === p.outilId);
             if (!o) {
               // outil supprimé entre temps, on le marque en rouge
               return (
                 <div key={p.outilId} style={{
-                  padding: "8px 10px", borderRadius: 6,
-                  background: `${EPJ.red}10`, border: `1px solid ${EPJ.red}30`,
-                  fontSize: 11, color: EPJ.red,
+                  padding: `${space.sm}px ${space.md - 2}px`, borderRadius: radius.sm,
+                  background: EPJ.dangerBg, border: `1px solid ${EPJ.red}30`,
+                  fontSize: fontSize.xs, color: EPJ.redText,
                 }}>
                   ⚠ Outil introuvable ({p.outilId})
-                  <button
-                    type="button"
-                    onClick={() => removeFromPack(p.outilId)}
+                  <button type="button" onClick={() => removeFromPack(p.outilId)}
                     style={{
-                      marginLeft: 8, padding: "2px 6px",
+                      marginLeft: space.sm, padding: "2px 6px",
                       background: EPJ.red, color: EPJ.white, border: "none",
-                      borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
-                    }}
-                  >✕</button>
+                      borderRadius: radius.sm, fontSize: fontSize.xs, fontWeight: fontWeight.medium, cursor: "pointer",
+                    }}>✕</button>
                 </div>
               );
             }
             const catIcon = outillageCategories.find(c => c.id === o.categorieId)?.icon || "🔧";
             return (
               <div key={p.outilId} style={{
-                padding: "8px 10px", borderRadius: 6,
+                padding: `${space.sm}px ${space.md - 2}px`, borderRadius: radius.sm,
                 background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
-                display: "flex", alignItems: "center", gap: 8,
+                display: "flex", alignItems: "center", gap: space.sm,
               }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: 5,
+                  width: 28, height: 28, borderRadius: radius.sm,
                   background: EPJ.gray100, display: "flex", alignItems: "center",
                   justifyContent: "center", fontSize: 14, flexShrink: 0,
                 }}>{catIcon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 11, fontWeight: 700, color: EPJ.gray900, fontFamily: "monospace",
+                    fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900, fontFamily: font.mono,
                   }}>{o.ref}</div>
                   <div style={{
-                    fontSize: 11, color: EPJ.gray700,
+                    fontSize: fontSize.xs, color: EPJ.gray700,
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>{o.nom}</div>
                 </div>
                 <label style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  fontSize: 10, fontWeight: 600,
-                  color: p.obligatoire ? EPJ.red : EPJ.gray500,
+                  display: "flex", alignItems: "center", gap: space.xs,
+                  fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+                  color: p.obligatoire ? EPJ.redText : EPJ.gray500,
                   cursor: "pointer", flexShrink: 0,
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={p.obligatoire}
-                    onChange={() => toggleObligatoire(p.outilId)}
-                    style={{ cursor: "pointer" }}
-                  />
+                  <input type="checkbox" checked={p.obligatoire}
+                    onChange={() => toggleObligatoire(p.outilId)} style={{ cursor: "pointer" }} />
                   Obligatoire
                 </label>
-                <button
-                  type="button"
-                  onClick={() => removeFromPack(p.outilId)}
+                <button type="button" onClick={() => removeFromPack(p.outilId)}
                   style={{
-                    background: `${EPJ.red}10`, color: EPJ.red, border: "none",
-                    borderRadius: 5, padding: "4px 7px", fontSize: 12, fontWeight: 600,
+                    background: EPJ.dangerBg, color: EPJ.redText, border: "none",
+                    borderRadius: radius.sm, padding: "4px 7px", fontSize: fontSize.xs, fontWeight: fontWeight.medium,
                     cursor: "pointer", flexShrink: 0,
-                  }}
-                >✕</button>
+                  }}>✕</button>
               </div>
             );
           })}
         </div>
       )}
 
-      <div style={{ borderTop: `1px solid ${EPJ.gray200}`, paddingTop: 10 }}>
-        <input
-          type="text"
-          className="epj-input"
-          value={searchAdd}
-          onChange={e => setSearchAdd(e.target.value)}
-          placeholder="🔍 Rechercher un outil à ajouter au pack…"
-          style={{ width: "100%", marginBottom: 6, fontSize: 12 }}
-        />
+      <div style={{ borderTop: `1px solid ${EPJ.gray200}`, paddingTop: space.sm + 2 }}>
+        <Field value={searchAdd} onChange={e => setSearchAdd(e.target.value)}
+          placeholder="🔍 Rechercher un outil à ajouter au pack…" />
         {searchAdd.trim() && availableOutils.length === 0 && (
-          <div style={{ fontSize: 11, color: EPJ.gray500, padding: 6 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, padding: space.sm }}>
             Aucun outil trouvé.
           </div>
         )}
         {searchAdd.trim() && availableOutils.length > 0 && (
           <div style={{
-            maxHeight: 240, overflowY: "auto",
-            border: `1px solid ${EPJ.gray200}`, borderRadius: 6,
-            background: EPJ.white,
+            marginTop: space.sm, maxHeight: 240, overflowY: "auto",
+            border: `1px solid ${EPJ.gray200}`, borderRadius: radius.sm, background: EPJ.white,
           }}>
             {availableOutils.map(o => {
               const catIcon = outillageCategories.find(c => c.id === o.categorieId)?.icon || "🔧";
               return (
-                <div
-                  key={o._id}
-                  onClick={() => addToPack(o._id)}
+                <div key={o._id} onClick={() => addToPack(o._id)}
                   style={{
-                    padding: "8px 10px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 8,
+                    padding: `${space.sm}px ${space.md - 2}px`, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: space.sm,
                     borderBottom: `1px solid ${EPJ.gray100}`,
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = EPJ.gray50}
-                  onMouseLeave={e => e.currentTarget.style.background = EPJ.white}
-                >
+                  onMouseLeave={e => e.currentTarget.style.background = EPJ.white}>
                   <div style={{ fontSize: 14 }}>{catIcon}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize: 11, fontWeight: 700, color: EPJ.gray900, fontFamily: "monospace",
+                      fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900, fontFamily: font.mono,
                     }}>{o.ref}</div>
                     <div style={{
-                      fontSize: 11, color: EPJ.gray600,
+                      fontSize: fontSize.xs, color: EPJ.gray600,
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                     }}>{o.nom}</div>
                   </div>
-                  <span style={{
-                    color: EPJ.orange, fontSize: 16, fontWeight: 700,
-                  }}>+</span>
+                  <span style={{ color: EPJ.blue, fontSize: 16, fontWeight: fontWeight.medium }}>+</span>
                 </div>
               );
             })}
