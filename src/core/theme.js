@@ -4,11 +4,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 export const EPJ = {
-  // Couleurs identité EPJ (inchangées)
+  // Couleurs identité EPJ (charte vérifiée logo + print officiels, 2026-06-10)
   dark:       "#3D3D3D",
-  blue:       "#00A3E0",
-  orange:     "#F5841F",
-  green:      "#A8C536",
+  blue:       "#00A3E0",   // couleur de travail — conforme au dégradé du logo
+  orange:     "#F8A018",   // orange doré charte (ex #F5841F)
+  green:      "#98D038",   // vert pomme charte (ex #A8C536)
   red:        "#E53935",
 
   // Échelle de gris
@@ -28,6 +28,12 @@ export const EPJ = {
   warningBg:  "#FFF3E0",
   dangerBg:   "#FFEBEE",
   infoBg:     "#E3F2FD",
+
+  // Texte sémantique foncé — lisible sur fonds clairs/doux (teinte foncée de chaque famille)
+  greenText:  "#4C7A14",
+  orangeText: "#9A6200",
+  redText:    "#B71C1C",
+  blueText:   "#006B94",
 
   // Alias rétrocompat
   gray:       "#6B6B6B",
