@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useMemo } from "react";
+import { EPJ } from "../theme";
 import { EMOJI_GROUPS, findEmojiGroup } from "../emojiLibrary";
 
 export function EmojiPicker({ value, onChange, compact = false }) {
@@ -19,14 +20,14 @@ export function EmojiPicker({ value, onChange, compact = false }) {
   const [tabId, setTabId] = useState(initialTabId);
   const activeGroup = EMOJI_GROUPS.find(g => g.id === tabId) || EMOJI_GROUPS[0];
 
-  const BLUE = "#00A3E0";
-  const GRAY = "#6B6B6B";
+  const BLUE = EPJ.blue;
+  const GRAY = EPJ.gray500;
   const GRAY_LIGHT = "#EEEEEE";
 
   const isImageValue = value && (value.startsWith("http") || value.startsWith("data:"));
 
   return (
-    <div style={{ background: "#fafafa", borderRadius: 10, padding: 10, border: "1px solid #eee" }}>
+    <div style={{ background: EPJ.gray50, borderRadius: 10, padding: 10, border: "1px solid #eee" }}>
       {!compact && (
         <div style={{ fontSize: 11, fontWeight: 700, color: GRAY, marginBottom: 6 }}>
           CHOISIR UNE ICÔNE
@@ -46,8 +47,8 @@ export function EmojiPicker({ value, onChange, compact = false }) {
                 padding: "4px 9px",
                 borderRadius: 6,
                 border: "none",
-                background: active ? BLUE : "#fff",
-                color: active ? "#fff" : GRAY,
+                background: active ? BLUE : EPJ.white,
+                color: active ? EPJ.white : GRAY,
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -74,7 +75,7 @@ export function EmojiPicker({ value, onChange, compact = false }) {
                 height: 36,
                 borderRadius: 8,
                 border: selected ? `2px solid ${BLUE}` : "2px solid transparent",
-                background: selected ? "#E3F2FD" : "#fff",
+                background: selected ? EPJ.infoBg : EPJ.white,
                 fontSize: 20,
                 cursor: "pointer",
                 display: "flex",

@@ -160,7 +160,7 @@ export function AdminCompany({ onBack }) {
             <img src={form.papierEnteteUrl} alt="Papier en-tête" style={{
               width: "100%", maxHeight: 280, objectFit: "contain",
               borderRadius: 6, border: `1px solid ${EPJ.gray200}`,
-              background: "#fff", marginBottom: 6,
+              background: EPJ.white, marginBottom: 6,
             }}/>
             <div style={{ display: "flex", gap: 6 }}>
               <button type="button" onClick={() => fileRef.current?.click()}
@@ -308,7 +308,7 @@ export function AdminCompany({ onBack }) {
       </div>
 
       <button onClick={save} disabled={saving} className="epj-btn" style={{
-        width: "100%", background: EPJ.blue, color: "#fff",
+        width: "100%", background: EPJ.blue, color: EPJ.white,
         fontSize: 14, padding: "12px",
       }}>
         {saving ? "⏳ Enregistrement..." : "💾 Enregistrer"}

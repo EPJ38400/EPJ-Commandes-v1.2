@@ -63,7 +63,7 @@ export function MailItem({ mail }) {
     <div style={{
       border: `1px solid ${EPJ.gray200}`,
       borderRadius: radius.md,
-      background: "#fff",
+      background: EPJ.white,
       overflow: "hidden",
     }}>
 
@@ -74,7 +74,7 @@ export function MailItem({ mail }) {
         style={{
           width: "100%", padding: "10px 12px",
           display: "flex", alignItems: "center", gap: 10,
-          background: expanded ? EPJ.gray50 : "#fff",
+          background: expanded ? EPJ.gray50 : EPJ.white,
           border: "none", cursor: "pointer", textAlign: "left",
           borderBottom: expanded ? `1px solid ${EPJ.gray200}` : "none",
           transition: "background .15s",
@@ -146,7 +146,7 @@ export function MailItem({ mail }) {
           <div style={{
             padding: "10px 12px 6px",
             fontSize: 13, fontWeight: 600, color: EPJ.gray900,
-            background: "#fff",
+            background: EPJ.white,
           }}>
             {sujet}
           </div>
@@ -158,7 +158,7 @@ export function MailItem({ mail }) {
             sandbox="allow-same-origin"
             style={{
               width: "100%", border: "none", display: "block",
-              minHeight: 80, background: "#fff",
+              minHeight: 80, background: EPJ.white,
             }}
           />
 
@@ -179,7 +179,7 @@ export function MailItem({ mail }) {
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6,
                     fontSize: 11, padding: "6px 10px",
-                    background: "#fff", border: `1px solid ${EPJ.gray200}`,
+                    background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
                     borderRadius: 6, color: EPJ.gray700, textDecoration: "none",
                     fontFamily: font.body,
                   }}

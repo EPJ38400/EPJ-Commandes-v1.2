@@ -73,7 +73,7 @@ export function MailReplyComposer({ reserve, mails = [], onSend, onCancel }) {
     <div style={{
       padding: 14,
       borderTop: `1px solid ${EPJ.gray200}`,
-      background: "#fff",
+      background: EPJ.white,
     }}>
       <div style={{
         fontSize: 12, fontWeight: 700, color: EPJ.blue, marginBottom: 10,
@@ -141,7 +141,7 @@ export function MailReplyComposer({ reserve, mails = [], onSend, onCancel }) {
         display: "flex", alignItems: "center", gap: 6,
       }}>
         🔗 La référence <code style={{
-          background: "#fff", padding: "1px 5px", borderRadius: 3,
+          background: EPJ.white, padding: "1px 5px", borderRadius: 3,
           color: EPJ.gray700, fontSize: 10,
         }}>[RES-{reserve?.numReserve}]</code> sera ajoutée automatiquement au sujet
         pour rattacher les réponses futures à cette réserve.
@@ -175,7 +175,7 @@ export function MailReplyComposer({ reserve, mails = [], onSend, onCancel }) {
           disabled={sending}
           className="epj-btn"
           style={{
-            flex: 2, background: EPJ.blue, color: "#fff",
+            flex: 2, background: EPJ.blue, color: EPJ.white,
             fontSize: 12, padding: "10px",
           }}
         >

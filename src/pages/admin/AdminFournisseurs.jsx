@@ -299,7 +299,7 @@ export function AdminFournisseurs({ onBack }) {
                           padding: "5px 10px", borderRadius: 999,
                           border: `1px solid ${on ? EPJ.gray900 : EPJ.gray200}`,
                           background: on ? EPJ.gray900 : EPJ.white,
-                          color: on ? "#fff" : EPJ.gray600,
+                          color: on ? EPJ.white : EPJ.gray600,
                           fontSize: 11, fontWeight: 600, cursor: "pointer",
                         }}>
                         {USAGE_LABEL[u] || u}
@@ -315,7 +315,7 @@ export function AdminFournisseurs({ onBack }) {
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
           <button onClick={cancel} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
           <button onClick={save} disabled={saving} className="epj-btn"
-            style={{ flex: 2, background: EPJ.gray900, color: "#fff", opacity: saving ? 0.6 : 1 }}>
+            style={{ flex: 2, background: EPJ.gray900, color: EPJ.white, opacity: saving ? 0.6 : 1 }}>
             {saving ? "…" : (isNew ? "Créer" : "Enregistrer")}
           </button>
         </div>
@@ -343,7 +343,7 @@ export function AdminFournisseurs({ onBack }) {
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button onClick={startNew} className="epj-btn" style={{ flex: 1, background: EPJ.gray900, color: "#fff" }}>+ Nouveau fournisseur</button>
+        <button onClick={startNew} className="epj-btn" style={{ flex: 1, background: EPJ.gray900, color: EPJ.white }}>+ Nouveau fournisseur</button>
         <button onClick={seed} disabled={seeding} className="epj-btn"
           style={{ flex: 1, background: `${EPJ.orange}12`, color: EPJ.orange, border: `1px solid ${EPJ.orange}`, opacity: seeding ? 0.6 : 1 }}>
           {seeding ? "…" : "📥 Initialiser depuis l'historique"}

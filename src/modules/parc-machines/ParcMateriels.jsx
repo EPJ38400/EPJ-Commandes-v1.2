@@ -379,7 +379,7 @@ function CategoryTile({ category, stats, onClick }) {
       {stats.retard > 0 && (
         <div style={{
           position: "absolute", top: 6, right: 6,
-          background: EPJ.red, color: "#fff",
+          background: EPJ.red, color: EPJ.white,
           fontSize: 9, fontWeight: 800,
           padding: "2px 6px", borderRadius: 999,
           minWidth: 18, textAlign: "center", lineHeight: 1.3,
@@ -470,7 +470,7 @@ function OutilCard({ outil, users, categories, onClick, showCategory, panierMode
             border: `2px solid ${isInPanier ? EPJ.orange : EPJ.gray300}`,
             background: isInPanier ? EPJ.orange : EPJ.white,
             display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0, fontSize: 15, fontWeight: 800, color: "#fff",
+            flexShrink: 0, fontSize: 15, fontWeight: 800, color: EPJ.white,
             cursor: "pointer",
             // Zone de clic élargie pour toucher plus facile mobile
             padding: 0,
@@ -547,7 +547,7 @@ function FilterChip({ active, onClick, children, color }) {
       padding: "5px 9px", borderRadius: 999,
       border: `1px solid ${active ? activeColor : EPJ.gray200}`,
       background: active ? (color ? `${color}15` : activeColor) : EPJ.white,
-      color: active ? (color ? color : "#fff") : EPJ.gray700,
+      color: active ? (color ? color : EPJ.white) : EPJ.gray700,
       fontSize: 10, fontWeight: 600, cursor: "pointer",
       fontFamily: font.body, whiteSpace: "nowrap",
     }}>{children}</button>

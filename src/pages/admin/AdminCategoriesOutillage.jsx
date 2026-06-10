@@ -180,7 +180,7 @@ export function AdminCategoriesOutillage({ onBack }) {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={cancel} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>Annuler</button>
           <button onClick={save} disabled={saving} className="epj-btn" style={{
-            flex: 2, background: EPJ.gray900, color: "#fff", opacity: saving ? 0.6 : 1,
+            flex: 2, background: EPJ.gray900, color: EPJ.white, opacity: saving ? 0.6 : 1,
           }}>{saving ? "Enregistrement…" : (isNew ? "Créer" : "Enregistrer")}</button>
         </div>
       </div>
@@ -207,7 +207,7 @@ export function AdminCategoriesOutillage({ onBack }) {
       </div>
 
       <button onClick={startNew} className="epj-btn" style={{
-        width: "100%", background: EPJ.gray900, color: "#fff", marginBottom: 12,
+        width: "100%", background: EPJ.gray900, color: EPJ.white, marginBottom: 12,
       }}>+ Nouvelle catégorie</button>
 
       {sorted.length === 0 ? (

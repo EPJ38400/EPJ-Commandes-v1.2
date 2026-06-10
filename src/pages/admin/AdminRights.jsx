@@ -191,7 +191,7 @@ export function AdminRights({ onBack, focusedUserId, onClearFocus }) {
             ♻ Réinitialiser
           </button>
         )}
-        <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: "#fff" }}>
+        <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: EPJ.white }}>
           {saving ? "Enregistrement…" : "Enregistrer les droits"}
         </button>
       </div>
@@ -220,7 +220,7 @@ function AdminToggle({ label, value, isOverride, onChange }) {
                 padding: "6px 12px", borderRadius: 8,
                 border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
                 background: active ? EPJ.gray900 : EPJ.white,
-                color: active ? "#fff" : EPJ.gray700,
+                color: active ? EPJ.white : EPJ.gray700,
                 fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
               }}
             >{label}</button>
@@ -276,7 +276,7 @@ function DashboardsEditor({ override, setOverride, user, rolesConfig }) {
                       padding: "4px 10px", borderRadius: 6,
                       border: `1px solid ${active ? EPJ.gray900 : EPJ.gray200}`,
                       background: active ? EPJ.gray900 : EPJ.white,
-                      color: active ? "#fff" : EPJ.gray700,
+                      color: active ? EPJ.white : EPJ.gray700,
                       fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
                     }}
                   >{label}</button>

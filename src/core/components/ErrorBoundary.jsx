@@ -17,6 +17,7 @@
 //   </ErrorBoundary>
 // ═══════════════════════════════════════════════════════════════
 import { Component } from "react";
+import { EPJ } from "../theme";
 import { db, auth } from "../../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -79,14 +80,14 @@ export class ErrorBoundary extends Component {
         }}>
           <div style={{
             maxWidth: 480,
-            background: "#fff",
+            background: EPJ.white,
             borderRadius: 12,
             padding: 32,
             boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             textAlign: "center",
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-            <h1 style={{ fontSize: 20, marginBottom: 12, color: "#1A1A1A" }}>
+            <h1 style={{ fontSize: 20, marginBottom: 12, color: EPJ.gray900 }}>
               Une erreur est survenue
             </h1>
             <p style={{ fontSize: 14, color: "#666", marginBottom: 24, lineHeight: 1.5 }}>
@@ -110,7 +111,7 @@ export class ErrorBoundary extends Component {
             )}
             <button onClick={this.reset} style={{
               background: "#4A90D9",
-              color: "#fff",
+              color: EPJ.white,
               border: "none",
               borderRadius: 8,
               padding: "12px 24px",

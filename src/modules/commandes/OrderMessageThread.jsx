@@ -185,7 +185,7 @@ export function OrderMessageThread({ order, user, dynChantiers, rolesConfig, onU
             disabled={pending || !draft.trim()}
             onClick={send}
             style={{
-              width: "100%", background: EPJ.dark, color: "#fff",
+              width: "100%", background: EPJ.dark, color: EPJ.white,
               padding: "10px", fontSize: 13, fontWeight: 700,
             }}
           >

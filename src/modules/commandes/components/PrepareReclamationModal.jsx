@@ -154,7 +154,7 @@ const ghostBtn = {
 };
 function solidBtn(color) {
   return {
-    border: `1px solid ${color}`, background: color, color: "#fff",
+    border: `1px solid ${color}`, background: color, color: EPJ.white,
     borderRadius: 9, padding: "9px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer",
   };
 }

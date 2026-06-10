@@ -579,7 +579,7 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
           flex: 1, background: EPJ.gray100, color: EPJ.gray700,
         }}>Annuler</button>
         <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-          flex: 2, background: EPJ.blue, color: "#fff",
+          flex: 2, background: EPJ.blue, color: EPJ.white,
           opacity: saving || uploadingPhoto ? 0.5 : 1,
         }}>{saving ? "⏳ Enregistrement…" : "💾 Créer la réserve"}</button>
       </div>

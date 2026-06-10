@@ -77,7 +77,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
       animation: "fadeIn .2s ease",
     }}>
       <div style={{
-        background: "#fff", width: "100%", maxWidth: 560,
+        background: EPJ.white, width: "100%", maxWidth: 560,
         maxHeight: "92vh", overflow: "auto",
         borderRadius: "16px 16px 0 0",
         padding: 0,
@@ -86,7 +86,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
       }}>
         {/* Header sticky */}
         <div style={{
-          position: "sticky", top: 0, background: "#fff",
+          position: "sticky", top: 0, background: EPJ.white,
           padding: "16px 16px 12px",
           borderBottom: `1px solid ${EPJ.gray}22`,
           zIndex: 2,
@@ -118,7 +118,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
               onClick={() => setAll("all")}
               style={{
                 flex: 1, background: allFullyOrdered ? EPJ.green : EPJ.grayLight,
-                color: allFullyOrdered ? "#fff" : EPJ.dark,
+                color: allFullyOrdered ? EPJ.white : EPJ.dark,
                 border: "none", borderRadius: 8, padding: "8px 10px",
                 fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}
@@ -129,7 +129,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
               onClick={() => setAll("none")}
               style={{
                 flex: 1, background: allPending ? EPJ.gray : EPJ.grayLight,
-                color: allPending ? "#fff" : EPJ.dark,
+                color: allPending ? EPJ.white : EPJ.dark,
                 border: "none", borderRadius: 8, padding: "8px 10px",
                 fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}
@@ -205,7 +205,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
                       border: `1.5px solid ${accentColor}55`,
                       borderRadius: 6, padding: "6px 4px",
                       fontSize: 14, fontWeight: 700, color: EPJ.dark,
-                      background: state === "pending" ? "#fff" : `${accentColor}11`,
+                      background: state === "pending" ? EPJ.white : `${accentColor}11`,
                     }}
                   />
                   <button
@@ -231,7 +231,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
 
         {/* Footer sticky */}
         <div style={{
-          position: "sticky", bottom: 0, background: "#fff",
+          position: "sticky", bottom: 0, background: EPJ.white,
           borderTop: `1px solid ${EPJ.gray}22`,
           padding: 16,
           display: "flex", gap: 8,
@@ -253,7 +253,7 @@ export function PartialPassSheet({ order, onClose, onConfirm }) {
             style={{
               flex: 2,
               background: allPending ? EPJ.grayLight : EPJ.dark,
-              color: allPending ? EPJ.gray : "#fff",
+              color: allPending ? EPJ.gray : EPJ.white,
               border: "none", borderRadius: 10, padding: "12px",
               fontSize: 13, fontWeight: 700,
               cursor: allPending ? "not-allowed" : "pointer",

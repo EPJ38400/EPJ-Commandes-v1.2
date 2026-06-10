@@ -232,7 +232,7 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
     }
     return (
       <div style={{
-        padding: 10, background: "#fff",
+        padding: 10, background: EPJ.white,
         border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
         marginBottom: 6, display: "flex", alignItems: "center", gap: 8,
       }}>
@@ -251,7 +251,7 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
           onClick={onRattach}
           disabled={busy}
           className="epj-btn"
-          style={{ background: EPJ.blue, color: "#fff", fontSize: 11, padding: "8px 12px" }}
+          style={{ background: EPJ.blue, color: EPJ.white, fontSize: 11, padding: "8px 12px" }}
         >
           ✓ Rattacher
         </button>
@@ -266,7 +266,7 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
     );
     return (
       <div style={{
-        padding: 10, background: "#fff",
+        padding: 10, background: EPJ.white,
         border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
         marginBottom: 6, display: "flex", alignItems: "center", gap: 8,
       }}>
@@ -289,7 +289,7 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
           onClick={onCreate}
           disabled={busy}
           className="epj-btn"
-          style={{ background: EPJ.orange, color: "#fff", fontSize: 11, padding: "8px 12px" }}
+          style={{ background: EPJ.orange, color: EPJ.white, fontSize: 11, padding: "8px 12px" }}
         >
           ✨ Créer
         </button>

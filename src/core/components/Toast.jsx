@@ -17,7 +17,7 @@ export function ToastProvider({ children }) {
       {msg && (
         <div style={{
           position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)",
-          background: EPJ.gray900, color: "#fff",
+          background: EPJ.gray900, color: EPJ.white,
           padding: "10px 20px", borderRadius: 999, fontSize: 13, fontWeight: 500,
           letterSpacing: "-0.01em", zIndex: 1000, animation: "fadeUp .25s ease",
           boxShadow: "0 10px 30px rgba(0,0,0,.15)",

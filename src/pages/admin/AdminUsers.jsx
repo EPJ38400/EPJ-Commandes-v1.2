@@ -336,7 +336,7 @@ export function AdminUsers({ onBack, onEditRights }) {
           <button className="epj-btn" onClick={cancel} style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
             Annuler
           </button>
-          <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: "#fff" }}>
+          <button className="epj-btn" onClick={save} disabled={saving} style={{ flex: 2, background: EPJ.gray900, color: EPJ.white }}>
             {saving ? "Enregistrement…" : (isNew ? "Créer l'utilisateur" : "Enregistrer")}
           </button>
         </div>
@@ -354,7 +354,7 @@ export function AdminUsers({ onBack, onEditRights }) {
       <button
         onClick={startNew}
         className="epj-btn"
-        style={{ width: "100%", background: EPJ.gray900, color: "#fff", marginBottom: 14 }}
+        style={{ width: "100%", background: EPJ.gray900, color: EPJ.white, marginBottom: 14 }}
       >
         + Nouvel utilisateur
       </button>
@@ -471,7 +471,7 @@ function TempPasswordModal({ info, onClose }) {
         <button
           onClick={copy}
           className="epj-btn"
-          style={{ width: "100%", background: copied ? EPJ.green : EPJ.gray900, color: "#fff", marginBottom: 8 }}
+          style={{ width: "100%", background: copied ? EPJ.green : EPJ.gray900, color: EPJ.white, marginBottom: 8 }}
         >
           {copied ? "✓ Copié !" : "📋 Copier le mot de passe"}
         </button>
@@ -489,7 +489,7 @@ function TempPasswordModal({ info, onClose }) {
       <button
         className="epj-btn"
         onClick={onClose}
-        style={{ width: "100%", background: EPJ.gray900, color: "#fff" }}
+        style={{ width: "100%", background: EPJ.gray900, color: EPJ.white }}
       >
         J'ai noté, fermer
       </button>

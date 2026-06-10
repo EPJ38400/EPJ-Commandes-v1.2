@@ -126,7 +126,7 @@ export function MailTimeline({
             className="epj-btn"
             style={{
               flex: 1, minWidth: 120,
-              background: EPJ.blue, color: "#fff",
+              background: EPJ.blue, color: EPJ.white,
               fontSize: 12, padding: "10px 12px",
             }}
           >
@@ -206,7 +206,7 @@ export function MailTimeline({
               onClick={handleSendNote}
               disabled={!noteText.trim() || savingNote}
               className="epj-btn"
-              style={{ flex: 2, background: EPJ.orange, color: "#fff", fontSize: 12 }}
+              style={{ flex: 2, background: EPJ.orange, color: EPJ.white, fontSize: 12 }}
             >
               {savingNote ? "Enregistrement…" : "✓ Enregistrer la note"}
             </button>
@@ -235,7 +235,7 @@ function EmptyState({ onJoindreMail }) {
           onClick={onJoindreMail}
           className="epj-btn"
           style={{
-            marginTop: 12, background: EPJ.blue, color: "#fff",
+            marginTop: 12, background: EPJ.blue, color: EPJ.white,
             fontSize: 11, padding: "8px 14px",
           }}
         >

@@ -130,6 +130,6 @@ function photoBtnAction() {
   return {
     width: "100%", padding: "10px", fontSize: 12, fontWeight: 600,
     border: `1px solid ${EPJ.gray200}`, borderRadius: 6, cursor: "pointer",
-    background: "#fff", color: EPJ.gray700, fontFamily: font.body,
+    background: EPJ.white, color: EPJ.gray700, fontFamily: font.body,
   };
 }

@@ -110,7 +110,7 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, on
             style={{
               background: EPJ.dark,
               border: "none",
-              color: "#fff",
+              color: EPJ.white,
               borderRadius: 10,
               height: 44,
               padding: "0 14px",
@@ -170,7 +170,7 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, on
             <button
               onClick={onOpenAdmin}
               style={{
-                background: EPJ.gray900, border: "none", color: "#fff",
+                background: EPJ.gray900, border: "none", color: EPJ.white,
                 borderRadius: 10, padding: 0, fontSize: 18, fontWeight: 600,
                 cursor: "pointer", fontFamily: font.body,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -188,7 +188,7 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, on
             <button
               onClick={onChangePassword}
               style={{
-                background: EPJ.gray700 || "#3D3D3D", border: "none", color: "#fff",
+                background: EPJ.gray700 || EPJ.gray700, border: "none", color: EPJ.white,
                 borderRadius: 10, padding: 0, fontSize: 16, fontWeight: 600,
                 cursor: "pointer", fontFamily: font.body,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -204,7 +204,7 @@ function Header({ user, currentModule, onHome, onBack, onLogout, onOpenAdmin, on
           <button
             onClick={handleLogout}
             style={{
-              background: EPJ.red, border: "none", color: "#fff",
+              background: EPJ.red, border: "none", color: EPJ.white,
               borderRadius: 10, padding: "0 12px",
               fontSize: 12, fontWeight: 700,
               cursor: "pointer", fontFamily: font.body,

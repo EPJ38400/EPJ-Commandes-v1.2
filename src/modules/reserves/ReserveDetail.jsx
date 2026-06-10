@@ -553,7 +553,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
             <button onClick={() => setShowAssign(false)} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
               Annuler
             </button>
-            <button onClick={doAssign} disabled={saving || !assignUserId} className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: "#fff" }}>
+            <button onClick={doAssign} disabled={saving || !assignUserId} className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: EPJ.white }}>
               ✓ Attribuer
             </button>
           </div>
@@ -572,7 +572,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
             <button onClick={() => setShowPlanify(false)} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
               Annuler
             </button>
-            <button onClick={doPlanify} disabled={saving || !rdvDate} className="epj-btn" style={{ flex: 2, background: EPJ.orange, color: "#fff" }}>
+            <button onClick={doPlanify} disabled={saving || !rdvDate} className="epj-btn" style={{ flex: 2, background: EPJ.orange, color: EPJ.white }}>
               ✓ Planifier
             </button>
           </div>
@@ -639,7 +639,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
                 onClick={() => { setShowSmsPicker(false); doDemanderLevee(t.id); }}
                 className="epj-btn"
                 style={{display:'block',width:'100%',marginBottom:8,padding:'12px',
-                        textAlign:'left',background:EPJ.blue,color:'#fff',
+                        textAlign:'left',background:EPJ.blue,color:EPJ.white,
                         fontWeight:700,borderRadius:8,border:'none'}}>
                 {t.label || t.id}
               </button>
@@ -693,7 +693,7 @@ function EmplacementRow({ empl }) {
   return <InfoRow label="Emplacement" value={parts.join(" · ")}/>;
 }
 
-function actionBtnStyle(bg, color = "#fff") {
+function actionBtnStyle(bg, color = EPJ.white) {
   return {
     width: "100%", padding: "12px", fontSize: 13, fontWeight: 600,
     background: bg, color, border: "none", borderRadius: 8, cursor: "pointer",

@@ -300,7 +300,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           onClick={() => onOpenModule("commandes")}
           style={{
             marginBottom: 10, padding: "12px 14px",
-            background: "#FFF3E0",
+            background: EPJ.warningBg,
             border: "1px solid #E6510040",
             borderLeft: "3px solid #E65100",
             borderRadius: 10,
@@ -569,7 +569,7 @@ function Tile({ meta, notif, onClick, isFullWidth, index }) {
       {hasNotif && (
         <div style={{
           position: "absolute", top: 10, right: 10,
-          background: EPJ.red, color: "#fff",
+          background: EPJ.red, color: EPJ.white,
           minWidth: 22, height: 22, borderRadius: 999,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 11, fontWeight: 800,

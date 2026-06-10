@@ -1,3 +1,4 @@
+import { EPJ } from "../../core/theme";
 // ═══════════════════════════════════════════════════════════════
 //  Catalogue des tâches d'avancement — 3 couches
 //  1. FACTORY (dans le code, ci-dessous, jamais perdu)
@@ -24,7 +25,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "beton", num: 2, label: "INCORPORATION BÉTON", color: "#6B6B6B",
+    id: "beton", num: 2, label: "INCORPORATION BÉTON", color: EPJ.gray500,
     generated: "beton", // généré selon la config
     tasks: [], // généré
   },
@@ -47,7 +48,7 @@ export const FACTORY_CATEGORIES = [
     tasks: [],
   },
   {
-    id: "logements", num: 5, label: "ÉQUIPEMENT DES LOGEMENTS", color: "#00A3E0",
+    id: "logements", num: 5, label: "ÉQUIPEMENT DES LOGEMENTS", color: EPJ.blue,
     generated: false,
     tasks: [
       { id: "log-1",  label: "Appareillage" },
@@ -65,7 +66,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: "#00A3E0",
+    id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: EPJ.blue,
     generated: false,
     tasks: [
       { id: "com-1",  label: "Colonne Montante + colonne de terre" },
@@ -177,9 +178,9 @@ export const SOUSSOL_EQUIP_TASKS = [
 // Catégories d'un sous-sol commun : béton + placo (générés) + équipement (éditable)
 function buildSousSolCategories(cfg) {
   return [
-    { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: "#6B6B6B", generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
+    { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: EPJ.gray500, generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
     { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: "#E53935", generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
-    { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: "#00A3E0", generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
+    { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: EPJ.blue, generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
   ];
 }
 

@@ -718,7 +718,7 @@ const dashboardCss = `
   .kpi-grid { grid-template-columns: repeat(6, 1fr); gap: 12px; }
 }
 .kpi {
-  background: #fff;
+  background: ${EPJ.white};
   border: 1px solid ${EPJ.gray200};
   border-radius: 10px;
   padding: 12px;
@@ -761,7 +761,7 @@ const dashboardCss = `
   display: flex; flex-direction: column; gap: 12px;
 }
 .dash-card {
-  background: #fff;
+  background: ${EPJ.white};
   border: 1px solid ${EPJ.gray200};
   border-radius: 10px;
   padding: 14px 12px;
@@ -790,7 +790,7 @@ const dashboardCss = `
 .chantier-line:last-child { border-bottom: none; }
 .chantier-count {
   width: 32px; height: 32px; border-radius: 8px;
-  color: #fff; font-weight: 800; font-size: 14px;
+  color: ${EPJ.white}; font-weight: 800; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }

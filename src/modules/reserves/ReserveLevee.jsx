@@ -228,7 +228,7 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
         }}>
           <div style={{
             width: 34, height: 34, borderRadius: 17,
-            background: EPJ.green, color: "#fff",
+            background: EPJ.green, color: EPJ.white,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 16, flexShrink: 0,
           }}>✓</div>
@@ -239,7 +239,7 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
           {techSignatureUrl && (
             <img src={techSignatureUrl} alt="" style={{
               height: 30, objectFit: "contain",
-              background: "#fff", borderRadius: 4, padding: 2,
+              background: EPJ.white, borderRadius: 4, padding: 2,
               border: `1px solid ${EPJ.gray200}`,
             }}/>
           )}
@@ -301,7 +301,7 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
           flex: 1, background: EPJ.gray100, color: EPJ.gray700,
         }}>Annuler</button>
         <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-          flex: 2, background: EPJ.green, color: "#fff",
+          flex: 2, background: EPJ.green, color: EPJ.white,
           opacity: saving || uploadingPhoto ? 0.5 : 1,
         }}>{saving ? "⏳ Enregistrement…" : "✓ Valider la levée"}</button>
       </div>

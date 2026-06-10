@@ -360,7 +360,7 @@ export function ParcSortieMultiple({ onBack, onDone }) {
           disabled={saving || panierOutils.length === 0}
           className="epj-btn"
           style={{
-            flex: 2, background: EPJ.orange, color: "#fff",
+            flex: 2, background: EPJ.orange, color: EPJ.white,
             opacity: saving || panierOutils.length === 0 ? 0.6 : 1,
           }}
         >

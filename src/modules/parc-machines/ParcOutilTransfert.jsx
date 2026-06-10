@@ -268,7 +268,7 @@ export function ParcOutilTransfert({ outil, sortie, onBack, onDone }) {
           disabled={saving || !canSubmit}
           className="epj-btn"
           style={{
-            flex: 2, background: canSubmit ? EPJ.blue : EPJ.gray300, color: "#fff",
+            flex: 2, background: canSubmit ? EPJ.blue : EPJ.gray300, color: EPJ.white,
             opacity: saving ? 0.6 : 1,
             cursor: canSubmit && !saving ? "pointer" : "not-allowed",
           }}
