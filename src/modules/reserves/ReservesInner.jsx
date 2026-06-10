@@ -177,7 +177,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
           className="epj-btn"
           style={{
             width: "100%",
-            background: "#FFF4E6",
+            background: EPJ.warningBg,
             color: EPJ.orange,
             border: `1px solid ${EPJ.orange}`,
             marginBottom: 12,
@@ -213,7 +213,7 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
             className="epj-btn"
             style={{
               width: "100%",
-              background: "#EEF2FF",
+              background: EPJ.infoBg,
               color: EPJ.blue,
               border: `1px solid ${EPJ.blue}`,
               fontSize: 13,

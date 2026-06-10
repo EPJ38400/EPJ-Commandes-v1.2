@@ -222,7 +222,7 @@ export function ChantierEditModal({
 
         {error && (
           <div style={{
-            background: "#fee", color: "#c00",
+            background: EPJ.dangerBg, color: EPJ.redText,
             padding: "8px 10px", borderRadius: 6, fontSize: 12, marginBottom: 12,
           }}>{error}</div>
         )}
