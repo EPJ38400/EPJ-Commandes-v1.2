@@ -30,7 +30,7 @@ export const FACTORY_CATEGORIES = [
     tasks: [], // généré
   },
   {
-    id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: "#F5841F",
+    id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: EPJ.orange,
     generated: false,
     tasks: [
       { id: "divers-1", label: "Installation de chantier" },
@@ -43,7 +43,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "placo", num: 4, label: "AVANCEMENT PLACO", color: "#E53935",
+    id: "placo", num: 4, label: "AVANCEMENT PLACO", color: EPJ.red,
     generated: "placo",
     tasks: [],
   },
@@ -85,7 +85,7 @@ export const FACTORY_CATEGORIES = [
     ],
   },
   {
-    id: "controle", num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536",
+    id: "controle", num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green,
     generated: false,
     tasks: [
       { id: "ctrl-1", label: "Pré Réception colonne ENEDIS" },
@@ -179,7 +179,7 @@ export const SOUSSOL_EQUIP_TASKS = [
 function buildSousSolCategories(cfg) {
   return [
     { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: EPJ.gray500, generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
-    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: "#E53935", generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
+    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: EPJ.red, generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
     { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: EPJ.blue, generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
   ];
 }

@@ -84,7 +84,7 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="🏗" accent={EPJ.orange} title="Chantiers"
         subtitle="Créer, modifier, archiver et affecter les équipes"
         onClick={() => setSection("chantiers")}/>
-      <AdminSection icon="📋" accent="#E53935" title="Modèle d'avancement"
+      <AdminSection icon="📋" accent={EPJ.red} title="Modèle d'avancement"
         subtitle="Personnaliser les tâches par défaut pour tous les chantiers"
         onClick={() => setSection("tasks")}/>
 
@@ -95,7 +95,7 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="📁" accent={EPJ.blue} title="Catégories d'outillage"
         subtitle="Familles d'outils (ajouter, renommer, réordonner)"
         onClick={() => setSection("categories-outillage")}/>
-      <AdminSection icon="⚠️" accent="#E53935" title="Pannes récurrentes"
+      <AdminSection icon="⚠️" accent={EPJ.red} title="Pannes récurrentes"
         subtitle="Types de pannes au retour d'un outil abîmé"
         onClick={() => setSection("pannes")}/>
 
