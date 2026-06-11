@@ -352,7 +352,7 @@ function buildRawMessage({ from, to, subject, body }) {
   ];
   const encodedBody = Buffer.from(String(body || ""), "utf8").toString("base64");
   const chunks = encodedBody.match(/.{1,76}/g) || [encodedBody];
-  const mime = lines.join("\r\n") + chunks.join("\r\n");
+  const mime = lines.join("\r\n") + "\r\n" + chunks.join("\r\n");
   return Buffer.from(mime, "utf8").toString("base64")
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
