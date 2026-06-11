@@ -3,7 +3,7 @@
 //  Photos multiples + PDFs, avec drag & drop unifié
 // ═══════════════════════════════════════════════════════════════
 import { useState, useRef } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import {
   uploadReserveAttachment, deleteReservePhoto,
   formatFileSize, MAX_ATTACHMENT_SIZE_MB, ACCEPTED_ATTACHMENT_TYPES,
@@ -70,33 +70,33 @@ export function AttachmentsManager({
           onDrop={onDrop}
           onClick={() => !uploading && fileInputRef.current?.click()}
           style={{
-            padding: "18px 12px",
+            padding: `${space.lg + 2}px ${space.md}px`,
             border: `2px dashed ${dragging ? EPJ.blue : EPJ.gray300}`,
-            borderRadius: 10,
-            background: dragging ? `${EPJ.blue}10` : EPJ.gray50,
+            borderRadius: radius.md,
+            background: dragging ? EPJ.infoBg : EPJ.gray50,
             textAlign: "center",
             cursor: uploading ? "wait" : "pointer",
             transition: "all 0.15s",
-            marginBottom: 10,
+            marginBottom: space.md - 2,
           }}
         >
           {uploading ? (
             <>
-              <div style={{ fontSize: 22, marginBottom: 6 }}>📤</div>
-              <div style={{ fontSize: 12, color: EPJ.orange, fontWeight: 700, fontFamily: font.body }}>
+              <div style={{ fontSize: 22, marginBottom: space.xs + 2 }}>📤</div>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, fontWeight: fontWeight.medium, fontFamily: font.body }}>
                 {uploading.nom}
               </div>
-              <div style={{ fontSize: 11, color: EPJ.orange, marginTop: 2 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, marginTop: 2 }}>
                 {uploading.status}
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 24, marginBottom: 4 }}>📎</div>
-              <div style={{ fontSize: 12, color: EPJ.gray700, fontWeight: 600, fontFamily: font.body, marginBottom: 2 }}>
+              <div style={{ fontSize: 24, marginBottom: space.xs }}>📎</div>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, fontWeight: fontWeight.medium, fontFamily: font.body, marginBottom: 2 }}>
                 Glisser-déposer ou toucher pour ajouter
               </div>
-              <div style={{ fontSize: 10, color: EPJ.gray500 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
                 Images ou PDF · {MAX_ATTACHMENT_SIZE_MB} Mo max par fichier
               </div>
             </>
@@ -106,31 +106,28 @@ export function AttachmentsManager({
 
       {/* Liste des photos */}
       {photos.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{
-            fontSize: 10, color: EPJ.gray500, fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6,
-          }}>
+        <div style={{ marginBottom: space.md - 2 }}>
+          <div style={attLabel}>
             Photos ({photos.length})
           </div>
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6,
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: space.sm - 2,
           }}>
             {photos.map(att => (
               <div key={att.id} style={{ position: "relative" }}>
                 <a href={att.url} target="_blank" rel="noopener noreferrer">
                   <img src={att.url} alt={att.nom} style={{
                     width: "100%", aspectRatio: "1/1", objectFit: "cover",
-                    borderRadius: 6, border: `1px solid ${EPJ.gray200}`,
+                    borderRadius: radius.sm, border: `1px solid ${EPJ.gray200}`,
                     display: "block",
                   }}/>
                 </a>
                 {!readOnly && (
                   <button onClick={() => handleRemove(att)} style={{
                     position: "absolute", top: 3, right: 3,
-                    width: 22, height: 22, borderRadius: "50%",
+                    width: 22, height: 22, borderRadius: radius.pill,
                     background: "rgba(0,0,0,0.6)", color: EPJ.white,
-                    border: "none", cursor: "pointer", fontSize: 11,
+                    border: "none", cursor: "pointer", fontSize: fontSize.xs,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>×</button>
                 )}
@@ -142,11 +139,8 @@ export function AttachmentsManager({
 
       {/* Liste des PDFs */}
       {pdfs.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{
-            fontSize: 10, color: EPJ.gray500, fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6,
-          }}>
+        <div style={{ marginBottom: space.md - 2 }}>
+          <div style={attLabel}>
             Documents PDF ({pdfs.length})
           </div>
           {pdfs.map(att => (
@@ -154,24 +148,24 @@ export function AttachmentsManager({
               textDecoration: "none",
             }}>
               <div style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 12px", marginBottom: 5,
+                display: "flex", alignItems: "center", gap: space.sm,
+                padding: `${space.sm + 2}px ${space.md}px`, marginBottom: space.xs + 1,
                 background: EPJ.white,
-                border: `1px solid ${EPJ.gray200}`, borderRadius: 8,
+                border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
                 cursor: "pointer",
               }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: 6,
-                  background: `${EPJ.red}15`, color: EPJ.red,
+                  width: 36, height: 36, borderRadius: radius.sm,
+                  background: EPJ.dangerBg, color: EPJ.redText,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 18, flexShrink: 0,
                 }}>📄</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 12, fontWeight: 600, color: EPJ.gray900,
+                    fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>{att.nom}</div>
-                  <div style={{ fontSize: 10, color: EPJ.gray500 }}>
+                  <div style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
                     PDF · {formatFileSize(att.tailleKo)}
                   </div>
                 </div>
@@ -180,9 +174,9 @@ export function AttachmentsManager({
                     e.preventDefault(); e.stopPropagation();
                     handleRemove(att);
                   }} style={{
-                    background: `${EPJ.red}15`, color: EPJ.red,
-                    border: "none", borderRadius: 6,
-                    padding: "6px 8px", fontSize: 12, cursor: "pointer",
+                    background: EPJ.dangerBg, color: EPJ.redText,
+                    border: "none", borderRadius: radius.sm,
+                    padding: `${space.xs + 2}px ${space.sm}px`, fontSize: fontSize.xs, cursor: "pointer",
                     flexShrink: 0,
                   }}>🗑</button>
                 )}
@@ -195,8 +189,8 @@ export function AttachmentsManager({
       {/* Vide ? */}
       {attachments.length === 0 && readOnly && (
         <div style={{
-          fontSize: 11, color: EPJ.gray500, fontStyle: "italic",
-          textAlign: "center", padding: 10,
+          fontSize: fontSize.xs, color: EPJ.gray500, fontStyle: "italic",
+          textAlign: "center", padding: space.sm + 2,
         }}>
           Aucune pièce jointe
         </div>
@@ -212,3 +206,13 @@ export function AttachmentsManager({
     </div>
   );
 }
+
+// Micro-label de section (DA §2.3).
+const attLabel = {
+  fontSize: fontSize.xs,
+  color: EPJ.gray500,
+  fontWeight: fontWeight.medium,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+  marginBottom: space.xs + 2,
+};
