@@ -8,7 +8,8 @@
 //  L'utilisateur peut aussi ignorer le mail.
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
-import { EPJ, font, radius } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Button } from "../../core/components/Button";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { useMailsAClasser } from "../../core/gmail/useReserveMails";
@@ -100,48 +101,41 @@ export function MailsAClasser({ onOpenReserve, onCreateReserveFromDraft, onBack 
   };
 
   if (loading) {
-    return <div style={{ padding: 20, textAlign: "center", color: EPJ.gray500 }}>Chargement…</div>;
+    return <div style={{ padding: space.xl, textAlign: "center", color: EPJ.gray500 }}>Chargement…</div>;
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "12px" }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: space.md }}>
       {/* Header */}
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: space.md }}>
         {onBack && (
-          <button
-            onClick={onBack}
-            className="epj-btn"
-            style={{
-              background: "transparent",
-              color: EPJ.gray700,
-              padding: "4px 0",
-              fontSize: 13,
-              marginBottom: 8,
-              fontFamily: font.body,
-            }}
-          >
-            ← Retour aux réserves
-          </button>
+          <div style={{ marginBottom: space.sm }}>
+            <Button variant="ghost" onClick={onBack}>← Retour aux réserves</Button>
+          </div>
         )}
         <div style={{
           fontFamily: font.display, fontSize: 22, color: EPJ.gray900,
-          marginBottom: 4,
+          marginBottom: space.xs,
         }}>
           📥 Mails à classer
         </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, lineHeight: 1.4 }}>
           Mails aspirés depuis <strong>sav@</strong> qui n'ont pas pu être rattachés automatiquement.
           L'IA propose un rattachement à valider en 1 clic.
         </div>
       </div>
 
       {items.length === 0 && (
-        <div className="epj-card" style={{ padding: 30, textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 8, opacity: 0.3 }}>✨</div>
-          <div style={{ fontSize: 14, color: EPJ.gray700, fontWeight: 600 }}>
+        <div style={{
+          background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
+          borderRadius: radius.lg, boxShadow: shadow.sm,
+          padding: space.xxl, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 40, marginBottom: space.sm, opacity: 0.3 }}>✨</div>
+          <div style={{ fontSize: fontSize.md, color: EPJ.gray700, fontWeight: fontWeight.medium }}>
             Aucun mail en attente
           </div>
-          <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 4 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs }}>
             Tous les mails ont été rattachés automatiquement ou traités.
           </div>
         </div>
@@ -166,23 +160,27 @@ export function MailsAClasser({ onOpenReserve, onCreateReserveFromDraft, onBack 
 // ─── Carte d'un mail à classer ─────────────────────────────
 function MailAClasserCard({ mail, reserves, chantiers, busy, onRattach, onCreate, onIgnore }) {
   return (
-    <div className="epj-card" style={{ padding: 0, marginBottom: 10, overflow: "hidden" }}>
+    <div style={{
+      background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
+      borderRadius: radius.lg, boxShadow: shadow.sm,
+      marginBottom: space.md - 2, overflow: "hidden",
+    }}>
       {/* Mail lui-même (réutilise MailItem en mode déplié) */}
-      <div style={{ padding: 8, borderBottom: `1px solid ${EPJ.gray200}` }}>
+      <div style={{ padding: space.sm, borderBottom: `1px solid ${EPJ.gray200}` }}>
         <MailItem mail={mail} />
       </div>
 
       {/* Propositions IA */}
-      <div style={{ padding: 12, background: EPJ.gray50 }}>
+      <div style={{ padding: space.md, background: EPJ.gray50 }}>
         <div style={{
-          fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8,
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray500,
+          textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: space.sm,
         }}>
           🤖 Propositions de l'IA
         </div>
 
         {(!mail.iaPropositions || mail.iaPropositions.length === 0) && (
-          <div style={{ fontSize: 12, color: EPJ.gray500, padding: 8 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, padding: space.sm }}>
             L'IA n'a pas trouvé de proposition. À classer manuellement.
           </div>
         )}
@@ -200,19 +198,10 @@ function MailAClasserCard({ mail, reserves, chantiers, busy, onRattach, onCreate
         ))}
 
         {/* Ignorer */}
-        <div style={{ marginTop: 8, textAlign: "right" }}>
-          <button
-            onClick={onIgnore}
-            disabled={busy}
-            style={{
-              background: "transparent", border: "none",
-              fontSize: 11, color: EPJ.gray500,
-              textDecoration: "underline", cursor: "pointer",
-              padding: "4px 8px",
-            }}
-          >
+        <div style={{ marginTop: space.sm, textAlign: "right" }}>
+          <Button variant="ghost" onClick={onIgnore} disabled={busy}>
             Ignorer ce mail
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -225,36 +214,31 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
     const reserve = reserves.find(r => r._id === proposition.reserveId);
     if (!reserve) {
       return (
-        <div style={{ fontSize: 11, color: EPJ.gray500, padding: 6 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, padding: space.xs + 2 }}>
           ⚠ Réserve {proposition.reserveId} introuvable (supprimée ?).
         </div>
       );
     }
     return (
       <div style={{
-        padding: 10, background: EPJ.white,
+        padding: space.sm + 2, background: EPJ.white,
         border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
-        marginBottom: 6, display: "flex", alignItems: "center", gap: 8,
+        marginBottom: space.sm - 2, display: "flex", alignItems: "center", gap: space.sm,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: EPJ.blue, fontWeight: 600 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.blueText, fontWeight: fontWeight.medium }}>
             🔗 Rattacher à une réserve existante
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: EPJ.gray900, marginTop: 2 }}>
+          <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900, marginTop: 2 }}>
             {reserve.numReserve} — {reserve.chantierNom || reserve.chantierNum}
           </div>
-          <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 2 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
             {proposition.raison || `confiance ${Math.round((proposition.score || 0) * 100)}%`}
           </div>
         </div>
-        <button
-          onClick={onRattach}
-          disabled={busy}
-          className="epj-btn"
-          style={{ background: EPJ.blue, color: EPJ.white, fontSize: 11, padding: "8px 12px" }}
-        >
+        <Button variant="primary" onClick={onRattach} disabled={busy}>
           ✓ Rattacher
-        </button>
+        </Button>
       </div>
     );
   }
@@ -266,33 +250,28 @@ function PropositionRow({ proposition, reserves, chantiers, busy, onRattach, onC
     );
     return (
       <div style={{
-        padding: 10, background: EPJ.white,
+        padding: space.sm + 2, background: EPJ.white,
         border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
-        marginBottom: 6, display: "flex", alignItems: "center", gap: 8,
+        marginBottom: space.sm - 2, display: "flex", alignItems: "center", gap: space.sm,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: EPJ.orange, fontWeight: 600 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, fontWeight: fontWeight.medium }}>
             ✨ Créer une nouvelle réserve
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: EPJ.gray900, marginTop: 2 }}>
+          <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900, marginTop: 2 }}>
             Chantier {b.chantierNum} {chantier ? `— ${chantier.nom}` : ""}
           </div>
-          <div style={{ fontSize: 11, color: EPJ.gray700, marginTop: 2 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, marginTop: 2 }}>
             {b.description || "(pas de description)"}
           </div>
-          <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 2 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
             confiance {Math.round((proposition.score || 0) * 100)}%
             {b.emisParLabel && ` · émis par ${b.emisParLabel}`}
           </div>
         </div>
-        <button
-          onClick={onCreate}
-          disabled={busy}
-          className="epj-btn"
-          style={{ background: EPJ.orange, color: EPJ.white, fontSize: 11, padding: "8px 12px" }}
-        >
+        <Button variant="secondary" onClick={onCreate} disabled={busy}>
           ✨ Créer
-        </button>
+        </Button>
       </div>
     );
   }

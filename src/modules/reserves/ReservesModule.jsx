@@ -3,7 +3,8 @@
 //  Router interne : Dashboard → Create / Detail / Levee
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, space, fontSize } from "../../core/theme";
+import { Button } from "../../core/components/Button";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
@@ -26,14 +27,12 @@ export function ReservesModule({ onExitModule }) {
   const viewScope = can(user, "reserves-quitus", "view", rolesConfig);
   if (!viewScope) {
     return (
-      <div style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontSize: 15, color: EPJ.gray700, fontFamily: font.body }}>
+      <div style={{ padding: space.xl, textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: space.md }}>🔒</div>
+        <div style={{ fontSize: fontSize.base, color: EPJ.gray700, fontFamily: font.body, marginBottom: space.lg }}>
           Vous n'avez pas accès au module Réserves.
         </div>
-        <button onClick={onExitModule} className="epj-btn" style={{
-          marginTop: 16, background: EPJ.gray100, color: EPJ.gray700,
-        }}>← Retour</button>
+        <Button variant="secondary" onClick={onExitModule}>← Retour</Button>
       </div>
     );
   }
