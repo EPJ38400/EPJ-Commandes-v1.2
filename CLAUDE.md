@@ -459,24 +459,35 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   `gmail/useReserveMails.js` intouchés. `fontWeight` en dur du module **64 → 0** ;
   `ReserveDetail` sorti du top 10 audit (était #3). Total reliquat global
   2438 → 2027.
+- **2026-06 · DS-2 HomePage** (mergé prod, PR #9, `cff981c`) · **dernier écran
+  DS-2 hors trio**. Repeinte durable mais non définitive (réceptacle futur des
+  cockpits — on a monté l'existant au niveau étalon, sans préjuger du layout
+  cockpit). `Tile` tokenisé (`fontWeight` en dur **6 → 0**), pill « Bientôt » →
+  `<Badge tone="neutral">`, compteur notif tokenisé. Grille responsive : PWA
+  2 colonnes **inchangée** ; desktop → `auto-fill minmax(240px,1fr)` aéré dans
+  le cadre 1320. DA §5 : focus clavier tuiles (`tabIndex`/`role`/Enter-Espace +
+  `:focus-visible` `shadow.focus` sur `.epj-tile`, `theme.js` scopé à cette
+  seule règle). DA §8 : retrait animation d'entrée `stagger`. `<Banner>` non
+  régressés ; **aucune écriture Firestore** (HomePage n'en fait pas). Total
+  reliquat global 2027 → 2011. **DS-2 terminé hors trio.**
 
 ### Chantier en cours — DS-2 repeinte écrans
 
 - **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
   l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
-- **`AdminOutillage` + `Avancement` + `Réserves` = FAITS** (cf. briques actives).
+- **`AdminOutillage` + `Avancement` + `Réserves` + `Home` = FAITS** (cf. briques
+  actives). **DS-2 TERMINÉ hors trio.**
 - **Dashboard Direction : SORTI de la file DS-2** (décision PJ 2026-06-11). Motif :
   il sera **entièrement refondé en « cockpit Direction »** (cf. roadmap cockpits
   par rôle §10) — le repeindre en DS-2 maintenant = travail jeté. Sera traité
   dans le chantier cockpits, pas ici.
-- **Ordre restant** : **Home** (composant `Tile` inclus) → **Primitives v1.1**
-  (lot dédié : `IconButton`, `<Field>` mono / inline-dense, token scrim —
-  candidatures étayées sur 3 modules, cf. backlog ci-dessous) → **lot trio
-  `CommandesInner.jsx`** (DERNIER, **GO écrit dédié** : design + responsive +
-  signature souris en une seule fois).
+- **File restante** : **Primitives v1.1** (PROCHAIN — lot dédié : `IconButton`,
+  `<Field>` mono / inline-dense, token scrim — candidatures étayées sur 3 modules,
+  cf. backlog ci-dessous) → **lot trio `CommandesInner.jsx`** (DERNIER, **GO écrit
+  dédié**, `/model fable` : design + responsive + signature souris en une seule fois).
 - **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
   dimensions/espacements littéraux → `radius.*`/`space.*`, `rgba` → tokens `shadow`
-  au fil des écrans (total reliquat global 2027 après Réserves).
+  au fil des écrans (total reliquat global 2011 après Home).
 - **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
   chaque ticket DS-2**).
 
