@@ -470,6 +470,22 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   seule règle). DA §8 : retrait animation d'entrée `stagger`. `<Banner>` non
   régressés ; **aucune écriture Firestore** (HomePage n'en fait pas). Total
   reliquat global 2027 → 2011. **DS-2 terminé hors trio.**
+- **2026-06 · Primitives v1.1** (mergé prod, PR #10, `2140190`) · consolidation du
+  socle **avant le lot trio**, évolutions **strictement additives** (défauts =
+  rendu historique, zéro régression call sites existants ; +147/−93, 10 fichiers).
+  Nouvelle primitive **`<IconButton>`** (`src/core/components/IconButton.jsx` —
+  icône-seule ghost 34/44, `label`/aria-label obligatoire + warn, variantes
+  `neutral`/`danger`, focus clavier). **`<Button size="sm">`** (dense ; `md` défaut
+  inchangé). **`<Field>` v1.1** : fix `onBlur`/`onFocus` composés (reset interne PUIS
+  handler appelant — anneau persistant corrigé), `inputStyle`/`mono` **merge en
+  dernier (l'appelant gagne)**, `dense` + `width` (inline). Tokens **`EPJ.scrim`
+  /`EPJ.scrimDark`** (theme.js). **Retrofits** (1 commit/module, 0 écriture Firestore
+  modifiée) : `AdminOutillage` + `AvancementHistory` `IconBtn` locaux → `<IconButton>`
+  (**2 dups supprimées**) ; rename inline tâches Avancement → `<Field dense>` ;
+  ✏️ `ReserveDetail` → `<IconButton>` ; 3 scrims (`ChantierEditModal`, SmsPicker,
+  overlay photo) → tokens. **Laissés bespoke à dessein** : overlay × photo (contraste
+  sur image, `scrimDark`), chips pleins 🗑, `HoursPanel` (rangée inline largeurs
+  custom + Enter-submit). Total reliquat global 2011 → 2009.
 
 ### Chantier en cours — DS-2 repeinte écrans
 
@@ -481,59 +497,37 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   il sera **entièrement refondé en « cockpit Direction »** (cf. roadmap cockpits
   par rôle §10) — le repeindre en DS-2 maintenant = travail jeté. Sera traité
   dans le chantier cockpits, pas ici.
-- **File restante** : **Primitives v1.1** (PROCHAIN — lot dédié : `IconButton`,
-  `<Field>` mono / inline-dense, token scrim — candidatures étayées sur 3 modules,
-  cf. backlog ci-dessous) → **lot trio `CommandesInner.jsx`** (DERNIER, **GO écrit
-  dédié**, `/model fable` : design + responsive + signature souris en une seule fois).
+- **Primitives v1.1 : FAITES** (PR #10, cf. brique active). Le socle est complet.
+- **File restante** : **lot trio `CommandesInner.jsx`** (DERNIER et SEUL restant,
+  **GO écrit dédié**, `/model fable` : design + responsive + signature souris en une
+  seule fois). Il dispose désormais de tout le socle (`<IconButton>`, `<Button
+  size="sm">`, `<Field>` dense/inputStyle/mono, tokens scrim) — **il ne doit créer
+  aucun composant local que le socle sait faire.**
 - **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
   dimensions/espacements littéraux → `radius.*`/`space.*`, `rgba` → tokens `shadow`
-  au fil des écrans (total reliquat global 2011 après Home).
+  au fil des écrans (total reliquat global 2009 après Primitives v1.1).
 - **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
   chaque ticket DS-2**).
 
-### Primitives v1.1 — backlog (lot dédié après 2-3 écrans DS-2)
+### Primitives v1.1 — LIVRÉ (PR #10) + reliquat ouvert
 
-> Limites des primitives DS-1 rencontrées en repeinte. **Ne pas patcher au fil
-> de l'eau** (un patch « en douce » casse l'étalon) : les regrouper et traiter en
-> un lot dédié une fois 2-3 écrans DS-2 faits, pour valider les besoins réels.
-> Compléter cette liste avec les limites de chaque écran avant d'ouvrir le lot.
+**Résolu dans v1.1** (cf. brique active) :
+- ✅ **`<IconButton>`** créé — remplace les `IconBtn` locaux (AdminOutillage,
+  AvancementHistory dups supprimées ; ✏️ ReserveDetail).
+- ✅ **`<Button size="sm">`** — variante dense.
+- ✅ **`<Field>` `onBlur` composé** — anneau persistant corrigé (rename Avancement).
+- ✅ **`<Field>` `inputStyle`/`mono`** — merge en dernier, l'appelant gagne.
+- ✅ **`<Field>` `dense`/`width`** — variante inline.
+- ✅ **Tokens `EPJ.scrim`/`scrimDark`** — 3 scrims Réserves tokenisés.
 
-- **`<Field>`** — n'expose aucun style du contrôle (le `style` passé via `...rest`
-  écrase `baseStyle`). Conséquence : impossible de rendre un input en `font.mono`
-  (réf / n° série dans les formulaires). → prop `inputStyle` (merge) **ou** booléen
-  `mono`. *(relevé sur AdminOutillage)*
-- **`<Button>`** — pas de taille `sm` ni d'override couleur pour `ghost` icon-only :
-  inadapté aux actions denses de tableau (un delete rouge oblige `danger` plein,
-  trop lourd ligne par ligne, contre la rareté du rouge DA §1.1). Contournement
-  actuel = `IconBtn` local (dupliqué par écran). → ajouter `size="sm"` + variante
-  `danger-ghost`/`neutral`, **ou** primitive **`IconButton`** dédiée (candidate à
-  promouvoir depuis les `IconBtn` locaux). *(relevé sur AdminOutillage ; `IconBtn`
-  re-dupliqué sur AvancementHistory — 2e occurrence ; Réserves : 2 sites de plus
-  — ✏️ chantier `ReserveDetail`, × photo + 🗑 PDF `AttachmentsManager` —*
-  ***candidature `IconButton` désormais solidement étayée sur 3 modules)***
-- **`<Field>`** — un `onBlur` passé via `...rest` écrase le `onBlur` interne
-  (reset du focus) → anneau bleu persistant après blur. Conséquence : les inputs
-  à blur-save (rename inline des tâches, AvancementChantier) restent en
-  `.epj-input`. → composer les handlers (`onBlur` externe APRÈS le reset interne).
-  *(relevé sur Avancement)*
-- **`<Field>`** — pas de variante « inline dense » (sans wrapper pleine largeur,
-  hauteur/padding compacts, largeur fixe) : le formulaire heures+date+ajouter de
-  `HoursPanel` reste en inputs bespoke tokenisés. → prop `dense`/`width` ou
-  primitive `InlineField`. *(relevé sur Avancement ; Réserves : composer mail
-  `MailReplyComposer` — labels à gauche d'origine — standardisé en `<Field>`
-  empilé faute d'inline-dense — 2e occurrence)*
-- **`<DataTable>`** — ne couvre pas les **matrices pivot** : colonnes dynamiques
-  par période, 1re colonne sticky, lignes hiérarchiques dépliables
-  (catégorie → tâches), cellules à double contenu (valeur + delta coloré).
-  `AvancementEvolution` reste une table bespoke tokenisée. → variante
-  `PivotTable` si un 2e écran en a besoin (sinon laisser bespoke).
-  *(relevé sur Avancement)*
-- **Token « scrim » d'overlay manquant** — les fonds de modale (`rgba(0,0,0,.5)`
-  backdrop, `rgba(0,0,0,.6)` overlay vignette photo) n'ont **aucun token** : les
-  `shadow.*` sont des box-shadows, pas des fonds de voile. Restent donc 3 `rgba`
-  littéraux légitimes dans Réserves (`ChantierEditModal`, modal SMS picker
-  `ReserveDetail`, suppression photo `AttachmentsManager`). → ajouter un token
-  `EPJ.scrim` (ou `overlay`) dans `theme.js`. *(relevé sur Réserves — 3 sites)*
+**Encore ouvert (hors v1.1, à traiter quand un 2e écran le justifie)** :
+- **`<DataTable>` — matrices pivot** : colonnes dynamiques par période, 1re colonne
+  sticky, lignes hiérarchiques dépliables, cellules double contenu (valeur + delta).
+  `AvancementEvolution` reste une table bespoke tokenisée. → variante `PivotTable`
+  **seulement si** un 2e écran en a besoin (sinon laisser bespoke). *(relevé sur Avancement)*
+- **Adoption résiduelle de `<Field dense>`** : `HoursPanel` (Avancement) et le composer
+  mail `MailReplyComposer` (Réserves) restent bespoke/empilés — retrofit optionnel,
+  non bloquant (la variante existe désormais).
 
 ---
 
