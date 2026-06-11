@@ -2,7 +2,7 @@
 //  ReserveDetail — Fiche détaillée + actions
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
@@ -18,6 +18,8 @@ import {
 import { AttachmentsManager } from "./AttachmentsManager";
 import { QuitusActions } from "./QuitusActions";
 import { Badge } from "../../core/components/Badge";
+import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
 // v10.N — SMS attribution + demande levée
 import { smsReserveAttribuee, smsReserveDemandeLevee, findUserByUid } from "../../core/smsService";
 import { canDemanderLevee } from "./reservesRappel";
@@ -76,11 +78,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
   if (!reserve) {
     return (
-      <div style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 14, color: EPJ.gray500 }}>Réserve introuvable.</div>
-        <button onClick={onBack} className="epj-btn" style={{
-          marginTop: 16, background: EPJ.gray100, color: EPJ.gray700,
-        }}>← Retour</button>
+      <div style={{ padding: space.xl, textAlign: "center" }}>
+        <div style={{ fontSize: fontSize.md, color: EPJ.gray500, marginBottom: space.lg }}>Réserve introuvable.</div>
+        <Button variant="secondary" onClick={onBack}>← Retour</Button>
       </div>
     );
   }
@@ -253,25 +253,22 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   };
 
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 40 }}>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xxl }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{
-          background: "transparent", border: "none", color: EPJ.gray700,
-          fontSize: 14, cursor: "pointer", fontFamily: font.body, padding: "6px 10px",
-        }}>← Retour</button>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.md + 2 }}>
+        <Button variant="ghost" onClick={onBack}>← Retour</Button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: font.display, fontSize: 20, color: EPJ.gray900, letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontFamily: font.display, fontSize: fontSize.lg, color: EPJ.gray900, letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {reserve.titre}
           </div>
-          <div style={{ fontSize: 10, color: EPJ.gray500, fontFamily: "monospace" }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, fontFamily: font.mono }}>
             {reserve.numReserve}
           </div>
         </div>
       </div>
 
       {/* Badges */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.md }}>
         <Badge status={reserve.statut} icon={st.icon} label={st.label}/>
         <Badge tone={reserve.priorite === "bloquante" ? "danger" : "warning"} icon={pr.icon} label={pr.label}/>
         {cat && <Badge tone="neutral" icon={cat.icon} label={cat.label}/>}
@@ -280,37 +277,33 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* Photo */}
       {reserve.photoAvant && (
-        <div className="epj-card" style={{ padding: 6, marginBottom: 10 }}>
+        <div style={{ ...panel(), padding: space.xs + 2 }}>
           <img src={reserve.photoAvant} alt="constat" style={{
-            width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: 8, display: "block",
+            width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: radius.md, display: "block",
           }}/>
-          <div style={{ fontSize: 10, color: EPJ.gray500, textAlign: "center", marginTop: 4 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, textAlign: "center", marginTop: space.xs }}>
             Photo du constat
           </div>
         </div>
       )}
       {reserve.photoApres && (
-        <div className="epj-card" style={{ padding: 6, marginBottom: 10 }}>
+        <div style={{ ...panel(), padding: space.xs + 2 }}>
           <img src={reserve.photoApres} alt="après reprise" style={{
-            width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: 8, display: "block",
+            width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: radius.md, display: "block",
           }}/>
-          <div style={{ fontSize: 10, color: EPJ.green, textAlign: "center", marginTop: 4, fontWeight: 600 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.greenText, textAlign: "center", marginTop: space.xs, fontWeight: fontWeight.medium }}>
             ✓ Photo après reprise
           </div>
         </div>
       )}
 
       {/* Pièces jointes (PDFs, photos supplémentaires) */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
+      <div style={panel()}>
+        <div style={{ ...sectionLabel, display: "flex", alignItems: "center", gap: space.sm }}>
           📎 Pièces jointes
           {(reserve.piecesJointes || []).length > 0 && (
             <span style={{
-              fontSize: 10, padding: "2px 6px", borderRadius: 4,
+              fontSize: fontSize.xs, padding: "2px 6px", borderRadius: radius.sm,
               background: EPJ.gray100, color: EPJ.gray700,
             }}>{reserve.piecesJointes.length}</span>
           )}
@@ -343,9 +336,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
       />
 
       {/* Infos */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
+      <div style={panel()}>
         {/* v1.18.0 — Chantier avec bouton d'édition ✏️ */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.xs }}>
           <div style={{ flex: 1 }}>
             <InfoRow
               label="Chantier"
@@ -355,15 +348,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           <button
             onClick={() => setShowChantierEdit(true)}
             title="Modifier le chantier"
-            style={{
-              background: "transparent",
-              border: `1px solid ${EPJ.gray200}`,
-              borderRadius: 6,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: 13,
-              color: EPJ.gray700,
-            }}
+            style={iconBtnStyle}
           >
             ✏️
           </button>
@@ -372,9 +357,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           const chantierDoc = chantiers.find(c => c.num === reserve.chantierNum);
           return chantierDoc?.creeAdHoc ? (
             <div style={{
-              fontSize: 11, color: EPJ.orange, fontWeight: 600,
-              background: `${EPJ.orange}15`,
-              padding: "4px 8px", borderRadius: 5, marginBottom: 6,
+              fontSize: fontSize.xs, color: EPJ.orangeText, fontWeight: fontWeight.medium,
+              background: EPJ.warningBg,
+              padding: `${space.xs}px ${space.sm}px`, borderRadius: radius.sm, marginBottom: space.sm,
             }}>
               ⚠ Chantier ad hoc — N° d'affaire à compléter
             </div>
@@ -387,29 +372,29 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* Client */}
       {reserve.clientFinal?.nom && (
-        <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+        <div style={panel()}>
+          <div style={sectionLabel}>
             Client final
           </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900, marginBottom: 4 }}>
+          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900, marginBottom: space.xs }}>
             {reserve.clientFinal.nom}
           </div>
           {reserve.clientFinal.telephone && (
-            <div style={{ fontSize: 12, color: EPJ.blue, marginBottom: 2 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.blue, marginBottom: 2 }}>
               📞 <a href={`tel:${reserve.clientFinal.telephone}`} style={{ color: EPJ.blue, textDecoration: "none" }}>
                 {reserve.clientFinal.telephone}
               </a>
             </div>
           )}
           {reserve.clientFinal.email && (
-            <div style={{ fontSize: 12, color: EPJ.blue, marginBottom: 2 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.blue, marginBottom: 2 }}>
               ✉ <a href={`mailto:${reserve.clientFinal.email}`} style={{ color: EPJ.blue, textDecoration: "none" }}>
                 {reserve.clientFinal.email}
               </a>
             </div>
           )}
           {reserve.clientFinal.adresseContact && (
-            <div style={{ fontSize: 12, color: EPJ.gray700, marginTop: 4 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, marginTop: space.xs }}>
               📍 {reserve.clientFinal.adresseContact}
             </div>
           )}
@@ -417,7 +402,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
       )}
 
       {/* Émetteur + dates */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
+      <div style={panel()}>
         {(reserve.emisParLabel || reserve.emisParNom) && (
           <InfoRow label="Émis par" value={[reserve.emisParLabel, reserve.emisParNom].filter(Boolean).join(" — ")}/>
         )}
@@ -428,32 +413,32 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
       </div>
 
       {/* Affectation */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+      <div style={panel()}>
+        <div style={sectionLabel}>
           Affectation
         </div>
         {reserve.affecteAUserId ? (
           <>
-            <div style={{ fontSize: 14, fontWeight: 600, color: EPJ.gray900 }}>
+            <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>
               👤 {reserve.affecteANom}
             </div>
             {reserve.dateAffectation && (
-              <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 2 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
                 Attribuée le {formatDate(reserve.dateAffectation)}
               </div>
             )}
             {reserve.rdvPris ? (
-              <div style={{ fontSize: 12, color: EPJ.green, marginTop: 6, fontWeight: 600 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.greenText, marginTop: space.sm, fontWeight: fontWeight.medium }}>
                 📅 RDV prévu le {formatDate(reserve.rdvDate)} {reserve.rdvHeure && `à ${reserve.rdvHeure}`}
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: EPJ.orange, marginTop: 6, fontWeight: 600 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, marginTop: space.sm, fontWeight: fontWeight.medium }}>
                 ⚠ RDV non encore planifié
               </div>
             )}
           </>
         ) : (
-          <div style={{ fontSize: 13, color: EPJ.gray500, fontStyle: "italic" }}>
+          <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, fontStyle: "italic" }}>
             Non attribuée pour l'instant
           </div>
         )}
@@ -461,8 +446,8 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* Levée */}
       {["levee", "partiellement_levee", "quitus_signe"].includes(reserve.statut) && (
-        <div className="epj-card" style={{ padding: 14, marginBottom: 10, borderLeft: `3px solid ${EPJ.green}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: EPJ.green, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+        <div style={panel(EPJ.green)}>
+          <div style={{ ...sectionLabel, color: EPJ.greenText }}>
             Levée
           </div>
           {reserve.leveeParNom && <InfoRow label="Levée par" value={reserve.leveeParNom}/>}
@@ -489,103 +474,102 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
 
       {/* ─── Actions ─── */}
       {canEdit && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: space.sm, marginBottom: space.md }}>
           {!reserve.affecteAUserId && (
-            <button onClick={() => setShowAssign(true)} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+            <Button variant="primary" full onClick={() => setShowAssign(true)}>
               👤 Attribuer à un intervenant
-            </button>
+            </Button>
           )}
           {reserve.affecteAUserId && !reserve.rdvPris && reserve.statut === "attribuee" && (
             <>
-              <button onClick={() => setShowPlanify(true)} className="epj-btn" style={actionBtnStyle(EPJ.orange)}>
+              <Button variant="secondary" full onClick={() => setShowPlanify(true)}>
                 📅 Planifier le RDV
-              </button>
+              </Button>
               {canDemanderLevee(reserve, user) && (
-                <button onClick={onClickDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+                <Button variant="secondary" full onClick={onClickDemanderLevee}>
                   📱 Demander la levée (SMS)
-                </button>
+                </Button>
               )}
             </>
           )}
           {["attribuee", "planifiee", "intervention"].includes(reserve.statut) && (
-            <button onClick={onLevee} className="epj-btn" style={actionBtnStyle(EPJ.green)}>
+            <Button variant="primary" full onClick={onLevee}>
               ✓ Déclarer la levée
-            </button>
+            </Button>
           )}
           {/* v10.N — "Demander la levée" aussi visible sur statut planifiee/intervention pour privilégiés */}
           {reserve.affecteAUserId
             && ["planifiee", "intervention"].includes(reserve.statut)
             && canDemanderLevee(reserve, user) && (
-            <button onClick={onClickDemanderLevee} className="epj-btn" style={actionBtnStyle(EPJ.blue)}>
+            <Button variant="secondary" full onClick={onClickDemanderLevee}>
               📱 Demander la levée (SMS)
-            </button>
+            </Button>
           )}
           {reserve.affecteAUserId && (
-            <button onClick={() => { setAssignUserId(""); setShowAssign(true); }} className="epj-btn" style={actionBtnStyle(EPJ.gray100, EPJ.gray700)}>
+            <Button variant="ghost" full onClick={() => { setAssignUserId(""); setShowAssign(true); }}>
               🔄 Réattribuer
-            </button>
+            </Button>
           )}
         </div>
       )}
 
       {/* Modale attribution */}
       {showAssign && (
-        <div className="epj-card" style={{ padding: 14, marginBottom: 12, border: `2px solid ${EPJ.blue}` }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Attribuer la réserve à…</div>
-          <select value={assignUserId} onChange={e => setAssignUserId(e.target.value)} className="epj-input" style={{ marginBottom: 10 }}>
-            <option value="">— Choisir un intervenant —</option>
-            {affectables.map(u => {
-              const roleLabel = Array.isArray(u.roles) && u.roles.length > 0
-                ? u.roles.join(" + ")
-                : (u.role || u.fonction || "—");
-              return (
-                <option key={u._id} value={u._id}>
-                  {u.prenom} {u.nom} ({roleLabel})
-                </option>
-              );
-            })}
-          </select>
+        <div style={panel(EPJ.blue)}>
+          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, marginBottom: space.sm }}>Attribuer la réserve à…</div>
+          <div style={{ marginBottom: space.sm + 2 }}>
+            <Field as="select" value={assignUserId} onChange={e => setAssignUserId(e.target.value)}
+              options={[
+                { value: "", label: "— Choisir un intervenant —" },
+                ...affectables.map(u => {
+                  const roleLabel = Array.isArray(u.roles) && u.roles.length > 0
+                    ? u.roles.join(" + ")
+                    : (u.role || u.fonction || "—");
+                  return { value: u._id, label: `${u.prenom} ${u.nom} (${roleLabel})` };
+                }),
+              ]}
+            />
+          </div>
           {affectables.length === 0 && (
-            <div style={{ fontSize: 11, color: EPJ.orange, marginBottom: 10, padding: "6px 10px", background: `${EPJ.orange}15`, borderRadius: 6 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, marginBottom: space.sm + 2, padding: `${space.sm - 2}px ${space.sm}px`, background: EPJ.warningBg, borderRadius: radius.sm }}>
               ⚠ Aucun utilisateur affectable. Vérifie Admin → Utilisateurs.
             </div>
           )}
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setShowAssign(false)} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
-              Annuler
-            </button>
-            <button onClick={doAssign} disabled={saving || !assignUserId} className="epj-btn" style={{ flex: 2, background: EPJ.blue, color: EPJ.white }}>
-              ✓ Attribuer
-            </button>
+          <div style={{ display: "flex", gap: space.sm }}>
+            <div style={{ flex: 1 }}>
+              <Button variant="ghost" full onClick={() => setShowAssign(false)}>Annuler</Button>
+            </div>
+            <div style={{ flex: 2 }}>
+              <Button variant="primary" full onClick={doAssign} loading={saving} disabled={!assignUserId}>✓ Attribuer</Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modale planification */}
       {showPlanify && (
-        <div className="epj-card" style={{ padding: 14, marginBottom: 12, border: `2px solid ${EPJ.orange}` }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Planifier le rendez-vous</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-            <input type="date" className="epj-input" value={rdvDate} onChange={e => setRdvDate(e.target.value)}/>
-            <input type="time" className="epj-input" value={rdvHeure} onChange={e => setRdvHeure(e.target.value)}/>
+        <div style={panel(EPJ.orange)}>
+          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, marginBottom: space.sm }}>Planifier le rendez-vous</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+            <Field type="date" value={rdvDate} onChange={e => setRdvDate(e.target.value)}/>
+            <Field type="time" value={rdvHeure} onChange={e => setRdvHeure(e.target.value)}/>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setShowPlanify(false)} className="epj-btn" style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700 }}>
-              Annuler
-            </button>
-            <button onClick={doPlanify} disabled={saving || !rdvDate} className="epj-btn" style={{ flex: 2, background: EPJ.orange, color: EPJ.white }}>
-              ✓ Planifier
-            </button>
+          <div style={{ display: "flex", gap: space.sm }}>
+            <div style={{ flex: 1 }}>
+              <Button variant="ghost" full onClick={() => setShowPlanify(false)}>Annuler</Button>
+            </div>
+            <div style={{ flex: 2 }}>
+              <Button variant="primary" full onClick={doPlanify} loading={saving} disabled={!rdvDate}>✓ Planifier</Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Suppression */}
       {canDelete && (
-        <button onClick={doDelete} disabled={saving} className="epj-btn" style={{
-          width: "100%", background: `${EPJ.red}15`, color: EPJ.red,
-          fontSize: 12, padding: "10px",
-        }}>🗑 Supprimer la réserve</button>
+        <Button variant="danger" full onClick={doDelete} loading={saving}>
+          🗑 Supprimer la réserve
+        </Button>
       )}
 
       {/* v1.18.0 — Modale d'édition du chantier */}
@@ -626,32 +610,26 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
         <div onClick={() => setShowSmsPicker(false)}
              style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',
                      display:'flex',alignItems:'center',justifyContent:'center',
-                     zIndex:1000,padding:16}}>
-          <div className="epj-card" onClick={e => e.stopPropagation()}
-               style={{padding:20,maxWidth:420,width:'100%'}}>
-            <div style={{fontSize:16,fontWeight:700,marginBottom:6,fontFamily:font.display}}>
+                     zIndex:1000,padding:space.lg}}>
+          <div onClick={e => e.stopPropagation()}
+               style={{...panel(),boxShadow:shadow.lg,padding:space.xl,maxWidth:420,width:'100%',marginBottom:0}}>
+            <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.regular,marginBottom:space.xs,fontFamily:font.display}}>
               Choisir un modèle SMS
             </div>
-            <div style={{fontSize:12,color:EPJ.gray500,marginBottom:16}}>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray500,marginBottom:space.lg}}>
               Plusieurs modèles sont pertinents pour la levée de cette réserve.
             </div>
-            {smsPickerCandidates.map(t => (
-              <button key={t.id}
-                onClick={() => { setShowSmsPicker(false); doDemanderLevee(t.id); }}
-                className="epj-btn"
-                style={{display:'block',width:'100%',marginBottom:8,padding:'12px',
-                        textAlign:'left',background:EPJ.blue,color:EPJ.white,
-                        fontWeight:700,borderRadius:8,border:'none'}}>
-                {t.label || t.id}
-              </button>
-            ))}
-            <button onClick={() => setShowSmsPicker(false)}
-              className="epj-btn"
-              style={{display:'block',width:'100%',marginTop:8,padding:'10px',
-                      background:EPJ.gray200,color:EPJ.dark,fontWeight:600,
-                      borderRadius:8,border:'none'}}>
-              Annuler
-            </button>
+            <div style={{display:'flex',flexDirection:'column',gap:space.sm}}>
+              {smsPickerCandidates.map(t => (
+                <Button key={t.id} variant="secondary" full
+                  onClick={() => { setShowSmsPicker(false); doDemanderLevee(t.id); }}>
+                  {t.label || t.id}
+                </Button>
+              ))}
+              <Button variant="ghost" full onClick={() => setShowSmsPicker(false)}>
+                Annuler
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -659,15 +637,54 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
   );
 }
 
+// ─── Styles & helpers DS-2 ───────────────────────────────
+// Panneau blanc tokenisé (DA §4). accent → bordure gauche sémantique 3px.
+function panel(accent) {
+  return {
+    background: EPJ.white,
+    border: `1px solid ${EPJ.gray200}`,
+    borderRadius: radius.lg,
+    boxShadow: shadow.sm,
+    padding: space.lg,
+    marginBottom: space.md - 2,
+    ...(accent ? {
+      borderLeft: `3px solid ${accent}`,
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    } : null),
+  };
+}
+
+const sectionLabel = {
+  fontSize: fontSize.xs,
+  fontWeight: fontWeight.medium,
+  color: EPJ.gray500,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+  marginBottom: space.sm,
+};
+
+// Bouton-icône compact (édition chantier) — la primitive <Button> est trop
+// haute pour une action inline (limite size="sm"/IconButton → backlog §13).
+const iconBtnStyle = {
+  background: "transparent",
+  border: `1px solid ${EPJ.gray200}`,
+  borderRadius: radius.sm,
+  padding: `${space.xs}px ${space.sm}px`,
+  cursor: "pointer",
+  fontSize: fontSize.sm,
+  color: EPJ.gray700,
+};
+
 // ─── Sous-composants ─────────────────────────────────────
 function InfoRow({ label, value, multiline }) {
   return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: 10, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.3 }}>
+    <div style={{ marginBottom: space.sm - 2 }}>
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: "0.03em" }}>
         {label}
       </div>
       <div style={{
-        fontSize: 13, color: EPJ.gray900, fontFamily: font.body,
+        fontSize: fontSize.sm, color: EPJ.gray900, fontFamily: font.body,
         whiteSpace: multiline ? "pre-wrap" : "normal",
       }}>{value || "—"}</div>
     </div>
@@ -683,12 +700,4 @@ function EmplacementRow({ empl }) {
   if (empl.apt && !empl.partiesCommunes) parts.push(`Apt ${empl.apt}`);
   if (parts.length === 0) return null;
   return <InfoRow label="Emplacement" value={parts.join(" · ")}/>;
-}
-
-function actionBtnStyle(bg, color = EPJ.white) {
-  return {
-    width: "100%", padding: "12px", fontSize: 13, fontWeight: 600,
-    background: bg, color, border: "none", borderRadius: 8, cursor: "pointer",
-    fontFamily: font.body,
-  };
 }

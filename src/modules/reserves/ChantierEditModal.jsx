@@ -15,7 +15,10 @@
 //  unique (sans utiliser le numAffaire vide) basé sur la date.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Field } from "../../core/components/Field";
+import { Button } from "../../core/components/Button";
+import { Banner } from "../../core/components/Banner";
 import { db } from "../../firebase";
 import { collection, doc, setDoc, updateDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
 
@@ -162,94 +165,65 @@ export function ChantierEditModal({
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16, zIndex: 1000,
+      padding: space.lg, zIndex: 1000,
     }}>
       <div style={{
-        background: EPJ.white, borderRadius: 10, maxWidth: 460, width: "100%",
-        padding: 20, boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+        background: EPJ.white, borderRadius: radius.lg, maxWidth: 460, width: "100%",
+        padding: space.xl, boxShadow: shadow.lg,
         fontFamily: font.body,
       }}>
         <div style={{
-          fontFamily: font.display, fontSize: 18, color: EPJ.gray900,
-          marginBottom: 4,
+          fontFamily: font.display, fontSize: fontSize.lg, color: EPJ.gray900,
+          marginBottom: space.xs,
         }}>
           {isEdit ? "Modifier le chantier" : "Nouveau chantier"}
         </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500, marginBottom: 16 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.lg }}>
           {isEdit
             ? "Vous pouvez ajuster le nom, l'adresse et attribuer un N° d'affaire."
             : "Créez un chantier ad hoc. Le N° d'affaire peut être ajouté plus tard par l'admin."}
         </div>
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: EPJ.gray700, marginBottom: 4 }}>
-          Nom du chantier *
-        </label>
-        <input
-          className="epj-input"
-          value={nom}
-          onChange={e => setNom(e.target.value)}
-          placeholder="Ex : Jardins Éléonore"
-          autoFocus
-          style={{ marginBottom: 12 }}
-        />
+        <div style={{ marginBottom: space.md }}>
+          <Field label="Nom du chantier" required
+            value={nom}
+            onChange={e => setNom(e.target.value)}
+            placeholder="Ex : Jardins Éléonore"
+            autoFocus
+          />
+        </div>
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: EPJ.gray700, marginBottom: 4 }}>
-          Adresse
-        </label>
-        <input
-          className="epj-input"
-          value={adresse}
-          onChange={e => setAdresse(e.target.value)}
-          placeholder="Ex : Bassens — Bâtiment A"
-          style={{ marginBottom: 12 }}
-        />
+        <div style={{ marginBottom: space.md }}>
+          <Field label="Adresse"
+            value={adresse}
+            onChange={e => setAdresse(e.target.value)}
+            placeholder="Ex : Bassens — Bâtiment A"
+          />
+        </div>
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: EPJ.gray700, marginBottom: 4 }}>
-          N° d'affaire {!isEdit && <span style={{ color: EPJ.gray500, fontWeight: 400 }}>(optionnel)</span>}
-        </label>
-        <input
-          className="epj-input"
-          value={numAffaire}
-          onChange={e => setNumAffaire(e.target.value)}
-          placeholder="Ex : 001599 (laisser vide si inconnu)"
-          style={{ marginBottom: 6 }}
-        />
-        <div style={{ fontSize: 11, color: EPJ.gray500, marginBottom: 14 }}>
-          {isEdit && (chantier?.num || "").startsWith("ADHOC-")
-            ? "ℹ️ Ce chantier a un identifiant temporaire. Renseigner ici le vrai N° d'affaire le régularisera."
-            : "ℹ️ Peut être ajouté plus tard par l'admin si inconnu maintenant."}
+        <div style={{ marginBottom: space.md + 2 }}>
+          <Field
+            label={<>N° d'affaire {!isEdit && <span style={{ color: EPJ.gray500, fontWeight: fontWeight.regular }}>(optionnel)</span>}</>}
+            value={numAffaire}
+            onChange={e => setNumAffaire(e.target.value)}
+            placeholder="Ex : 001599 (laisser vide si inconnu)"
+            hint={isEdit && (chantier?.num || "").startsWith("ADHOC-")
+              ? "ℹ️ Ce chantier a un identifiant temporaire. Renseigner ici le vrai N° d'affaire le régularisera."
+              : "ℹ️ Peut être ajouté plus tard par l'admin si inconnu maintenant."}
+          />
         </div>
 
         {error && (
-          <div style={{
-            background: EPJ.dangerBg, color: EPJ.redText,
-            padding: "8px 10px", borderRadius: 6, fontSize: 12, marginBottom: 12,
-          }}>{error}</div>
+          <Banner tone="danger" text={error} />
         )}
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            onClick={onCancel}
-            disabled={saving}
-            className="epj-btn"
-            style={{
-              background: EPJ.gray100, color: EPJ.gray700,
-              padding: "8px 14px", fontSize: 13,
-            }}
-          >
+        <div style={{ display: "flex", gap: space.sm, justifyContent: "flex-end" }}>
+          <Button variant="ghost" onClick={onCancel} disabled={saving}>
             Annuler
-          </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="epj-btn"
-            style={{
-              background: EPJ.blue, color: EPJ.white,
-              padding: "8px 14px", fontSize: 13, fontWeight: 600,
-            }}
-          >
-            {saving ? "Enregistrement..." : (isEdit ? "Enregistrer" : "Créer ce chantier")}
-          </button>
+          </Button>
+          <Button variant="primary" onClick={save} loading={saving}>
+            {isEdit ? "Enregistrer" : "Créer ce chantier"}
+          </Button>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@
 //  Affichage fidèle du mail d'origine : HTML, pièces jointes, métadonnées.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useRef, useEffect } from "react";
-import { EPJ, font, radius } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 
 export function MailItem({ mail }) {
   const [expanded, setExpanded] = useState(false);
@@ -34,9 +34,9 @@ export function MailItem({ mail }) {
         <meta charset="utf-8">
         <base target="_blank">
         <style>
-          body { margin: 0; padding: 12px; font-family: ${font.body}; font-size: 13px; color: ${EPJ.gray900}; line-height: 1.5; }
+          body { margin: 0; padding: ${space.md}px; font-family: ${font.body}; font-size: ${fontSize.sm}px; color: ${EPJ.gray900}; line-height: 1.5; }
           img { max-width: 100%; height: auto; }
-          blockquote { border-left: 3px solid ${EPJ.gray300}; margin: 8px 0; padding-left: 10px; color: ${EPJ.gray500}; }
+          blockquote { border-left: 3px solid ${EPJ.gray300}; margin: ${space.sm}px 0; padding-left: ${space.sm + 2}px; color: ${EPJ.gray500}; }
           a { color: ${EPJ.blue}; }
           table { max-width: 100%; }
         </style>
@@ -72,8 +72,8 @@ export function MailItem({ mail }) {
         type="button"
         onClick={() => setExpanded(!expanded)}
         style={{
-          width: "100%", padding: "10px 12px",
-          display: "flex", alignItems: "center", gap: 10,
+          width: "100%", padding: `${space.sm + 2}px ${space.md}px`,
+          display: "flex", alignItems: "center", gap: space.sm,
           background: expanded ? EPJ.gray50 : EPJ.white,
           border: "none", cursor: "pointer", textAlign: "left",
           borderBottom: expanded ? `1px solid ${EPJ.gray200}` : "none",
@@ -82,17 +82,17 @@ export function MailItem({ mail }) {
       >
         {/* Avatar */}
         <div style={{
-          width: 28, height: 28, borderRadius: "50%",
+          width: 28, height: 28, borderRadius: radius.pill,
           background: avatarBg, color: avatarColor,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 700, flexShrink: 0,
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium, flexShrink: 0,
           fontFamily: font.body,
         }}>{initials}</div>
 
         {/* Méta */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 12, fontWeight: 600, color: EPJ.gray900,
+            fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray900,
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             fontFamily: font.body,
           }}>
@@ -103,14 +103,14 @@ export function MailItem({ mail }) {
           </div>
           {!expanded && apercu && (
             <div style={{
-              fontSize: 11, color: EPJ.gray500, marginTop: 1,
+              fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 1,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>
               {apercu}
             </div>
           )}
           {expanded && (
-            <div style={{ fontSize: 11, color: EPJ.gray500, marginTop: 1 }}>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 1 }}>
               {isOut ? "Envoyé depuis l'app EPJ" : `<${mail.expediteurEmail}>`}
             </div>
           )}
@@ -119,7 +119,7 @@ export function MailItem({ mail }) {
         {/* Pièces jointes */}
         {nbPj > 0 && (
           <div style={{
-            fontSize: 11, color: EPJ.gray500, display: "flex",
+            fontSize: fontSize.xs, color: EPJ.gray500, display: "flex",
             alignItems: "center", gap: 3, flexShrink: 0,
           }}>
             📎 {nbPj}
@@ -128,13 +128,13 @@ export function MailItem({ mail }) {
 
         {/* Date */}
         <div style={{
-          fontSize: 11, color: EPJ.gray500, flexShrink: 0,
+          fontSize: fontSize.xs, color: EPJ.gray500, flexShrink: 0,
           whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
         }}>{dateLabel}</div>
 
         {/* Chevron */}
         <div style={{
-          fontSize: 11, color: EPJ.gray500, flexShrink: 0,
+          fontSize: fontSize.xs, color: EPJ.gray500, flexShrink: 0,
           transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "none",
         }}>▾</div>
       </button>
@@ -144,8 +144,8 @@ export function MailItem({ mail }) {
         <div>
           {/* Sujet en gras */}
           <div style={{
-            padding: "10px 12px 6px",
-            fontSize: 13, fontWeight: 600, color: EPJ.gray900,
+            padding: `${space.sm + 2}px ${space.md}px ${space.xs + 2}px`,
+            fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900,
             background: EPJ.white,
           }}>
             {sujet}
@@ -165,10 +165,10 @@ export function MailItem({ mail }) {
           {/* Pièces jointes */}
           {nbPj > 0 && (
             <div style={{
-              padding: "8px 12px",
+              padding: `${space.sm}px ${space.md}px`,
               borderTop: `1px solid ${EPJ.gray200}`,
               background: EPJ.gray50,
-              display: "flex", flexWrap: "wrap", gap: 6,
+              display: "flex", flexWrap: "wrap", gap: space.sm - 2,
             }}>
               {mail.piecesJointes.map(pj => (
                 <a
@@ -177,10 +177,10 @@ export function MailItem({ mail }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    fontSize: 11, padding: "6px 10px",
+                    display: "inline-flex", alignItems: "center", gap: space.sm - 2,
+                    fontSize: fontSize.xs, padding: `${space.xs + 2}px ${space.sm + 2}px`,
                     background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
-                    borderRadius: 6, color: EPJ.gray700, textDecoration: "none",
+                    borderRadius: radius.sm, color: EPJ.gray700, textDecoration: "none",
                     fontFamily: font.body,
                   }}
                   title={`${pj.nom} (${formatKo(pj.tailleKo)})`}
@@ -199,11 +199,11 @@ export function MailItem({ mail }) {
           {/* Footer technique (méta rattachement) */}
           {(mail.rattachementMethode || mail.gmailThreadId) && (
             <div style={{
-              padding: "6px 12px",
+              padding: `${space.xs + 2}px ${space.md}px`,
               borderTop: `1px solid ${EPJ.gray200}`,
-              fontSize: 10, color: EPJ.gray500,
+              fontSize: fontSize.xs, color: EPJ.gray500,
               display: "flex", justifyContent: "space-between",
-              flexWrap: "wrap", gap: 6,
+              flexWrap: "wrap", gap: space.sm - 2,
             }}>
               <span>
                 {mail.rattachementMethode && (

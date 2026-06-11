@@ -5,7 +5,10 @@
 //  L'envoi passe par la Cloud Function Gmail API (au nom de l'utilisateur).
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { EPJ, font, radius } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
+import { Field } from "../../core/components/Field";
+import { Button } from "../../core/components/Button";
+import { Banner } from "../../core/components/Banner";
 
 export function MailReplyComposer({ reserve, mails = [], onSend, onCancel }) {
   // ─── Pré-remplissage à partir des mails existants ───────────
@@ -71,130 +74,73 @@ export function MailReplyComposer({ reserve, mails = [], onSend, onCancel }) {
 
   return (
     <div style={{
-      padding: 14,
+      padding: space.md + 2,
       borderTop: `1px solid ${EPJ.gray200}`,
       background: EPJ.white,
     }}>
       <div style={{
-        fontSize: 12, fontWeight: 700, color: EPJ.blue, marginBottom: 10,
-        textTransform: "uppercase", letterSpacing: 0.5,
-        display: "flex", alignItems: "center", gap: 6,
+        fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.blueText, marginBottom: space.sm + 2,
+        textTransform: "uppercase", letterSpacing: "0.03em",
+        display: "flex", alignItems: "center", gap: space.xs + 2,
       }}>
         ✉ Nouveau mail
       </div>
 
-      {/* Destinataires */}
-      <Field label="À">
-        <input
-          type="text"
-          value={destinataires}
+      <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+        {/* Destinataires */}
+        <Field label="À" value={destinataires}
           onChange={e => setDestinataires(e.target.value)}
-          placeholder="email1@..., email2@..."
-          className="epj-input"
-          style={{ padding: "8px 10px", fontSize: 12 }}
-        />
-      </Field>
+          placeholder="email1@..., email2@..."/>
 
-      {/* CC */}
-      <Field label="CC">
-        <input
-          type="text"
-          value={cc}
+        {/* CC */}
+        <Field label="CC" value={cc}
           onChange={e => setCc(e.target.value)}
-          placeholder="(optionnel)"
-          className="epj-input"
-          style={{ padding: "8px 10px", fontSize: 12 }}
-        />
-      </Field>
+          placeholder="(optionnel)"/>
 
-      {/* Sujet */}
-      <Field label="Sujet">
-        <input
-          type="text"
-          value={sujet}
-          onChange={e => setSujet(e.target.value)}
-          className="epj-input"
-          style={{ padding: "8px 10px", fontSize: 12 }}
-        />
-      </Field>
+        {/* Sujet */}
+        <Field label="Sujet" value={sujet}
+          onChange={e => setSujet(e.target.value)}/>
 
-      {/* Corps */}
-      <div style={{ marginTop: 6 }}>
-        <textarea
-          value={corps}
+        {/* Corps */}
+        <Field as="textarea" label="Message" value={corps}
           onChange={e => setCorps(e.target.value)}
           rows={10}
-          className="epj-input"
-          style={{
-            resize: "vertical", fontSize: 13,
-            fontFamily: font.body, lineHeight: 1.5,
-          }}
-          placeholder="Tape ton message…"
-        />
+          placeholder="Tape ton message…"/>
       </div>
 
       {/* Tag de référence (info, non éditable) */}
       <div style={{
-        marginTop: 8, padding: "6px 10px",
-        background: EPJ.gray50, borderRadius: 6,
-        fontSize: 10, color: EPJ.gray500,
-        display: "flex", alignItems: "center", gap: 6,
+        marginTop: space.sm, padding: `${space.xs + 2}px ${space.sm + 2}px`,
+        background: EPJ.gray50, borderRadius: radius.sm,
+        fontSize: fontSize.xs, color: EPJ.gray500,
+        display: "flex", alignItems: "center", gap: space.xs + 2,
       }}>
         🔗 La référence <code style={{
-          background: EPJ.white, padding: "1px 5px", borderRadius: 3,
-          color: EPJ.gray700, fontSize: 10,
+          background: EPJ.white, padding: "1px 5px", borderRadius: radius.sm,
+          color: EPJ.gray700, fontSize: fontSize.xs, fontFamily: font.mono,
         }}>[RES-{reserve?.numReserve}]</code> sera ajoutée automatiquement au sujet
         pour rattacher les réponses futures à cette réserve.
       </div>
 
       {error && (
-        <div style={{
-          marginTop: 8, padding: "6px 10px",
-          background: `${EPJ.red}15`, color: EPJ.red,
-          borderRadius: 6, fontSize: 11,
-        }}>
-          ⚠ {error}
+        <div style={{ marginTop: space.sm }}>
+          <Banner tone="danger" text={error} />
         </div>
       )}
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-        <button
-          onClick={onCancel}
-          className="epj-btn"
-          disabled={sending}
-          style={{
-            flex: 1, background: EPJ.gray100, color: EPJ.gray700,
-            fontSize: 12, padding: "10px",
-          }}
-        >
-          Annuler
-        </button>
-        <button
-          onClick={handleSend}
-          disabled={sending}
-          className="epj-btn"
-          style={{
-            flex: 2, background: EPJ.blue, color: EPJ.white,
-            fontSize: 12, padding: "10px",
-          }}
-        >
-          {sending ? "Envoi…" : "✉ Envoyer"}
-        </button>
+      <div style={{ display: "flex", gap: space.sm, marginTop: space.sm + 2 }}>
+        <div style={{ flex: 1 }}>
+          <Button variant="ghost" full onClick={onCancel} disabled={sending}>
+            Annuler
+          </Button>
+        </div>
+        <div style={{ flex: 2 }}>
+          <Button variant="primary" full onClick={handleSend} loading={sending}>
+            ✉ Envoyer
+          </Button>
+        </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Sous-composants ───────────────────────────────────────
-function Field({ label, children }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-      <div style={{
-        fontSize: 11, color: EPJ.gray500, fontWeight: 600,
-        width: 50, flexShrink: 0,
-      }}>{label}</div>
-      <div style={{ flex: 1 }}>{children}</div>
     </div>
   );
 }

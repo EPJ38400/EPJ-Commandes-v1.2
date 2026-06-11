@@ -3,7 +3,9 @@
 //  v1.18.0 — Brique chantier ad hoc + auto-remplissage depuis mail
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo, useEffect } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Field } from "../../core/components/Field";
+import { Button } from "../../core/components/Button";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
@@ -338,56 +340,68 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
     }
   };
 
+  // Options des selects (Field as="select")
+  const chantierOptions = [
+    { value: "", label: "— Sélectionner un chantier —" },
+    { value: CHANTIER_NEW_SENTINEL, label: "➕ Créer un nouveau chantier" },
+    ...chantiersVisibles.map(c => ({ value: c.num, label: `${c.num} — ${c.nom}` })),
+  ];
+  const emetteurOptions = [
+    { value: "", label: "— Type —" },
+    ...(reservesEmetteurs || []).filter(x => x.actif !== false).map(em => ({ value: em.label, label: em.label })),
+  ];
+  const categorieOptions = [
+    { value: "", label: "— Choisir —" },
+    ...(reservesCategories || []).filter(c => c.actif !== false).map(c => ({ value: c._id, label: `${c.icon} ${c.label}` })),
+  ];
+  const prioriteOptions = Object.entries(RESERVE_PRIORITES).map(([k, v]) => ({ value: k, label: `${v.icon} ${v.label}` }));
+  const affecteOptions = [
+    { value: "", label: "— Aucun (à attribuer plus tard) —" },
+    ...affectables.map(u => {
+      const roleLabel = Array.isArray(u.roles) && u.roles.length > 0
+        ? u.roles.join(" + ")
+        : (u.role || u.fonction || "—");
+      return { value: u._id, label: `${u.prenom} ${u.nom} (${roleLabel})` };
+    }),
+  ];
+
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 40 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onCancel} style={{
-          background: "transparent", border: "none", color: EPJ.gray700,
-          fontSize: 14, cursor: "pointer", fontFamily: font.body, padding: "6px 10px",
-        }}>← Annuler</button>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xxl }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.md + 2 }}>
+        <Button variant="ghost" onClick={onCancel}>← Annuler</Button>
         <div style={{ fontFamily: font.display, fontSize: 22, color: EPJ.gray900, letterSpacing: "-0.02em" }}>
           Nouvelle réserve
         </div>
       </div>
 
-      <div className="epj-card" style={{ padding: 14, marginBottom: 12 }}>
+      <div style={panel}>
         {/* Chantier */}
-        <FieldLabel>Chantier *</FieldLabel>
-        <select
-          value={chantierNum}
-          onChange={e => {
-            const v = e.target.value;
-            if (v === CHANTIER_NEW_SENTINEL) {
-              // v1.18.0 — Ouvre la modale de création de chantier ad hoc
-              setShowChantierModal(true);
-              // ne change PAS le state chantierNum pour l'instant
-              // (la modale appellera onSaved qui le mettra à jour)
-            } else {
-              setChantierNum(v);
-            }
-          }}
-          className="epj-input"
-          style={{ marginBottom: 12 }}
-        >
-          <option value="">— Sélectionner un chantier —</option>
-          <option value={CHANTIER_NEW_SENTINEL} style={{ fontWeight: 700, color: EPJ.blue }}>
-            ➕ Créer un nouveau chantier
-          </option>
-          {chantiersVisibles.map(c => (
-            <option key={c.num} value={c.num}>
-              {c.num} — {c.nom}
-            </option>
-          ))}
-        </select>
+        <div style={{ marginBottom: space.md }}>
+          <Field as="select" label="Chantier" required
+            value={chantierNum}
+            options={chantierOptions}
+            onChange={e => {
+              const v = e.target.value;
+              if (v === CHANTIER_NEW_SENTINEL) {
+                // v1.18.0 — Ouvre la modale de création de chantier ad hoc
+                setShowChantierModal(true);
+                // ne change PAS le state chantierNum pour l'instant
+                // (la modale appellera onSaved qui le mettra à jour)
+              } else {
+                setChantierNum(v);
+              }
+            }}
+          />
+        </div>
 
         {chantier && (
           <div style={{
-            fontSize: 11, color: EPJ.gray500, background: EPJ.gray50,
-            padding: "6px 10px", borderRadius: 6, marginBottom: 12,
+            fontSize: fontSize.xs, color: EPJ.gray500, background: EPJ.gray50,
+            padding: `${space.sm - 2}px ${space.sm}px`, borderRadius: radius.sm, marginBottom: space.md,
           }}>
             📍 {chantier.adresse || "(adresse non renseignée)"}
             {chantier.creeAdHoc && (
-              <span style={{ marginLeft: 8, color: EPJ.orange, fontWeight: 600 }}>
+              <span style={{ marginLeft: space.sm, color: EPJ.orangeText, fontWeight: fontWeight.medium }}>
                 · Ad hoc (N° d'affaire à compléter)
               </span>
             )}
@@ -395,111 +409,92 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
         )}
 
         {/* Titre + description */}
-        <FieldLabel>Titre *</FieldLabel>
-        <input className="epj-input" value={form.titre} style={{ marginBottom: 10 }}
-               onChange={e => setForm(f => ({ ...f, titre: e.target.value }))}
-               placeholder="Ex : Prise de courant manquante salle de bain"/>
-
-        <FieldLabel>Description détaillée</FieldLabel>
-        <textarea className="epj-input" value={form.description} style={{ marginBottom: 10, minHeight: 70, resize: "vertical" }}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Détails du problème observé..."/>
+        <div style={{ marginBottom: space.sm + 2 }}>
+          <Field label="Titre" required value={form.titre}
+            onChange={e => setForm(f => ({ ...f, titre: e.target.value }))}
+            placeholder="Ex : Prise de courant manquante salle de bain"/>
+        </div>
+        <div style={{ marginBottom: space.sm + 2 }}>
+          <Field as="textarea" label="Description détaillée" value={form.description} rows={3}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Détails du problème observé..."/>
+        </div>
 
         {/* Emplacement */}
         <FieldLabel>Emplacement</FieldLabel>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8, marginBottom: 8,
-          padding: "8px 10px", borderRadius: 6,
-          background: form.emplacement.partiesCommunes ? `${EPJ.orange}15` : EPJ.gray50,
+        <label style={{
+          display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.sm,
+          padding: `${space.sm}px ${space.sm + 2}px`, borderRadius: radius.sm, cursor: "pointer",
+          background: form.emplacement.partiesCommunes ? EPJ.warningBg : EPJ.gray50,
           border: `1px solid ${form.emplacement.partiesCommunes ? EPJ.orange : EPJ.gray200}`,
         }}>
           <input type="checkbox" checked={form.emplacement.partiesCommunes}
                  onChange={e => setForm(f => ({
                    ...f, emplacement: { ...f.emplacement, partiesCommunes: e.target.checked },
                  }))}/>
-          <span style={{ fontSize: 13 }}>Parties communes (couloir, cage, hall, etc.)</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-          <input className="epj-input" placeholder="Bâtiment (ex : A)"
-                 value={form.emplacement.batiment}
-                 onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, batiment: e.target.value } }))}/>
-          <input className="epj-input" placeholder="Cage / Étage"
-                 value={form.emplacement.cage}
-                 onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, cage: e.target.value } }))}/>
+          <span style={{ fontSize: fontSize.sm }}>Parties communes (couloir, cage, hall, etc.)</span>
+        </label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+          <Field placeholder="Bâtiment (ex : A)"
+            value={form.emplacement.batiment}
+            onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, batiment: e.target.value } }))}/>
+          <Field placeholder="Cage / Étage"
+            value={form.emplacement.cage}
+            onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, cage: e.target.value } }))}/>
         </div>
         {!form.emplacement.partiesCommunes && (
-          <input className="epj-input" placeholder="N° d'appartement (ex : 3.2)"
-                 value={form.emplacement.apt} style={{ marginBottom: 10 }}
-                 onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, apt: e.target.value } }))}/>
+          <div style={{ marginBottom: space.sm + 2 }}>
+            <Field placeholder="N° d'appartement (ex : 3.2)"
+              value={form.emplacement.apt}
+              onChange={e => setForm(f => ({ ...f, emplacement: { ...f.emplacement, apt: e.target.value } }))}/>
+          </div>
         )}
 
         {/* Client final */}
         <FieldLabel>Client final (occupant)</FieldLabel>
-        <input className="epj-input" placeholder="Nom du client"
-               value={form.clientFinal.nom} style={{ marginBottom: 6 }}
-               onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, nom: e.target.value } }))}/>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
-          <input className="epj-input" placeholder="Téléphone" type="tel"
-                 value={form.clientFinal.telephone}
-                 onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, telephone: e.target.value } }))}/>
-          <input className="epj-input" placeholder="Email" type="email"
-                 value={form.clientFinal.email}
-                 onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, email: e.target.value } }))}/>
+        <div style={{ marginBottom: space.sm }}>
+          <Field placeholder="Nom du client"
+            value={form.clientFinal.nom}
+            onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, nom: e.target.value } }))}/>
         </div>
-        <input className="epj-input" placeholder="Adresse de contact (si différente du chantier)"
-               value={form.clientFinal.adresseContact} style={{ marginBottom: 12 }}
-               onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, adresseContact: e.target.value } }))}/>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm }}>
+          <Field placeholder="Téléphone" type="tel"
+            value={form.clientFinal.telephone}
+            onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, telephone: e.target.value } }))}/>
+          <Field placeholder="Email" type="email"
+            value={form.clientFinal.email}
+            onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, email: e.target.value } }))}/>
+        </div>
+        <div style={{ marginBottom: space.md }}>
+          <Field placeholder="Adresse de contact (si différente du chantier)"
+            value={form.clientFinal.adresseContact}
+            onChange={e => setForm(f => ({ ...f, clientFinal: { ...f.clientFinal, adresseContact: e.target.value } }))}/>
+        </div>
 
         {/* Émetteur */}
         <FieldLabel>Émetteur de la réserve</FieldLabel>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-          <select value={form.emisParLabel} onChange={e => setForm(f => ({ ...f, emisParLabel: e.target.value }))}
-                  className="epj-input">
-            <option value="">— Type —</option>
-            {(reservesEmetteurs || []).filter(x => x.actif !== false).map(em => (
-              <option key={em._id} value={em.label}>{em.label}</option>
-            ))}
-          </select>
-          <input className="epj-input" placeholder="Nom précis (ex : Cabinet Dubois)"
-                 value={form.emisParNom}
-                 onChange={e => setForm(f => ({ ...f, emisParNom: e.target.value }))}/>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+          <Field as="select" value={form.emisParLabel} options={emetteurOptions}
+            onChange={e => setForm(f => ({ ...f, emisParLabel: e.target.value }))}/>
+          <Field placeholder="Nom précis (ex : Cabinet Dubois)"
+            value={form.emisParNom}
+            onChange={e => setForm(f => ({ ...f, emisParNom: e.target.value }))}/>
         </div>
 
         {/* Catégorie + priorité */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-          <div>
-            <FieldLabel>Catégorie</FieldLabel>
-            <select value={form.categorieId} onChange={e => setForm(f => ({ ...f, categorieId: e.target.value }))}
-                    className="epj-input">
-              <option value="">— Choisir —</option>
-              {(reservesCategories || []).filter(c => c.actif !== false).map(c =>
-                <option key={c._id} value={c._id}>{c.icon} {c.label}</option>
-              )}
-            </select>
-          </div>
-          <div>
-            <FieldLabel>Priorité</FieldLabel>
-            <select value={form.priorite} onChange={e => setForm(f => ({ ...f, priorite: e.target.value }))}
-                    className="epj-input">
-              {Object.entries(RESERVE_PRIORITES).map(([k, v]) =>
-                <option key={k} value={k}>{v.icon} {v.label}</option>
-              )}
-            </select>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+          <Field as="select" label="Catégorie" value={form.categorieId} options={categorieOptions}
+            onChange={e => setForm(f => ({ ...f, categorieId: e.target.value }))}/>
+          <Field as="select" label="Priorité" value={form.priorite} options={prioriteOptions}
+            onChange={e => setForm(f => ({ ...f, priorite: e.target.value }))}/>
         </div>
 
         {/* Dates */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-          <div>
-            <FieldLabel>Date d'émission</FieldLabel>
-            <input type="date" className="epj-input" value={form.dateEmission}
-                   onChange={e => setForm(f => ({ ...f, dateEmission: e.target.value }))}/>
-          </div>
-          <div>
-            <FieldLabel>Date limite</FieldLabel>
-            <input type="date" className="epj-input" value={form.dateLimite}
-                   onChange={e => setForm(f => ({ ...f, dateLimite: e.target.value }))}/>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+          <Field type="date" label="Date d'émission" value={form.dateEmission}
+            onChange={e => setForm(f => ({ ...f, dateEmission: e.target.value }))}/>
+          <Field type="date" label="Date limite" value={form.dateLimite}
+            onChange={e => setForm(f => ({ ...f, dateLimite: e.target.value }))}/>
         </div>
 
         {/* Photo constat (mise en avant) */}
@@ -521,23 +516,12 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
         />
 
         {/* Affectation */}
-        <FieldLabel>Attribuer à</FieldLabel>
-        <select value={form.affecteAUserId} onChange={e => setForm(f => ({ ...f, affecteAUserId: e.target.value }))}
-                className="epj-input" style={{ marginBottom: 10 }}>
-          <option value="">— Aucun (à attribuer plus tard) —</option>
-          {affectables.map(u => {
-            const roleLabel = Array.isArray(u.roles) && u.roles.length > 0
-              ? u.roles.join(" + ")
-              : (u.role || u.fonction || "—");
-            return (
-              <option key={u._id} value={u._id}>
-                {u.prenom} {u.nom} ({roleLabel})
-              </option>
-            );
-          })}
-        </select>
+        <div style={{ marginTop: space.sm + 2, marginBottom: space.sm + 2 }}>
+          <Field as="select" label="Attribuer à" value={form.affecteAUserId} options={affecteOptions}
+            onChange={e => setForm(f => ({ ...f, affecteAUserId: e.target.value }))}/>
+        </div>
         {affectables.length === 0 && (
-          <div style={{ fontSize: 11, color: EPJ.orange, marginBottom: 10, padding: "6px 10px", background: `${EPJ.orange}15`, borderRadius: 6 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.orangeText, marginBottom: space.sm + 2, padding: `${space.sm - 2}px ${space.sm}px`, background: EPJ.warningBg, borderRadius: radius.sm }}>
             ⚠ Aucun utilisateur affectable trouvé. Vérifie que tes utilisateurs ont un rôle actif dans Admin → Utilisateurs.
           </div>
         )}
@@ -545,27 +529,27 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
         {/* RDV */}
         {form.affecteAUserId && (
           <>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "8px 10px", borderRadius: 6,
-              background: form.rdvPris ? `${EPJ.green}15` : EPJ.gray50,
+            <label style={{
+              display: "flex", alignItems: "center", gap: space.sm, cursor: "pointer",
+              padding: `${space.sm}px ${space.sm + 2}px`, borderRadius: radius.sm,
+              background: form.rdvPris ? EPJ.successBg : EPJ.gray50,
               border: `1px solid ${form.rdvPris ? EPJ.green : EPJ.gray200}`,
-              marginBottom: 8,
+              marginBottom: space.sm,
             }}>
               <input type="checkbox" checked={form.rdvPris}
                      onChange={e => setForm(f => ({ ...f, rdvPris: e.target.checked }))}/>
-              <span style={{ fontSize: 13 }}>RDV déjà pris avec le client</span>
-            </div>
+              <span style={{ fontSize: fontSize.sm }}>RDV déjà pris avec le client</span>
+            </label>
             {form.rdvPris && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-                <input type="date" className="epj-input" value={form.rdvDate}
-                       onChange={e => setForm(f => ({ ...f, rdvDate: e.target.value }))}/>
-                <input type="time" className="epj-input" value={form.rdvHeure}
-                       onChange={e => setForm(f => ({ ...f, rdvHeure: e.target.value }))}/>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm, marginBottom: space.sm + 2 }}>
+                <Field type="date" value={form.rdvDate}
+                  onChange={e => setForm(f => ({ ...f, rdvDate: e.target.value }))}/>
+                <Field type="time" value={form.rdvHeure}
+                  onChange={e => setForm(f => ({ ...f, rdvHeure: e.target.value }))}/>
               </div>
             )}
             {!form.rdvPris && (
-              <div style={{ fontSize: 11, color: EPJ.gray500, marginBottom: 10, padding: "6px 10px", background: EPJ.gray50, borderRadius: 6 }}>
+              <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.sm + 2, padding: `${space.sm - 2}px ${space.sm}px`, background: EPJ.gray50, borderRadius: radius.sm }}>
                 ⏰ L'intervenant devra prendre RDV. Relances automatiques si RDV non pris après 2 jours.
               </div>
             )}
@@ -574,14 +558,15 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} className="epj-btn" style={{
-          flex: 1, background: EPJ.gray100, color: EPJ.gray700,
-        }}>Annuler</button>
-        <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-          flex: 2, background: EPJ.blue, color: EPJ.white,
-          opacity: saving || uploadingPhoto ? 0.5 : 1,
-        }}>{saving ? "⏳ Enregistrement…" : "💾 Créer la réserve"}</button>
+      <div style={{ display: "flex", gap: space.sm }}>
+        <div style={{ flex: 1 }}>
+          <Button variant="ghost" full onClick={onCancel}>Annuler</Button>
+        </div>
+        <div style={{ flex: 2 }}>
+          <Button variant="primary" full onClick={save} loading={saving} disabled={!!uploadingPhoto}>
+            💾 Créer la réserve
+          </Button>
+        </div>
       </div>
 
       {/* v1.18.0 — Modale de création de chantier ad hoc */}
@@ -603,11 +588,22 @@ export function ReserveCreate({ onDone, onCancel, prefillChantierNum, prefillFro
   );
 }
 
+// Panneau blanc tokenisé (DA §4).
+const panel = {
+  background: EPJ.white,
+  border: `1px solid ${EPJ.gray200}`,
+  borderRadius: radius.lg,
+  boxShadow: shadow.sm,
+  padding: space.lg,
+  marginBottom: space.md,
+};
+
+// Label de section (groupes de champs partageant une étiquette).
 function FieldLabel({ children }) {
   return (
     <label style={{
-      display: "block", fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3,
+      display: "block", fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray500,
+      textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: space.xs,
     }}>{children}</label>
   );
 }

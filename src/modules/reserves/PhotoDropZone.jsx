@@ -3,7 +3,8 @@
 //  Utilisé pour la photo "avant" (constat) et "après" (levée)
 // ═══════════════════════════════════════════════════════════════
 import { useState, useRef } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
+import { Button } from "../../core/components/Button";
 
 export function PhotoDropZone({
   photoUrl,           // URL de la photo actuelle
@@ -46,20 +47,23 @@ export function PhotoDropZone({
   // ─── Photo déjà présente ───
   if (photoUrl) {
     return (
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: space.md - 2 }}>
         <img src={photoUrl} alt="" style={{
           width: "100%", maxHeight: 250, objectFit: "cover",
-          borderRadius: 8, border: `1px solid ${EPJ.gray200}`, marginBottom: 6,
+          borderRadius: radius.md, border: `1px solid ${EPJ.gray200}`, marginBottom: space.sm - 2,
           display: "block",
         }}/>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" onClick={() => fileLibRef.current?.click()}
-                  disabled={!!uploadingLabel} style={photoBtnStyle()}>
-            🖼 Remplacer
-          </button>
-          <button type="button" onClick={onRemove} style={photoBtnStyle(true)}>
-            🗑 Retirer
-          </button>
+        <div style={{ display: "flex", gap: space.sm - 2 }}>
+          <div style={{ flex: 1 }}>
+            <Button variant="secondary" full onClick={() => fileLibRef.current?.click()} disabled={!!uploadingLabel}>
+              🖼 Remplacer
+            </Button>
+          </div>
+          <div style={{ flex: 1 }}>
+            <Button variant="danger" full onClick={onRemove}>
+              🗑 Retirer
+            </Button>
+          </div>
         </div>
         <input ref={fileLibRef} type="file" accept="image/*" onChange={onInputChange} style={{ display: "none" }}/>
       </div>
@@ -70,66 +74,49 @@ export function PhotoDropZone({
   if (uploadingLabel) {
     return (
       <div style={{
-        padding: "14px 10px", border: `2px dashed ${EPJ.orange}`, borderRadius: 8,
-        background: `${EPJ.orange}14`, color: EPJ.orange, fontSize: 13,
-        fontWeight: 600, textAlign: "center", marginBottom: 10,
+        padding: `${space.md + 2}px ${space.sm + 2}px`, border: `2px dashed ${EPJ.orange}`, borderRadius: radius.md,
+        background: EPJ.warningBg, color: EPJ.orangeText, fontSize: fontSize.sm,
+        fontWeight: fontWeight.medium, textAlign: "center", marginBottom: space.md - 2,
       }}>📤 Téléversement en cours… ({uploadingLabel})</div>
     );
   }
 
   // ─── Zone drop vide ───
   return (
-    <div style={{ marginBottom: 10 }}>
+    <div style={{ marginBottom: space.md - 2 }}>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         style={{
           width: "100%",
-          padding: "22px 12px",
+          padding: `${space.xl - 2}px ${space.md}px`,
           border: `2px dashed ${dragging ? EPJ.blue : EPJ.gray300}`,
-          borderRadius: 10,
-          background: dragging ? `${EPJ.blue}10` : EPJ.gray50,
+          borderRadius: radius.md,
+          background: dragging ? EPJ.infoBg : EPJ.gray50,
           textAlign: "center",
           transition: "all 0.15s",
-          marginBottom: 6,
+          marginBottom: space.sm - 2,
         }}
       >
-        <div style={{ fontSize: 28, marginBottom: 6 }}>🖼</div>
-        <div style={{ fontSize: 12, color: EPJ.gray700, fontWeight: 600, fontFamily: font.body, marginBottom: 3 }}>
+        <div style={{ fontSize: 28, marginBottom: space.xs + 2 }}>🖼</div>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, fontWeight: fontWeight.medium, fontFamily: font.body, marginBottom: 3 }}>
           Glisser-déposer une image ici
         </div>
-        <div style={{ fontSize: 10, color: EPJ.gray500 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
           {helperText || "JPG, PNG, WEBP · 10 Mo max"}
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <button type="button" onClick={() => fileLibRef.current?.click()} style={photoBtnAction()}>
+      <div style={{ display: "flex", flexDirection: "column", gap: space.xs + 1 }}>
+        <Button variant="secondary" full onClick={() => fileLibRef.current?.click()}>
           🖼 Choisir depuis la bibliothèque
-        </button>
-        <button type="button" onClick={() => fileCamRef.current?.click()} style={photoBtnAction()}>
+        </Button>
+        <Button variant="secondary" full onClick={() => fileCamRef.current?.click()}>
           📷 Prendre une photo
-        </button>
+        </Button>
       </div>
       <input ref={fileLibRef} type="file" accept="image/*" onChange={onInputChange} style={{ display: "none" }}/>
       <input ref={fileCamRef} type="file" accept="image/*" capture="environment" onChange={onInputChange} style={{ display: "none" }}/>
     </div>
   );
-}
-
-function photoBtnStyle(danger = false) {
-  return {
-    flex: 1, padding: "8px 10px", fontSize: 12, fontWeight: 600,
-    border: "none", borderRadius: 6, cursor: "pointer",
-    background: danger ? `${EPJ.red}15` : EPJ.gray100,
-    color: danger ? EPJ.red : EPJ.gray700,
-    fontFamily: font.body,
-  };
-}
-function photoBtnAction() {
-  return {
-    width: "100%", padding: "10px", fontSize: 12, fontWeight: 600,
-    border: `1px solid ${EPJ.gray200}`, borderRadius: 6, cursor: "pointer",
-    background: EPJ.white, color: EPJ.gray700, fontFamily: font.body,
-  };
 }

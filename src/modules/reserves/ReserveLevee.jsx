@@ -5,7 +5,10 @@
 //   ici et on l'enregistre automatiquement dans son profil)
 // ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Field } from "../../core/components/Field";
+import { Button } from "../../core/components/Button";
+import { Banner } from "../../core/components/Banner";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { db } from "../../firebase";
@@ -66,11 +69,9 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
 
   if (!reserve) {
     return (
-      <div style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 14, color: EPJ.gray500 }}>Réserve introuvable.</div>
-        <button onClick={onCancel} className="epj-btn" style={{
-          marginTop: 16, background: EPJ.gray100, color: EPJ.gray700,
-        }}>← Retour</button>
+      <div style={{ padding: space.xl, textAlign: "center" }}>
+        <div style={{ fontSize: fontSize.md, color: EPJ.gray500, marginBottom: space.lg }}>Réserve introuvable.</div>
+        <Button variant="secondary" onClick={onCancel}>← Retour</Button>
       </div>
     );
   }
@@ -149,33 +150,24 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
   };
 
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 40 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onCancel} style={{
-          background: "transparent", border: "none", color: EPJ.gray700,
-          fontSize: 14, cursor: "pointer", fontFamily: font.body, padding: "6px 10px",
-        }}>← Annuler</button>
+    <div style={{ paddingTop: space.md, paddingBottom: space.xxl }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.md + 2 }}>
+        <Button variant="ghost" onClick={onCancel}>← Annuler</Button>
         <div style={{ fontFamily: font.display, fontSize: 22, color: EPJ.gray900, letterSpacing: "-0.02em" }}>
           Lever la réserve
         </div>
       </div>
 
-      <div style={{
-        background: `${EPJ.green}12`, border: `1px solid ${EPJ.green}55`,
-        borderRadius: 8, padding: "10px 12px", marginBottom: 12,
-        fontSize: 12, color: EPJ.gray700,
-      }}>
-        Réserve <strong>{reserve.numReserve}</strong> — {reserve.titre}<br/>
-        Chantier {reserve.chantierNum}
-      </div>
+      <Banner
+        tone="success"
+        title={`Réserve ${reserve.numReserve} — ${reserve.titre}`}
+        text={`Chantier ${reserve.chantierNum}`}
+      />
 
       {/* ─── Photo après + commentaire ─── */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 12 }}>
-        <label style={{
-          display: "block", fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-        }}>Photo après reprise</label>
-        <div style={{ fontSize: 10, color: EPJ.gray500, marginBottom: 8 }}>
+      <div style={panel()}>
+        <label style={secLabel}>Photo après reprise</label>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.sm }}>
           Recommandée pour tracer la réalisation du travail
         </div>
 
@@ -187,27 +179,20 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
           helperText="Glisser-déposer, ou utiliser la caméra sur mobile"
         />
 
-        <label style={{
-          display: "block", fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, marginTop: 10,
-        }}>Travaux réalisés</label>
-        <textarea className="epj-input" value={commentaire}
-                  onChange={e => setCommentaire(e.target.value)}
-                  placeholder="Décrire brièvement l'intervention effectuée..."
-                  style={{ minHeight: 90, resize: "vertical" }}/>
+        <div style={{ marginTop: space.sm + 2 }}>
+          <Field as="textarea" label="Travaux réalisés" value={commentaire} rows={4}
+            onChange={e => setCommentaire(e.target.value)}
+            placeholder="Décrire brièvement l'intervention effectuée..."/>
+        </div>
       </div>
 
       {/* ─── Signature technicien (inline si pas en profil) ─── */}
       {needsTechSignature ? (
-        <div className="epj-card" style={{
-          padding: 14, marginBottom: 12,
-          border: `2px solid ${EPJ.orange}`,
-          background: `${EPJ.orange}08`,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.orange, marginBottom: 6 }}>
+        <div style={panel(EPJ.orange)}>
+          <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.orangeText, marginBottom: space.xs + 2 }}>
             ✍ TA SIGNATURE (à enregistrer une fois)
           </div>
-          <div style={{ fontSize: 11, color: EPJ.gray700, marginBottom: 10 }}>
+          <div style={{ fontSize: fontSize.xs, color: EPJ.gray700, marginBottom: space.sm + 2 }}>
             Tu n'as pas encore enregistré ta signature. Signe ci-dessous,
             elle sera <strong>sauvegardée automatiquement</strong> dans ton profil
             pour être réutilisée sur tous tes futurs quitus.
@@ -220,26 +205,24 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
           />
         </div>
       ) : (
-        <div className="epj-card" style={{
-          padding: 12, marginBottom: 12,
-          background: `${EPJ.green}08`,
-          border: `1px solid ${EPJ.green}55`,
-          display: "flex", alignItems: "center", gap: 10,
+        <div style={{
+          ...panel(EPJ.green),
+          display: "flex", alignItems: "center", gap: space.sm,
         }}>
           <div style={{
-            width: 34, height: 34, borderRadius: 17,
+            width: 34, height: 34, borderRadius: radius.pill,
             background: EPJ.green, color: EPJ.white,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 16, flexShrink: 0,
           }}>✓</div>
-          <div style={{ flex: 1, fontSize: 12, color: EPJ.gray700 }}>
+          <div style={{ flex: 1, fontSize: fontSize.xs, color: EPJ.gray700 }}>
             <strong>Ta signature est enregistrée</strong> — elle sera automatiquement
             ajoutée au quitus.
           </div>
           {techSignatureUrl && (
             <img src={techSignatureUrl} alt="" style={{
               height: 30, objectFit: "contain",
-              background: EPJ.white, borderRadius: 4, padding: 2,
+              background: EPJ.white, borderRadius: radius.sm, padding: 2,
               border: `1px solid ${EPJ.gray200}`,
             }}/>
           )}
@@ -247,40 +230,33 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
       )}
 
       {/* ─── Signature client ─── */}
-      <div className="epj-card" style={{ padding: 14, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.blue, marginBottom: 10 }}>
-          SIGNATURE CLIENT (pour le quitus)
+      <div style={panel()}>
+        <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.blueText, marginBottom: space.sm, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+          Signature client (pour le quitus)
         </div>
 
-        <label style={{
-          display: "block", fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-        }}>Nom du signataire</label>
-        <input className="epj-input" value={clientNom}
-               onChange={e => setClientNom(e.target.value)}
-               placeholder="Nom et prénom"
-               style={{ marginBottom: 10 }}/>
+        <div style={{ marginBottom: space.sm + 2 }}>
+          <Field label="Nom du signataire" value={clientNom}
+            onChange={e => setClientNom(e.target.value)}
+            placeholder="Nom et prénom"/>
+        </div>
 
-        <label style={{
-          display: "block", fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-        }}>Qualité</label>
-        <select className="epj-input" value={clientQualite}
-                onChange={e => setClientQualite(e.target.value)}
-                style={{ marginBottom: 10 }}>
-          {QUALITES.map(q => <option key={q} value={q}>{q}</option>)}
-        </select>
+        <div style={{ marginBottom: space.sm + 2 }}>
+          <Field as="select" label="Qualité" value={clientQualite}
+            onChange={e => setClientQualite(e.target.value)}
+            options={QUALITES.map(q => ({ value: q, label: q }))}/>
+        </div>
 
         {/* Mention RGPD — à afficher au client avant qu'il signe */}
         {company.mentionRgpd && (
           <div style={{
-            fontSize: 10, lineHeight: 1.4,
+            fontSize: fontSize.xs, lineHeight: 1.4,
             color: EPJ.gray700,
             background: EPJ.gray50,
             border: `1px solid ${EPJ.gray200}`,
-            borderRadius: 6,
-            padding: "8px 10px",
-            marginBottom: 10,
+            borderRadius: radius.sm,
+            padding: `${space.sm}px ${space.sm + 2}px`,
+            marginBottom: space.sm + 2,
             fontStyle: "italic",
           }}>
             ℹ <strong>Information :</strong> {company.mentionRgpd}
@@ -296,15 +272,43 @@ export function ReserveLevee({ reserveId, onDone, onCancel }) {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} className="epj-btn" style={{
-          flex: 1, background: EPJ.gray100, color: EPJ.gray700,
-        }}>Annuler</button>
-        <button onClick={save} disabled={saving || !!uploadingPhoto} className="epj-btn" style={{
-          flex: 2, background: EPJ.green, color: EPJ.white,
-          opacity: saving || uploadingPhoto ? 0.5 : 1,
-        }}>{saving ? "⏳ Enregistrement…" : "✓ Valider la levée"}</button>
+      <div style={{ display: "flex", gap: space.sm }}>
+        <div style={{ flex: 1 }}>
+          <Button variant="ghost" full onClick={onCancel}>Annuler</Button>
+        </div>
+        <div style={{ flex: 2 }}>
+          <Button variant="primary" full onClick={save} loading={saving} disabled={!!uploadingPhoto}>
+            ✓ Valider la levée
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
+
+// Panneau blanc tokenisé (DA §4). accent → bordure gauche sémantique 3px.
+function panel(accent) {
+  return {
+    background: EPJ.white,
+    border: `1px solid ${EPJ.gray200}`,
+    borderRadius: radius.lg,
+    boxShadow: shadow.sm,
+    padding: space.lg,
+    marginBottom: space.md,
+    ...(accent ? {
+      borderLeft: `3px solid ${accent}`,
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    } : null),
+  };
+}
+
+const secLabel = {
+  display: "block",
+  fontSize: fontSize.xs,
+  fontWeight: fontWeight.medium,
+  color: EPJ.gray500,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+  marginBottom: space.xs,
+};
