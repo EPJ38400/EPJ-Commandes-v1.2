@@ -446,19 +446,37 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   `<DataTable>`), `AvancementEvolution` (matrice pivot bespoke tokenisée).
   **Zone sensible `chantiers`** : 9 écritures Firestore vérifiées identiques à
   main à l'octet près. `exportUtils.js`/`avancementTasks.js` intouchés.
+- **2026-06 · DS-2 module Réserves** (mergé prod, PR #7, `703a085`) · 12 fichiers
+  repeints (affichage only, **+906/−1031**) : `ReservesInner` (KPI → `<StatCard>`,
+  liste → `<DataTable>` + cartes PWA, `<Banner>`/`<Field>`/chips `<Button>`),
+  `ReserveDetail` (au-delà des `<Badge>` déjà DS-1 : `<Button>`/`<Field>` + cartes
+  `panel()` tokenisées), `ReserveCreate` & `ReserveLevee` (formulaires `<Field>`,
+  **canvas `SignaturePad` intact**), Brique Mail (`MailTimeline`/`MailItem`/
+  `MailsAClasser`/`MailReplyComposer` — tokens + fonds doux `*Bg`, **logique de
+  rattachement/fusion inchangée**), `ChantierEditModal`/`PhotoDropZone`/
+  `AttachmentsManager`. **17 écritures Firestore vérifiées identiques à main par
+  fichier** ; `reservesUtils.js`/`quitusPdfGenerator.js`/`QuitusActions.jsx`/
+  `gmail/useReserveMails.js` intouchés. `fontWeight` en dur du module **64 → 0** ;
+  `ReserveDetail` sorti du top 10 audit (était #3). Total reliquat global
+  2438 → 2027.
 
 ### Chantier en cours — DS-2 repeinte écrans
 
 - **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
   l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
-- **Pilote `AdminOutillage` + module `Avancement` = FAITS** (cf. briques actives).
-  Ordre restant : **Réserves** (prochain), **Dashboard Direction**,
-  **Home** (composant `Tile` inclus).
-- **Trio `CommandesInner.jsx` = DERNIER lot**, **GO écrit dédié** — absorbera design +
-  responsive + signature souris **en une seule fois**.
+- **`AdminOutillage` + `Avancement` + `Réserves` = FAITS** (cf. briques actives).
+- **Dashboard Direction : SORTI de la file DS-2** (décision PJ 2026-06-11). Motif :
+  il sera **entièrement refondé en « cockpit Direction »** (cf. roadmap cockpits
+  par rôle §10) — le repeindre en DS-2 maintenant = travail jeté. Sera traité
+  dans le chantier cockpits, pas ici.
+- **Ordre restant** : **Home** (composant `Tile` inclus) → **Primitives v1.1**
+  (lot dédié : `IconButton`, `<Field>` mono / inline-dense, token scrim —
+  candidatures étayées sur 3 modules, cf. backlog ci-dessous) → **lot trio
+  `CommandesInner.jsx`** (DERNIER, **GO écrit dédié** : design + responsive +
+  signature souris en une seule fois).
 - **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
-  dimensions/espacements littéraux → `radius.*`/`space.*`, 41 `rgba` → tokens `shadow`
-  au fil des écrans.
+  dimensions/espacements littéraux → `radius.*`/`space.*`, `rgba` → tokens `shadow`
+  au fil des écrans (total reliquat global 2027 après Réserves).
 - **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
   chaque ticket DS-2**).
 
@@ -479,7 +497,9 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   actuel = `IconBtn` local (dupliqué par écran). → ajouter `size="sm"` + variante
   `danger-ghost`/`neutral`, **ou** primitive **`IconButton`** dédiée (candidate à
   promouvoir depuis les `IconBtn` locaux). *(relevé sur AdminOutillage ; `IconBtn`
-  re-dupliqué sur AvancementHistory — 2e occurrence, candidature confirmée)*
+  re-dupliqué sur AvancementHistory — 2e occurrence ; Réserves : 2 sites de plus
+  — ✏️ chantier `ReserveDetail`, × photo + 🗑 PDF `AttachmentsManager` —*
+  ***candidature `IconButton` désormais solidement étayée sur 3 modules)***
 - **`<Field>`** — un `onBlur` passé via `...rest` écrase le `onBlur` interne
   (reset du focus) → anneau bleu persistant après blur. Conséquence : les inputs
   à blur-save (rename inline des tâches, AvancementChantier) restent en
@@ -488,13 +508,21 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 - **`<Field>`** — pas de variante « inline dense » (sans wrapper pleine largeur,
   hauteur/padding compacts, largeur fixe) : le formulaire heures+date+ajouter de
   `HoursPanel` reste en inputs bespoke tokenisés. → prop `dense`/`width` ou
-  primitive `InlineField`. *(relevé sur Avancement)*
+  primitive `InlineField`. *(relevé sur Avancement ; Réserves : composer mail
+  `MailReplyComposer` — labels à gauche d'origine — standardisé en `<Field>`
+  empilé faute d'inline-dense — 2e occurrence)*
 - **`<DataTable>`** — ne couvre pas les **matrices pivot** : colonnes dynamiques
   par période, 1re colonne sticky, lignes hiérarchiques dépliables
   (catégorie → tâches), cellules à double contenu (valeur + delta coloré).
   `AvancementEvolution` reste une table bespoke tokenisée. → variante
   `PivotTable` si un 2e écran en a besoin (sinon laisser bespoke).
   *(relevé sur Avancement)*
+- **Token « scrim » d'overlay manquant** — les fonds de modale (`rgba(0,0,0,.5)`
+  backdrop, `rgba(0,0,0,.6)` overlay vignette photo) n'ont **aucun token** : les
+  `shadow.*` sont des box-shadows, pas des fonds de voile. Restent donc 3 `rgba`
+  littéraux légitimes dans Réserves (`ChantierEditModal`, modal SMS picker
+  `ReserveDetail`, suppression photo `AttachmentsManager`). → ajouter un token
+  `EPJ.scrim` (ou `overlay`) dans `theme.js`. *(relevé sur Réserves — 3 sites)*
 
 ---
 
