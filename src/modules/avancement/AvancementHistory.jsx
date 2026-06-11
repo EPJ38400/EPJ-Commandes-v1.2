@@ -20,6 +20,7 @@ import { getRoles } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { Button } from "../../core/components/Button";
 import { DataTable } from "../../core/components/DataTable";
+import { IconButton } from "../../core/components/IconButton";
 import {
   DEFAULT_BUILDING_CONFIG, totalHoursForTask, totalHoursForBuilding,
 } from "./avancementTasks";
@@ -136,13 +137,13 @@ export function AvancementHistory({ chantier, onBack }) {
       render: (_v, row) => (
         <div style={{ display: "inline-flex", gap: space.xs, justifyContent: "flex-end" }}
           onClick={(e) => e.stopPropagation()}>
-          <IconBtn title="Exporter PDF" onClick={() => exportSnapshotToPdf(chantier, row.month, snapshots[row.month])}>📄</IconBtn>
-          <IconBtn title="Exporter Excel" onClick={async () => {
+          <IconButton label="Exporter PDF" onClick={() => exportSnapshotToPdf(chantier, row.month, snapshots[row.month])}>📄</IconButton>
+          <IconButton label="Exporter Excel" onClick={async () => {
             try { await exportSnapshotToExcel(chantier, row.month, snapshots[row.month]); }
             catch (err) { alert("Erreur export Excel : " + err.message); }
-          }}>📊</IconBtn>
+          }}>📊</IconButton>
           {canDelete && (
-            <IconBtn title="Supprimer" danger onClick={() => deleteSnapshot(row.month)}>🗑</IconBtn>
+            <IconButton label="Supprimer" variant="danger" onClick={() => deleteSnapshot(row.month)}>🗑</IconButton>
           )}
         </div>
       ),
@@ -191,7 +192,7 @@ export function AvancementHistory({ chantier, onBack }) {
           catch (err) { alert("Erreur export Excel : " + err.message); }
         }}>📊 Excel</Button>
         {canDelete && (
-          <IconBtn title="Supprimer" danger pwa onClick={() => deleteSnapshot(row.month)}>🗑</IconBtn>
+          <IconButton label="Supprimer" variant="danger" onClick={() => deleteSnapshot(row.month)}>🗑</IconButton>
         )}
       </div>
     </div>
@@ -515,26 +516,6 @@ function TabChip({ active, onClick, children, isPwa, flexNone }) {
       fontFamily: font.body, whiteSpace: "nowrap",
       transition: "background .15s ease, border-color .15s ease",
     }}>{children}</button>
-  );
-}
-
-// Bouton d'action dense (cellule tableau / carte) — cf. backlog Primitives v1.1
-function IconBtn({ children, onClick, danger, title, pwa }) {
-  const [hover, setHover] = useState(false);
-  const size = pwa ? 44 : 34;
-  return (
-    <button type="button" title={title} aria-label={title} onClick={onClick}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: size, height: size, borderRadius: radius.md, border: "none",
-        background: hover ? (danger ? EPJ.dangerBg : EPJ.gray100) : "transparent",
-        color: danger ? EPJ.redText : EPJ.gray600,
-        fontSize: 15, cursor: "pointer", fontFamily: font.body,
-        transition: "background .12s ease",
-      }}>
-      {children}
-    </button>
   );
 }
 
