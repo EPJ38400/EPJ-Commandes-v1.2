@@ -4,8 +4,10 @@
 //  - Bannière rappel avancement le 20+ du mois
 // ═══════════════════════════════════════════════════════════════
 import { useMemo } from "react";
-import { EPJ, font } from "../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../core/theme";
 import { Banner } from "../core/components/Banner";
+import { Badge } from "../core/components/Badge";
+import { useViewport } from "../core/useViewport";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
 import { can } from "../core/permissions";
@@ -83,6 +85,7 @@ const COLLECTION_DASHBOARDS_TILE = {
 
 export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashboards }) {
   const { user } = useAuth();
+  const isMobile = useViewport() === "mobile";
   const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes, featureFlags = {} } = useData();
   if (!user) return null;
 
@@ -256,13 +259,13 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
       {/* Accroche éditoriale */}
       <div style={{ marginBottom: 14 }}>
         <div style={{
-          fontFamily: font.display, fontSize: 26, fontWeight: 400,
+          fontFamily: font.display, fontSize: 26, fontWeight: fontWeight.regular,
           color: EPJ.gray900, letterSpacing: "-0.02em", lineHeight: 1.1,
         }}>
           Bonjour, <span style={{ fontStyle: "italic" }}>{user.prenom}</span>.
         </div>
         <div style={{
-          fontSize: 13, color: EPJ.gray500, marginTop: 4, fontWeight: 400,
+          fontSize: fontSize.sm, color: EPJ.gray500, marginTop: space.xs, fontWeight: fontWeight.regular,
         }}>
           Que souhaitez-vous faire aujourd'hui&nbsp;?
         </div>
@@ -367,12 +370,13 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
         />
       )}
 
-      {/* Grille de tuiles */}
+      {/* Grille de tuiles — PWA : 2 colonnes (inchangé) ; desktop : grille
+          aérée auto-fill dans le cadre 1320 */}
       {allTiles.length > 0 ? (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: space.md,
         }}>
           {allTiles.map((tile, i) => (
             <Tile
@@ -385,16 +389,15 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
                 else if (tile.id === "collection-dashboards") onOpenCollectionDashboards();
                 else onOpenModule(tile.id);
               }}
-              isFullWidth={allTiles.length % 2 === 1 && i === allTiles.length - 1}
-              index={i}
+              isFullWidth={isMobile && allTiles.length % 2 === 1 && i === allTiles.length - 1}
             />
           ))}
         </div>
       ) : (
         <div style={{
           background: EPJ.gray50, border: `1px solid ${EPJ.gray200}`,
-          borderRadius: 14, padding: 20, textAlign: "center",
-          fontSize: 13, color: EPJ.gray500,
+          borderRadius: radius.lg, padding: space.lg, textAlign: "center",
+          fontSize: fontSize.sm, color: EPJ.gray500,
         }}>
           Aucun module ne vous est accessible pour l'instant. Contactez votre administrateur.
         </div>
@@ -404,34 +407,38 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
 }
 
 // ─── Tuile avec badge ─────────────────────────────────────────
-function Tile({ meta, notif, onClick, isFullWidth, index }) {
+function Tile({ meta, notif, onClick, isFullWidth }) {
   const accent = meta.accent;
   const hasNotif = notif && notif.count > 0;
   return (
     <div
       className="epj-tile"
       onClick={onClick}
+      role="button"
+      tabIndex={meta.enabled ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (!meta.enabled) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+      }}
       style={{
         "--accent": accent,
         "--accent-soft": `${accent}1A`,
         gridColumn: isFullWidth ? "1 / -1" : undefined,
         opacity: meta.enabled ? 1 : 0.55,
         cursor: meta.enabled ? "pointer" : "not-allowed",
-        animation: `stagger .35s ease both`,
-        animationDelay: `${index * 60}ms`,
         position: "relative",
       }}
     >
       {/* Badge notification (coin haut droit) */}
       {hasNotif && (
         <div style={{
-          position: "absolute", top: 10, right: 10,
+          position: "absolute", top: space.md, right: space.md,
           background: EPJ.red, color: EPJ.white,
-          minWidth: 22, height: 22, borderRadius: 999,
+          minWidth: 22, height: 22, borderRadius: radius.pill,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 800,
+          fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
           fontVariantNumeric: "tabular-nums",
-          padding: "0 6px",
+          padding: `0 ${space.xs}px`,
           boxShadow: `0 0 0 3px ${EPJ.red}30`,
           zIndex: 2,
         }}>{notif.count}</div>
@@ -439,30 +446,22 @@ function Tile({ meta, notif, onClick, isFullWidth, index }) {
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div className="epj-tile-icon">{meta.icon}</div>
-        {!meta.enabled && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
-            padding: "3px 8px", borderRadius: 999,
-            background: EPJ.gray100, color: EPJ.gray500,
-          }}>
-            Bientôt
-          </span>
-        )}
+        {!meta.enabled && <Badge tone="neutral" label="Bientôt" />}
       </div>
       <div>
         <div style={{
-          fontWeight: 600, fontSize: 15, color: EPJ.gray900, letterSpacing: "-0.01em",
-          lineHeight: 1.2,
+          fontWeight: fontWeight.semibold, fontSize: fontSize.base, color: EPJ.gray900,
+          letterSpacing: "-0.01em", lineHeight: 1.2,
         }}>
           {meta.title}
         </div>
-        <div style={{ fontSize: 12, color: EPJ.gray500, marginTop: 2 }}>
+        <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.xs / 2 }}>
           {meta.subtitle}
         </div>
         {hasNotif && notif.label && (
           <div style={{
-            fontSize: 10, color: EPJ.red, fontWeight: 700, marginTop: 4,
-            lineHeight: 1.3,
+            fontSize: fontSize.xs, color: EPJ.red, fontWeight: fontWeight.medium,
+            marginTop: space.xs, lineHeight: 1.3,
           }}>
             ⚠ {notif.label}
           </div>
