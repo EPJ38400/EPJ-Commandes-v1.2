@@ -10,6 +10,13 @@ import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../theme
 import { useViewport } from "../useViewport";
 import { useInteractive } from "./useInteractive";
 
+// Tailles : `md` = défaut historique (inchangé) ; `sm` = dense (barres
+// d'outils, cellules de tableau). DA §5 : hauteurs 36 desktop / 44 PWA.
+const SIZES = {
+  md: { hDesk: 36, hPwa: 44, pad: space.lg, fsDesk: fontSize.md, fsPwa: fontSize.base },
+  sm: { hDesk: 30, hPwa: 36, pad: space.md, fsDesk: fontSize.sm, fsPwa: fontSize.md },
+};
+
 const VARIANTS = {
   primary: {
     bg: EPJ.blue, color: EPJ.white, border: "transparent",
@@ -31,6 +38,7 @@ const VARIANTS = {
 
 export function Button({
   variant = "primary",
+  size = "md",
   onClick,
   disabled = false,
   loading = false,
@@ -41,6 +49,7 @@ export function Button({
   ...rest
 }) {
   const v = VARIANTS[variant] || VARIANTS.primary;
+  const s = SIZES[size] || SIZES.md;
   const isPwa = useViewport() === "mobile";
   const isDisabled = disabled || loading;
   const { hover, focus, active, handlers } = useInteractive(isDisabled);
@@ -64,13 +73,13 @@ export function Button({
         justifyContent: "center",
         gap: space.sm,
         width: full ? "100%" : undefined,
-        height: isPwa ? 44 : 36,
-        padding: `0 ${space.lg}px`,
+        height: isPwa ? s.hPwa : s.hDesk,
+        padding: `0 ${s.pad}px`,
         background: bg,
         color: v.color,
         border: `1px solid ${v.border}`,
         borderRadius: radius.md,
-        fontSize: isPwa ? fontSize.base : fontSize.md,
+        fontSize: isPwa ? s.fsPwa : s.fsDesk,
         fontWeight: fontWeight.medium,
         fontFamily: font.body,
         cursor: isDisabled ? "not-allowed" : "pointer",
