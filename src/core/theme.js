@@ -39,6 +39,10 @@ export const EPJ = {
   redText:    "#B71C1C",
   blueText:   "#006B94",
 
+  // Voiles d'overlay (fonds de modale / badge sur photo) — ≠ shadow.* (box-shadows).
+  scrim:      "rgba(0,0,0,0.5)",   // backdrop de modale / picker
+  scrimDark:  "rgba(0,0,0,0.6)",   // badge/overlay sur image (contraste renforcé)
+
   // Alias rétrocompat
   gray:       "#6B6B6B",
   grayLight:  "#FAFAFA",

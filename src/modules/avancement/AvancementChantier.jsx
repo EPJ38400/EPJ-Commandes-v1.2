@@ -975,13 +975,15 @@ function EditableTaskRow({ task, isFirst, isLast, onUpdateLabel, onDelete, onMov
         <button onClick={() => onMove("up")} disabled={isFirst} style={arrowStyle(isFirst)}>▲</button>
         <button onClick={() => onMove("down")} disabled={isLast} style={arrowStyle(isLast)}>▼</button>
       </div>
-      <input
-        className="epj-input"
-        value={label}
-        onChange={e => setLabel(e.target.value)}
-        onBlur={() => { if (label.trim() && label !== task.label) onUpdateLabel(label); else setLabel(task.label); }}
-        style={{ flex: 1, fontSize: fontSize.sm }}
-      />
+      <div style={{ flex: 1 }}>
+        <Field
+          dense
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          onBlur={() => { if (label.trim() && label !== task.label) onUpdateLabel(label); else setLabel(task.label); }}
+          inputStyle={{ fontSize: fontSize.sm }}
+        />
+      </div>
       <button onClick={onDelete} style={{
         background: EPJ.dangerBg, color: EPJ.redText,
         border: "none", borderRadius: radius.sm,

@@ -20,6 +20,7 @@ import { QuitusActions } from "./QuitusActions";
 import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
 import { Field } from "../../core/components/Field";
+import { IconButton } from "../../core/components/IconButton";
 // v10.N — SMS attribution + demande levée
 import { smsReserveAttribuee, smsReserveDemandeLevee, findUserByUid } from "../../core/smsService";
 import { canDemanderLevee } from "./reservesRappel";
@@ -345,13 +346,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
               value={`${reserve.chantierNum || ""}${reserve.chantierNom ? " — " + reserve.chantierNom : ""}`}
             />
           </div>
-          <button
-            onClick={() => setShowChantierEdit(true)}
-            title="Modifier le chantier"
-            style={iconBtnStyle}
-          >
+          <IconButton label="Modifier le chantier" onClick={() => setShowChantierEdit(true)}>
             ✏️
-          </button>
+          </IconButton>
         </div>
         {(() => {
           const chantierDoc = chantiers.find(c => c.num === reserve.chantierNum);
@@ -608,7 +605,7 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
       {/* v2.0.1 — Modal de choix du modèle SMS (Demander la levée) */}
       {showSmsPicker && (
         <div onClick={() => setShowSmsPicker(false)}
-             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',
+             style={{position:'fixed',inset:0,background:EPJ.scrim,
                      display:'flex',alignItems:'center',justifyContent:'center',
                      zIndex:1000,padding:space.lg}}>
           <div onClick={e => e.stopPropagation()}
@@ -662,18 +659,6 @@ const sectionLabel = {
   textTransform: "uppercase",
   letterSpacing: "0.03em",
   marginBottom: space.sm,
-};
-
-// Bouton-icône compact (édition chantier) — la primitive <Button> est trop
-// haute pour une action inline (limite size="sm"/IconButton → backlog §13).
-const iconBtnStyle = {
-  background: "transparent",
-  border: `1px solid ${EPJ.gray200}`,
-  borderRadius: radius.sm,
-  padding: `${space.xs}px ${space.sm}px`,
-  cursor: "pointer",
-  fontSize: fontSize.sm,
-  color: EPJ.gray700,
 };
 
 // ─── Sous-composants ─────────────────────────────────────

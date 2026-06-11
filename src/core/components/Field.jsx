@@ -24,16 +24,27 @@ export function Field({
   required = false,
   id,
   rows = 4,
+  // v1.1 — ajouts strictement additifs (défauts = rendu historique)
+  dense = false,         // hauteur/padding compacts (inline, cellules)
+  width,                 // largeur du wrapper (défaut : auto/100% selon parent)
+  mono = false,          // contrôle en font.mono (réf, n° série, SHA)
+  inputStyle,            // override du style du contrôle — APPLIQUÉ EN DERNIER
   ...rest
 }) {
   const isPwa = useViewport() === "mobile";
   const [focus, setFocus] = useState(false);
-  const controlHeight = isPwa ? 44 : 36;
+  const controlHeight = dense ? (isPwa ? 36 : 30) : (isPwa ? 44 : 36);
+  const hPad = dense ? space.sm : space.md;
   const hasError = !!error;
+
+  // onFocus/onBlur/style externes : on les COMPOSE (le reset focus interne
+  // d'abord, puis le handler appelant) au lieu de les laisser écraser le
+  // comportement interne via {...rest}. Fix backlog v1.1 (anneau persistant).
+  const { onFocus: extFocus, onBlur: extBlur, style: extStyle, ...restClean } = rest;
 
   const baseStyle = {
     width: "100%",
-    padding: as === "textarea" ? `${space.sm + 2}px ${space.md}px` : `0 ${space.md}px`,
+    padding: as === "textarea" ? `${space.sm + 2}px ${space.md}px` : `0 ${hPad}px`,
     height: as === "textarea" ? undefined : controlHeight,
     minHeight: as === "textarea" ? controlHeight * 2 : undefined,
     background: disabled ? EPJ.gray50 : EPJ.white,
@@ -52,9 +63,19 @@ export function Field({
     lineHeight: as === "textarea" ? 1.5 : undefined,
   };
 
+  // Ordre de merge : base → extra interne → mono → style appelant → inputStyle.
+  // L'APPELANT GAGNE (mono survit au base ; inputStyle prime sur tout).
+  const mergeStyle = (extra) => ({
+    ...baseStyle,
+    ...extra,
+    ...(mono ? { fontFamily: font.mono } : null),
+    ...extStyle,
+    ...inputStyle,
+  });
+
   const focusProps = {
-    onFocus: () => setFocus(true),
-    onBlur: () => setFocus(false),
+    onFocus: (e) => { setFocus(true); extFocus?.(e); },
+    onBlur:  (e) => { setFocus(false); extBlur?.(e); },
   };
 
   let control;
@@ -65,9 +86,9 @@ export function Field({
         value={value}
         onChange={onChange}
         disabled={disabled}
-        style={{ ...baseStyle, cursor: disabled ? "not-allowed" : "pointer" }}
+        style={mergeStyle({ cursor: disabled ? "not-allowed" : "pointer" })}
         {...focusProps}
-        {...rest}
+        {...restClean}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -83,9 +104,9 @@ export function Field({
         placeholder={placeholder}
         disabled={disabled}
         rows={rows}
-        style={baseStyle}
+        style={mergeStyle()}
         {...focusProps}
-        {...rest}
+        {...restClean}
       />
     );
   } else {
@@ -97,15 +118,15 @@ export function Field({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        style={baseStyle}
+        style={mergeStyle()}
         {...focusProps}
-        {...rest}
+        {...restClean}
       />
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: space.xs + 2 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: space.xs + 2, width }}>
       {label && (
         <label htmlFor={id} style={{
           fontSize: fontSize.sm,

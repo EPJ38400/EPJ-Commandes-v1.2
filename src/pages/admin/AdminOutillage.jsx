@@ -21,6 +21,7 @@ import { Field } from "../../core/components/Field";
 import { Badge } from "../../core/components/Badge";
 import { StatCard } from "../../core/components/StatCard";
 import { DataTable } from "../../core/components/DataTable";
+import { IconButton } from "../../core/components/IconButton";
 import {
   OUTIL_STATUTS, canGererCatalogue, canImportExportOutils,
   uploadOutilPhoto, deleteOutilPhoto, generateId,
@@ -729,8 +730,8 @@ export function AdminOutillage({ onBack }) {
       render: (_v, row) => (
         <div style={{ display: "inline-flex", gap: space.xs, justifyContent: "flex-end" }}
           onClick={(e) => e.stopPropagation()}>
-          <IconBtn title="Modifier" onClick={() => startEdit(row)} pwa={isPwa}>✏</IconBtn>
-          <IconBtn title="Supprimer" danger onClick={() => remove(row)} pwa={isPwa}>🗑</IconBtn>
+          <IconButton label="Modifier" onClick={() => startEdit(row)}>✏</IconButton>
+          <IconButton label="Supprimer" variant="danger" onClick={() => remove(row)}>🗑</IconButton>
         </div>
       ),
     },
@@ -771,8 +772,8 @@ export function AdminOutillage({ onBack }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: space.xs, flexShrink: 0 }}
         onClick={(e) => e.stopPropagation()}>
-        <IconBtn title="Modifier" onClick={() => startEdit(row)} pwa />
-        <IconBtn title="Supprimer" danger onClick={() => remove(row)} pwa>🗑</IconBtn>
+        <IconButton label="Modifier" onClick={() => startEdit(row)}>✏</IconButton>
+        <IconButton label="Supprimer" variant="danger" onClick={() => remove(row)}>🗑</IconButton>
       </div>
     </div>
   );
@@ -1015,28 +1016,6 @@ function statutChipStyle(active, color) {
     color: active ? color : EPJ.gray600,
     fontSize: fontSize.xs, fontWeight: fontWeight.medium, cursor: "pointer", fontFamily: font.body,
   };
-}
-
-// Bouton d'action dense (cellule tableau / carte). Voir rapport : la
-// primitive <Button> ne couvre pas l'icon-only dense (pas de size sm ni
-// d'override couleur pour ghost) — IconBtn local en attendant.
-function IconBtn({ children = "✏", onClick, danger, title, pwa }) {
-  const [hover, setHover] = useState(false);
-  const size = pwa ? 44 : 34;
-  return (
-    <button type="button" title={title} aria-label={title} onClick={onClick}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: size, height: size, borderRadius: radius.md, border: "none",
-        background: hover ? (danger ? EPJ.dangerBg : EPJ.gray100) : "transparent",
-        color: danger ? EPJ.redText : EPJ.gray600,
-        fontSize: 15, cursor: "pointer", fontFamily: font.body,
-        transition: "background .12s ease",
-      }}>
-      {children}
-    </button>
-  );
 }
 
 // ─── Éditeur de contenu d'un pack ────────────────────────────
