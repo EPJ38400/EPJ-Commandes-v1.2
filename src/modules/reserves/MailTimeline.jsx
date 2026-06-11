@@ -6,7 +6,9 @@
 //  Réutilisable plus tard pour Chiffrage / TMA.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { EPJ, font, radius } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
 import { MailItem } from "./MailItem";
 import { MailReplyComposer } from "./MailReplyComposer";
 
@@ -73,25 +75,32 @@ export function MailTimeline({
   );
 
   return (
-    <div className="epj-card" style={{ padding: 0, marginBottom: 10, overflow: "hidden" }}>
+    <div style={{
+      background: EPJ.white,
+      border: `1px solid ${EPJ.gray200}`,
+      borderRadius: radius.lg,
+      boxShadow: shadow.sm,
+      marginBottom: space.md - 2,
+      overflow: "hidden",
+    }}>
 
       {/* Header de la timeline */}
       <div style={{
-        padding: "12px 14px",
+        padding: `${space.md}px ${space.md + 2}px`,
         borderBottom: `1px solid ${EPJ.gray200}`,
-        display: "flex", alignItems: "center", gap: 8,
+        display: "flex", alignItems: "center", gap: space.sm,
       }}>
         <div style={{
-          fontSize: 11, fontWeight: 700, color: EPJ.gray500,
-          textTransform: "uppercase", letterSpacing: 0.5,
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray500,
+          textTransform: "uppercase", letterSpacing: "0.03em",
           flex: 1,
         }}>
           ✉ Conversation
           {nbMails > 0 && (
             <span style={{
-              marginLeft: 8, fontSize: 10, padding: "2px 6px",
+              marginLeft: space.sm, fontSize: fontSize.xs, padding: "2px 6px",
               background: EPJ.gray100, color: EPJ.gray700,
-              borderRadius: 4, letterSpacing: 0,
+              borderRadius: radius.sm, letterSpacing: 0,
             }}>
               {nbMails} mail{nbMails > 1 ? "s" : ""}
               {nbPiecesJointes > 0 && ` · ${nbPiecesJointes} pj`}
@@ -101,7 +110,7 @@ export function MailTimeline({
       </div>
 
       {/* Corps de la timeline */}
-      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ padding: `${space.md}px ${space.md + 2}px`, display: "flex", flexDirection: "column", gap: space.sm - 2 }}>
         {timeline.length === 0 && (
           <EmptyState onJoindreMail={onJoindreMail} />
         )}
@@ -115,47 +124,29 @@ export function MailTimeline({
 
       {/* Actions */}
       <div style={{
-        padding: "10px 12px",
+        padding: `${space.sm + 2}px ${space.md}px`,
         borderTop: `1px solid ${EPJ.gray200}`,
         background: EPJ.gray50,
-        display: "flex", gap: 6, flexWrap: "wrap",
+        display: "flex", gap: space.sm, flexWrap: "wrap",
       }}>
         {canReply && (
-          <button
-            onClick={() => setComposerOpen(true)}
-            className="epj-btn"
-            style={{
-              flex: 1, minWidth: 120,
-              background: EPJ.blue, color: EPJ.white,
-              fontSize: 12, padding: "10px 12px",
-            }}
-          >
-            ✉ Répondre par mail
-          </button>
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <Button variant="primary" full onClick={() => setComposerOpen(true)}>
+              ✉ Répondre par mail
+            </Button>
+          </div>
         )}
-        <button
-          onClick={() => setNoteOpen(true)}
-          className="epj-btn"
-          style={{
-            flex: 1, minWidth: 110,
-            background: EPJ.gray100, color: EPJ.gray700,
-            fontSize: 12, padding: "10px 12px",
-          }}
-        >
-          📝 Note interne
-        </button>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <Button variant="secondary" full onClick={() => setNoteOpen(true)}>
+            📝 Note interne
+          </Button>
+        </div>
         {onJoindreMail && (
-          <button
-            onClick={onJoindreMail}
-            className="epj-btn"
-            style={{
-              flex: 1, minWidth: 110,
-              background: EPJ.gray100, color: EPJ.gray700,
-              fontSize: 12, padding: "10px 12px",
-            }}
-          >
-            📎 Joindre un mail
-          </button>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <Button variant="secondary" full onClick={onJoindreMail}>
+              📎 Joindre un mail
+            </Button>
+          </div>
         )}
       </div>
 
@@ -175,41 +166,38 @@ export function MailTimeline({
       {/* Modale note interne */}
       {noteOpen && (
         <div style={{
-          padding: 14,
+          padding: space.md + 2,
           borderTop: `1px solid ${EPJ.gray200}`,
           background: EPJ.warningBg,
         }}>
           <div style={{
-            fontSize: 11, fontWeight: 700, color: EPJ.orange,
-            marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5,
+            fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.orangeText,
+            marginBottom: space.sm, textTransform: "uppercase", letterSpacing: "0.03em",
           }}>
             📝 Nouvelle note interne (visible uniquement par l'équipe EPJ)
           </div>
-          <textarea
-            value={noteText}
-            onChange={e => setNoteText(e.target.value)}
-            placeholder="Saisis ta note…"
-            className="epj-input"
-            rows={3}
-            style={{ resize: "vertical", marginBottom: 8 }}
-            autoFocus
-          />
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => { setNoteOpen(false); setNoteText(""); }}
-              className="epj-btn"
-              style={{ flex: 1, background: EPJ.gray100, color: EPJ.gray700, fontSize: 12 }}
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleSendNote}
-              disabled={!noteText.trim() || savingNote}
-              className="epj-btn"
-              style={{ flex: 2, background: EPJ.orange, color: EPJ.white, fontSize: 12 }}
-            >
-              {savingNote ? "Enregistrement…" : "✓ Enregistrer la note"}
-            </button>
+          <div style={{ marginBottom: space.sm }}>
+            <Field
+              as="textarea"
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              placeholder="Saisis ta note…"
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <div style={{ display: "flex", gap: space.sm }}>
+            <div style={{ flex: 1 }}>
+              <Button variant="ghost" full onClick={() => { setNoteOpen(false); setNoteText(""); }}>
+                Annuler
+              </Button>
+            </div>
+            <div style={{ flex: 2 }}>
+              <Button variant="primary" full onClick={handleSendNote}
+                loading={savingNote} disabled={!noteText.trim()}>
+                ✓ Enregistrer la note
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -221,26 +209,23 @@ export function MailTimeline({
 function EmptyState({ onJoindreMail }) {
   return (
     <div style={{
-      padding: "24px 12px", textAlign: "center",
-      color: EPJ.gray500, fontSize: 12, fontFamily: font.body,
+      padding: `${space.xl}px ${space.md}px`, textAlign: "center",
+      color: EPJ.gray500, fontSize: fontSize.xs, fontFamily: font.body,
     }}>
-      <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }}>✉</div>
-      <div>Aucun mail rattaché à cette réserve pour le moment.</div>
-      <div style={{ fontSize: 11, marginTop: 6, color: EPJ.gray500 }}>
+      <div style={{ fontSize: 32, marginBottom: space.sm, opacity: 0.5 }}>✉</div>
+      <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.medium, color: EPJ.gray600 }}>
+        Aucun mail rattaché à cette réserve
+      </div>
+      <div style={{ fontSize: fontSize.xs, marginTop: space.xs + 2, color: EPJ.gray500, lineHeight: 1.4 }}>
         Les mails déplacés dans la boîte <strong>sav@</strong> seront aspirés et
         rattachés automatiquement.
       </div>
       {onJoindreMail && (
-        <button
-          onClick={onJoindreMail}
-          className="epj-btn"
-          style={{
-            marginTop: 12, background: EPJ.blue, color: EPJ.white,
-            fontSize: 11, padding: "8px 14px",
-          }}
-        >
-          📎 Joindre un mail manuellement
-        </button>
+        <div style={{ marginTop: space.md, display: "inline-flex" }}>
+          <Button variant="secondary" onClick={onJoindreMail}>
+            📎 Joindre un mail manuellement
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -249,54 +234,54 @@ function EmptyState({ onJoindreMail }) {
 // ─── Événement interne (note, photo, signature, statut) ─────
 function EventItem({ event }) {
   const ICONS = {
-    note:       { icon: "📝", label: "Note interne", color: EPJ.orange, bg: EPJ.warningBg },
-    photo:      { icon: "📷", label: "Photo",        color: EPJ.gray700, bg: EPJ.gray50 },
-    signature:  { icon: "✍",  label: "Signature",    color: EPJ.green,  bg: EPJ.successBg },
-    statut:     { icon: "🔄", label: "Changement",   color: EPJ.gray700, bg: EPJ.gray50 },
-    creation:   { icon: "📝", label: "Création",     color: EPJ.gray500, bg: EPJ.gray50 },
-    quitus:     { icon: "✅", label: "Quitus",       color: EPJ.green,  bg: EPJ.successBg },
-    attribution:{ icon: "👤", label: "Attribution",  color: EPJ.blue,   bg: EPJ.infoBg },
-    rdv:        { icon: "📅", label: "RDV",          color: EPJ.orange, bg: EPJ.warningBg },
+    note:       { icon: "📝", label: "Note interne", color: EPJ.orangeText, bg: EPJ.warningBg },
+    photo:      { icon: "📷", label: "Photo",        color: EPJ.gray700,    bg: EPJ.gray50 },
+    signature:  { icon: "✍",  label: "Signature",    color: EPJ.greenText,  bg: EPJ.successBg },
+    statut:     { icon: "🔄", label: "Changement",   color: EPJ.gray700,    bg: EPJ.gray50 },
+    creation:   { icon: "📝", label: "Création",     color: EPJ.gray500,    bg: EPJ.gray50 },
+    quitus:     { icon: "✅", label: "Quitus",       color: EPJ.greenText,  bg: EPJ.successBg },
+    attribution:{ icon: "👤", label: "Attribution",  color: EPJ.blueText,   bg: EPJ.infoBg },
+    rdv:        { icon: "📅", label: "RDV",          color: EPJ.orangeText, bg: EPJ.warningBg },
   };
   const cfg = ICONS[event.kind] || ICONS.note;
   const date = formatDateShort(event.date);
 
   return (
     <div style={{
-      display: "flex", alignItems: "flex-start", gap: 10,
-      padding: "8px 10px",
+      display: "flex", alignItems: "flex-start", gap: space.sm,
+      padding: `${space.sm}px ${space.sm + 2}px`,
       background: cfg.bg,
       border: `1px solid ${EPJ.gray200}`,
       borderRadius: radius.md,
-      fontSize: 12,
+      fontSize: fontSize.xs,
     }}>
       <div style={{
         flexShrink: 0, fontSize: 14,
-        width: 22, height: 22, borderRadius: 4,
+        width: 22, height: 22, borderRadius: radius.sm,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>{cfg.icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 11, fontWeight: 700, color: cfg.color,
-          textTransform: "uppercase", letterSpacing: 0.3,
+          fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: cfg.color,
+          textTransform: "uppercase", letterSpacing: "0.03em",
         }}>
           {cfg.label}
           {event.auteur && (
-            <span style={{ marginLeft: 6, color: EPJ.gray500, textTransform: "none", fontWeight: 500 }}>
+            <span style={{ marginLeft: space.xs + 2, color: EPJ.gray500, textTransform: "none", fontWeight: fontWeight.medium }}>
               · {event.auteur}
             </span>
           )}
         </div>
         {event.texte && (
           <div style={{
-            fontSize: 12, color: EPJ.gray900, marginTop: 2,
+            fontSize: fontSize.xs, color: EPJ.gray900, marginTop: 2,
             whiteSpace: "pre-wrap", lineHeight: 1.4,
           }}>
             {event.texte}
           </div>
         )}
       </div>
-      <div style={{ fontSize: 10, color: EPJ.gray500, flexShrink: 0, whiteSpace: "nowrap" }}>
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, flexShrink: 0, whiteSpace: "nowrap" }}>
         {date}
       </div>
     </div>
