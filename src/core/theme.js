@@ -164,6 +164,7 @@ export const globalCss = `
   }
   .epj-tile:hover{border-color:${EPJ.gray300};box-shadow:0 6px 20px rgba(0,0,0,.05);transform:translateY(-2px)}
   .epj-tile:hover::before{width:5px}
+  .epj-tile:focus-visible{outline:none;border-color:${EPJ.blue};box-shadow:${shadow.focus}}
 
   .epj-tile-icon{
     width:44px;height:44px;border-radius:${radius.md}px;
