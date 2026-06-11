@@ -7,7 +7,8 @@ import { useData } from "../../core/DataContext";
 import { uploadPhotoToFolder, deletePhotoByPath } from "../parc-machines/parcUtils";
 import { EmojiPicker } from "../../core/components/EmojiPicker";
 import { CATALOG_SEED } from "./catalogSeed";
-import * as XLSX from "xlsx";
+// PERF (lot trio) : xlsx n'est plus importé statiquement — chargé via
+// import() dynamique aux 2 points d'usage admin (export / import catalogue).
 import {
   parseCatalogAoa, findDuplicateRefs, compareCatalogues, articlesToAoa,
   countMultiCategoryArticles,
@@ -1581,7 +1582,6 @@ export function CommandesInner({ onExitModule }) {
   };
 
   const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
     input:focus,select:focus,textarea:focus{border-color:${EPJ.blue}!important;outline:none;box-shadow:0 0 0 3px ${EPJ.blue}1A}
     ::placeholder{color:#C7C7C7}
@@ -3358,8 +3358,9 @@ export function CommandesInner({ onExitModule }) {
       showT("Photo supprimée");
     };
     // ─── v10.G — Import / Export Excel du catalogue ───
-    const handleExportCatalog = () => {
+    const handleExportCatalog = async () => {
       try {
+        const XLSX = await import("xlsx");
         const aoa = articlesToAoa(dynCatalog);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         // Largeurs colonnes
@@ -3389,6 +3390,7 @@ export function CommandesInner({ onExitModule }) {
       }
       setAdminSaving(true);
       try {
+        const XLSX = await import("xlsx");
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
         // Cherche la feuille "Catalogue" en priorité, sinon la 1ère
