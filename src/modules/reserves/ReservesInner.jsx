@@ -5,11 +5,18 @@ import { useState, useMemo, useEffect } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable, getFunctions } from "firebase/functions";
 import { app, db } from "../../firebase";
-import { EPJ, font } from "../../core/theme";
+import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
+import { useViewport } from "../../core/useViewport";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { StatCard } from "../../core/components/StatCard";
+import { Banner } from "../../core/components/Banner";
+import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
+import { DataTable } from "../../core/components/DataTable";
+import { Badge } from "../../core/components/Badge";
 import {
   RESERVE_STATUTS, RESERVE_PRIORITES,
   formatDate, isReserveEnRetard, isRdvEnRetard,
@@ -19,6 +26,7 @@ const fnForceSyncGmail = httpsCallable(getFunctions(app, "europe-west1"), "force
 
 export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitModule }) {
   const { user } = useAuth();
+  const isPwa = useViewport() === "mobile";
   const data = useData();
   const reserves = data.reserves || [];
   const chantiers = data.chantiers || [];
@@ -152,87 +160,166 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
     return `${u.prenom || ""} ${u.nom || ""}`.trim() || u.id || "—";
   };
 
+  // Options de filtres (Field as="select")
+  const statutOptions = [
+    { value: "", label: "Tous statuts" },
+    ...Object.entries(RESERVE_STATUTS).map(([k, v]) => ({ value: k, label: `${v.icon} ${v.label}` })),
+  ];
+  const prioriteOptions = [
+    { value: "", label: "Toutes priorités" },
+    ...Object.entries(RESERVE_PRIORITES).map(([k, v]) => ({ value: k, label: `${v.icon} ${v.label}` })),
+  ];
+  const chantierOptions = [
+    { value: "", label: "Tous chantiers" },
+    ...chantiersDispo.map(n => ({ value: n, label: n })),
+  ];
+
+  // Action principale — header (desktop) / pleine largeur (PWA)
+  const addBtn = canCreate ? (
+    <Button variant="primary" icon="+" onClick={() => onCreate()} full={isPwa}>
+      Nouvelle réserve
+    </Button>
+  ) : null;
+
+  // Colonnes DataTable (desktop) — statut/priorité/retard via <Badge>
+  const columns = [
+    {
+      key: "numReserve", header: "Réf", width: 120,
+      render: (v) => <span style={{ fontFamily: font.mono, fontSize: fontSize.sm }}>{v || "—"}</span>,
+    },
+    {
+      key: "titre", header: "Réserve",
+      render: (v, row) => (
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontWeight: fontWeight.medium, color: EPJ.gray900,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{v || "(sans titre)"}</div>
+          <div style={{
+            fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 1,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {row.chantierNum ? `📍 ${row.chantierNum}` : ""}
+            {row.affecteAUserId ? ` · 👤 ${getUserName(row.affecteAUserId)}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "statut", header: "Statut", width: 160,
+      render: (v) => {
+        const st = RESERVE_STATUTS[v] || RESERVE_STATUTS.creee;
+        return <Badge status={v} icon={st.icon} label={st.label} />;
+      },
+    },
+    {
+      key: "priorite", header: "Priorité", width: 120,
+      render: (v) => v === "bloquante"
+        ? <Badge tone="danger" icon="🔴" label="Bloquante" />
+        : <span style={{ color: EPJ.gray400 }}>—</span>,
+    },
+    {
+      key: "dateLimite", header: "Échéance", width: 160,
+      render: (v, row) => {
+        const retard = isReserveEnRetard(row) || isRdvEnRetard(row);
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: space.sm }}>
+            <span style={{ fontVariantNumeric: "tabular-nums", color: v ? EPJ.gray900 : EPJ.gray400 }}>
+              {v ? formatDate(v) : "—"}
+            </span>
+            {retard && <Badge tone="danger" icon="⏰" label="Retard" />}
+          </span>
+        );
+      },
+    },
+  ];
+
+  // Carte PWA (bascule interne du DataTable) — vignette + badges
+  const renderCard = (row) => {
+    const st = RESERVE_STATUTS[row.statut] || RESERVE_STATUTS.creee;
+    const retard = isReserveEnRetard(row) || isRdvEnRetard(row);
+    return (
+      <div style={{ display: "flex", gap: space.md, alignItems: "flex-start" }}>
+        {row.photoAvant ? (
+          <img src={row.photoAvant} alt="" style={{
+            width: 48, height: 48, borderRadius: radius.sm, objectFit: "cover",
+            flexShrink: 0, border: `1px solid ${EPJ.gray200}`,
+          }}/>
+        ) : (
+          <div style={{
+            width: 48, height: 48, borderRadius: radius.sm, background: EPJ.gray100,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 20, flexShrink: 0,
+          }}>📝</div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: font.mono, fontSize: fontSize.sm, color: EPJ.gray500 }}>
+            {row.numReserve || "—"}
+          </div>
+          <div style={{
+            fontSize: fontSize.base, fontWeight: fontWeight.medium, color: EPJ.gray900, marginTop: 1,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{row.titre || "(sans titre)"}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm, flexWrap: "wrap", marginTop: space.sm }}>
+            <Badge status={row.statut} icon={st.icon} label={st.label} />
+            {row.priorite === "bloquante" && <Badge tone="danger" icon="🔴" label="Bloquante" />}
+            {retard && <Badge tone="danger" icon="⏰" label="Retard" />}
+          </div>
+          <div style={{
+            fontSize: fontSize.xs, color: EPJ.gray500, marginTop: space.sm,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {row.chantierNum && <span>📍 {row.chantierNum}</span>}
+            {row.affecteAUserId && <span> · 👤 {getUserName(row.affecteAUserId)}</span>}
+            {row.dateLimite && <span> · 🎯 {formatDate(row.dateLimite)}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ paddingTop: 12, paddingBottom: 40 }}>
-      {/* Header — v10.G */}
+    <div style={{ paddingTop: space.md, paddingBottom: space.xxl }}>
       <ModuleSubHeader
         moduleName="Réserves"
         title="Réserves & quitus"
         subtitle="Suivi SAV & garantie"
         onBackToModuleHome={null}
+        rightSlot={!isPwa ? addBtn : null}
       />
+      {isPwa && addBtn && <div style={{ marginBottom: space.lg }}>{addBtn}</div>}
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
-        <KpiCard label="Bloquantes" value={kpi.bloquantes} color={EPJ.red} icon="🔴"/>
-        <KpiCard label="En cours"  value={kpi.enCours}  color={EPJ.orange} icon="🟡"/>
-        <KpiCard label="Levées /mois" value={kpi.leveesMois} color={EPJ.green} icon="✓"/>
-        <KpiCard label="Retards"   value={kpi.enRetard} color={EPJ.red} icon="⏰"/>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isPwa ? "1fr 1fr" : "repeat(4, 1fr)",
+        gap: space.md, marginBottom: space.lg,
+      }}>
+        <StatCard label="Bloquantes" value={kpi.bloquantes} />
+        <StatCard label="En cours" value={kpi.enCours} />
+        <StatCard label="Levées /mois" value={kpi.leveesMois} />
+        <StatCard label="Retards" value={kpi.enRetard} />
       </div>
 
-      {/* ─── v1.13.0 — Bouton "Mails à classer" ─── */}
+      {/* Mails à classer (v1.13.0) */}
       {nbMailsAClasser > 0 && (
-        <button
+        <Banner
+          tone="warning"
+          icon="📥"
+          title={`${nbMailsAClasser} mail(s) à classer`}
+          text="Rattacher à une réserve ou créer une nouvelle réserve"
           onClick={onOpenMailsAClasser}
-          className="epj-btn"
-          style={{
-            width: "100%",
-            background: EPJ.warningBg,
-            color: EPJ.orange,
-            border: `1px solid ${EPJ.orange}`,
-            marginBottom: 12,
-            fontSize: 13,
-            padding: "10px 14px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontFamily: font.body,
-            fontWeight: 600,
-          }}
-        >
-          <span>📥 Mails à classer</span>
-          <span style={{
-            background: EPJ.orange,
-            color: EPJ.white,
-            borderRadius: 12,
-            padding: "2px 10px",
-            fontSize: 12,
-            fontWeight: 700,
-          }}>
-            {nbMailsAClasser}
-          </span>
-        </button>
+        />
       )}
 
-      {/* ─── Forcer le sync mails SAV — Admin + Direction ─── */}
+      {/* Forcer le sync mails SAV — Admin + Direction */}
       {canForceSync && (
-        <div style={{ marginBottom: 12 }}>
-          <button
-            onClick={handleForceSync}
-            disabled={syncBusy}
-            className="epj-btn"
-            style={{
-              width: "100%",
-              background: EPJ.infoBg,
-              color: EPJ.blue,
-              border: `1px solid ${EPJ.blue}`,
-              fontSize: 13,
-              padding: "10px 14px",
-              fontFamily: font.body,
-              fontWeight: 600,
-              opacity: syncBusy ? 0.6 : 1,
-              cursor: syncBusy ? "default" : "pointer",
-            }}
-          >
-            {syncBusy ? "⏳ Synchronisation…" : "🔄 Forcer le sync mails"}
-          </button>
+        <div style={{ marginBottom: space.md }}>
+          <Button variant="secondary" full onClick={handleForceSync} loading={syncBusy}>
+            🔄 Forcer le sync mails
+          </Button>
           {syncMsg && (
-            <div style={{
-              marginTop: 6,
-              fontSize: 12,
-              color: EPJ.gray500,
-              fontFamily: font.body,
-            }}>
+            <div style={{ marginTop: space.xs + 2, fontSize: fontSize.xs, color: EPJ.gray500, fontFamily: font.body }}>
               {syncMsg}
             </div>
           )}
@@ -241,155 +328,60 @@ export function ReservesInner({ onCreate, onSelect, onOpenMailsAClasser, onExitM
 
       {/* Bannière retards */}
       {kpi.enRetard > 0 && (
-        <div style={{
-          background: `${EPJ.red}12`, border: `1px solid ${EPJ.red}55`,
-          borderRadius: 10, padding: "10px 12px", marginBottom: 12,
-          display: "flex", alignItems: "center", gap: 8,
-        }}>
-          <span style={{ fontSize: 18 }}>⚠</span>
-          <span style={{ fontSize: 13, color: EPJ.red, fontWeight: 600, fontFamily: font.body }}>
-            {kpi.enRetard} réserve(s) en retard — action requise
-          </span>
-        </div>
+        <Banner
+          tone="danger"
+          icon="⚠"
+          title={`${kpi.enRetard} réserve(s) en retard`}
+          text="Action requise"
+        />
       )}
 
-      {/* Mode switcher */}
+      {/* Mode switcher — chips */}
       {canSeeAll && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 10, background: EPJ.gray100, borderRadius: 8, padding: 3 }}>
-          <button onClick={() => setMode("mine")} style={modeBtnStyle(mode === "mine")}>Mes réserves</button>
-          <button onClick={() => setMode("all")} style={modeBtnStyle(mode === "all")}>Toutes</button>
+        <div style={{ display: "flex", gap: space.sm, marginBottom: space.md }}>
+          <Button variant={mode === "mine" ? "secondary" : "ghost"} onClick={() => setMode("mine")}>
+            Mes réserves
+          </Button>
+          <Button variant={mode === "all" ? "secondary" : "ghost"} onClick={() => setMode("all")}>
+            Toutes
+          </Button>
         </div>
       )}
 
       {/* Filtres */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        <select value={statutFilter} onChange={e => setStatutFilter(e.target.value)}
-                className="epj-input" style={{ flex: 1, minWidth: 120, fontSize: 12, padding: "8px 10px" }}>
-          <option value="">Tous statuts</option>
-          {Object.entries(RESERVE_STATUTS).map(([k, v]) =>
-            <option key={k} value={k}>{v.icon} {v.label}</option>
-          )}
-        </select>
-        <select value={prioriteFilter} onChange={e => setPrioriteFilter(e.target.value)}
-                className="epj-input" style={{ flex: 1, minWidth: 100, fontSize: 12, padding: "8px 10px" }}>
-          <option value="">Toutes priorités</option>
-          {Object.entries(RESERVE_PRIORITES).map(([k, v]) =>
-            <option key={k} value={k}>{v.icon} {v.label}</option>
-          )}
-        </select>
+      <div style={{
+        display: "flex", flexDirection: isPwa ? "column" : "row",
+        gap: space.md, marginBottom: space.lg, alignItems: isPwa ? "stretch" : "center",
+      }}>
+        <div style={{ flex: 1 }}>
+          <Field as="select" value={statutFilter}
+            onChange={e => setStatutFilter(e.target.value)} options={statutOptions} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field as="select" value={prioriteFilter}
+            onChange={e => setPrioriteFilter(e.target.value)} options={prioriteOptions} />
+        </div>
         {chantiersDispo.length > 1 && (
-          <select value={chantierFilter} onChange={e => setChantierFilter(e.target.value)}
-                  className="epj-input" style={{ flex: 1, minWidth: 120, fontSize: 12, padding: "8px 10px" }}>
-            <option value="">Tous chantiers</option>
-            {chantiersDispo.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <div style={{ flex: 1 }}>
+            <Field as="select" value={chantierFilter}
+              onChange={e => setChantierFilter(e.target.value)} options={chantierOptions} />
+          </div>
         )}
       </div>
 
-      {/* Bouton création */}
-      {canCreate && (
-        <button onClick={() => onCreate()} className="epj-btn" style={{
-          width: "100%", background: EPJ.blue, color: EPJ.white, marginBottom: 12,
-          fontSize: 14, padding: "12px",
-        }}>+ Nouvelle réserve</button>
-      )}
-
       {/* Liste */}
-      {visibles.length === 0 ? (
-        <div className="epj-card" style={{ padding: 24, textAlign: "center", color: EPJ.gray500 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
-          <div style={{ fontSize: 13 }}>Aucune réserve {mode === "mine" ? "attribuée" : ""} ne correspond aux filtres.</div>
-        </div>
-      ) : (
-        visibles.map(r => (
-          <ReserveRow key={r._id} reserve={r} onClick={() => onSelect(r._id)} userName={getUserName(r.affecteAUserId)}/>
-        ))
-      )}
-    </div>
-  );
-}
-
-// ─── Sous-composants ──────────────────────────────────────
-function KpiCard({ label, value, color, icon }) {
-  return (
-    <div className="epj-card" style={{
-      padding: "10px 8px", textAlign: "center",
-      borderTop: `3px solid ${color}`, borderRadius: 10,
-    }}>
-      <div style={{ fontSize: 14, marginBottom: 2 }}>{icon}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 9, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: 0.3, marginTop: 3 }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function modeBtnStyle(active) {
-  return {
-    flex: 1, padding: "8px 10px", fontSize: 12, fontWeight: 600,
-    border: "none", borderRadius: 6, cursor: "pointer",
-    background: active ? EPJ.white : "transparent",
-    color: active ? EPJ.gray900 : EPJ.gray500,
-    fontFamily: font.body,
-    boxShadow: active ? "0 1px 3px rgba(0,0,0,.08)" : "none",
-  };
-}
-
-function ReserveRow({ reserve, onClick, userName }) {
-  const st = RESERVE_STATUTS[reserve.statut] || RESERVE_STATUTS.creee;
-  const pr = RESERVE_PRIORITES[reserve.priorite] || RESERVE_PRIORITES.normale;
-  const retard = isReserveEnRetard(reserve) || isRdvEnRetard(reserve);
-
-  return (
-    <div onClick={onClick} className="epj-card clickable" style={{
-      padding: "12px 14px", marginBottom: 6, display: "flex",
-      alignItems: "center", gap: 10,
-      borderLeft: `3px solid ${pr.color}`,
-      background: retard ? `${EPJ.red}08` : undefined,
-    }}>
-      {reserve.photoAvant ? (
-        <img src={reserve.photoAvant} alt="" style={{
-          width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0,
-        }}/>
-      ) : (
-        <div style={{
-          width: 44, height: 44, borderRadius: 8, background: EPJ.gray100,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 18, flexShrink: 0,
-        }}>📝</div>
-      )}
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-          <span style={{
-            fontSize: 10, fontFamily: "monospace", color: EPJ.gray500, fontWeight: 600,
-          }}>{reserve.numReserve || "—"}</span>
-          <span style={{
-            fontSize: 9, padding: "2px 6px", borderRadius: 4,
-            background: `${st.color}22`, color: st.color, fontWeight: 600,
-          }}>{st.icon} {st.label}</span>
-          {retard && (
-            <span style={{
-              fontSize: 9, padding: "2px 6px", borderRadius: 4,
-              background: `${EPJ.red}22`, color: EPJ.red, fontWeight: 700,
-            }}>⏰ Retard</span>
-          )}
-        </div>
-        <div style={{
-          fontSize: 13, fontWeight: 600, color: EPJ.gray900,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          fontFamily: font.body,
-        }}>{reserve.titre || "(sans titre)"}</div>
-        <div style={{
-          fontSize: 10, color: EPJ.gray500, marginTop: 2,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {reserve.chantierNum && <span>📍 {reserve.chantierNum}</span>}
-          {reserve.affecteAUserId && <span> · 👤 {userName}</span>}
-          {reserve.dateLimite && <span> · 🎯 {formatDate(reserve.dateLimite)}</span>}
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={visibles}
+        keyField="_id"
+        onRowClick={(row) => onSelect(row._id)}
+        renderCard={renderCard}
+        empty={{
+          icon: "📂",
+          title: `Aucune réserve${mode === "mine" ? " attribuée" : ""}`,
+          text: "Aucune réserve ne correspond aux filtres actuels.",
+        }}
+      />
     </div>
   );
 }
