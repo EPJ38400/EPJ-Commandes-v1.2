@@ -163,7 +163,7 @@ export function ChantierEditModal({
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+      position: "fixed", inset: 0, background: EPJ.scrim,
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: space.lg, zIndex: 1000,
     }}>
