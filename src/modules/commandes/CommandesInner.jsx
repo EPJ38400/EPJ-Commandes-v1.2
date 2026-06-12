@@ -3508,69 +3508,72 @@ export function CommandesInner({ onExitModule }) {
 
     // ─── Admin menu ───
     if(!adminSection) return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="⚙️ Admin Catalogue" back={true} backView="home" showCart={false}/>
-        <div style={{padding:16}}>
-          <div style={{background:'#E3F2FD',border:'1px solid #90CAF9',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:'#0D47A1',lineHeight:1.4}}>
-            ℹ️ <b>Utilisateurs & chantiers</b> sont désormais gérés dans l'Administration générale (icône ⚙ en haut à droite de l'accueil).
-          </div>
+      <div style={wrapStyle(720)}>
+        <Header title="⚙️ Admin Catalogue" back={true} backView="home" showCart={false}/>
+        <div style={{padding:space.lg}}>
+          <Banner
+            tone="info"
+            icon="ℹ️"
+            title="Utilisateurs & chantiers"
+            text="Désormais gérés dans l'Administration générale (icône ⚙ en haut à droite de l'accueil)."
+          />
           {[
             {key:'categories',icon:'📁',label:'Catégories & Sous-catégories',desc:`${[...new Set(dynCatalog.map(p=>p.c))].length} catégories`},
             {key:'catalog',icon:'📦',label:'Articles du catalogue',desc:`${dynCatalog.length} article(s)`},
           ].map(s=>(
-            <div key={s.key} onClick={()=>{setAdminSection(s.key);setAdminEdit(null);setAdminForm({})}} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14}}>
-              <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{s.icon}</div>
-              <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>{s.label}</div><div style={{fontSize:12,color:EPJ.gray}}>{s.desc}</div></div>
+            <div key={s.key} onClick={()=>{setAdminSection(s.key);setAdminEdit(null);setAdminForm({})}} className="epj-card clickable" style={{marginBottom:space.sm + 2,cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+              <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.blue}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{s.icon}</div>
+              <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>{s.label}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{s.desc}</div></div>
             </div>
           ))}
-          <div style={{marginTop:20,borderTop:`1px solid #ddd`,paddingTop:16}}>
+          <div style={{marginTop:space.xl - 4,borderTop:`1px solid ${EPJ.gray200}`,paddingTop:space.lg}}>
             {/* ─── v10.G — Bloc Import / Export Excel ─── */}
-            <div style={{marginBottom:18,padding:12,background:'#F4F8FB',border:`1px solid ${EPJ.blue}33`,borderRadius:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+            <div style={{marginBottom:space.lg + 2,padding:space.md,background:EPJ.gray50,border:`1px solid ${EPJ.blue}33`,borderRadius:radius.md}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm,display:'flex',alignItems:'center',gap:6}}>
                 📊 Import / Export Excel
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Mets à jour ou exporte le catalogue via un fichier Excel. Format à plat 9 colonnes (Catégorie, Sous-catégorie, Référence, Désignation, Unité, Stock, Fournisseur principal, Code Esabora, Photo URL).
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                <button
-                  className="epj-btn"
-                  onClick={()=>triggerImport('merge')}
-                  disabled={adminSaving}
-                  style={{flex:1,minWidth:140,background:EPJ.blue,color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Fusion (upsert) : ajoute les nouveaux, met à jour les existants. Articles non listés conservés."
-                >
-                  📥 Importer (fusionner)
-                </button>
-                <button
-                  className="epj-btn"
-                  onClick={()=>triggerImport('replace')}
-                  disabled={adminSaving}
-                  style={{flex:1,minWidth:140,background:'#C62828',color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Efface tout le catalogue Firestore puis importe. Action destructive."
-                >
-                  🗑️ Importer (remplacer)
-                </button>
-                <button
-                  className="epj-btn"
-                  onClick={handleExportCatalog}
-                  disabled={adminSaving || dynCatalog.length===0}
-                  style={{flex:1,minWidth:140,background:EPJ.green,color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Télécharge le catalogue actuel au format Excel"
-                >
-                  📤 Exporter en Excel
-                </button>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm"
+                    onClick={()=>triggerImport('merge')}
+                    disabled={adminSaving}
+                    title="Fusion (upsert) : ajoute les nouveaux, met à jour les existants. Articles non listés conservés."
+                  >📥 Importer (fusionner)</Button>
+                </div>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm" variant="danger"
+                    onClick={()=>triggerImport('replace')}
+                    disabled={adminSaving}
+                    title="Efface tout le catalogue Firestore puis importe. Action destructive."
+                  >🗑️ Importer (remplacer)</Button>
+                </div>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm" variant="secondary"
+                    onClick={handleExportCatalog}
+                    disabled={adminSaving || dynCatalog.length===0}
+                    title="Télécharge le catalogue actuel au format Excel"
+                  >📤 Exporter en Excel</Button>
+                </div>
               </div>
-              <div style={{fontSize:10,color:EPJ.gray,marginTop:8,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.sm,lineHeight:1.4}}>
                 💡 <b>Fusionner</b> : ajoute / met à jour, sans supprimer les articles absents du fichier.
                 <br/>💡 <b>Remplacer</b> : EFFACE tout puis recharge depuis le fichier (confirmation requise).
               </div>
             </div>
 
-            <button className="epj-btn" onClick={adminInitAll} disabled={adminSaving} style={{width:'100%',background:'#555',color:'#fff',padding:'14px',fontSize:14,marginBottom:8}}>
-              {adminSaving?'⏳ En cours...':`🔄 Réinitialiser Firebase (${CATALOG_SEED.length} articles)`}
-            </button>
-            <div style={{fontSize:11,color:EPJ.gray,textAlign:'center',marginBottom:12}}>⚠️ Charge les données par défaut. Confirmation requise par saisie. À utiliser uniquement si la base est corrompue ou vide.</div>
-            <button className="epj-btn" onClick={async()=>{
+            <div style={{marginBottom:space.sm}}>
+              <Button full variant="secondary" onClick={adminInitAll} disabled={adminSaving} loading={adminSaving}>
+                {`🔄 Réinitialiser Firebase (${CATALOG_SEED.length} articles)`}
+              </Button>
+            </div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,textAlign:'center',marginBottom:space.md}}>⚠️ Charge les données par défaut. Confirmation requise par saisie. À utiliser uniquement si la base est corrompue ou vide.</div>
+            <Button full variant="secondary" onClick={async()=>{
               const validCats = new Set(CATALOG_SEED.map(p=>p.c));
               const orphanCats = [...new Set(dynCatalog.filter(p=>p.r && !validCats.has(p.c)).map(p=>p.c))];
               if(orphanCats.length===0){showT('✅ Aucune catégorie parasite');return;}
@@ -3581,13 +3584,13 @@ export function CommandesInner({ onExitModule }) {
                 try{ total += await deleteCategoryByQuery(cat); }catch(e){console.error("[admin] Erreur suppression catégorie parasite:", cat, e);}
               }
               setAdminSaving(false);showT(`🗑️ ${total} articles parasites supprimés`);
-            }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>
+            }} disabled={adminSaving}>
               🧹 Nettoyer catégories parasites Firebase
-            </button>
-            <div style={{fontSize:10,color:EPJ.gray,textAlign:'center'}}>Supprime les anciennes catégories (Câbles, Câble Colonne, Vêtements...) non présentes dans le catalogue standard</div>
+            </Button>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray500,textAlign:'center',marginTop:space.xs}}>Supprime les anciennes catégories (Câbles, Câble Colonne, Vêtements...) non présentes dans le catalogue standard</div>
           </div>
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
 
@@ -3608,49 +3611,50 @@ export function CommandesInner({ onExitModule }) {
         showT('✅ Ordre sauvegardé');
       };
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={selectedCat?`📁 ${selectedCat}`:"📁 Catégories"} back={true} backView={selectedCat?"admin":"admin"} showCart={false}/>
-        <div style={{padding:12}}>
+      <div style={wrapStyle(720)}>
+        <Header title={selectedCat?`📁 ${selectedCat}`:"📁 Catégories"} back={true} backView={selectedCat?"admin":"admin"} showCart={false}/>
+        <div style={{padding:space.md}}>
           {!selectedCat ? (<>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle catégorie</button>
-            {adminEdit==='newCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
-                <input className="epj-input" placeholder="Nom de la catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
+            <div style={{marginBottom:space.md}}><Button full onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}}>+ Nouvelle catégorie</Button></div>
+            {adminEdit==='newCat'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+              <div style={{display:'flex',gap:space.sm,marginBottom:space.sm,alignItems:'flex-end'}}>
+                <div style={{flex:1}}><Field dense placeholder="Nom de la catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+                <div style={{width:56,height:46,borderRadius:radius.md,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:EPJ.gray50,overflow:'hidden',flexShrink:0}}>
                   {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
-                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:radius.sm + 2}}/>
                     : <span>{adminForm.icon||'📦'}</span>}
                 </div>
               </div>
-              <div style={{marginBottom:10}}>
+              <div style={{marginBottom:space.sm + 2}}>
                 <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full onClick={async()=>{
                   if(!adminForm.nom) return;
                   const newIcons = {...dynCatIcons, [adminForm.nom]:adminForm.icon||'📦'};
                   await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});
                   // Add a placeholder article to create the category
                   await setDoc(doc(db,"catalogue","__cat_"+adminForm.nom.replace(/\s/g,'_')),{c:adminForm.nom,s:'Général',r:'',n:'(catégorie vide)',u:'',img:''});
                   setAdminEdit(null);setAdminForm({});showT("✅ Catégorie ajoutée");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
+                }} disabled={adminSaving||!adminForm.nom}>💾 Ajouter</Button></div>
               </div>
             </div>}
             {cats.map((cat,idx)=>(
-              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:space.sm}}>
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                  <button onClick={()=>moveCat(idx,-1)} disabled={idx===0} style={{background:idx===0?'#eee':EPJ.dark,color:idx===0?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===0?'default':'pointer',lineHeight:1}}>↑</button>
-                  <button onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?'#eee':EPJ.dark,color:idx===cats.length-1?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
+                  <button aria-label={`Monter ${cat}`} onClick={()=>moveCat(idx,-1)} disabled={idx===0} style={{background:idx===0?EPJ.gray100:EPJ.dark,color:idx===0?EPJ.gray300:EPJ.white,border:'none',borderRadius:radius.sm,width:24,height:22,fontSize:fontSize.xs,cursor:idx===0?'default':'pointer',lineHeight:1}}>↑</button>
+                  <button aria-label={`Descendre ${cat}`} onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?EPJ.gray100:EPJ.dark,color:idx===cats.length-1?EPJ.gray300:EPJ.white,border:'none',borderRadius:radius.sm,width:24,height:22,fontSize:fontSize.xs,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
                 </div>
-                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:space.sm + 2,cursor:'pointer'}}>
                   <CatIcon cat={cat} size={32}/>
                   <div>
-                    <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{cat}</div>
-                    <div style={{fontSize:10,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
+                    <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{cat}</div>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
                   </div>
                 </div>
-                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>✏️</button>
-                <button onClick={async()=>{
+                <IconButton label={`Modifier la catégorie ${cat}`} onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}}>✏️</IconButton>
+                <IconButton variant="danger" label={`Supprimer la catégorie ${cat}`} onClick={async()=>{
                   if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;
                   setAdminSaving(true);
                   try {
@@ -3662,29 +3666,29 @@ export function CommandesInner({ onExitModule }) {
                     showT(`🗑️ ${deleted} articles supprimés`);
                   } catch(e) { showT("❌ Erreur: "+e.message); }
                   setAdminSaving(false);
-                }} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>🗑️</button>
+                }}>🗑️</IconButton>
               </div>
             ))}
-            {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
-              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✏️ Modifier la catégorie</div>
-              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
-                <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
+            {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`,marginTop:space.sm + 2}}>
+              <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>✏️ Modifier la catégorie</div>
+              <div style={{display:'flex',gap:space.sm,marginBottom:space.sm,alignItems:'flex-end'}}>
+                <div style={{flex:1}}><Field dense placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+                <div style={{width:56,height:46,borderRadius:radius.md,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:EPJ.gray50,overflow:'hidden',flexShrink:0}}>
                   {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
-                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:radius.sm + 2}}/>
                     : <span>{adminForm.icon||'📦'}</span>}
                 </div>
               </div>
-              <div style={{marginBottom:10}}>
+              <div style={{marginBottom:space.sm + 2}}>
                 <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
               </div>
-              <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
+              <label style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:space.md,cursor:'pointer',padding:`${space.sm}px ${space.sm + 2}px`,background:adminForm.isEquip?EPJ.successBg:EPJ.gray100,borderRadius:radius.sm + 2,border:adminForm.isEquip?`2px solid ${EPJ.green}`:`2px solid ${EPJ.gray200}`}}>
                 <input type="checkbox" checked={adminForm.isEquip||false} onChange={e=>setAdminForm(p=>({...p,isEquip:e.target.checked}))} style={{width:18,height:18}}/>
-                <div><div style={{fontSize:13,fontWeight:600}}>Équipement Salarié</div><div style={{fontSize:10,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
+                <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>Équipement Salarié</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
               </label>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full loading={adminSaving} onClick={async()=>{
                   if(!adminForm.nom||!adminForm.oldNom)return;
                   setAdminSaving(true);
                   // Si le nom a changé : déplacer les articles vers le nouveau nom de catégorie
@@ -3716,37 +3720,37 @@ export function CommandesInner({ onExitModule }) {
                   await setDoc(doc(db,"config","settings"),{catIcons:newIcons,equipCategories:newEquip,catOrder:newOrder},{merge:true});
                   setDynEquipCats(newEquip);setDynCatOrder(newOrder);
                   setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie mise à jour");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Enregistrer'}</button>
+                }} disabled={adminSaving||!adminForm.nom}>💾 Enregistrer</Button></div>
               </div>
             </div>}
           </>) : (<>
-            <button className="epj-btn" onClick={()=>setSelectedCat(null)} style={{width:'100%',background:'#eee',color:EPJ.dark,padding:'10px',fontSize:13,marginBottom:12}}>← Toutes les catégories</button>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newSub');setAdminForm({nom:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle sous-catégorie dans {selectedCat}</button>
-            {adminEdit==='newSub'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-              <input className="epj-input" placeholder="Nom de la sous-catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{marginBottom:8,padding:'8px 10px',fontSize:13}}/>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+            <div style={{marginBottom:space.md}}><Button full variant="secondary" onClick={()=>setSelectedCat(null)}>← Toutes les catégories</Button></div>
+            <div style={{marginBottom:space.md}}><Button full onClick={()=>{setAdminEdit('newSub');setAdminForm({nom:''})}}>+ Nouvelle sous-catégorie dans {selectedCat}</Button></div>
+            {adminEdit==='newSub'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+              <div style={{marginBottom:space.sm}}><Field dense placeholder="Nom de la sous-catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full onClick={async()=>{
                   const nom = (adminForm.nom||'').trim();
                   if(!nom) return;
                   try {
                     await setDoc(doc(db,"catalogue","__sub_"+selectedCat.replace(/[\/\s]/g,'_')+"_"+nom.replace(/[\/\s]/g,'_')),{c:selectedCat,s:nom,r:'',n:'(sous-catégorie vide)',u:'',img:'',stock:true});
                     setAdminEdit(null);setAdminForm({});showT("✅ Sous-catégorie ajoutée");
                   } catch(e) { showT("❌ Erreur: "+e.message); }
-                }} disabled={adminSaving||!(adminForm.nom||'').trim()} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
+                }} disabled={adminSaving||!(adminForm.nom||'').trim()}>💾 Ajouter</Button></div>
               </div>
             </div>}
             {subcats.map(sub=>(
               <div key={sub} className="epj-card" style={{marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{sub}</div>
-                  <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===selectedCat&&p.s===sub).length} articles</div>
+                  <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{sub}</div>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===selectedCat&&p.s===sub).length} articles</div>
                 </div>
               </div>
             ))}
           </>)}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );}
 
@@ -3759,31 +3763,37 @@ export function CommandesInner({ onExitModule }) {
       if(adminCatFilter) filtered = filtered.filter(p=>p.c===adminCatFilter);
       if(adminSearch) { const q=adminSearch.toLowerCase(); filtered=filtered.filter(p=>(p.n||'').toLowerCase().includes(q)||(p.r||'').toLowerCase().includes(q)); }
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="📦 Articles" back={true} backView="admin" showCart={false}/>
-        <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
-          <div style={{display:'flex',gap:6,marginBottom:6}}>
-            <select className="epj-input" value={adminCatFilter||''} onChange={e=>{setSelectedCat(e.target.value||null)}} style={{flex:1,fontSize:12,padding:'8px'}}><option value="">Toutes catégories</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
-          </div>
-          <input className="epj-input" placeholder="Rechercher..." value={adminSearch||''} onChange={e=>setSearch(e.target.value)} style={{fontSize:12,padding:'8px'}}/>
-        </div>
-        <div style={{padding:12}}>
-          <div style={{display:'flex',gap:6,marginBottom:12}}>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:'',stock:true})}} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px',fontSize:13}}>+ Ajouter</button>
-            <button className="epj-btn" onClick={()=>{setBulkMode(!bulkMode);setBulkSelected([])}} style={{background:bulkMode?EPJ.orange:'#eee',color:bulkMode?'#fff':EPJ.dark,padding:'10px',fontSize:13}}>{bulkMode?'✓ Sélection':'☐ Sélection bloc'}</button>
-          </div>
-          {bulkMode&&bulkSelected.length>0&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.orange}`}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>{bulkSelected.length} article(s) sélectionné(s)</div>
-            <div style={{marginBottom:6}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Déplacer vers catégorie :</label>
-              <select className="epj-input" id="bulkCat" style={{padding:'6px',fontSize:12}}><option value="">--</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
+      <div style={wrapStyle(900, { paddingBottom: 80 })}>
+        <Header title="📦 Articles" back={true} backView="admin" showCart={false}/>
+        <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.white,borderBottom:`1px solid ${EPJ.gray200}`}}>
+          <div style={{display:'flex',flexDirection:isPwa?'column':'row',gap:space.sm}}>
+            <div style={{flex:1}}>
+              <Field as="select" dense value={adminCatFilter||''} onChange={e=>{setSelectedCat(e.target.value||null)}}
+                options={[{value:'',label:'Toutes catégories'},...cats.map(c=>({value:c,label:c}))]}/>
             </div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Sous-catégorie :</label>
-              <input className="epj-input" id="bulkSub" placeholder="Optionnel" style={{padding:'6px',fontSize:12}}/>
+            <div style={{flex:isPwa?undefined:2}}>
+              <Field dense placeholder="Rechercher..." value={adminSearch||''} onChange={e=>setSearch(e.target.value)}/>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:space.md}}>
+          <div style={{display:'flex',gap:6,marginBottom:space.md}}>
+            <div style={{flex:1}}><Button full size="sm" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:'',stock:true})}}>+ Ajouter</Button></div>
+            <Button size="sm" variant={bulkMode?'primary':'secondary'} onClick={()=>{setBulkMode(!bulkMode);setBulkSelected([])}}>{bulkMode?'✓ Sélection':'☐ Sélection bloc'}</Button>
+          </div>
+          {bulkMode&&bulkSelected.length>0&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.orange}`}}>
+            <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,marginBottom:space.sm}}>{bulkSelected.length} article(s) sélectionné(s)</div>
+            <div style={{marginBottom:6}}>
+              <label style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500}}>Déplacer vers catégorie :</label>
+              <select className="epj-input" id="bulkCat" style={{padding:6,fontSize:fontSize.xs}}><option value="">--</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
+            </div>
+            <div style={{marginBottom:space.sm}}>
+              <label style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500}}>Sous-catégorie :</label>
+              <input className="epj-input" id="bulkSub" placeholder="Optionnel" style={{padding:6,fontSize:fontSize.xs}}/>
             </div>
             <div style={{display:'flex',gap:6}}>
-              <button className="epj-btn" onClick={()=>setBulkSelected([])} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'8px',fontSize:12}}>Tout désélectionner</button>
-              <button className="epj-btn" onClick={async()=>{
+              <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>setBulkSelected([])}>Tout désélectionner</Button></div>
+              <div style={{flex:1}}><Button full size="sm" loading={adminSaving} onClick={async()=>{
                 const newCat=document.getElementById('bulkCat').value;
                 const newSub=document.getElementById('bulkSub').value;
                 if(!newCat){showT('Choisissez une catégorie');return}
@@ -3809,67 +3819,66 @@ export function CommandesInner({ onExitModule }) {
                 }
                 setAdminSaving(false);setBulkSelected([]);setBulkMode(false);
                 showT(`✅ ${moved} article(s) déplacé(s)`);
-              }} disabled={adminSaving} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'8px',fontSize:12}}>{adminSaving?'⏳':'📦 Déplacer'}</button>
+              }} disabled={adminSaving}>📦 Déplacer</Button></div>
             </div>
           </div>}
-          {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>CATÉGORIE</label>
-              <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value,s:''}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
+          {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+            <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
+            <div style={{marginBottom:space.sm}}>
+              <Field as="select" dense label="Catégorie" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value,s:''}))}
+                options={cats.map(c=>({value:c,label:c}))}/>
             </div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>SOUS-CATÉGORIE</label>
+            <div style={{marginBottom:space.sm}}>
+              <label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:2}}>Sous-catégorie</label>
               {(()=>{const subs=[...new Set(dynCatalog.filter(p=>p.c===adminForm.c).map(p=>p.s))].sort();return subs.length>0?(
                 <div style={{display:'flex',gap:6}}>
-                  <select className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} style={{flex:1,padding:'8px',fontSize:13}}>
+                  <select className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} style={{flex:1,padding:space.sm,fontSize:fontSize.sm}}>
                     <option value="">-- Choisir --</option>
                     {subs.map(s=><option key={s} value={s}>{s}</option>)}
                     <option value="__new__">+ Nouvelle...</option>
                   </select>
-                  {adminForm.s==='__new__'&&<input className="epj-input" placeholder="Nom" value={adminForm._newSub||''} onChange={e=>setAdminForm(p=>({...p,_newSub:e.target.value,s:'__new__'}))} style={{flex:1,padding:'8px',fontSize:13}}/>}
+                  {adminForm.s==='__new__'&&<input className="epj-input" placeholder="Nom" value={adminForm._newSub||''} onChange={e=>setAdminForm(p=>({...p,_newSub:e.target.value,s:'__new__'}))} style={{flex:1,padding:space.sm,fontSize:fontSize.sm}}/>}
                 </div>
-              ):(<input className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie" style={{padding:'8px 10px',fontSize:13}}/>)})()}
+              ):(<Field dense value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie"/>)})()}
             </div>
             {['r','n','u'].map(f=>(
-              <div key={f} style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':'UNITÉ'}</label>
-                <input className="epj-input" value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))} style={{padding:'8px 10px',fontSize:13}}/>
+              <div key={f} style={{marginBottom:space.sm}}>
+                <Field dense label={f==='r'?'Référence':f==='n'?'Désignation':'Unité'} mono={f==='r'} value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))}/>
               </div>
             ))}
             {/* ─── Photo de l'article ─── */}
-            <div style={{marginBottom:12}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>PHOTO</label>
+            <div style={{marginBottom:space.md}}>
+              <label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:space.xs}}>Photo</label>
               {adminForm.img ? (
                 <div>
-                  <img src={adminForm.img} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:8,border:'1px solid #ddd',display:'block',marginBottom:6}} onError={e=>{e.target.style.display='none'}}/>
+                  <img src={adminForm.img} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:radius.sm + 2,border:`1px solid ${EPJ.gray200}`,display:'block',marginBottom:6}} onError={e=>{e.target.style.display='none'}}/>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🖼 Bibliothèque</button>
-                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>📷 Caméra</button>
-                    <button type="button" onClick={handleArticlePhotoRemove} style={{background:'#fde7e7',color:EPJ.red,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🗑 Supprimer</button>
+                    <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>artFileInputLibraryRef.current?.click()} disabled={!!artPhotoUploading}>🖼 Bibliothèque</Button></div>
+                    <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>artFileInputCameraRef.current?.click()} disabled={!!artPhotoUploading}>📷 Caméra</Button></div>
+                    <Button size="sm" variant="danger" onClick={handleArticlePhotoRemove}>🗑 Supprimer</Button>
                   </div>
                 </div>
               ) : (
                 artPhotoUploading ? (
-                  <div style={{width:'100%',padding:'18px 10px',border:`2px dashed ${EPJ.orange}`,borderRadius:8,background:`${EPJ.orange}14`,color:EPJ.orange,fontSize:13,fontWeight:600,textAlign:'center'}}>📤 Téléversement en cours… ({artPhotoUploading})</div>
+                  <div style={{width:'100%',padding:`${space.lg + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.orange}`,borderRadius:radius.sm + 2,background:EPJ.warningBg,color:EPJ.orangeText,fontSize:fontSize.sm,fontWeight:fontWeight.medium,textAlign:'center'}}>📤 Téléversement en cours… ({artPhotoUploading})</div>
                 ) : (
                   <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>🖼 Choisir depuis la bibliothèque</button>
-                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>📷 Prendre une photo (mobile)</button>
+                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} style={{width:'100%',padding:`${space.md + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,color:EPJ.dark,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font}}>🖼 Choisir depuis la bibliothèque</button>
+                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} style={{width:'100%',padding:`${space.md + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,color:EPJ.dark,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font}}>📷 Prendre une photo (mobile)</button>
                   </div>
                 )
               )}
               <input ref={artFileInputLibraryRef} type="file" accept="image/*" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
               <input ref={artFileInputCameraRef} type="file" accept="image/*" capture="environment" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
-              <div style={{fontSize:10,color:EPJ.gray,marginTop:4}}>L'image sera compressée (max 1024 px) avant envoi.</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.xs}}>L'image sera compressée (max 1024 px) avant envoi.</div>
             </div>
-            <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,cursor:"pointer",padding:"8px 10px",background:adminForm.stock!==false?"#E8F5E9":"#FFF3E0",borderRadius:8,border:adminForm.stock!==false?"2px solid #4CAF50":"2px solid #FF9800"}}>
+            <label style={{display:"flex",alignItems:"center",gap:space.sm,marginBottom:space.md,cursor:"pointer",padding:`${space.sm}px ${space.sm + 2}px`,background:adminForm.stock!==false?EPJ.successBg:EPJ.warningBg,borderRadius:radius.sm + 2,border:adminForm.stock!==false?`2px solid ${EPJ.green}`:`2px solid ${EPJ.orange}`}}>
               <input type="checkbox" checked={adminForm.stock!==false} onChange={e=>setAdminForm(p=>({...p,stock:e.target.checked}))} style={{width:18,height:18}}/>
-              <div><div style={{fontSize:13,fontWeight:600}}>{adminForm.stock!==false?"📦 En stock":"⚠️ Hors stock"}</div><div style={{fontSize:10,color:EPJ.gray}}>Article tenu en stock au dépôt</div></div>
+              <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>{adminForm.stock!==false?"📦 En stock":"⚠️ Hors stock"}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Article tenu en stock au dépôt</div></div>
             </label>
-            <div style={{display:'flex',gap:8}}>
-              <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-              <button className="epj-btn" onClick={async()=>{
+            <div style={{display:'flex',gap:space.sm}}>
+              <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+              <div style={{flex:1}}><Button full loading={adminSaving} onClick={async()=>{
                 // ─── v10.G.1 — Sauvegarde article ───────────────────
                 // docId composite {catégorie}__{référence}.
                 const newDocId = adminForm.r ? buildCatalogueDocId(adminForm.c, adminForm.r) : 'art_'+Date.now();
@@ -3883,25 +3892,25 @@ export function CommandesInner({ onExitModule }) {
                   try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){ console.warn("Suppression ancien docId échouée:", e); }
                 }
                 adminSave('catalogue',newDocId,saveData);
-              }} disabled={adminSaving||!adminForm.r||!adminForm.n} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Sauvegarder'}</button>
+              }} disabled={adminSaving||!adminForm.r||!adminForm.n}>💾 Sauvegarder</Button></div>
             </div>
           </div>}
-          <div style={{fontSize:12,color:EPJ.gray,marginBottom:8}}>{filtered.length} article(s)</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm,fontVariantNumeric:'tabular-nums'}}>{filtered.length} article(s)</div>
           {filtered.slice(0,50).map(p=>(
-            <div key={p._docId||(p.c+'__'+p.r)} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.some(x=>x.c===p.c&&x.r===p.r)?'#E3F2FD':'#fff'}}>
+            <div key={p._docId||(p.c+'__'+p.r)} className="epj-card" style={{marginBottom:space.xs,display:'flex',alignItems:'center',gap:space.sm,padding:`${space.sm}px ${space.md}px`,background:bulkSelected.some(x=>x.c===p.c&&x.r===p.r)?EPJ.infoBg:EPJ.white}}>
               {bulkMode&&<input type="checkbox" checked={bulkSelected.some(x=>x.c===p.c&&x.r===p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,{c:p.c,r:p.r}]);else setBulkSelected(s=>s.filter(x=>!(x.c===p.c&&x.r===p.r)))}} style={{width:18,height:18,flexShrink:0}}/>}
-              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
+              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:radius.sm,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
-                <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
+                <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
               </div>
-              {!bulkMode&&<button onClick={()=>{setAdminEdit('edit_'+p.c+'__'+p.r);setAdminForm({...p,_origRef:p.r,_origCat:p.c})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>}
-              {!bulkMode&&<button onClick={()=>{const docId=buildCatalogueDocId(p.c,p.r);adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>}
+              {!bulkMode&&<IconButton label={`Modifier ${p.r}`} onClick={()=>{setAdminEdit('edit_'+p.c+'__'+p.r);setAdminForm({...p,_origRef:p.r,_origCat:p.c})}}>✏️</IconButton>}
+              {!bulkMode&&<IconButton variant="danger" label={`Supprimer ${p.r}`} onClick={()=>{const docId=buildCatalogueDocId(p.c,p.r);adminDelete('catalogue',docId)}}>🗑️</IconButton>}
             </div>
           ))}
-          {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
+          {filtered.length>50&&<div style={{textAlign:'center',padding:space.sm + 2,fontSize:fontSize.xs,color:EPJ.gray500}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );}
   }
