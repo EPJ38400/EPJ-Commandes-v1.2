@@ -14,7 +14,9 @@
 //   - Tests : *.test.js
 //   - theme.js : fichier SOURCE des tokens (ses hex sont la cible, pas le reliquat ;
 //     couvre la consigne « neutraliser globalCss »)
-//   - CommandesInner.jsx (trio sensible) : compté À PART, hors total.
+//   - (lot trio livré : CommandesInner.jsx est désormais compté normalement.
+//     Son reliquat est dominé par les générateurs print INLINE — PdfView +
+//     generateAndOpenPdf — légitimes au même titre que quitusPdfGenerator.js.)
 //
 //  C'est un compteur de décrue : relire sa sortie après chaque lot DS.
 // ═══════════════════════════════════════════════════════════════
@@ -32,8 +34,6 @@ const IGNORED_FILES = new Set([
   'reservesUtils.js',
   'theme.js',
 ]);
-const TRIO_FILE = 'CommandesInner.jsx';
-
 // ── Helpers ──────────────────────────────────────────────────────
 
 async function walk(dir) {
@@ -110,7 +110,6 @@ let totalRadius = 0, totalSpacing = 0;
 const colorFiles = new Set();
 const weightFiles = new Set();
 const perFile = []; // { file, colorCount, weightCount, dim, score }
-let trio = null;
 
 for (const f of files) {
   const name = basename(f);
@@ -127,8 +126,6 @@ for (const f of files) {
     spacingLit: a.spacingLit,
     score: a.colorCount + a.weightCount + dim,
   };
-
-  if (name === TRIO_FILE) { trio = rec; continue; } // hors total
 
   for (const [k, v] of Object.entries(a.colors)) totalColors[k] = (totalColors[k] || 0) + v;
   for (const [k, v] of Object.entries(a.weights)) totalWeights[k] = (totalWeights[k] || 0) + v;
@@ -183,13 +180,6 @@ for (const r of perFile.sort((a, b) => b.score - a.score).slice(0, 10)) {
   console.log(`     ${pad(f, 46)} ${pad(r.colorCount, 5)}${pad(r.weightCount, 4)}${pad(r.dim, 5)}${pad(r.score, 5)}`);
 }
 
-// Trio (hors total)
 console.log(`\n${line}`);
-if (trio) {
-  console.log(`  TRIO — lot dédié (HORS TOTAL) : ${TRIO_FILE}`);
-  console.log(`     ${trio.colorCount} couleurs · ${trio.weightCount} fontWeight · ${trio.dim} dimensions`);
-} else {
-  console.log(`  TRIO — ${TRIO_FILE} introuvable (non compté).`);
-}
-console.log(`\n  TOTAL RELIQUAT (hors trio) : ${colorTotal + weightTotal + totalRadius + totalSpacing} occurrences`);
+console.log(`\n  TOTAL RELIQUAT : ${colorTotal + weightTotal + totalRadius + totalSpacing} occurrences`);
 console.log(`${line}\n`);
