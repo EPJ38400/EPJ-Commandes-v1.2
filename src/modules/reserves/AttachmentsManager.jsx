@@ -14,6 +14,9 @@ export function AttachmentsManager({
   attachments = [],   // array des pièces jointes déjà enregistrées
   onAdd,              // (newAttachment) => Promise  ← persistance Firestore
   onRemove,           // (attachmentId, path) => Promise
+  onSetPhoto,         // (att, "avant"|"apres") => Promise  ← définit la photo quitus
+  photoAvantUrl = "", // url de la photo "avant" courante (état actif des boutons)
+  photoApresUrl = "", // url de la photo "après" courante
   readOnly = false,
   compact = false,    // Mode compact : juste la liste sans drop zone
 }) {
@@ -113,7 +116,10 @@ export function AttachmentsManager({
           <div style={{
             display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: space.sm - 2,
           }}>
-            {photos.map(att => (
+            {photos.map(att => {
+              const isAvant = !!(onSetPhoto && photoAvantUrl && att.url === photoAvantUrl);
+              const isApres = !!(onSetPhoto && photoApresUrl && att.url === photoApresUrl);
+              return (
               <div key={att.id} style={{ position: "relative" }}>
                 <a href={att.url} target="_blank" rel="noopener noreferrer">
                   <img src={att.url} alt={att.nom} style={{
@@ -131,8 +137,23 @@ export function AttachmentsManager({
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>×</button>
                 )}
+                {/* Définir cette image comme photo avant/après du quitus */}
+                {onSetPhoto && (
+                  <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                    <button
+                      onClick={() => onSetPhoto(att, "avant")}
+                      title="Utiliser comme photo « avant » (constat) du quitus"
+                      style={photoTagBtn(isAvant)}
+                    >{isAvant ? "✓ Avant" : "Avant"}</button>
+                    <button
+                      onClick={() => onSetPhoto(att, "apres")}
+                      title="Utiliser comme photo « après » (reprise) du quitus"
+                      style={photoTagBtn(isApres)}
+                    >{isApres ? "✓ Après" : "Après"}</button>
+                  </div>
+                )}
               </div>
-            ))}
+            );})}
           </div>
         </div>
       )}
@@ -206,6 +227,20 @@ export function AttachmentsManager({
     </div>
   );
 }
+
+// Petit bouton "Avant"/"Après" sous chaque vignette photo (état actif = vert).
+const photoTagBtn = (active) => ({
+  flex: 1,
+  padding: `${space.xs}px 0`,
+  fontSize: fontSize.xs,
+  fontFamily: font.body,
+  borderRadius: radius.sm,
+  border: `1px solid ${active ? EPJ.green : EPJ.gray300}`,
+  background: active ? EPJ.successBg : EPJ.white,
+  color: active ? EPJ.greenText : EPJ.gray700,
+  cursor: "pointer",
+  ...(active && { fontWeight: fontWeight.medium }),
+});
 
 // Micro-label de section (DA §2.3).
 const attLabel = {
