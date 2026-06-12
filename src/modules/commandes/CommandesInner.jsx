@@ -188,6 +188,15 @@ export function CommandesInner({ onExitModule }) {
   const { smsTemplates = [], rolesConfig = {}, featureFlags = {} } = useData();
   // Le Socle ne monte ce composant que si l'utilisateur est connecté.
 
+  // Lot trio — bascule responsive (seuil 760, source unique useViewport).
+  // PWA : rendu colonne historique (520) ; desktop : contenu élargi dans le
+  // cadre 1320 du Layout (listes 1100, formulaires 720).
+  const isPwa = useViewport() === "mobile";
+  const wrapStyle = (max = 1100, extra = {}) => ({
+    fontFamily: font, background: 'transparent', minHeight: '100vh',
+    maxWidth: isPwa ? 520 : max, margin: '0 auto', ...extra,
+  });
+
   // ─── v10.E — B2/B3 : Persistance du brouillon de commande ───
   // Avant, dès que l'iPhone se mettait en veille ou qu'on changeait d'app,
   // on perdait tout (panier, chantier sélectionné, type, etc.). Maintenant
@@ -1624,64 +1633,38 @@ export function CommandesInner({ onExitModule }) {
   //   2. Sub-header du module → ← Commandes → accueil du module
   //   3. Bouton flèche du sub-header → ← (page précédente dans le module)
   const Header = ({title, back, backView, showCart=true, showModuleHome=true}) => (
-    <div style={{background:'rgba(255,255,255,.92)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',borderBottom:'1px solid #EAEAEA',color:EPJ.dark,padding:'10px 14px',position:'sticky',top:0,zIndex:100}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,flex:1,minWidth:0}}>
+    <div style={{background:'rgba(255,255,255,.92)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',borderBottom:`1px solid ${EPJ.gray200}`,color:EPJ.dark,padding:`${space.sm}px ${space.md}px`,position:'sticky',top:0,zIndex:100}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:space.sm}}>
+        <div style={{display:'flex',alignItems:'center',gap:space.sm,flex:1,minWidth:0}}>
           {/* Bouton "← Commandes" : retour à l'accueil du module — v10.G */}
           {showModuleHome && view !== 'home' && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={goToModuleHome}
-              style={{
-                background:'#F4F5F7',
-                border:`1px solid #E0E0E0`,
-                color:'#3D3D3D',
-                borderRadius:8,
-                padding:'7px 11px',
-                fontSize:12,
-                cursor:'pointer',
-                fontWeight:600,
-                fontFamily:font,
-                flexShrink:0,
-                whiteSpace:'nowrap',
-              }}
               title="Accueil du module Commandes"
               aria-label="Accueil du module Commandes"
             >
               ← Commandes
-            </button>
+            </Button>
           )}
-          {/* Flèche "← page précédente" — v10.G : contraste renforcé */}
+          {/* Flèche "← page précédente" — v10.G */}
           {back && (
-            <button
+            <IconButton
+              label="Retour à l'écran précédent"
               onClick={()=>{
                 if(backView==='cats'){setSelectedCat(null);setSearch('')}
                 else if(backView==='admin'){setAdminSection(null);setAdminEdit(null);setAdminForm({});setSelectedCat(null);setSearch('');setView('admin')}
                 else setView(backView||'home')
               }}
-              style={{
-                background:EPJ.dark,
-                border:'none',
-                color:'#fff',
-                borderRadius:8,
-                padding:'7px 12px',
-                fontSize:14,
-                fontWeight:700,
-                cursor:'pointer',
-                fontFamily:font,
-                flexShrink:0,
-                lineHeight:1,
-                boxShadow:'0 1px 2px rgba(0,0,0,0.1)',
-              }}
-              title="Retour à l'écran précédent"
-              aria-label="Retour à l'écran précédent"
             >
               ←
-            </button>
+            </IconButton>
           )}
-          <div style={{fontSize:14,fontWeight:600,letterSpacing:'-0.01em',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+          <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,letterSpacing:'-0.01em',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-          {showCart&&cartCount>0&&view!=='cart'&&<button onClick={()=>setView('cart')} style={{background:EPJ.orange,color:'#fff',border:'none',borderRadius:999,padding:'6px 14px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:font}}>🛒 {cartCount}</button>}
+        <div style={{display:'flex',gap:space.sm,alignItems:'center',flexShrink:0}}>
+          {showCart&&cartCount>0&&view!=='cart'&&<button onClick={()=>setView('cart')} style={{background:EPJ.orange,color:EPJ.white,border:'none',borderRadius:radius.pill,padding:`6px ${space.md + 2}px`,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font,fontVariantNumeric:'tabular-nums'}}>🛒 {cartCount}</button>}
         </div>
       </div>
     </div>
@@ -1838,53 +1821,63 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ HOME (page d'accueil du module Commandes) ═══
   if(view==="home") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <div style={{padding:'18px 16px 8px',borderBottom:`1px solid #EAEAEA`,marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+    <div style={wrapStyle(1100)}>
+      <div style={{padding:`${space.lg}px ${space.lg}px ${space.sm}px`,borderBottom:`1px solid ${EPJ.gray200}`,marginBottom:space.sm,display:'flex',alignItems:'center',gap:space.md}}>
         {/* v10.G : Le bouton "← Accueil" a été supprimé d'ici car le bouton
             🏠 Accueil du header global de l'app fait déjà cette action. */}
         <div style={{flex:1}}>
-          <div style={{fontSize:11,color:'#6B6B6B',textTransform:'uppercase',letterSpacing:1,fontWeight:600}}>Module</div>
-          <div style={{fontSize:18,fontWeight:700,color:'#1A1A1A',letterSpacing:'-0.01em'}}>Commandes</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em',fontWeight:fontWeight.medium}}>Module</div>
+          <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.gray900,letterSpacing:'-0.01em'}}>Commandes</div>
         </div>
       </div>
-      <div style={{padding:16}}>
-        {isCartLocked&&<div style={{background:'#FFF3E0',border:`2px solid ${EPJ.orange}`,borderRadius:14,padding:14,marginBottom:12,fontSize:13,color:'#E65100',lineHeight:1.5}}>
-          <strong>⚠️ Panier en cours</strong> — {cartCount} article(s) ({orderType==='chantier'?'Chantier':'Équipement'}).
-          <div style={{marginTop:8,display:'flex',gap:8}}>
-            <button className="epj-btn" onClick={()=>setView('cart')} style={{background:EPJ.orange,color:'#fff',padding:'8px 14px',fontSize:12,flex:1}}>🛒 Panier</button>
-            <button className="epj-btn" onClick={()=>{setCart({});setOrderType('');showT('Panier vidé')}} style={{background:'#eee',color:EPJ.dark,padding:'8px 14px',fontSize:12}}>🗑 Vider</button>
-          </div>
-        </div>}
-        <div style={{fontSize:14,fontWeight:700,color:EPJ.dark,marginBottom:12}}>Que souhaitez-vous faire ?</div>
-        <div onClick={()=>{if(isCartLocked&&orderType!=='chantier')return;setOrderType('chantier');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card" style={{marginBottom:10,cursor:isCartLocked&&orderType!=='chantier'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:14,opacity:isCartLocked&&orderType!=='chantier'?.4:1}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🏗️</div>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Commande Chantier</div><div style={{fontSize:12,color:EPJ.gray}}>Matériel pour un chantier</div></div>
-          {isCartLocked&&orderType==='chantier'&&<span style={{fontSize:10,background:EPJ.orange,color:'#fff',padding:'3px 8px',borderRadius:8,fontWeight:700}}>EN COURS</span>}
+      <div style={{padding:space.lg}}>
+        {isCartLocked&&(
+          <Banner
+            tone="warning"
+            icon="🛒"
+            title="Panier en cours"
+            text={`${cartCount} article(s) (${orderType==='chantier'?'Chantier':'Équipement'})`}
+            action={
+              <div style={{display:'flex',gap:space.sm}}>
+                <Button size="sm" onClick={()=>setView('cart')}>🛒 Panier</Button>
+                <Button size="sm" variant="ghost" onClick={()=>{setCart({});setOrderType('');showT('Panier vidé')}}>🗑 Vider</Button>
+              </div>
+            }
+          />
+        )}
+        <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,margin:`${space.xs}px 0 ${space.md}px`}}>Que souhaitez-vous faire ?</div>
+        <div style={{display:'grid',gridTemplateColumns:isPwa?'1fr':'repeat(auto-fill,minmax(320px,1fr))',gap:space.sm + 2}}>
+        <div onClick={()=>{if(isCartLocked&&orderType!=='chantier')return;setOrderType('chantier');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card clickable" style={{cursor:isCartLocked&&orderType!=='chantier'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:space.md + 2,opacity:isCartLocked&&orderType!=='chantier'?.4:1}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.blue}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏗️</div>
+          <div style={{flex:1}}><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Commande Chantier</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Matériel pour un chantier</div></div>
+          {isCartLocked&&orderType==='chantier'&&<Badge tone="warning" label="En cours"/>}
         </div>
-        <div onClick={()=>{if(isCartLocked&&orderType!=='equipement')return;setOrderType('equipement');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card" style={{marginBottom:10,cursor:isCartLocked&&orderType!=='equipement'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:14,opacity:isCartLocked&&orderType!=='equipement'?.4:1}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>👷</div>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Équipement Salarié</div><div style={{fontSize:12,color:EPJ.gray}}>Outillage, vêtements, EPI</div></div>
-          {isCartLocked&&orderType==='equipement'&&<span style={{fontSize:10,background:EPJ.orange,color:'#fff',padding:'3px 8px',borderRadius:8,fontWeight:700}}>EN COURS</span>}
+        <div onClick={()=>{if(isCartLocked&&orderType!=='equipement')return;setOrderType('equipement');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card clickable" style={{cursor:isCartLocked&&orderType!=='equipement'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:space.md + 2,opacity:isCartLocked&&orderType!=='equipement'?.4:1}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.orange}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>👷</div>
+          <div style={{flex:1}}><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Équipement Salarié</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Outillage, vêtements, EPI</div></div>
+          {isCartLocked&&orderType==='equipement'&&<Badge tone="warning" label="En cours"/>}
         </div>
-        {pendingCount>0&&<div onClick={()=>setView('pending')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.red}`}}>
-          <div style={{width:48,height:48,borderRadius:12,background:EPJ.red,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}} className="badge-pulse">📋<div style={{position:'absolute',top:-4,right:-4,background:EPJ.red,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{pendingCount}</div></div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.red}}>Commandes à valider</div><div style={{fontSize:12,color:EPJ.gray}}>{pendingCount} en attente</div></div>
+        {pendingCount>0&&<div onClick={()=>setView('pending')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2,borderLeft:`3px solid ${EPJ.red}`}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.red}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative',flexShrink:0}} className="badge-pulse">📋<div style={{position:'absolute',top:-4,right:-4,background:EPJ.red,color:EPJ.white,borderRadius:'50%',width:22,height:22,fontSize:fontSize.xs,fontWeight:fontWeight.semibold,display:'flex',alignItems:'center',justifyContent:'center',border:`2px solid ${EPJ.white}`,fontVariantNumeric:'tabular-nums'}}>{pendingCount}</div></div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.redText}}>Commandes à valider</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{pendingCount} en attente</div></div>
         </div>}
-        <div onClick={()=>setView('history')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.gray},${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>📋</div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Historique</div><div style={{fontSize:12,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
+        <div onClick={()=>setView('history')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:EPJ.gray100,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>📋</div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Historique</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
         </div>
         {/* v1.17.2 — Carte "À commander" élargie : Admin/Direction/Achat/Assistante voient toutes,
             Conducteurs travaux / Chefs de chantier / users directAchat voient les leurs */}
         {canSeeToOrder() && toOrderCount > 0 && (
-          <div onClick={()=>setView('toOrder')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.orange}`}}>
-            <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},#E65100)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{toOrderCount}</div></div>
-            <div><div style={{fontWeight:700,fontSize:15,color:'#E65100'}}>À commander</div><div style={{fontSize:12,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
+          <div onClick={()=>setView('toOrder')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2,borderLeft:`3px solid ${EPJ.orange}`}}>
+            <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.orange}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative',flexShrink:0}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:EPJ.white,borderRadius:'50%',width:22,height:22,fontSize:fontSize.xs,fontWeight:fontWeight.semibold,display:'flex',alignItems:'center',justifyContent:'center',border:`2px solid ${EPJ.white}`,fontVariantNumeric:'tabular-nums'}}>{toOrderCount}</div></div>
+            <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.orangeText}}>À commander</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
           </div>
         )}
-        {user.fonction==="Admin"&&<div onClick={()=>{setAdminSection(null);setSelectedCat(null);setSearch('');setView('admin')}} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.dark}`}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,#555,${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>⚙️</div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Administration</div><div style={{fontSize:12,color:EPJ.gray}}>Chantiers, utilisateurs, catalogue</div></div>
+        {user.fonction==="Admin"&&<div onClick={()=>{setAdminSection(null);setSelectedCat(null);setSearch('');setView('admin')}} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:EPJ.gray100,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>⚙️</div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Administration</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Chantiers, utilisateurs, catalogue</div></div>
         </div>}
+        </div>
       </div>
     </div>
   );
@@ -2464,46 +2457,50 @@ export function CommandesInner({ onExitModule }) {
     const fullName=`${user.prenom} ${user.nom}`;
     const myP=user.fonction==="Admin"?pendingOrders:pendingOrders.filter(o=>{const ch=dynChantiers.find(c=>c.nom===o.chantier);return ch&&ch.conducteur===fullName});
     return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="Commandes à valider" back={true} backView="home" showCart={false}/>
-        <div style={{padding:12}}>
-          {myP.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>✅</div><div style={{fontWeight:600}}>Aucune commande en attente</div></div>
-          :myP.map(o=>(
-            <div key={o.num} className="epj-card" style={{marginBottom:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-                <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{o.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{o.date} • {o.user}</div><div style={{fontSize:12,color:EPJ.blue}}>🏗️ [{o.numAffaire}] {o.chantier}</div>{o.urgent&&<span style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700}}>⚠️ URGENT</span>}</div>
-                <div style={{fontSize:13,fontWeight:700}}>{(o.items||[]).length} réf.</div>
+      <div style={wrapStyle(1100)}>
+        <Header title="Commandes à valider" back={true} backView="home" showCart={false}/>
+        <div style={{padding:space.md}}>
+          {myP.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>✅</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucune commande en attente</div></div>
+          :<div style={{display:'grid',gridTemplateColumns:isPwa?'1fr':'repeat(auto-fill,minmax(380px,1fr))',gap:space.sm + 2,alignItems:'start'}}>
+          {myP.map(o=>(
+            <div key={o.num} className="epj-card">
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:space.sm + 2}}>
+                <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{o.num}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{o.date} • {o.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText}}>🏗️ [{o.numAffaire}] {o.chantier}</div>{o.urgent&&<div style={{marginTop:space.xs}}><Badge status="urgent" label="Urgent"/></div>}</div>
+                <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,fontVariantNumeric:'tabular-nums'}}>{(o.items||[]).length} réf.</div>
               </div>
-              <div style={{background:EPJ.grayLight,borderRadius:8,padding:8,marginBottom:10,maxHeight:120,overflowY:'auto'}}>
-                {(o.items||[]).map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700}}>x{it.qty}</span></div>))}
+              <div style={{background:EPJ.gray50,borderRadius:radius.sm + 2,padding:space.sm,marginBottom:space.sm + 2,maxHeight:120,overflowY:'auto'}}>
+                {(o.items||[]).map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blueText,fontWeight:fontWeight.medium,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</span></div>))}
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>validateOrder(o.num)} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px'}}>✅ Valider</button>
-                <button className="epj-btn" onClick={()=>{setShowRefuseModal(o.num);setRefuseMotif('')}} style={{flex:1,background:EPJ.red,color:'#fff',padding:'10px'}}>❌ Refuser</button>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full onClick={()=>validateOrder(o.num)}>✅ Valider</Button></div>
+                <div style={{flex:1}}><Button full variant="danger" onClick={()=>{setShowRefuseModal(o.num);setRefuseMotif('')}}>Refuser</Button></div>
               </div>
             </div>
           ))}
+          </div>}
         </div>
-        {showRefuseModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowRefuseModal(null)}>
-          <div style={{background:'#fff',borderRadius:20,padding:24,width:'100%',maxWidth:400}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontSize:18,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Motif de refus</div>
-            <textarea className="epj-input" rows={3} value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Motif..." style={{resize:'vertical',marginBottom:12}}/>
-            <div style={{display:'flex',gap:8}}>
-              <button className="epj-btn" onClick={()=>setShowRefuseModal(null)} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-              <button className="epj-btn" onClick={()=>refuseOrder(showRefuseModal,refuseMotif)} style={{flex:1,background:EPJ.red,color:'#fff',padding:'10px'}} disabled={!refuseMotif.trim()}>Confirmer</button>
+        {showRefuseModal&&<div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:space.xl - 4}} onClick={()=>setShowRefuseModal(null)}>
+          <div style={{background:EPJ.white,borderRadius:radius.xl,padding:space.xl,width:'100%',maxWidth:400,boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Motif de refus</div>
+            <Field as="textarea" rows={3} value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Motif..."/>
+            <div style={{display:'flex',gap:space.sm,marginTop:space.md}}>
+              <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setShowRefuseModal(null)}>Annuler</Button></div>
+              <div style={{flex:1}}><Button full variant="danger" onClick={()=>refuseOrder(showRefuseModal,refuseMotif)} disabled={!refuseMotif.trim()}>Confirmer</Button></div>
             </div>
           </div>
         </div>}
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
 
   // ═══ PDF PREVIEW (after validation) ═══
   if(view==="pdfPreview"&&pdfOrder) return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
-      <div style={{padding:12}}>
+    <div style={wrapStyle(720)}>
+      <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
+      <div style={{padding:space.md}}>
         <PdfView order={pdfOrder}/>
-        <button className="epj-btn" onClick={()=>{setPdfOrder(null);setView('home')}} style={{width:'100%',marginTop:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>← Commandes</button>
+        <div style={{marginTop:space.md}}><Button full onClick={()=>{setPdfOrder(null);setView('home')}}>← Commandes</Button></div>
       </div>
     </div>
   );
@@ -2553,46 +2550,75 @@ export function CommandesInner({ onExitModule }) {
       // Pas de createdAt : tri par num desc (CMD-2026-0053 avant CMD-2026-0052)
       return (b.num || "").localeCompare(a.num || "");
     });
+    const deletables = myHistory.filter(h => canDeleteThisOrder(h));
+    const deleteAll = async () => {
+      if(!confirm(`Supprimer les ${deletables.length} commande(s) supprimable(s) parmi celles affichées ?`))return;
+      let okCount = 0;
+      for(const h of deletables){
+        const ok = await performDeleteOrder(h, false);
+        if (ok) okCount++;
+      }
+      showT(`🗑️ ${okCount} commande(s) supprimée(s)`);
+    };
+    const deleteOne = async (h) => {
+      const ok = await performDeleteOrder(h, true);
+      if (ok) showT("🗑️ Supprimée"); else showT("❌ Erreur");
+    };
+    // Lignes enrichies pour <DataTable> (tri sur valeurs réelles)
+    const histRows = myHistory.map((h,i)=>({ ...h, _key: h._id || String(i), _refs:(h.items||[]).length, _cible: h.type==='chantier' ? `[${h.numAffaire||''}] ${h.chantier||''}` : (h.salarie||'') }));
+    const histCols = [
+      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}</span>) },
+      { key:'date', header:'Date', sortable:false },
+      { key:'user', header:'Demandeur' },
+      { key:'_cible', header:'Chantier / Destinataire' },
+      { key:'_refs', header:'Réf.', numeric:true },
+      { key:'statut', header:'Statut', render:(_,h)=>{const s=getStatusDisplay(h);return <Badge status={s.status} label={s.label||'—'} dot/>;} },
+      { key:'_del', header:'', sortable:false, align:'right', render:(_,h)=>canDeleteThisOrder(h)?(<IconButton variant="danger" label={`Supprimer ${h.num}`} onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}}>🗑</IconButton>):null },
+    ];
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <Header title="Historique" back={true} backView="home" showCart={false}/>
-      <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
-        <div style={{display:'flex',gap:6}}>
-          <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{ORDER_STATUTS.map(s=><option key={s} value={s}>{s}</option>)}</select>
-          <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
-        </div>
-        {(() => {
-          // v10.I — Fix 1 : "Supprimer tout" affiché si au moins 1 commande supprimable
-          const deletables = myHistory.filter(h => canDeleteThisOrder(h));
-          if (deletables.length === 0) return null;
-          return (
-            <button className="epj-btn" onClick={async()=>{
-              if(!confirm(`Supprimer les ${deletables.length} commande(s) supprimable(s) parmi celles affichées ?`))return;
-              let okCount = 0;
-              for(const h of deletables){
-                const ok = await performDeleteOrder(h, false);
-                if (ok) okCount++;
-              }
-              showT(`🗑️ ${okCount} commande(s) supprimée(s)`);
-            }} style={{width:'100%',marginTop:6,background:EPJ.red,color:'#fff',padding:'8px',fontSize:12}}>🗑️ Supprimer ({deletables.length})</button>
-          );
-        })()}
-      </div>
-      <div style={{padding:12}}>
-        {myHistory.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
-        :myHistory.map((h,i)=>(
-          <div key={h._id||i} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
-            <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
-              <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
-              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:4}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
-            </div>
-            {canDeleteThisOrder(h)&&<button onClick={async(e)=>{
-              e.stopPropagation();
-              const ok = await performDeleteOrder(h, true);
-              if (ok) showT("🗑️ Supprimée"); else showT("❌ Erreur");
-            }} style={{marginTop:6,width:'100%',background:'#fee',color:EPJ.red,border:'none',borderRadius:6,padding:'4px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
+    <div style={wrapStyle(1100)}>
+      <Header title="Historique" back={true} backView="home" showCart={false}/>
+      <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.white,borderBottom:`1px solid ${EPJ.gray200}`}}>
+        <div style={{display:'flex',gap:space.sm,alignItems:'flex-end'}}>
+          <div style={{flex:1}}>
+            <Field as="select" dense value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))}
+              options={[{value:'',label:'Tous statuts'},...ORDER_STATUTS.map(s=>({value:s,label:s}))]}/>
           </div>
-        ))}
+          <div style={{flex:1}}>
+            <Field as="select" dense value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))}
+              options={[{value:'',label:'Tous chantiers'},...[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=>({value:c,label:c}))]}/>
+          </div>
+          {/* v10.I — Fix 1 : "Supprimer tout" affiché si au moins 1 commande supprimable */}
+          {deletables.length > 0 && !isPwa && (
+            <Button variant="danger" size="sm" onClick={deleteAll}>🗑️ Supprimer ({deletables.length})</Button>
+          )}
+        </div>
+        {deletables.length > 0 && isPwa && (
+          <div style={{marginTop:space.sm}}><Button full variant="danger" size="sm" onClick={deleteAll}>🗑️ Supprimer ({deletables.length})</Button></div>
+        )}
       </div>
+      <div style={{padding:space.md}}>
+        {isPwa ? (
+          myHistory.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>📋</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucune commande</div></div>
+          :myHistory.map((h,i)=>(
+          <div key={h._id||i} className="epj-card" style={{marginBottom:space.sm,cursor:'pointer'}}>
+            <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
+              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
+              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontVariantNumeric:'tabular-nums'}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:space.xs}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
+            </div>
+            {canDeleteThisOrder(h)&&<button onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}} style={{marginTop:space.sm,width:'100%',background:EPJ.dangerBg,color:EPJ.redText,border:'none',borderRadius:radius.sm,padding:`${space.xs}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
+          </div>
+        ))) : (
+          <DataTable
+            columns={histCols}
+            rows={histRows}
+            keyField="_key"
+            onRowClick={(h)=>{setSelectedOrder(h);setView('orderDetail')}}
+            empty={{ icon:'📋', title:'Aucune commande', text:'Aucune commande ne correspond aux filtres.' }}
+          />
+        )}
+      </div>
+      {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
     </div>
   );}
 
@@ -3219,59 +3245,83 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="À commander" back={true} backView="home" showCart={false}/>
-        <div style={{padding:'10px 12px',background:'#FFF8E1',borderBottom:`1px solid ${EPJ.orange}33`,fontSize:12,color:'#E65100',lineHeight:1.4}}>
-          <strong>{toOrder.length}</strong> commande{toOrder.length>1?'s':''} à passer chez le fournisseur. Clique sur une commande pour la passer (en totalité ou partiellement).
+      <div style={wrapStyle(1100)}>
+        <Header title="À commander" back={true} backView="home" showCart={false}/>
+        <div style={{padding:`${space.sm}px ${space.md}px ${space.xs}px`}}>
+          <Banner
+            tone="warning"
+            icon="📦"
+            title={`${toOrder.length} commande${toOrder.length>1?'s':''} à passer chez le fournisseur`}
+            text="Clique sur une commande pour la passer (en totalité ou partiellement)."
+          />
         </div>
-        <div style={{padding:12}}>
+        <div style={{padding:`0 ${space.md}px ${space.md}px`}}>
           {toOrder.length === 0 && (
-            <div style={{textAlign:'center',padding:'40px 12px',color:EPJ.gray,fontSize:13}}>
-              <div style={{fontSize:44,marginBottom:8}}>✨</div>
+            <div style={{textAlign:'center',padding:`${space.xxl + 8}px ${space.md}px`,color:EPJ.gray500,fontSize:fontSize.sm}}>
+              <div style={{fontSize:44,marginBottom:space.sm,opacity:.7}}>✨</div>
               Tout est passé. Aucune commande en attente.
             </div>
           )}
           {Object.entries(byStatus).map(([statusName, list]) => (
             list.length > 0 && (
-              <div key={statusName} style={{marginBottom:14}}>
+              <div key={statusName} style={{marginBottom:space.md + 2}}>
                 <div style={{
-                  fontSize:11,fontWeight:700,letterSpacing:1,
+                  fontSize:fontSize.xs,fontWeight:fontWeight.medium,letterSpacing:'0.03em',
                   textTransform:'uppercase',color:STATUT_ACCENT[statusName] || EPJ.gray,
-                  marginBottom:6,paddingLeft:4,
+                  marginBottom:6,paddingLeft:space.xs,
                 }}>
                   {statusName} ({list.length})
                 </div>
-                {list.map(o => (
+                {isPwa ? list.map(o => (
                   <div
                     key={o._id}
                     onClick={() => { setSelectedOrder(o); setView('orderDetail'); }}
                     className="epj-card"
                     style={{
-                      marginBottom:8,cursor:'pointer',padding:12,
+                      marginBottom:space.sm,cursor:'pointer',padding:space.md,
                       borderLeft:`4px solid ${STATUT_ACCENT[o.statut] || EPJ.gray}`,
                     }}
                   >
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4,gap:8}}>
-                      <div style={{fontSize:14,fontWeight:800,color:EPJ.dark}}>
-                        {o.urgent && <span style={{color:EPJ.red,marginRight:4}}>⚠️</span>}
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:space.xs,gap:space.sm}}>
+                      <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>
+                        {o.urgent && <span style={{color:EPJ.red,marginRight:space.xs}}>⚠️</span>}
                         {o.num}
                         {o.commanderPlusTard === true && (
-                          <span style={{marginLeft:6,fontSize:10,fontWeight:700,background:`${EPJ.orange}22`,color:'#E65100',padding:'2px 6px',borderRadius:4,whiteSpace:'nowrap'}}>⏳ Commander plus tard</span>
+                          <span style={{marginLeft:6,verticalAlign:'middle'}}><Badge tone="warning" label="⏳ Commander plus tard"/></span>
                         )}
                       </div>
-                      <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
+                      <div style={{fontSize:fontSize.xs,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
                     </div>
-                    <div style={{fontSize:12,color:EPJ.dark,marginBottom:3}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.dark,marginBottom:3}}>
                       {o.type === 'equipement'
                         ? <>👤 {o.salarie || "—"}</>
                         : <>🏗️ {o.chantier || "—"}{o.numAffaire ? <span style={{color:EPJ.gray}}> [{o.numAffaire}]</span> : null}</>
                       }
                     </div>
-                    <div style={{fontSize:11,color:EPJ.gray,display:'flex',justifyContent:'space-between'}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,display:'flex',justifyContent:'space-between'}}>
                       <span>Par {o.user || "—"} · {(o.items||[]).length} réf.</span>
                       {o.dateReception && <span>Souhaité : {o.dateReception}</span>}
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <DataTable
+                    columns={[
+                      { key:'num', header:'N°', render:(v,o)=>(
+                        <span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>
+                          {o.urgent?'⚠️ ':''}{v}
+                          {o.commanderPlusTard === true && <span style={{marginLeft:6}}><Badge tone="warning" label="⏳ plus tard"/></span>}
+                        </span>) },
+                      { key:'date', header:'Date', sortable:false },
+                      { key:'_cible', header:'Chantier / Destinataire' },
+                      { key:'user', header:'Par' },
+                      { key:'_refs', header:'Réf.', numeric:true },
+                      { key:'dateReception', header:'Souhaité', render:(v)=>v||'—' },
+                    ]}
+                    rows={list.map(o=>({ ...o, _key:o._id, _refs:(o.items||[]).length, _cible: o.type==='equipement' ? (o.salarie||'—') : `${o.chantier||'—'}${o.numAffaire?` [${o.numAffaire}]`:''}` }))}
+                    keyField="_key"
+                    onRowClick={(o)=>{ setSelectedOrder(o); setView('orderDetail'); }}
+                  />
+                )}
               </div>
             )
           ))}
