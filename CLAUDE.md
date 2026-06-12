@@ -331,12 +331,13 @@ tarifs fournisseurs, démarches post-devis) · **Cockpits par rôle** + IA perso
   **par ligne dans le Module Commande** (`CommandesInner.jsx`) — cross-ref
   `commandes` → `commandesEsabora` par `appCommandeId`, match par référence
   normalisée, agrégation des commandes scindées, lecture seule. **GO écrit requis.**
-- **Chantier desktop** : passer toute l'app en affichage PC (progressif, module
-  par module, **touchera le trio sensible**). Décision archi : **arbre responsive
-  unique** (desktop + PWA même base), PAS d'archi « deux arbres ».
-- **Design-system** : socle **DS-0** (tokens charte) + **DS-1** (primitives
-  `src/core/components/`) **mergés en prod** (cf. §13). Suite = **DS-2** (repeinte
-  écran par écran, fusionnée desktop) — détail et ordre des écrans en §13.
+  (`CommandesInner` est désormais repeint DS-2/responsive — cf. §13 lot trio.)
+- **Chantier desktop** : arbre responsive unique (desktop + PWA même base, PAS
+  d'archi « deux arbres »). Avancement, Réserves, Home, AdminOutillage et
+  **Commandes (lot trio)** livrés ; la suite au fil des chantiers métier.
+- **Design-system : CHANTIER FERMÉ** (2026-06-12, cf. §13). Prochain chantier :
+  **Cockpit Direction v1** (spec courte à venir — maquette validée par PJ,
+  `ChatPanel` déjà livré).
 
 Les modules 1 à 4 sont en **stabilisation / finitions**, pas de redéveloppement.
 Toute refonte d'un module existant doit être justifiée et validée par PJ.
@@ -348,7 +349,8 @@ Toute refonte d'un module existant doit être justifiée et validée par PJ.
 ### 🔴 Trio sensible — confirmation ÉCRITE obligatoire avant modif
 1. `src/core/permissions.js` (factory layer).
 2. Collection Firestore `chantiers` + tout code qui la manipule.
-3. `src/modules/commandes/CommandesInner.jsx` (refactoring programmé séparément).
+3. `src/modules/commandes/CommandesInner.jsx` (repeint lot trio 2026-06, PR #11 —
+   reste sensible : module de prod le plus utilisé, logique intacte à l'octet).
 
 Un GO oral ou implicite ne suffit pas.
 
@@ -486,28 +488,47 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   overlay photo) → tokens. **Laissés bespoke à dessein** : overlay × photo (contraste
   sur image, `scrimDark`), chips pleins 🗑, `HoursPanel` (rangée inline largeurs
   custom + Enter-submit). Total reliquat global 2011 → 2009.
+- **2026-06 · LOT TRIO `CommandesInner.jsx`** (mergé prod, PR #11, `6646d0a`) ·
+  **DERNIER lot du chantier design.** 8 commits (`0a272b1` → `d746888`), GO écrit
+  PJ + audit Claude.ai par SHA + retour test PJ. Affichage only, **audité à
+  l'octet** : 33 écritures Firestore, scission (`performPartialPass`/`passLog`),
+  push Esabora, canvas signature et génération num CMD **identiques à main**
+  (md5 de 28 blocs de logique + compteurs de refs sensibles, tous égaux).
+  Livré : 15 vues repeintes tokens/primitives (statuts → `<Badge>` table
+  centralisée, formulaires → `<Field>`, CTA gradients → flat `<Button>`,
+  ✏️/🗑 → `<IconButton>`) ; **responsive étalon** (PWA colonne 520 inchangée,
+  desktop `<DataTable>` Historique/À commander, formulaires 720, cadre 1320) ;
+  **signature** : la souris était DÉJÀ câblée (hypothèse du ticket infirmée),
+  canvas intact à l'octet, testée doigt + souris par PJ ; **perf** : `@import`
+  fonts supprimé + xlsx en `import()` dynamique (vendor-xlsx 143 Ko gz sorti du
+  chunk commandes). Fix au passage : bouton Esabora « Re-synchroniser »
+  (`EPJ.gray500` undefined sur l'objet local). **Couleurs workflow actées PJ**
+  (commit 8) : Envoyée = bleu info · Commandée/Réceptionnée **partiellement =
+  violet** (`EPJ.violetBg` + `catEtude`) · Commandée = vert clair (`success`) ·
+  Réceptionnée = **vert foncé PLEIN** (`successStrong`, fond `greenText`/texte
+  blanc — seule exception assumée au pattern fond doux, état terminal). Tones
+  `violet`/`successStrong` ajoutés à `<Badge>`, entrées des autres modules
+  intactes. Tests : 9 suites / 350 OK.
 
-### Chantier en cours — DS-2 repeinte écrans
+### Chantier design : FERMÉ (2026-06-12)
 
-- **Adoption généralisée** des primitives, **écran par écran**, **fusionnée avec
-  l'adaptation desktop** : un seul passage par fichier (design + responsive en une fois).
-- **`AdminOutillage` + `Avancement` + `Réserves` + `Home` = FAITS** (cf. briques
-  actives). **DS-2 TERMINÉ hors trio.**
-- **Dashboard Direction : SORTI de la file DS-2** (décision PJ 2026-06-11). Motif :
-  il sera **entièrement refondé en « cockpit Direction »** (cf. roadmap cockpits
-  par rôle §10) — le repeindre en DS-2 maintenant = travail jeté. Sera traité
-  dans le chantier cockpits, pas ici.
-- **Primitives v1.1 : FAITES** (PR #10, cf. brique active). Le socle est complet.
-- **File restante** : **lot trio `CommandesInner.jsx`** (DERNIER et SEUL restant,
-  **GO écrit dédié**, `/model fable` : design + responsive + signature souris en une
-  seule fois). Il dispose désormais de tout le socle (`<IconButton>`, `<Button
-  size="sm">`, `<Field>` dense/inputStyle/mono, tokens scrim) — **il ne doit créer
-  aucun composant local que le socle sait faire.**
-- **Reliquats suivis via `npm run audit:tokens`** : `fontWeight` 700/800 (interdits UI),
-  dimensions/espacements littéraux → `radius.*`/`space.*`, `rgba` → tokens `shadow`
-  au fil des écrans (total reliquat global 2009 après Primitives v1.1).
-- **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design, **citée dans
-  chaque ticket DS-2**).
+- **DS-0 → DS-2 + Primitives v1.1 + lot trio : tout est mergé en prod.** Plus
+  aucun écran en file. Dashboard Direction volontairement hors DS-2 (refondé
+  en « cockpit Direction », cf. §10 — décision PJ 2026-06-11).
+- **Audit `npm run audit:tokens`** : exception trio retirée du script —
+  `CommandesInner` compté normalement. Total reliquat **2277** (= 2009 + 268
+  CommandesInner, dont ~195 dans les générateurs **print INLINE**
+  `PdfView`/`generateAndOpenPdf`, légitimes au même titre que
+  `quitusPdfGenerator.js` qui est exclu par fichier). Hors zones print :
+  13 couleurs justifiées (canvas signature à l'octet, verre dépoli header,
+  bandeau sombre), **0 `fontWeight` numérique**.
+- **Épilogue optionnel (non bloquant, hors chantier)** : mini-lot DS-2
+  `AchatDashboard.jsx` (80 occurrences — `ArStatusBadge`, `KpisAchat`,
+  `FiltresBarreAchat`…) + micro-lot extraction du print inline de
+  `CommandesInner` vers un fichier exclu de l'audit (ferait tomber le fichier
+  à ~73 occurrences).
+- **Référence design** : `docs/DIRECTION_ARTISTIQUE.md` (loi du design,
+  inchangée — toujours citée dans tout futur ticket UI).
 
 ### Primitives v1.1 — LIVRÉ (PR #10) + reliquat ouvert
 
@@ -558,10 +579,10 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
   comme « toujours absent » (cf. §8) — vérifier l'impact / le lazy-load des
   collections non critiques au premier écran.
 - **PERF-3** : service worker / precache PWA (offline + cache des chunks lazy).
-- **Reliquat** : 2e `@import` Google Fonts inline dans **`CommandesInner.jsx:1584`**
-  (sans impact boot — chunk lazy — mais même anti-pattern, partiellement
-  redondant avec le `<link>`). → à traiter dans le **lot trio CommandesInner**
-  (interdit hors GO dédié).
+- **Reliquat @import CommandesInner : RÉSOLU** (lot trio, PR #11) — `@import`
+  supprimé (le `<link>` PERF-1 couvre toutes les familles) + xlsx du module en
+  `import()` dynamique : vendor-xlsx (143 Ko gz) ne charge plus avec le chunk
+  commandes, seulement à l'export/import Excel admin ou au push Esabora.
 
 ---
 
