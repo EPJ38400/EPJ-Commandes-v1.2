@@ -7,7 +7,8 @@ import { useData } from "../../core/DataContext";
 import { uploadPhotoToFolder, deletePhotoByPath } from "../parc-machines/parcUtils";
 import { EmojiPicker } from "../../core/components/EmojiPicker";
 import { CATALOG_SEED } from "./catalogSeed";
-import * as XLSX from "xlsx";
+// PERF (lot trio) : xlsx n'est plus importé statiquement — chargé via
+// import() dynamique aux 2 points d'usage admin (export / import catalogue).
 import {
   parseCatalogAoa, findDuplicateRefs, compareCatalogues, articlesToAoa,
   countMultiCategoryArticles,
@@ -21,6 +22,15 @@ import {
   deleteSentSmsQueueDocs,
 } from "../../core/smsService";
 import { can } from "../../core/permissions";
+// Lot trio — tokens charte + primitives DS-1 (DIRECTION_ARTISTIQUE.md)
+import { EPJ, fontString as font, font as fontFamilies, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Badge } from "../../core/components/Badge";
+import { Button } from "../../core/components/Button";
+import { IconButton } from "../../core/components/IconButton";
+import { Field } from "../../core/components/Field";
+import { Banner } from "../../core/components/Banner";
+import { DataTable } from "../../core/components/DataTable";
+import { useViewport } from "../../core/useViewport";
 // v10.J — helpers réception (chantier) + dates (souhaitée/fournisseur)
 import {
   buildReceptionPayload, computeReliquatItems, validateReceivedQuantities, normalizeQty,
@@ -65,22 +75,37 @@ import { buildPartialPassPayload } from "./orderPartialPass";
 const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Équipement Commun":"🏢","Équipement Logement":"🏠","Audace + Ovalis":"⚪","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺"};
 
 const EPJ_LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCACnAZADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD2aiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKZJJ5absEnoAO5pNpK7BK4+iqzS3cY3tCjr3WNvmH59alhmjnjEkbblP6e1TGopOxTi0rklFFUdQ1nTtLXN7eRQk9FJyx+gHNaKLk7JGcpKKvJ2L1FYI8W28nzQadqU8f8AfS2OP1rS07VbTVImktnJKHDo67WQ+hFXKlOKu0Zwr0py5Yy1LlFFFZmwUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFZl7c3T3otLYhCRndWNasqUbtXvpoBpVy+uz3aXrbXkUqf3YUn8MVsLYXuMnUnB9l4pHh1GKRCLiKY5IXzEx/L6Vw4uNSvBJpx1Xb/M3w9VUp8zVy5amVrWIzjEpQbx745qlqU8OlML9pEjRmCyoTjf2BH+0P1FVr3xBJYN9mltUN46kwxrKDvP8AMVS0jS01S6GpazdR3l4OY7YH93b+wXuff+fWvSjGnOPvSt27/czkeIanaCvffsh32rXfEZxZBtJ08nHnyLmaQf7I/h+taOm+GdL0xvMjg864PLXE53yMfXJ6fhU1mfsd5JYH/VkGWD/dz8y/gf0NaFaqu5RstPJf1qDw8YyvJ8z7v+tCC7vLaxgM91OkMY/ic4rGs9W0i98RpJY3kTSSW7JIOVLkMpXr1P3q5Xxxdyz67JA7Hy4FVUXtyASf1rlHZkcOjFWU5DA4IPrXq0cAnT5m9WjwsRmj9s4KOkX89D3WiqGh3cl9odldTf6yWFWY+pxyav15ElytpnvxkpJNdQooqneavp2n/wDH3fQQkdnkAP5daRRcorAfxv4dQ4/tEN/uxuf6U3/hO/Dv/P8AH/vy/wDhQB0NFc9/wnfh3/n+P/fl/wDCj/hO/Dv/AD/H/vy/+FAHQ0Vz3/Cd+Hf+f4/9+X/wq9pfiHTNZlkjsLgytGoZgUZcA/UUAadFFFABRSZrOu/EWjWJK3GpW6MOq7wT+QoA0qK59vHPh1Tj7fn3ET/4Un/Cd+Hf+f4/9+X/AMKAOhornv8AhO/Dv/P8f+/L/wCFH/Cd+Hf+f4/9+X/woA6GisWDxf4fuGCpqkIJ/v5T+YrWhnhuEEkMqSoejIwYfmKAJKKKKACiiigAooqjqmsWOjQJPfTGJHbYp2lsnGe30oAvUVz3/Cd+Hf8An+P/AH5f/CrOneKdH1W8W0s7oyTMCwXy2HA68kUAbFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFVbq3ZpEuIQPOi6A/xDuKtUVE4KaswI4ZknTcufQg9VPoayte1lLExWkH7y+mOYk6heDy3tTtf1KDR7X7VybhzsiResh9CO4qtomlC1klvdSLPf3f3nkA+VT/COwrSMLU3Kr8vN/wDA/wCGOadWTqKnT36+S/zfT7ybQ9BGnlr28k+06jPzLM3OP9lfQVo3Nha3XMsQLDo44YfiKfasTDsb70Z2N+H/ANbFTVMp+3XNLqbRpRpLkRi3tne2qpcRXH2hLZvMCyffA7gN3yPWr1nqVveYVSUkxny3GGx6+49xVsgEEEZB61iKImtfsDxiW5hkaOEZwygchsjkAAjmufllCqlDr38v+B+Rq/4d+36/8H8yj4p8Of2xdo9kyrdhP3gb7pXtk9j2H/1qwbL4e6hPcr9vkjggB+bY25mHoPT612sJl0skXJ86JzlrgD5gf9oenvWkCCAQcg9CK9KlmFRQ9nHp33PMll9CpU9pJajIYY7eBIYlCRxqFVR2A6VFqGoW2l2Ul5dyCOKMcnufQAdzVmvMviLqr3OrppysfKtVDMPV2Gf0GPzNc256GxV1zxxqequ0ds7Wdr0CRnDsP9pv6CsGysrnU71La1jaaeU8D+ZJ9PeoK9F+GunJHp9xqTKPMmfy1Poq9fzP8qYFe0+GWYQbzUiJD1WGMED8T1/Kp/8AhWNp/wBBO4/74Wu3opDOI/4Vjaf9BO4/74Wj/hWNp/0E7j/vha7eigDiP+FY2n/QTuP++FrY8O+E4fDtxNNFdyzGZApDqBjBz2rfooAWsjxD4itPD9oJZv3kz5EUKnlz/Qe9a1eL+ItVfWNbuLpmJTcUiHogOB/j+NAD9X8T6rrLt9ouWSE9IIiVQf4/jTND8P32vXLRWiKqJ/rJX4VP8T7Vl17H4S05NN8OWkYUB5UEsh9Wbn+WB+FMRz8fwxt9g8zVJi3fbEoH607/AIVjaf8AQTuP++FruKKQzh/+FY2n/QTuP++Fo/4Vjaf9BO4/74Wu4ooA8t13wFe6VbvdWswvIEGXAXa6j1x3H0rnLO+utPmE1ncSQOO8bYz9fWvdCMjFeMeJtPXS/EN5axjbGH3oPRWGQP1xTA7Lwv47+3TJYartSdztjnXhXPoR2P6V21eB17D4Q1V9X8PQTytumjzFIfUr3/EYNIDbooooAK434l/8gW1/6+R/6C1dlXG/Ev8A5Atr/wBfI/8AQWoA81rpPAH/ACNcP/XKT+Vc3XSeAP8Aka4f+uUn8qYj1iiiikMKKKKACiiigAooooAKKKKACiiigApsjrHG0jsFVQSSewp1c542vmtdF8hDh7lth/3Ryf6D8a0pU3UmoLqY4iqqNKVR9CtoyN4i1yXWrhT9mtm2WqH19f6/U+1dWVDAggEHqDVPR7NbDSba2UY2Rjd7seSfzq7VV5qc9NlovQjC0nTp+98T1fqUXRrS6QxMFjm+UhuRu7fTI4/KrHnFf9ahT3HI/OluYUnt3jc4BH3v7p7H8KzLfU7nUE+z2fl+YnEtySCi84yo/iJx9B+lccIuM+VaJ7dvNfr951yfu36r+v8AgFy5vhGyw2yie4kGUQHgD+8x7L/kVXsonttWlSaTzZJoldnxjJBxgeg9qtW+nwWyELuZ2OXlZvnc+pP+RVSdXTWoFSQ7jC2C3NTiZcqi10a/HT9Qoptu/Z/5mmSjEoSCcciqcCmzvPsoyYZFLxD+4R1H05rnDDeHUEEauJw4OcHI56n2rqkt8TefI5dwCF4wFHsKwpVZYi0lGzT/AA6/13M07smrxvxZu/4SrUd3Xzv0wK9lrzD4iaW9trS36r+6u1AJ9HUYI/LB/Ou8o5KtrTLnxNFZKmmG+FsCdvkxkrnPPb1rFr0j4bagkulz6eW/eQSbwPVW/wDr5/OmI5v7b42/vap/36P+FL9t8bf3tU/79H/CvV6KQzyf7b42/vap/wB+j/hS/bfG397VP+/R/wAK9XooA8n+2+Nv72qf9+j/AIV03gmfX5ry6Grm8MYjXy/tCFRnPOOK7KigCG7YrZzMOojYj8q8IHKg+1e7Xv8Ax4z/APXNv5GvCV+6PoKABvun6V7tZALZQAdBGo/QV4S33T9K93tP+POH/rmv8qAJqKKKACiiigAryj4gY/4SqTH/ADxjz+terV4z4o1BNT8R3lzGd0e/YhHcKMZ/SgDKr0n4Z7v7Hu8/d+08f98ivNq9f8HaW+leHYIpVKzSkyyKexboPwGKYG7RRRSAK4z4mEf2NaDubn/2U12ded/EvUEkurTT0bLRAyyY7E8AfkD+dAHD10vw/BPiuIjtDIT+Qrmq7z4a6W4e51SRcIV8mInvzlj+gH50xHoFFFFIYUUUUAFFFFABRRRQAUUUUAFFFFABXKePLKe4sbe4iQssDNvwM4Bxz+ldXSVrRqulUU10MMTQVek6bdrnM6Z410ySzjF7K0EyqA4Kkgn1BFXU8Qm840vT7m7z0kZfKjH/AAJv6CtMWNoH3i1hD/3hGM1NVznRbvGP46f18zOnTxCXLOa+S1/O34GWumXN6Q+r3AlX/n1hysQ/3u7/AI8e1SX1lIuy6sAqXEK7QnRZF/un+laNFc1Ve1Vn/wAMddJKk7r/AIcybbxHYyqRO5tpl4eOQHINQ2Nx/aWtvcoD5USbVz/n61fvNIsr5t88I8z++pwamtLOCyi8uBNo6nnJP1NcLo15ziptcqd/N9jrdSjGLcE7v7kTUtFFd5yBVTU9NtdWsZLO7j3xv6dVPYg9iKt0UAeR654M1PR3Z442u7UciWNckD/aXt/KsnTdRutKvku7OTZKnHqCO4I9K9yrPvdB0nUCWu9PglY9WKAN+Y5oA5a1+JtuYh9s06VZB1MLAqfzxipv+FmaZ/z5Xf5J/jV+TwF4ec5Fo6eyzN/jTf8AhX/h/wD54Tf9/wBqAKX/AAszTP8Anyu/yT/Gj/hZmmf8+V3+Sf41d/4V/wCH/wDnhN/3/aj/AIV/4f8A+eE3/f8AagCl/wALM0z/AJ8rv8k/xrW0DxXaeIZ5obe3niMKhiZMYOTjsarf8K/8P/8APCb/AL/tWhpHhrTdDlklsY3VpVCtukLcA570AX73/jxn/wCubfyNeEr90fQV7te/8eM//XNv5GvCV+6PoKYAeQR7V6PD8SNNigjjNldkqoB+52H1rzg8An2r1ODwFoMlvG7QTZZAT++b0oEVv+FmaZ/z5Xf5J/jR/wALM0z/AJ8rz8k/xq7/AMK/8P8A/PCb/v8AtR/wr/w//wA8Jv8Av+1IZS/4WZpn/Pld/kn+NH/CzNM/58rz8k/xq7/wr/w//wA8Jv8Av+1H/Cv/AA//AM8Jv+/7UAcvrvj+61K2e1sYDaROMO5bLkegxwK5W2tZ7yYQ2sDzSHoka5NetQeCfD0BBGnrIR/z0dm/Qmti2tLazj8u2t44U/uxoFH6UAcX4W8CNbTR3+rhTIh3R24OQp7Fj3PtW5r/AIttPD11Fb3FvPK0qbwY9uAM47mt6sjV/DOma5cRz30cjPGmxSshXjOe1AGH/wALM0z/AJ8rz8k/xo/4WZpn/Pld/kn+NXf+Ff8Ah/8A54Tf9/2o/wCFf+H/APnhN/3/AGoAx7/4mKYSunWDCQjh52GF/Adfzrhri4nvbp5p3aWeVssTyWNeqxeA/D0ZybNpP9+Vj/WtWy0fTdO/487GCE/3kQZ/PrQB5zoHgW/1KRJr9Hs7XqdwxI49h2+pr021tYbK2jtreMRxRLtRV6AVNRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGdfastpeRWiqpkkXcWkfaqj3P4Uy0u2UsDPBMTuc4mLMeM4AxwKs3OnxXFxHc7njniBCyIecehzwRT47eRHy91JIvdWVcH8hQBFpN+dSsFuWjEZYkbQc9DTNR1VLGeG3ChpJs4LttVR6k06DS1tFZLW4mhjZi2wbSAfbINOn02O4MMkkknnwHKTLgN/LH6UARwX7SzqhltDuPRJSW/AYptpqU+oiSS0hjESOUDSuQWI74Aq1Hbyo4ZruVwP4Sq4P5CoYtLS2aQ2s8sCyNuZFwVz7ZBxQBNm88r7kHmbum84x+XWqVrqV5d3VzbpBArWzBWJkOD9OPatGGN40IeVpTnqwAP6CoLXT4rS6uLhGctcMGYE8D6UARS6k/9oLp8ESvN5e92ZsKo/LJou7y6sbCe6miibywCFRzzzjuKlXT4l1Nr8M/mMmwjPGKkvbRL60ktpCwSQYJXr1oApDV2kntraGENPPCJTubCoCPXHNWTLeRo8kscO1FLfK5J4H0pjaTBugkR5I5rdBGkikZK4xg8YNS/ZZCGWS7lkVlKlSFHX6CgCvY39zqGnxXUMMSl87ldzxg44wKj0/UrvUVlaOCFBFIUO6Q84/CrlhZR6faJbRMzImcFuvJzTbDT4tPWVYmdhK5c7j3NAFS41hTezWURjjMS/NLK+0AnsODk1Y06cuvlebDIEUcpKXY/XIpz6bH9re7hkkglkGHKYw31BBqaGGSMkvcPLnswUY/ICgBL3/jxn/65t/I14Sv3R9BXvUsYmieNiQHUqce9ckPhrpAAH2m84/21/wDiaAPMm+6fpXu9p/x5w/8AXNf5Vyp+GukEY+03n/fa/wDxNdbGgiiWMZwoAGfagCpe6j9muoLSOLzJ5ydoLYAA7k0rXFzE6iY2iA+spBx7ZFPu9Phu5IpWLJLCcpIhwRUVxpa3kfl3NzLLH3UhRn2yBmgBl7rEdtdxWsYRnlXfvd9qKvrmksroq5V7mCQHc7ETFm9eBjpU82mQSSwzJuhlgXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
-const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
-const font = "'Inter','Segoe UI',-apple-system,sans-serif";
-const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"},"Scindée":{bg:"#F5F5F5",color:"#9E9E9E",icon:"📂"}};
+// Lot trio : EPJ / font viennent désormais de src/core/theme.js (tokens charte).
+// La table statut→couleur vit dans <Badge> (source unique, DA §5). Restent ici :
+//   • ORDER_STATUTS : liste ordonnée des statuts commande (filtre Historique).
+//   • STATUT_ACCENT : teinte foncée par statut (bordures / labels de section),
+//     même famille que le tone <Badge> correspondant.
+const ORDER_STATUTS = ["En attente de validation","Validée","Envoyée aux achats","Commandée","Commandée partiellement","Refusée","Réceptionnée","Réceptionnée partiellement","Scindée"];
+const STATUT_ACCENT = {
+  "En attente de validation": EPJ.orangeText,
+  "Validée": EPJ.blueText,
+  "Envoyée aux achats": EPJ.blueText,
+  "Commandée": EPJ.greenText,
+  "Commandée partiellement": EPJ.catEtude,      // partiel = violet (décision PJ)
+  "Refusée": EPJ.redText,
+  "Réceptionnée": EPJ.greenText,
+  "Réceptionnée partiellement": EPJ.catEtude,   // partiel = violet (décision PJ)
+  "Scindée": EPJ.gray600,
+};
 
 // Affichage statut. Les enfants de scission ("-1"/"-2") suivent le cycle normal
 // d'une commande (Envoyée aux achats → Commandée …). Seul l'AFFICHAGE diffère :
 // une fois réellement commandé, un enfant de scission (createdBySplit) montre
 // "Partiellement commandée" (c'est une fraction de la commande d'origine).
 // Le statut réel reste "Commandée" → filtres et logique inchangés.
+// Retourne { status, label } à passer à <Badge status label> (la couleur est
+// décidée par la table centralisée de Badge, plus par cet écran).
 function getStatusDisplay(order) {
-  if (!order || !order.statut) return { bg:"#eee", color:"#333", icon:"", label:"—" };
-  const base = STATUS_COLORS[order.statut] || { bg:"#eee", color:"#333", icon:"" };
+  if (!order || !order.statut) return { status: null, label: "—" };
   if (order.createdBySplit === true && order.statut === "Commandée") {
-    return { ...base, label: "Partiellement commandée" };
+    return { status: "Commandée", label: "Partiellement commandée" };
   }
-  return { ...base, label: order.statut };
+  return { status: order.statut, label: order.statut };
 }
 
 // Équipement salarié = only Outillage category
@@ -162,6 +187,15 @@ export function CommandesInner({ onExitModule }) {
   // v10.J — featureFlags.ocrArEnabled pour affichage date fournisseur (AR/BL)
   const { smsTemplates = [], rolesConfig = {}, featureFlags = {} } = useData();
   // Le Socle ne monte ce composant que si l'utilisateur est connecté.
+
+  // Lot trio — bascule responsive (seuil 760, source unique useViewport).
+  // PWA : rendu colonne historique (520) ; desktop : contenu élargi dans le
+  // cadre 1320 du Layout (listes 1100, formulaires 720).
+  const isPwa = useViewport() === "mobile";
+  const wrapStyle = (max = 1100, extra = {}) => ({
+    fontFamily: font, background: 'transparent', minHeight: '100vh',
+    maxWidth: isPwa ? 520 : max, margin: '0 auto', ...extra,
+  });
 
   // ─── v10.E — B2/B3 : Persistance du brouillon de commande ───
   // Avant, dès que l'iPhone se mettait en veille ou qu'on changeait d'app,
@@ -1580,26 +1614,9 @@ export function CommandesInner({ onExitModule }) {
     }
   };
 
-  const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
-    input:focus,select:focus,textarea:focus{border-color:${EPJ.blue}!important;outline:none;box-shadow:0 0 0 3px ${EPJ.blue}1A}
-    ::placeholder{color:#C7C7C7}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.4)}50%{box-shadow:0 0 0 8px rgba(229,57,53,0)}}
-    .epj-btn{border:none;border-radius:10px;padding:13px 18px;font-size:14px;font-weight:600;letter-spacing:-.01em;cursor:pointer;font-family:${font};transition:transform .15s ease,box-shadow .15s ease,background .15s ease}
-    .epj-btn:hover{transform:translateY(-1px)}
-    .epj-btn:active{transform:translateY(0) scale(.98)}
-    .epj-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
-    .epj-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #EAEAEA;font-size:14px;font-family:${font};background:#fff;transition:border-color .15s ease,box-shadow .15s ease;color:#1A1A1A}
-    .epj-card{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid #EAEAEA;border-radius:16px;padding:18px;transition:all .2s ease}
-    .epj-row{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid #EAEAEA;border-radius:12px;padding:12px 14px;margin-bottom:6px}
-    .badge-pulse{animation:badgePulse 2s infinite}
-    .status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
-    .qty-input{width:56px;text-align:center;font-size:16px;font-weight:700;border:1px solid #EAEAEA;border-radius:10px;padding:6px 4px;font-family:${font};background:#fff;font-variant-numeric:tabular-nums;color:#1A1A1A}
-    .qty-input:focus{border-color:${EPJ.blue};outline:none;box-shadow:0 0 0 3px ${EPJ.blue}1A}
-  `;
+  // Lot trio : le <style> local a été supprimé — les classes .epj-btn/.epj-input/
+  // .epj-card/.epj-row/.badge-pulse et les keyframes (fadeUp, spin, badgePulse)
+  // sont fournies par globalCss (src/core/theme.js), injecté par Layout.
 
   // ─── Header interne du module Commandes — v10.G ───
   // Sub-header sticky avec :
@@ -1616,64 +1633,38 @@ export function CommandesInner({ onExitModule }) {
   //   2. Sub-header du module → ← Commandes → accueil du module
   //   3. Bouton flèche du sub-header → ← (page précédente dans le module)
   const Header = ({title, back, backView, showCart=true, showModuleHome=true}) => (
-    <div style={{background:'rgba(255,255,255,.92)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',borderBottom:'1px solid #EAEAEA',color:EPJ.dark,padding:'10px 14px',position:'sticky',top:0,zIndex:100}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,flex:1,minWidth:0}}>
+    <div style={{background:'rgba(255,255,255,.92)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',borderBottom:`1px solid ${EPJ.gray200}`,color:EPJ.dark,padding:`${space.sm}px ${space.md}px`,position:'sticky',top:0,zIndex:100}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:space.sm}}>
+        <div style={{display:'flex',alignItems:'center',gap:space.sm,flex:1,minWidth:0}}>
           {/* Bouton "← Commandes" : retour à l'accueil du module — v10.G */}
           {showModuleHome && view !== 'home' && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={goToModuleHome}
-              style={{
-                background:'#F4F5F7',
-                border:`1px solid #E0E0E0`,
-                color:'#3D3D3D',
-                borderRadius:8,
-                padding:'7px 11px',
-                fontSize:12,
-                cursor:'pointer',
-                fontWeight:600,
-                fontFamily:font,
-                flexShrink:0,
-                whiteSpace:'nowrap',
-              }}
               title="Accueil du module Commandes"
               aria-label="Accueil du module Commandes"
             >
               ← Commandes
-            </button>
+            </Button>
           )}
-          {/* Flèche "← page précédente" — v10.G : contraste renforcé */}
+          {/* Flèche "← page précédente" — v10.G */}
           {back && (
-            <button
+            <IconButton
+              label="Retour à l'écran précédent"
               onClick={()=>{
                 if(backView==='cats'){setSelectedCat(null);setSearch('')}
                 else if(backView==='admin'){setAdminSection(null);setAdminEdit(null);setAdminForm({});setSelectedCat(null);setSearch('');setView('admin')}
                 else setView(backView||'home')
               }}
-              style={{
-                background:EPJ.dark,
-                border:'none',
-                color:'#fff',
-                borderRadius:8,
-                padding:'7px 12px',
-                fontSize:14,
-                fontWeight:700,
-                cursor:'pointer',
-                fontFamily:font,
-                flexShrink:0,
-                lineHeight:1,
-                boxShadow:'0 1px 2px rgba(0,0,0,0.1)',
-              }}
-              title="Retour à l'écran précédent"
-              aria-label="Retour à l'écran précédent"
             >
               ←
-            </button>
+            </IconButton>
           )}
-          <div style={{fontSize:14,fontWeight:600,letterSpacing:'-0.01em',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+          <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,letterSpacing:'-0.01em',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-          {showCart&&cartCount>0&&view!=='cart'&&<button onClick={()=>setView('cart')} style={{background:EPJ.orange,color:'#fff',border:'none',borderRadius:999,padding:'6px 14px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:font}}>🛒 {cartCount}</button>}
+        <div style={{display:'flex',gap:space.sm,alignItems:'center',flexShrink:0}}>
+          {showCart&&cartCount>0&&view!=='cart'&&<button onClick={()=>setView('cart')} style={{background:EPJ.orange,color:EPJ.white,border:'none',borderRadius:radius.pill,padding:`6px ${space.md + 2}px`,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font,fontVariantNumeric:'tabular-nums'}}>🛒 {cartCount}</button>}
         </div>
       </div>
     </div>
@@ -1682,13 +1673,13 @@ export function CommandesInner({ onExitModule }) {
   const CatIcon = ({cat, size=36}) => {
     const icon = dynCatIcons[cat] || '📦';
     const isImg = icon.startsWith('http') || icon.startsWith('data:');
-    if(isImg) return <img src={icon} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0}}/>;
-    return <div style={{width:size,height:size,borderRadius:8,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
+    if(isImg) return <img src={icon} alt="" style={{width:size,height:size,borderRadius:radius.sm + 2,objectFit:'cover',flexShrink:0}}/>;
+    return <div style={{width:size,height:size,borderRadius:radius.sm + 2,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
   };
 
   const Thumb = ({cat, imageUrl, size=36}) => {
     if (imageUrl) {
-      return <img src={imageUrl} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0,background:EPJ.grayLight}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>;
+      return <img src={imageUrl} alt="" style={{width:size,height:size,borderRadius:radius.sm + 2,objectFit:'cover',flexShrink:0,background:EPJ.gray100}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>;
     }
     return <CatIcon cat={cat} size={size}/>;
   };
@@ -1697,25 +1688,25 @@ export function CommandesInner({ onExitModule }) {
   const [qtyPopup, setQtyPopup] = useState(null); // {r, value}
   const [qtyPopupVal, setQtyPopupVal] = useState('');
   const QtyControl = ({r, value, compact, showDelete}) => (
-    <div style={{display:'flex',alignItems:'center',gap:4}}>
-      {showDelete && <button onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:12,cursor:'pointer',fontWeight:700}}>🗑</button>}
-      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1&&!showDelete?'#fee':'#eee',color:value<=1&&!showDelete?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
-      <div onClick={()=>{setQtyPopup({r,value});setQtyPopupVal(String(value))}} style={{width:compact?48:60,height:compact?30:34,borderRadius:8,border:`2px solid ${EPJ.blue}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,fontFamily:font,cursor:'pointer',color:EPJ.blue}}>{value}</div>
-      <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
+    <div style={{display:'flex',alignItems:'center',gap:space.xs}}>
+      {showDelete && <button aria-label="Retirer du panier" onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:radius.sm + 2,border:'none',background:EPJ.dangerBg,color:EPJ.redText,fontSize:fontSize.xs,cursor:'pointer'}}>🗑</button>}
+      <button aria-label="Diminuer la quantité" onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:radius.sm + 2,border:'none',background:value<=1&&!showDelete?EPJ.dangerBg:EPJ.gray100,color:value<=1&&!showDelete?EPJ.redText:EPJ.dark,fontSize:fontSize.base,cursor:'pointer',fontWeight:fontWeight.medium}}>−</button>
+      <div onClick={()=>{setQtyPopup({r,value});setQtyPopupVal(String(value))}} style={{width:compact?48:60,height:compact?30:34,borderRadius:radius.sm + 2,border:`2px solid ${EPJ.blue}`,background:EPJ.white,display:'flex',alignItems:'center',justifyContent:'center',fontSize:fontSize.base,fontWeight:fontWeight.medium,fontFamily:font,cursor:'pointer',color:EPJ.blue,fontVariantNumeric:'tabular-nums'}}>{value}</div>
+      <button aria-label="Augmenter la quantité" onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:radius.sm + 2,border:'none',background:EPJ.gray100,fontSize:fontSize.base,cursor:'pointer',fontWeight:fontWeight.medium}}>+</button>
     </div>
   );
 
   const QtyPopupOverlay = () => qtyPopup ? (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setQtyPopup(null)}>
-      <div style={{background:'#fff',borderRadius:20,padding:24,width:'100%',maxWidth:320,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Saisir la quantité</div>
+    <div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:space.xl - 4}} onClick={()=>setQtyPopup(null)}>
+      <div style={{background:EPJ.white,borderRadius:radius.xl,padding:space.xl,width:'100%',maxWidth:320,textAlign:'center',boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Saisir la quantité</div>
         <input type="text" inputMode="numeric" pattern="[0-9]*" autoFocus
           value={qtyPopupVal} onChange={e=>setQtyPopupVal(e.target.value.replace(/[^0-9]/g,''))}
           onKeyDown={e=>{if(e.key==='Enter'){const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}}}
-          style={{width:'100%',fontSize:32,fontWeight:800,textAlign:'center',border:`3px solid ${EPJ.blue}`,borderRadius:12,padding:'12px',fontFamily:font,color:EPJ.dark,marginBottom:16}}/>
-        <div style={{display:'flex',gap:10}}>
-          <button className="epj-btn" onClick={()=>setQtyPopup(null)} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'12px'}}>Annuler</button>
-          <button className="epj-btn" onClick={()=>{const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'12px'}}>✓ OK</button>
+          style={{width:'100%',fontSize:32,fontWeight:fontWeight.semibold,textAlign:'center',border:`2px solid ${EPJ.blue}`,borderRadius:radius.lg,padding:space.md,fontFamily:font,color:EPJ.dark,marginBottom:space.lg,fontVariantNumeric:'tabular-nums'}}/>
+        <div style={{display:'flex',gap:space.sm + 2}}>
+          <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setQtyPopup(null)}>Annuler</Button></div>
+          <div style={{flex:1}}><Button full onClick={()=>{const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}}>✓ OK</Button></div>
         </div>
       </div>
     </div>
@@ -1726,45 +1717,44 @@ export function CommandesInner({ onExitModule }) {
     const o = receptionOrder;
     const alreadySigned = !!o.signatureData;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720)}>
         <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
-        <div style={{padding:'12px 16px'}}>
+        <div style={{padding:`${space.md}px ${space.lg}px`}}>
           {/* Infos commande */}
-          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Bénéficiaire</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{o.salarie||o.user}</div></div>
-              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Date de remise</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{new Date().toLocaleDateString('fr-FR')}</div></div>
+          <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`,borderLeft:`3px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:space.sm,marginBottom:space.sm}}>
+              <div><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em'}}>Bénéficiaire</div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{o.salarie||o.user}</div></div>
+              <div><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em'}}>Date de remise</div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{new Date().toLocaleDateString('fr-FR')}</div></div>
             </div>
-            <div style={{fontSize:10,color:EPJ.gray}}>Commande {o.num} • {o.date}</div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>Commande {o.num} • {o.date}</div>
           </div>
           {/* Articles */}
-          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',marginBottom:8}}>Articles ({o.items?.length||0} réf.)</div>
+          <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`}}>
+            <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em',marginBottom:space.sm}}>Articles ({o.items?.length||0} réf.)</div>
             {(o.items||[]).map((it,i)=>(
-              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<(o.items.length-1)?`1px solid ${EPJ.grayLight}`:'none'}}>
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<(o.items.length-1)?`1px solid ${EPJ.gray100}`:'none'}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.n}</div>
-                  <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.n}</div>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div>
                 </div>
-                <div style={{marginLeft:8,background:EPJ.blue,color:'#fff',borderRadius:8,padding:'2px 10px',fontWeight:700,fontSize:13}}>×{it.qty}</div>
+                <div style={{marginLeft:space.sm,background:EPJ.infoBg,color:EPJ.blueText,borderRadius:radius.pill,padding:'2px 10px',fontWeight:fontWeight.medium,fontSize:fontSize.sm,fontVariantNumeric:'tabular-nums'}}>×{it.qty}</div>
               </div>
             ))}
           </div>
           {alreadySigned ? (
             /* Vue si déjà réceptionnée */
-            <div style={{background:'#E8F5E9',borderRadius:14,padding:20,textAlign:'center',border:'2px solid #4CAF50'}}>
-              <div style={{fontSize:32,marginBottom:8}}>✅</div>
-              <div style={{fontSize:16,fontWeight:700,color:'#2E7D32',marginBottom:4}}>Réception confirmée</div>
-              <div style={{fontSize:12,color:'#388E3C',marginBottom:16}}>Signée le {o.dateReception||o.date}</div>
-              <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:100,objectFit:'contain',border:'1px solid #ccc',borderRadius:8,background:'#fff',padding:4}}/>
-              <button className="epj-btn" onClick={()=>setView('history')} style={{width:'100%',marginTop:16,background:EPJ.dark,color:'#fff',padding:'12px'}}>← Retour historique</button>
+            <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:space.xl - 4,textAlign:'center',border:`1px solid ${EPJ.green}66`}}>
+              <div style={{fontSize:32,marginBottom:space.sm}}>✅</div>
+              <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.greenText,marginBottom:space.xs}}>Réception confirmée</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85,marginBottom:space.lg}}>Signée le {o.dateReception||o.date}</div>
+              <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:100,objectFit:'contain',border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.white,padding:space.xs}}/>
+              <div style={{marginTop:space.lg}}><Button full variant="secondary" onClick={()=>setView('history')}>← Retour historique</Button></div>
             </div>
           ) : (
             /* Zone signature */
-            <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${EPJ.dark}`}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>✍️ Signature de {o.salarie||o.user}</div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10}}>Signez avec le doigt ci-dessous, puis appuyez sur Enregistrer</div>
+            <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`,borderLeft:`3px solid ${EPJ.dark}`}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs}}>✍️ Signature de {o.salarie||o.user}</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2}}>Signez avec le doigt (ou la souris) ci-dessous, puis appuyez sur Enregistrer</div>
               <canvas
                 id="receptionCanvas"
                 width={460} height={160}
@@ -1787,11 +1777,11 @@ export function CommandesInner({ onExitModule }) {
                   el.addEventListener('touchend',()=>drawing=false);
                 }}
               />
-              <button onClick={()=>{const c=document.getElementById('receptionCanvas');const ctx=c.getContext('2d');ctx.fillStyle='#fafafa';ctx.fillRect(0,0,c.width,c.height);}} style={{width:'100%',marginTop:8,padding:'8px',border:`1px solid ${EPJ.gray}`,borderRadius:8,background:'#fff',cursor:'pointer',fontSize:12,color:EPJ.gray}}>🗑 Effacer et recommencer</button>
+              <button onClick={()=>{const c=document.getElementById('receptionCanvas');const ctx=c.getContext('2d');ctx.fillStyle='#fafafa';ctx.fillRect(0,0,c.width,c.height);}} style={{width:'100%',marginTop:space.sm,padding:space.sm,border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.white,cursor:'pointer',fontSize:fontSize.xs,color:EPJ.gray,fontFamily:font}}>🗑 Effacer et recommencer</button>
             </div>
           )}
           {!alreadySigned && (
-            <button className="epj-btn" style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:16,fontWeight:700,borderRadius:14}} onClick={async()=>{
+            <Button full onClick={async()=>{
               const c = document.getElementById('receptionCanvas');
               if(!c){showT('❌ Erreur canvas');return;}
               const sigData = c.toDataURL('image/png');
@@ -1820,10 +1810,10 @@ export function CommandesInner({ onExitModule }) {
                   console.warn("[v10.I] SMS réception non bloquant:", smsErr);
                 }
               }catch(e){showT('❌ Erreur: '+e.message);}
-            }}>✅ Enregistrer la réception</button>
+            }}>✅ Enregistrer la réception</Button>
           )}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
@@ -1832,127 +1822,133 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ HOME (page d'accueil du module Commandes) ═══
   if(view==="home") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
-      <div style={{padding:'18px 16px 8px',borderBottom:`1px solid #EAEAEA`,marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+    <div style={wrapStyle(1100)}>
+      <div style={{padding:`${space.lg}px ${space.lg}px ${space.sm}px`,borderBottom:`1px solid ${EPJ.gray200}`,marginBottom:space.sm,display:'flex',alignItems:'center',gap:space.md}}>
         {/* v10.G : Le bouton "← Accueil" a été supprimé d'ici car le bouton
             🏠 Accueil du header global de l'app fait déjà cette action. */}
         <div style={{flex:1}}>
-          <div style={{fontSize:11,color:'#6B6B6B',textTransform:'uppercase',letterSpacing:1,fontWeight:600}}>Module</div>
-          <div style={{fontSize:18,fontWeight:700,color:'#1A1A1A',letterSpacing:'-0.01em'}}>Commandes</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em',fontWeight:fontWeight.medium}}>Module</div>
+          <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.gray900,letterSpacing:'-0.01em'}}>Commandes</div>
         </div>
       </div>
-      <div style={{padding:16}}>
-        {isCartLocked&&<div style={{background:'#FFF3E0',border:`2px solid ${EPJ.orange}`,borderRadius:14,padding:14,marginBottom:12,fontSize:13,color:'#E65100',lineHeight:1.5}}>
-          <strong>⚠️ Panier en cours</strong> — {cartCount} article(s) ({orderType==='chantier'?'Chantier':'Équipement'}).
-          <div style={{marginTop:8,display:'flex',gap:8}}>
-            <button className="epj-btn" onClick={()=>setView('cart')} style={{background:EPJ.orange,color:'#fff',padding:'8px 14px',fontSize:12,flex:1}}>🛒 Panier</button>
-            <button className="epj-btn" onClick={()=>{setCart({});setOrderType('');showT('Panier vidé')}} style={{background:'#eee',color:EPJ.dark,padding:'8px 14px',fontSize:12}}>🗑 Vider</button>
-          </div>
-        </div>}
-        <div style={{fontSize:14,fontWeight:700,color:EPJ.dark,marginBottom:12}}>Que souhaitez-vous faire ?</div>
-        <div onClick={()=>{if(isCartLocked&&orderType!=='chantier')return;setOrderType('chantier');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card" style={{marginBottom:10,cursor:isCartLocked&&orderType!=='chantier'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:14,opacity:isCartLocked&&orderType!=='chantier'?.4:1}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🏗️</div>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Commande Chantier</div><div style={{fontSize:12,color:EPJ.gray}}>Matériel pour un chantier</div></div>
-          {isCartLocked&&orderType==='chantier'&&<span style={{fontSize:10,background:EPJ.orange,color:'#fff',padding:'3px 8px',borderRadius:8,fontWeight:700}}>EN COURS</span>}
+      <div style={{padding:space.lg}}>
+        {isCartLocked&&(
+          <Banner
+            tone="warning"
+            icon="🛒"
+            title="Panier en cours"
+            text={`${cartCount} article(s) (${orderType==='chantier'?'Chantier':'Équipement'})`}
+            action={
+              <div style={{display:'flex',gap:space.sm}}>
+                <Button size="sm" onClick={()=>setView('cart')}>🛒 Panier</Button>
+                <Button size="sm" variant="ghost" onClick={()=>{setCart({});setOrderType('');showT('Panier vidé')}}>🗑 Vider</Button>
+              </div>
+            }
+          />
+        )}
+        <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,margin:`${space.xs}px 0 ${space.md}px`}}>Que souhaitez-vous faire ?</div>
+        <div style={{display:'grid',gridTemplateColumns:isPwa?'1fr':'repeat(auto-fill,minmax(320px,1fr))',gap:space.sm + 2}}>
+        <div onClick={()=>{if(isCartLocked&&orderType!=='chantier')return;setOrderType('chantier');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card clickable" style={{cursor:isCartLocked&&orderType!=='chantier'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:space.md + 2,opacity:isCartLocked&&orderType!=='chantier'?.4:1}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.blue}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏗️</div>
+          <div style={{flex:1}}><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Commande Chantier</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Matériel pour un chantier</div></div>
+          {isCartLocked&&orderType==='chantier'&&<Badge tone="warning" label="En cours"/>}
         </div>
-        <div onClick={()=>{if(isCartLocked&&orderType!=='equipement')return;setOrderType('equipement');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card" style={{marginBottom:10,cursor:isCartLocked&&orderType!=='equipement'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:14,opacity:isCartLocked&&orderType!=='equipement'?.4:1}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>👷</div>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Équipement Salarié</div><div style={{fontSize:12,color:EPJ.gray}}>Outillage, vêtements, EPI</div></div>
-          {isCartLocked&&orderType==='equipement'&&<span style={{fontSize:10,background:EPJ.orange,color:'#fff',padding:'3px 8px',borderRadius:8,fontWeight:700}}>EN COURS</span>}
+        <div onClick={()=>{if(isCartLocked&&orderType!=='equipement')return;setOrderType('equipement');setView('catalog');setSelectedCat(null);setSearch('')}} className="epj-card clickable" style={{cursor:isCartLocked&&orderType!=='equipement'?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:space.md + 2,opacity:isCartLocked&&orderType!=='equipement'?.4:1}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.orange}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>👷</div>
+          <div style={{flex:1}}><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Équipement Salarié</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Outillage, vêtements, EPI</div></div>
+          {isCartLocked&&orderType==='equipement'&&<Badge tone="warning" label="En cours"/>}
         </div>
-        {pendingCount>0&&<div onClick={()=>setView('pending')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.red}`}}>
-          <div style={{width:48,height:48,borderRadius:12,background:EPJ.red,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}} className="badge-pulse">📋<div style={{position:'absolute',top:-4,right:-4,background:EPJ.red,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{pendingCount}</div></div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.red}}>Commandes à valider</div><div style={{fontSize:12,color:EPJ.gray}}>{pendingCount} en attente</div></div>
+        {pendingCount>0&&<div onClick={()=>setView('pending')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2,borderLeft:`3px solid ${EPJ.red}`}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.red}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative',flexShrink:0}} className="badge-pulse">📋<div style={{position:'absolute',top:-4,right:-4,background:EPJ.red,color:EPJ.white,borderRadius:'50%',width:22,height:22,fontSize:fontSize.xs,fontWeight:fontWeight.semibold,display:'flex',alignItems:'center',justifyContent:'center',border:`2px solid ${EPJ.white}`,fontVariantNumeric:'tabular-nums'}}>{pendingCount}</div></div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.redText}}>Commandes à valider</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{pendingCount} en attente</div></div>
         </div>}
-        <div onClick={()=>setView('history')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.gray},${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>📋</div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Historique</div><div style={{fontSize:12,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
+        <div onClick={()=>setView('history')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:EPJ.gray100,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>📋</div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Historique</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{myHistoryCount} commande{myHistoryCount>1?'s':''}</div></div>
         </div>
         {/* v1.17.2 — Carte "À commander" élargie : Admin/Direction/Achat/Assistante voient toutes,
             Conducteurs travaux / Chefs de chantier / users directAchat voient les leurs */}
         {canSeeToOrder() && toOrderCount > 0 && (
-          <div onClick={()=>setView('toOrder')} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.orange}`}}>
-            <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.orange},#E65100)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative'}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{toOrderCount}</div></div>
-            <div><div style={{fontWeight:700,fontSize:15,color:'#E65100'}}>À commander</div><div style={{fontSize:12,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
+          <div onClick={()=>setView('toOrder')} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2,borderLeft:`3px solid ${EPJ.orange}`}}>
+            <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.orange}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,position:'relative',flexShrink:0}}>📦<div style={{position:'absolute',top:-4,right:-4,background:EPJ.orange,color:EPJ.white,borderRadius:'50%',width:22,height:22,fontSize:fontSize.xs,fontWeight:fontWeight.semibold,display:'flex',alignItems:'center',justifyContent:'center',border:`2px solid ${EPJ.white}`,fontVariantNumeric:'tabular-nums'}}>{toOrderCount}</div></div>
+            <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.orangeText}}>À commander</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{toOrderCount} commande{toOrderCount>1?'s':''} à passer chez le fournisseur</div></div>
           </div>
         )}
-        {user.fonction==="Admin"&&<div onClick={()=>{setAdminSection(null);setSelectedCat(null);setSearch('');setView('admin')}} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14,border:`2px solid ${EPJ.dark}`}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,#555,${EPJ.dark})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>⚙️</div>
-          <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>Administration</div><div style={{fontSize:12,color:EPJ.gray}}>Chantiers, utilisateurs, catalogue</div></div>
+        {user.fonction==="Admin"&&<div onClick={()=>{setAdminSection(null);setSelectedCat(null);setSearch('');setView('admin')}} className="epj-card clickable" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+          <div style={{width:48,height:48,borderRadius:radius.lg,background:EPJ.gray100,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>⚙️</div>
+          <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>Administration</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Chantiers, utilisateurs, catalogue</div></div>
         </div>}
+        </div>
       </div>
     </div>
   );
 
   // ═══ CATALOG ═══
   if(view==="catalog") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-      <style>{css}</style>
+    <div style={wrapStyle(1100, { paddingBottom: 80 })}>
       <Header title={selectedCat||(orderType==='chantier'?'Catalogue Chantier':'Catalogue Équipement')} back={true} backView={selectedCat?'cats':'home'}/>
-      <div style={{padding:'8px 12px',background:EPJ.dark}}>
-        <input className="epj-input" placeholder="Rechercher article, référence..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff'}}/>
+      <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.dark}}>
+        <input className="epj-input" placeholder="Rechercher article, référence..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'rgba(255,255,255,.1)',border:'none',color:EPJ.white}}/>
       </div>
-      <div style={{padding:12}}>
+      <div style={{padding:space.md}}>
         {!selectedCat&&!search ? (
           <>
             {!configLoaded ? (
-              <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 20px',gap:10,color:EPJ.gray}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:`${space.xxl + 8}px ${space.xl}px`,gap:space.sm + 2,color:EPJ.gray}}>
                 <div style={{width:20,height:20,border:`3px solid ${EPJ.blue}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>
-                <span style={{fontSize:13,fontWeight:600}}>Chargement du catalogue…</span>
+                <span style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>Chargement du catalogue…</span>
               </div>
             ) : (
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={{display:'grid',gridTemplateColumns:isPwa?'1fr 1fr':'repeat(auto-fill,minmax(150px,1fr))',gap:space.sm}}>
               {availableCategories.map(cat=>(
-                <div key={cat} onClick={()=>setSelectedCat(cat)} style={{background:'#fff',borderRadius:14,padding:'14px 10px',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:600,color:EPJ.dark,boxShadow:'0 1px 3px rgba(0,0,0,.04)',lineHeight:1.3,border:'2px solid transparent'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:4}}><CatIcon cat={cat} size={40}/></div>{cat}
+                <div key={cat} onClick={()=>setSelectedCat(cat)} style={{background:EPJ.white,borderRadius:radius.lg,padding:`${space.md + 2}px ${space.sm + 2}px`,cursor:'pointer',textAlign:'center',fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,boxShadow:shadow.sm,lineHeight:1.3,border:`1px solid ${EPJ.gray200}`}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:space.xs}}><CatIcon cat={cat} size={40}/></div>{cat}
                 </div>
               ))}
             </div>
             )}
-            <div onClick={()=>setShowDivers(true)} style={{marginTop:10,background:'#fff',borderRadius:14,padding:14,cursor:'pointer',textAlign:'center',border:`2px dashed ${EPJ.blue}`,color:EPJ.blue,fontWeight:600,fontSize:13}}>+ Article divers</div>
+            <div onClick={()=>setShowDivers(true)} style={{marginTop:space.sm + 2,background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,cursor:'pointer',textAlign:'center',border:`2px dashed ${EPJ.blue}`,color:EPJ.blue,fontWeight:fontWeight.medium,fontSize:fontSize.sm}}>+ Article divers</div>
           </>
         ) : (
-          Object.keys(grouped).length===0 ? <div style={{textAlign:'center',padding:'40px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>🔍</div><div style={{fontWeight:600}}>Aucun résultat</div></div>
+          Object.keys(grouped).length===0 ? <div style={{textAlign:'center',padding:`${space.xxl + 8}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>🔍</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucun résultat</div></div>
           : Object.entries(grouped).map(([g,items])=>(
             <div key={g}>
-              <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',letterSpacing:.5,margin:'14px 0 6px',paddingLeft:4}}>{g}</div>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray,textTransform:'uppercase',letterSpacing:'0.03em',margin:`${space.md + 2}px 0 6px`,paddingLeft:space.xs}}>{g}</div>
               {items.map(p=>(
                 <div key={p.r} className="epj-row">
                   <Thumb cat={p.c} imageUrl={p.img}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,color:EPJ.dark,lineHeight:1.3}}>{p.n}</div>
-                    <div style={{fontSize:10,color:EPJ.gray,marginTop:2,fontFamily:'monospace'}}>{p.r} • {p.u||'Pièce'} <span style={{display:'inline-block',marginLeft:4,padding:'1px 6px',borderRadius:8,fontSize:9,fontWeight:700,background:p.stock===false?'#FFF3E0':'#E8F5E9',color:p.stock===false?'#E65100':'#2E7D32'}}>{p.stock===false?'⚠️ Hors stock':'📦 En stock'}</span></div>
+                    <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,lineHeight:1.3}}>{p.n}</div>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginTop:2,fontFamily:fontFamilies.mono}}>{p.r} • {p.u||'Pièce'} <span style={{marginLeft:space.xs,verticalAlign:'middle'}}><Badge tone={p.stock===false?'warning':'success'} label={p.stock===false?'Hors stock':'En stock'}/></span></div>
                   </div>
-                  {cart[p.r] ? <QtyControl r={p.r} value={cart[p.r]} compact={true}/> : <button onClick={()=>addToCart(p.r)} style={{width:36,height:36,borderRadius:10,border:'none',background:EPJ.blue,color:'#fff',fontSize:20,cursor:'pointer',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>}
+                  {cart[p.r] ? <QtyControl r={p.r} value={cart[p.r]} compact={true}/> : <button aria-label={`Ajouter ${p.n}`} onClick={()=>addToCart(p.r)} style={{width:36,height:36,borderRadius:radius.md,border:'none',background:EPJ.blue,color:EPJ.white,fontSize:fontSize.lg,cursor:'pointer',fontWeight:fontWeight.medium,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>}
                 </div>
               ))}
             </div>
           ))
         )}
       </div>
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:1100,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
         {/* v10.G : "← Accueil" devient "← Retour" et ramène à la PAGE PRÉCÉDENTE
             (liste des catégories si on est dans une catégorie, sinon home du module). */}
-        <button
-          className="epj-btn"
+        <Button
+          variant="secondary"
           onClick={()=>{
             if(selectedCat){ setSelectedCat(null); setSearch(''); }
             else { setView('home'); setSearch(''); }
           }}
-          style={{background:EPJ.dark,color:'#fff',padding:'12px 16px',fontWeight:700,boxShadow:'0 1px 2px rgba(0,0,0,0.1)'}}
           title="Retour à l'écran précédent"
-        >← Retour</button>
-        {cartCount>0&&<button className="epj-btn" onClick={()=>setView('cart')} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>🛒 Panier ({cartCount})</button>}
+        >← Retour</Button>
+        {cartCount>0&&<div style={{flex:1}}><Button full onClick={()=>setView('cart')}>🛒 Panier ({cartCount})</Button></div>}
       </div>
-      {toast&&<div style={{position:'fixed',bottom:80,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:200,animation:'fadeUp .3s ease'}}>{toast}</div>}
-      {showDivers&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setShowDivers(false)}>
-        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'24px 20px 30px',width:'100%',maxWidth:520}} onClick={e=>e.stopPropagation()}>
-          <div style={{fontSize:18,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Article divers</div>
-          <div style={{marginBottom:10}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>DÉSIGNATION *</label><input className="epj-input" value={diversName} onChange={e=>setDiversName(e.target.value)} placeholder="Description"/></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>RÉFÉRENCE</label><input className="epj-input" value={diversRef} onChange={e=>setDiversRef(e.target.value)} placeholder="Optionnel"/></div>
-          <div style={{marginBottom:16}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>QUANTITÉ</label><input className="epj-input" type="number" min="1" value={diversQty} onChange={e=>setDiversQty(parseInt(e.target.value)||1)} style={{width:100}}/></div>
-          <button className="epj-btn" onClick={()=>{if(diversName.trim()){const ref=diversRef.trim()||`DIV-${Date.now()}`;const newArticle={c:'Divers',s:'Article libre',r:ref,n:diversName.trim(),u:'Pièce',stock:false};setDynCatalog(prev=>[...prev,newArticle]);setCart(p=>({...p,[ref]:diversQty}));setDiversName('');setDiversRef('');setDiversQty(1);setShowDivers(false);showT('✓ Ajouté au panier')}}} style={{width:'100%',background:EPJ.blue,color:'#fff'}} disabled={!diversName.trim()}>Ajouter au panier</button>
+      {toast&&<div style={{position:'fixed',bottom:80,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:200,animation:'fadeUp .3s ease'}}>{toast}</div>}
+      {showDivers&&<div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:300,display:'flex',alignItems:isPwa?'flex-end':'center',justifyContent:'center'}} onClick={()=>setShowDivers(false)}>
+        <div style={{background:EPJ.white,borderRadius:isPwa?`${radius.xl + 4}px ${radius.xl + 4}px 0 0`:radius.xl,padding:`${space.xl}px ${space.xl - 4}px ${isPwa?space.xxl - 2:space.xl}px`,width:'100%',maxWidth:520,boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Article divers</div>
+          <div style={{marginBottom:space.sm + 2}}><Field label="Désignation" required value={diversName} onChange={e=>setDiversName(e.target.value)} placeholder="Description"/></div>
+          <div style={{marginBottom:space.sm + 2}}><Field label="Référence" value={diversRef} onChange={e=>setDiversRef(e.target.value)} placeholder="Optionnel"/></div>
+          <div style={{marginBottom:space.lg}}><Field label="Quantité" type="number" min="1" width={120} value={diversQty} onChange={e=>setDiversQty(parseInt(e.target.value)||1)}/></div>
+          <Button full onClick={()=>{if(diversName.trim()){const ref=diversRef.trim()||`DIV-${Date.now()}`;const newArticle={c:'Divers',s:'Article libre',r:ref,n:diversName.trim(),u:'Pièce',stock:false};setDynCatalog(prev=>[...prev,newArticle]);setCart(p=>({...p,[ref]:diversQty}));setDiversName('');setDiversRef('');setDiversQty(1);setShowDivers(false);showT('✓ Ajouté au panier')}}} disabled={!diversName.trim()}>Ajouter au panier</Button>
         </div>
       </div>}
       <QtyPopupOverlay/>
@@ -1963,41 +1959,40 @@ export function CommandesInner({ onExitModule }) {
   if(view==="cart"){
     const cg={};cartItems.forEach(i=>{if(!cg[i.c])cg[i.c]=[];cg[i.c].push(i)});
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720, { paddingBottom: 80 })}>
         <Header title="Panier" back={true} backView="catalog" showCart={false}/>
-        <div style={{padding:'6px 12px',background:EPJ.dark,color:'rgba(255,255,255,.6)',fontSize:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{padding:`6px ${space.md}px`,background:EPJ.dark,color:'rgba(255,255,255,.6)',fontSize:fontSize.xs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span>{user.prenom} {user.nom} • {orderType==='chantier'?'Chantier':'Équipement'}</span>
-          {cartItems.length>0&&<button onClick={()=>{setCart({});showT('Panier vidé')}} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff',borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑 Vider</button>}
+          {cartItems.length>0&&<button onClick={()=>{setCart({});showT('Panier vidé')}} style={{background:'rgba(255,255,255,.1)',border:'none',color:EPJ.white,borderRadius:radius.sm,padding:`${space.xs}px ${space.sm + 2}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑 Vider</button>}
         </div>
-        <div style={{padding:12}}>
-          {cartItems.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>🛒</div><div style={{fontWeight:600}}>Panier vide</div></div>:(
+        <div style={{padding:space.md}}>
+          {cartItems.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>🛒</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Panier vide</div></div>:(
             <>
               {Object.entries(cg).map(([cat,items])=>(
                 <div key={cat}>
-                  <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',margin:'12px 0 6px',display:'flex',alignItems:'center',gap:6}}><CatIcon cat={cat} size={16}/> {cat}</div>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray,textTransform:'uppercase',letterSpacing:'0.03em',margin:`${space.md}px 0 6px`,display:'flex',alignItems:'center',gap:6}}><CatIcon cat={cat} size={16}/> {cat}</div>
                   {items.map(it=>(
                     <div key={it.r} className="epj-row">
                       <Thumb cat={it.c} imageUrl={it.img}/>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:600,color:EPJ.dark}}>{it.n}</div>
-                        <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
+                        <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{it.n}</div>
+                        <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div>
                       </div>
                       <QtyControl r={it.r} value={cart[it.r]} showDelete={true}/>
                     </div>
                   ))}
                 </div>
               ))}
-              <div className="epj-card" style={{marginTop:14}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{cartCount} articles</span></div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:EPJ.gray,marginTop:4}}><span>Références</span><span>{cartItems.length}</span></div>
+              <div className="epj-card" style={{marginTop:space.md + 2}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontWeight:fontWeight.medium,color:EPJ.dark,fontVariantNumeric:'tabular-nums'}}><span>Total</span><span>{cartCount} articles</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,color:EPJ.gray,marginTop:space.xs,fontVariantNumeric:'tabular-nums'}}><span>Références</span><span>{cartItems.length}</span></div>
               </div>
             </>
           )}
         </div>
-        {cartItems.length>0&&<div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-          <button className="epj-btn" onClick={()=>setView('catalog')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Catalogue</button>
-          <button className="epj-btn" onClick={()=>setView('details')} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>Finaliser →</button>
+        {cartItems.length>0&&<div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+          <Button variant="secondary" onClick={()=>setView('catalog')}>← Catalogue</Button>
+          <div style={{flex:1}}><Button full onClick={()=>setView('details')}>Finaliser →</Button></div>
         </div>}
         <QtyPopupOverlay/>
       </div>
@@ -2006,50 +2001,45 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ ORDER DETAILS ═══
   if(view==="details") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-      <style>{css}</style>
+    <div style={wrapStyle(720, { paddingBottom: 80 })}>
       <Header title="Détails commande" back={true} backView="cart" showCart={false}/>
-      <div style={{padding:12}}>
-        <div className="epj-card" style={{marginBottom:10}}>
+      <div style={{padding:space.md}}>
+        <div className="epj-card" style={{marginBottom:space.sm + 2}}>
           {orderType==='chantier'?(
             <>
-              <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>CHANTIER *</label>
+              <div style={{marginBottom:space.md}}>
                 {!showNewChantier?(<>
-                  <select className="epj-input" value={chantier} onChange={e=>setChantier(e.target.value)} style={{cursor:'pointer'}}>
-                    <option value="">-- Sélectionnez --</option>
-                    {dynChantiers.filter(c=>c.statut==='Actif').map(c=><option key={c.nom} value={c.nom}>[{c.num}] {c.nom}</option>)}
-                  </select>
+                  <Field as="select" label="Chantier" required value={chantier} onChange={e=>setChantier(e.target.value)}
+                    options={[{value:'',label:'-- Sélectionnez --'},...dynChantiers.filter(c=>c.statut==='Actif').map(c=>({value:c.nom,label:`[${c.num}] ${c.nom}`}))]}/>
                   {/* N° affaire auto */}
-                  {selectedChantierObj&&<div style={{marginTop:6,fontSize:12,color:EPJ.blue,fontWeight:600}}>📋 N° Affaire : {selectedChantierObj.num} — Conducteur : {selectedChantierObj.conducteur}</div>}
-                  {(user.fonction==='Conducteur de travaux'||user.fonction==='Admin')&&<button onClick={()=>setShowNewChantier(true)} style={{background:'none',border:'none',color:EPJ.blue,fontSize:12,fontWeight:600,cursor:'pointer',marginTop:6,fontFamily:font}}>+ Nouveau chantier</button>}
+                  {selectedChantierObj&&<div style={{marginTop:6,fontSize:fontSize.xs,color:EPJ.blueText,fontWeight:fontWeight.medium}}>📋 N° Affaire : {selectedChantierObj.num} — Conducteur : {selectedChantierObj.conducteur}</div>}
+                  {(user.fonction==='Conducteur de travaux'||user.fonction==='Admin')&&<button onClick={()=>setShowNewChantier(true)} style={{background:'none',border:'none',color:EPJ.blue,fontSize:fontSize.xs,fontWeight:fontWeight.medium,cursor:'pointer',marginTop:6,fontFamily:font}}>+ Nouveau chantier</button>}
                 </>):(<>
-                  <input className="epj-input" value={newChantier} onChange={e=>setNewChantier(e.target.value)} placeholder="Nom du nouveau chantier"/>
-                  <button onClick={()=>setShowNewChantier(false)} style={{background:'none',border:'none',color:EPJ.gray,fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}>← Chantier existant</button>
+                  <Field label="Nouveau chantier" value={newChantier} onChange={e=>setNewChantier(e.target.value)} placeholder="Nom du nouveau chantier"/>
+                  <button onClick={()=>setShowNewChantier(false)} style={{background:'none',border:'none',color:EPJ.gray,fontSize:fontSize.xs,cursor:'pointer',marginTop:6,fontFamily:font}}>← Chantier existant</button>
                 </>)}
               </div>
-              <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>LIVRAISON</label>
-                <div style={{display:'flex',gap:8}}>
-                  {['Dépôt','Chantier'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
+              <div style={{marginBottom:space.md}}><label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:space.xs + 2}}>Livraison</label>
+                <div style={{display:'flex',gap:space.sm}}>
+                  {['Dépôt','Chantier'].map(l=>(<div key={l} style={{flex:1}}><Button full variant={livraison===l?'primary':'secondary'} onClick={()=>setLivraison(l)}>{l==='Chantier'?'🏗️':'🏭'} {l}</Button></div>))}
                 </div>
               </div>
             </>
           ):(
-            <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>SALARIÉ DESTINATAIRE</label>
-              <select className="epj-input" value={targetSalarie} onChange={e=>setTargetSalarie(e.target.value)} style={{cursor:'pointer'}}>
-                <option value="">Moi-même ({user.prenom} {user.nom})</option>
-                {dynUsers.filter(u=>u.id!==user.id).map(u=><option key={u.id} value={`${u.prenom} ${u.nom}`}>{u.prenom} {u.nom}</option>)}
-              </select>
+            <div style={{marginBottom:space.md}}>
+              <Field as="select" label="Salarié destinataire" value={targetSalarie} onChange={e=>setTargetSalarie(e.target.value)}
+                options={[{value:'',label:`Moi-même (${user.prenom} ${user.nom})`},...dynUsers.filter(u=>u.id!==user.id).map(u=>({value:`${u.prenom} ${u.nom}`,label:`${u.prenom} ${u.nom}`}))]}/>
             </div>
           )}
-          <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>DATE DE RÉCEPTION SOUHAITÉE</label><input className="epj-input" type="date" value={dateReception} onChange={e=>setDateReception(e.target.value)}/></div>
-          <div style={{marginBottom:12}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}><input type="checkbox" checked={urgent} onChange={e=>setUrgent(e.target.checked)} style={{width:20,height:20,accentColor:EPJ.red}}/><span style={{fontSize:14,fontWeight:600,color:urgent?EPJ.red:EPJ.dark}}>⚠️ Commande URGENTE</span></label></div>
-          <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>EMAIL SUPPLÉMENTAIRE</label><input className="epj-input" type="email" value={extraEmail} onChange={e=>setExtraEmail(e.target.value)} placeholder="email@exemple.fr"/></div>
-          <div><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>REMARQUES</label><textarea className="epj-input" rows={3} value={remarques} onChange={e=>setRemarques(e.target.value)} placeholder="Instructions..." style={{resize:'vertical'}}/></div>
+          <div style={{marginBottom:space.md}}><Field label="Date de réception souhaitée" type="date" value={dateReception} onChange={e=>setDateReception(e.target.value)}/></div>
+          <div style={{marginBottom:space.md}}><label style={{display:'flex',alignItems:'center',gap:space.sm,cursor:'pointer'}}><input type="checkbox" checked={urgent} onChange={e=>setUrgent(e.target.checked)} style={{width:20,height:20,accentColor:EPJ.red}}/><span style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:urgent?EPJ.redText:EPJ.dark}}>⚠️ Commande URGENTE</span></label></div>
+          <div style={{marginBottom:space.md}}><Field label="Email supplémentaire" type="email" value={extraEmail} onChange={e=>setExtraEmail(e.target.value)} placeholder="email@exemple.fr"/></div>
+          <div><Field as="textarea" label="Remarques" rows={3} value={remarques} onChange={e=>setRemarques(e.target.value)} placeholder="Instructions..."/></div>
         </div>
       </div>
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-        <button className="epj-btn" onClick={()=>setView('cart')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Panier</button>
-        <button className="epj-btn" onClick={()=>setView('confirm')} disabled={orderType==='chantier'&&!chantier&&!newChantier} style={{flex:1,background:(orderType==='chantier'&&!chantier&&!newChantier)?'#ccc':`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>Récapitulatif →</button>
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+        <Button variant="secondary" onClick={()=>setView('cart')}>← Panier</Button>
+        <div style={{flex:1}}><Button full onClick={()=>setView('confirm')} disabled={orderType==='chantier'&&!chantier&&!newChantier}>Récapitulatif →</Button></div>
       </div>
     </div>
   );
@@ -2059,31 +2049,30 @@ export function CommandesInner({ onExitModule }) {
     const byFourn={};cartItems.forEach(it=>{const c=it.r.split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
     const needsVal=orderType==='chantier'&&!user.directAchat;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720, { paddingBottom: 80 })}>
         <Header title="Confirmation" back={true} backView="details" showCart={false}/>
-        <div style={{padding:12}}>
-          <div className="epj-card" style={{marginBottom:10}}>
+        <div style={{padding:space.md}}>
+          <div className="epj-card" style={{marginBottom:space.sm + 2}}>
             {/* v10.G.2 : en mode édition, on affiche le numéro existant + bandeau */}
             {editingOrder?.editMode === 'rework' && (
-              <div style={{background:'#E3F2FD',borderLeft:`4px solid ${EPJ.blue}`,padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:12,color:EPJ.dark}}>
-                ✏️ <strong>Modification de la commande {editingOrder.num}</strong>
-                {editingOrder._originalStatut === "Envoyée aux achats" && (
-                  <div style={{marginTop:6,fontSize:11,color:'#E65100'}}>
-                    ⚠️ Cette commande a déjà été envoyée aux achats. La modification les rendra incohérents — la Direction sera notifiée.
-                  </div>
-                )}
-                {!user.directAchat && (
-                  <div style={{marginTop:6,fontSize:11,color:EPJ.gray}}>
-                    Après enregistrement, la commande repassera en attente de validation par le conducteur.
-                  </div>
-                )}
-              </div>
+              <Banner
+                tone="info"
+                icon="✏️"
+                title={`Modification de la commande ${editingOrder.num}`}
+                text={<>
+                  {editingOrder._originalStatut === "Envoyée aux achats" && (
+                    <div>⚠️ Cette commande a déjà été envoyée aux achats. La modification les rendra incohérents — la Direction sera notifiée.</div>
+                  )}
+                  {!user.directAchat && (
+                    <div>Après enregistrement, la commande repassera en attente de validation par le conducteur.</div>
+                  )}
+                </>}
+              />
             )}
-            <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:12}}>{editingOrder?.editMode==='rework' ? editingOrder.num : numCmd()}</div>
-            {urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
-            {needsVal&&<div style={{background:'#FFF3E0',color:'#E65100',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>⏳ Soumise à validation ({selectedChantierObj?.conducteur})</div>}
-            <div style={{background:EPJ.grayLight,borderRadius:10,padding:12,fontSize:13,lineHeight:1.8,color:EPJ.dark}}>
+            <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.md,fontFamily:fontFamilies.mono}}>{editingOrder?.editMode==='rework' ? editingOrder.num : numCmd()}</div>
+            {urgent&&<div style={{marginBottom:space.sm + 2}}><Badge status="urgent" label="Urgent"/></div>}
+            {needsVal&&<div style={{background:EPJ.warningBg,color:EPJ.orangeText,padding:`${space.sm}px ${space.md}px`,borderRadius:radius.sm + 2,fontSize:fontSize.xs,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>⏳ Soumise à validation ({selectedChantierObj?.conducteur})</div>}
+            <div style={{background:EPJ.gray50,borderRadius:radius.md,padding:space.md,fontSize:fontSize.sm,lineHeight:1.8,color:EPJ.dark}}>
               <strong>Demandeur :</strong> {user.prenom} {user.nom}<br/>
               {orderType==='chantier'&&<><strong>Chantier :</strong> {showNewChantier?newChantier:chantier}<br/>{selectedChantierObj&&<><strong>N° Affaire :</strong> {selectedChantierObj.num}<br/></>}<strong>Livraison :</strong> {livraison}<br/></>}
               {orderType==='equipement'&&<><strong>Destinataire :</strong> {targetSalarie||`${user.prenom} ${user.nom}`}<br/></>}
@@ -2093,26 +2082,25 @@ export function CommandesInner({ onExitModule }) {
             </div>
           </div>
           <div className="epj-card">
-            <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8}}>Articles par fournisseur</div>
+            <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm}}>Articles par fournisseur</div>
             <div style={{maxHeight:250,overflowY:'auto'}}>
               {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
-                <div key={code} style={{marginBottom:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:4}}>▸ {code}</div>
-                  {items.map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'3px 0',borderBottom:'1px solid #f0f0f0'}}><span style={{color:EPJ.dark,flex:1}}>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700,marginLeft:8}}>x{it.qty}</span></div>))}
+                <div key={code} style={{marginBottom:space.sm + 2}}>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.xs,fontFamily:fontFamilies.mono}}>▸ {code}</div>
+                  {items.map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,padding:'3px 0',borderBottom:`1px solid ${EPJ.gray100}`}}><span style={{color:EPJ.dark,flex:1}}>{it.n}</span><span style={{color:EPJ.blueText,fontWeight:fontWeight.medium,marginLeft:space.sm,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</span></div>))}
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-          <button className="epj-btn" onClick={()=>setView('details')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Modifier</button>
+        <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+          <Button variant="secondary" onClick={()=>setView('details')}>← Modifier</Button>
           {/* v10.G.2 — Libellé adapté en mode édition d'une commande existante */}
-          <button className="epj-btn" onClick={sendOrder} disabled={sending} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>
-            {sending
-              ? (editingOrder?.editMode==='rework' ? '⏳ Sauvegarde...' : '⏳ Envoi en cours...')
-              : (editingOrder?.editMode==='rework' ? '💾 Enregistrer les modifications' : (needsVal ? '📤 Soumettre' : '✉️ Envoyer + PDF'))
-            }
-          </button>
+          <div style={{flex:1}}>
+            <Button full onClick={sendOrder} disabled={sending} loading={sending}>
+              {editingOrder?.editMode==='rework' ? '💾 Enregistrer les modifications' : (needsVal ? '📤 Soumettre' : '✉️ Envoyer + PDF')}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -2141,36 +2129,33 @@ export function CommandesInner({ onExitModule }) {
     const mailtoUrl = `mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(buildMailBody())}`;
 
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>
-      <style>{css}</style>
-      <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
-      <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
-      <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
-      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div className="status-pill" style={{background:s.bg,color:s.color,marginTop:4}}>{s.icon||''} {s.label}</div></div>);})()}
-      
-      {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-        <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
-        <a href={mailtoUrl} style={{textDecoration:'none'}}>
-          <div className="epj-btn" style={{background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,color:'#fff',padding:'16px',fontSize:15,width:'100%',textAlign:'center'}}>✉️ Envoyer par email</div>
-        </a>
+    <div style={wrapStyle(720, { textAlign:'center', padding:`${space.xxl - 2}px ${space.lg}px` })}>
+      <div style={{fontSize:56,marginBottom:space.md}}>{wasV?'📤':'✅'}</div>
+      <div style={{fontSize:fontSize.xl,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
+      <div style={{fontSize:fontSize.sm,color:EPJ.gray,lineHeight:1.6,marginBottom:space.lg}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
+      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:EPJ.white,border:`1px solid ${EPJ.gray200}`,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.lg,textAlign:'left',fontSize:fontSize.sm}}><div style={{fontWeight:fontWeight.medium,fontFamily:fontFamilies.mono}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div style={{marginTop:space.xs}}><Badge status={s.status} label={s.label} dot/></div></div>);})()}
+
+      {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:space.sm + 2,marginBottom:space.lg}}>
+        <a href={mailtoUrl} style={{textDecoration:'none',display:'block',background:EPJ.blue,color:EPJ.white,padding:`${space.md}px`,fontSize:fontSize.base,fontWeight:fontWeight.medium,fontFamily:font,borderRadius:radius.md,textAlign:'center'}}>✉️ Envoyer par email</a>
+        <Button full variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 Voir / Télécharger le PDF</Button>
         {o&&o.type==='equipement'&&(
           o.signatureData
-            ? <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+            ? <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:`${space.md}px ${space.lg}px`,display:'flex',alignItems:'center',gap:space.sm + 2,border:`1px solid ${EPJ.green}66`}}>
                 <span style={{fontSize:24}}>✅</span>
-                <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+                <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>Réception confirmée</div><div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
               </div>
-            : <button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>✍️ Feuille de réception + Signature</button>
+            : <Button full variant="secondary" onClick={()=>openReceptionSheet(o)}>✍️ Feuille de réception + Signature</Button>
         )}
       </div>}
 
       {/* Aperçu rapide */}
-      {pdfOrder&&<div style={{marginBottom:16}}>
-        <div style={{background:EPJ.dark,color:'#fff',padding:'8px 14px',borderRadius:'14px 14px 0 0',fontSize:11,fontWeight:700}}>Aperçu du bon de commande</div>
-        <div style={{border:'1px solid #ddd',borderTop:'none',borderRadius:'0 0 14px 14px',overflow:'hidden',maxHeight:300,overflowY:'auto'}}>
+      {pdfOrder&&<div style={{marginBottom:space.lg}}>
+        <div style={{background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.md + 2}px`,borderRadius:`${radius.lg}px ${radius.lg}px 0 0`,fontSize:fontSize.xs,fontWeight:fontWeight.medium}}>Aperçu du bon de commande</div>
+        <div style={{border:`1px solid ${EPJ.gray200}`,borderTop:'none',borderRadius:`0 0 ${radius.lg}px ${radius.lg}px`,overflow:'hidden',maxHeight:300,overflowY:'auto'}}>
           <PdfView order={pdfOrder}/>
         </div>
       </div>}
-      <button className="epj-btn" onClick={()=>{clearOrder();setPdfOrder(null);setLastSentOrder(null);setView('home')}} style={{background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'16px 40px',fontSize:16,width:'100%'}}>🏠 Nouvelle commande</button>
+      <Button full variant={wasV?'primary':'secondary'} onClick={()=>{clearOrder();setPdfOrder(null);setLastSentOrder(null);setView('home')}}>🏠 Nouvelle commande</Button>
     </div>
   )}
 
@@ -2250,38 +2235,37 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720)}>
         <Header title="Valider la commande" back={false} showCart={false}/>
-        <div style={{padding:12}}>
+        <div style={{padding:space.md}}>
           {/* Infos commande */}
-          <div className="epj-card" style={{padding:14,marginBottom:10}}>
-            <div style={{fontSize:14,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{o.num}</div>
-            <div style={{fontSize:11,color:EPJ.gray,marginBottom:2}}>{o.date} • par {o.user}</div>
+          <div className="epj-card" style={{padding:space.md + 2,marginBottom:space.sm + 2}}>
+            <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontFamily:fontFamilies.mono}}>{o.num}</div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:2}}>{o.date} • par {o.user}</div>
             {o.type === 'chantier' && (
-              <div style={{fontSize:11,color:EPJ.blue,marginBottom:2}}>🏗 [{o.numAffaire || o.chantierNum || '?'}] {o.chantier}</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginBottom:2}}>🏗 [{o.numAffaire || o.chantierNum || '?'}] {o.chantier}</div>
             )}
             {o.urgent && (
-              <span style={{display:'inline-block',fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginTop:2}}>⚠️ URGENT</span>
+              <div style={{marginTop:2}}><Badge status="urgent" label="Urgent"/></div>
             )}
             {o.remarques && (
-              <div style={{fontSize:11,color:EPJ.dark,marginTop:6,padding:6,background:'#FFF8E1',borderRadius:4,borderLeft:`3px solid ${EPJ.orange}`}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.orangeText,marginTop:6,padding:6,background:EPJ.warningBg,borderRadius:radius.sm,borderLeft:`3px solid ${EPJ.orange}`}}>
                 <strong>Remarque :</strong> {o.remarques}
               </div>
             )}
           </div>
 
           {/* Liste articles éditable */}
-          <div className="epj-card" style={{padding:14,marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>Articles à commander</div>
-              <div style={{fontSize:11,color:EPJ.gray}}>{totalRefs} réf. · {totalQty} pcs</div>
+          <div className="epj-card" style={{padding:space.md + 2,marginBottom:space.sm + 2}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.sm + 2}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>Articles à commander</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontVariantNumeric:'tabular-nums'}}>{totalRefs} réf. · {totalQty} pcs</div>
             </div>
 
             {editingItems.length === 0 && (
               <div style={{
-                padding:16,textAlign:'center',color:EPJ.gray,fontSize:12,
-                background:EPJ.grayLight,borderRadius:8,marginBottom:10,
+                padding:space.lg,textAlign:'center',color:EPJ.gray500,fontSize:fontSize.xs,
+                background:EPJ.gray50,borderRadius:radius.sm + 2,marginBottom:space.sm + 2,
               }}>
                 Aucune référence — ajoute au moins un article pour valider.
               </div>
@@ -2289,100 +2273,57 @@ export function CommandesInner({ onExitModule }) {
 
             {editingItems.map((it, idx) => (
               <div key={idx} style={{
-                display:'flex',alignItems:'center',gap:8,
-                padding:'8px 0',borderBottom:`1px solid ${EPJ.grayLight}`,
+                display:'flex',alignItems:'center',gap:space.sm,
+                padding:`${space.sm}px 0`,borderBottom:`1px solid ${EPJ.gray100}`,
               }}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     {it.n}
                   </div>
-                  <div style={{fontSize:10,color:EPJ.gray}}>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>
                     {it.r} · {it.u || 'Pièce'}
                   </div>
                 </div>
-                <input
+                <Field
+                  dense width={64}
                   type="number" min="0" value={it.qty || 0}
                   onChange={e => updateItemQty(idx, e.target.value)}
-                  style={{
-                    width:60,padding:'6px 8px',textAlign:'center',
-                    border:`1px solid ${EPJ.grayLight}`,borderRadius:6,
-                    fontSize:13,fontWeight:700,color:EPJ.blue,
-                    fontFamily:font,
-                  }}
+                  inputStyle={{textAlign:'center',fontWeight:fontWeight.medium,color:EPJ.blueText,fontVariantNumeric:'tabular-nums'}}
                 />
-                <button
-                  onClick={() => removeItem(idx)}
-                  style={{
-                    background:'transparent',border:'none',
-                    color:EPJ.red,cursor:'pointer',fontSize:16,
-                    padding:4,
-                  }}
-                  title="Retirer"
-                >🗑</button>
+                <IconButton variant="danger" label="Retirer cette référence" onClick={() => removeItem(idx)}>🗑</IconButton>
               </div>
             ))}
 
             <button
               onClick={addItemFromCatalog}
-              className="epj-btn"
               style={{
-                width:'100%',marginTop:10,
-                background:EPJ.grayLight,color:EPJ.dark,
-                padding:'10px',fontSize:13,fontWeight:600,
-                border:`1px dashed ${EPJ.gray}`,
+                width:'100%',marginTop:space.sm + 2,
+                background:EPJ.gray50,color:EPJ.dark,
+                padding:space.sm + 2,fontSize:fontSize.sm,fontWeight:fontWeight.medium,
+                border:`1px dashed ${EPJ.gray400}`,borderRadius:radius.md,
+                cursor:'pointer',fontFamily:font,
               }}
             >➕ Ajouter une référence</button>
           </div>
 
           {/* Actions */}
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            <button
-              className="epj-btn"
-              onClick={saveAndSendMail}
-              disabled={editingItems.length === 0}
-              style={{
-                width:'100%',
-                background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,
-                color:'#fff',padding:'14px',fontSize:15,fontWeight:700,
-                opacity:editingItems.length === 0 ? 0.5 : 1,
-              }}
-            >✅ Valider et envoyer aux achats</button>
-
-            <button
-              className="epj-btn"
-              onClick={saveLater}
-              disabled={editingItems.length === 0}
-              style={{
-                width:'100%',
-                background:'#fff',color:EPJ.dark,
-                border:`1px solid ${EPJ.blue}`,
-                padding:'12px',fontSize:14,fontWeight:600,
-                opacity:editingItems.length === 0 ? 0.5 : 1,
-              }}
-            >💾 Valider (envoyer plus tard)</button>
-
-            <button
-              className="epj-btn"
-              onClick={cancel}
-              style={{
-                width:'100%',
-                background:'#eee',color:EPJ.gray,
-                padding:'10px',fontSize:13,
-              }}
-            >← Annuler</button>
+          <div style={{display:'flex',flexDirection:'column',gap:space.sm}}>
+            <Button full onClick={saveAndSendMail} disabled={editingItems.length === 0}>✅ Valider et envoyer aux achats</Button>
+            <Button full variant="secondary" onClick={saveLater} disabled={editingItems.length === 0}>💾 Valider (envoyer plus tard)</Button>
+            <Button full variant="ghost" onClick={cancel}>← Annuler</Button>
           </div>
 
           <div style={{
-            fontSize:10,color:EPJ.gray,marginTop:12,
-            padding:'8px 10px',background:`${EPJ.blue}10`,
-            borderRadius:6,lineHeight:1.4,
+            fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.md,
+            padding:`${space.sm}px ${space.sm + 2}px`,background:`${EPJ.blue}10`,
+            borderRadius:radius.sm,lineHeight:1.4,
           }}>
             💡 <strong>Envoyer plus tard</strong> : la commande reste dans l'historique
             en attente d'envoi. Tu pourras l'envoyer quand tu voudras via le bouton
             « Envoyer aux achats ».
           </div>
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
@@ -2423,48 +2364,37 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>
-        <style>{css}</style>
-        <div style={{fontSize:56,marginBottom:12}}>✅</div>
-        <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>Commande validée !</div>
-        <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>
+      <div style={wrapStyle(720, { textAlign:'center', padding:`${space.xxl - 2}px ${space.lg}px` })}>
+        <div style={{fontSize:56,marginBottom:space.md}}>✅</div>
+        <div style={{fontSize:fontSize.xl,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:6}}>Commande validée !</div>
+        <div style={{fontSize:fontSize.sm,color:EPJ.gray,lineHeight:1.6,marginBottom:space.lg}}>
           Elle est enregistrée en statut <strong>Validée</strong>.<br/>
           Clique sur <strong>« Envoyer par email »</strong> pour la transmettre
           aux achats — tu seras invité à confirmer l'envoi après.
         </div>
-        <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}>
-          <div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div>
-          <div style={{fontSize:11,color:EPJ.gray,marginTop:2}}>{o.date} • {o.user} • {o.chantier||o.salarie}</div>
-          <div className="status-pill" style={{background:STATUS_COLORS['Validée']?.bg,color:STATUS_COLORS['Validée']?.color,marginTop:6}}>✅ Validée</div>
+        <div style={{background:EPJ.white,border:`1px solid ${EPJ.gray200}`,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.lg,textAlign:'left',fontSize:fontSize.sm}}>
+          <div style={{fontWeight:fontWeight.medium,fontFamily:fontFamilies.mono}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginTop:2}}>{o.date} • {o.user} • {o.chantier||o.salarie}</div>
+          <div style={{marginTop:6}}><Badge status="Validée" label="Validée" dot/></div>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-          <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
-          <button
-            type="button"
-            className="epj-btn"
-            onClick={handleEmailClick}
-            style={{
-              background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,
-              color:'#fff',padding:'16px',fontSize:15,
-              width:'100%',textAlign:'center',borderRadius:12,
-              fontWeight:700,cursor:'pointer',border:'none',fontFamily:font,
-            }}
-          >✉️ Envoyer par email aux achats</button>
+        <div style={{display:'flex',flexDirection:'column',gap:space.sm + 2,marginBottom:space.lg}}>
+          <Button full onClick={handleEmailClick}>✉️ Envoyer par email aux achats</Button>
+          <Button full variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 Voir / Télécharger le PDF</Button>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <button className="epj-btn" onClick={()=>setView('pending')} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'12px',fontSize:14}}>← Autres commandes</button>
-          <button className="epj-btn" onClick={()=>{setPdfOrder(null);setLastSentOrder(null);setView('home')}} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'12px',fontSize:14}}>🏠 Accueil</button>
+        <div style={{display:'flex',gap:space.sm}}>
+          <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setView('pending')}>← Autres commandes</Button></div>
+          <div style={{flex:1}}><Button full variant="ghost" onClick={()=>{setPdfOrder(null);setLastSentOrder(null);setView('home')}}>🏠 Accueil</Button></div>
         </div>
         <div style={{
-          fontSize:10,color:EPJ.gray,marginTop:16,textAlign:'left',
-          padding:'8px 10px',background:`${EPJ.orange}10`,
-          borderRadius:6,lineHeight:1.4,
+          fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.lg,textAlign:'left',
+          padding:`${space.sm}px ${space.sm + 2}px`,background:`${EPJ.orange}10`,
+          borderRadius:radius.sm,lineHeight:1.4,
         }}>
           💡 Tant que tu n'as pas confirmé l'envoi, la commande reste en
           statut <strong>Validée</strong> (= à envoyer) dans l'historique.
           Tu pourras la renvoyer plus tard via le bouton « Envoyer aux achats ».
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
@@ -2474,50 +2404,50 @@ export function CommandesInner({ onExitModule }) {
     const fullName=`${user.prenom} ${user.nom}`;
     const myP=user.fonction==="Admin"?pendingOrders:pendingOrders.filter(o=>{const ch=dynChantiers.find(c=>c.nom===o.chantier);return ch&&ch.conducteur===fullName});
     return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(1100)}>
         <Header title="Commandes à valider" back={true} backView="home" showCart={false}/>
-        <div style={{padding:12}}>
-          {myP.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>✅</div><div style={{fontWeight:600}}>Aucune commande en attente</div></div>
-          :myP.map(o=>(
-            <div key={o.num} className="epj-card" style={{marginBottom:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-                <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{o.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{o.date} • {o.user}</div><div style={{fontSize:12,color:EPJ.blue}}>🏗️ [{o.numAffaire}] {o.chantier}</div>{o.urgent&&<span style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700}}>⚠️ URGENT</span>}</div>
-                <div style={{fontSize:13,fontWeight:700}}>{(o.items||[]).length} réf.</div>
+        <div style={{padding:space.md}}>
+          {myP.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>✅</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucune commande en attente</div></div>
+          :<div style={{display:'grid',gridTemplateColumns:isPwa?'1fr':'repeat(auto-fill,minmax(380px,1fr))',gap:space.sm + 2,alignItems:'start'}}>
+          {myP.map(o=>(
+            <div key={o.num} className="epj-card">
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:space.sm + 2}}>
+                <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{o.num}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{o.date} • {o.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText}}>🏗️ [{o.numAffaire}] {o.chantier}</div>{o.urgent&&<div style={{marginTop:space.xs}}><Badge status="urgent" label="Urgent"/></div>}</div>
+                <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,fontVariantNumeric:'tabular-nums'}}>{(o.items||[]).length} réf.</div>
               </div>
-              <div style={{background:EPJ.grayLight,borderRadius:8,padding:8,marginBottom:10,maxHeight:120,overflowY:'auto'}}>
-                {(o.items||[]).map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700}}>x{it.qty}</span></div>))}
+              <div style={{background:EPJ.gray50,borderRadius:radius.sm + 2,padding:space.sm,marginBottom:space.sm + 2,maxHeight:120,overflowY:'auto'}}>
+                {(o.items||[]).map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,padding:'2px 0'}}><span>{it.n}</span><span style={{color:EPJ.blueText,fontWeight:fontWeight.medium,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</span></div>))}
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>validateOrder(o.num)} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px'}}>✅ Valider</button>
-                <button className="epj-btn" onClick={()=>{setShowRefuseModal(o.num);setRefuseMotif('')}} style={{flex:1,background:EPJ.red,color:'#fff',padding:'10px'}}>❌ Refuser</button>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full onClick={()=>validateOrder(o.num)}>✅ Valider</Button></div>
+                <div style={{flex:1}}><Button full variant="danger" onClick={()=>{setShowRefuseModal(o.num);setRefuseMotif('')}}>Refuser</Button></div>
               </div>
             </div>
           ))}
+          </div>}
         </div>
-        {showRefuseModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowRefuseModal(null)}>
-          <div style={{background:'#fff',borderRadius:20,padding:24,width:'100%',maxWidth:400}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontSize:18,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Motif de refus</div>
-            <textarea className="epj-input" rows={3} value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Motif..." style={{resize:'vertical',marginBottom:12}}/>
-            <div style={{display:'flex',gap:8}}>
-              <button className="epj-btn" onClick={()=>setShowRefuseModal(null)} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-              <button className="epj-btn" onClick={()=>refuseOrder(showRefuseModal,refuseMotif)} style={{flex:1,background:EPJ.red,color:'#fff',padding:'10px'}} disabled={!refuseMotif.trim()}>Confirmer</button>
+        {showRefuseModal&&<div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:space.xl - 4}} onClick={()=>setShowRefuseModal(null)}>
+          <div style={{background:EPJ.white,borderRadius:radius.xl,padding:space.xl,width:'100%',maxWidth:400,boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Motif de refus</div>
+            <Field as="textarea" rows={3} value={refuseMotif} onChange={e=>setRefuseMotif(e.target.value)} placeholder="Motif..."/>
+            <div style={{display:'flex',gap:space.sm,marginTop:space.md}}>
+              <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setShowRefuseModal(null)}>Annuler</Button></div>
+              <div style={{flex:1}}><Button full variant="danger" onClick={()=>refuseOrder(showRefuseModal,refuseMotif)} disabled={!refuseMotif.trim()}>Confirmer</Button></div>
             </div>
           </div>
         </div>}
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
 
   // ═══ PDF PREVIEW (after validation) ═══
   if(view==="pdfPreview"&&pdfOrder) return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
+    <div style={wrapStyle(720)}>
       <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
-      <div style={{padding:12}}>
+      <div style={{padding:space.md}}>
         <PdfView order={pdfOrder}/>
-        <button className="epj-btn" onClick={()=>{setPdfOrder(null);setView('home')}} style={{width:'100%',marginTop:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>← Commandes</button>
+        <div style={{marginTop:space.md}}><Button full onClick={()=>{setPdfOrder(null);setView('home')}}>← Commandes</Button></div>
       </div>
     </div>
   );
@@ -2567,48 +2497,75 @@ export function CommandesInner({ onExitModule }) {
       // Pas de createdAt : tri par num desc (CMD-2026-0053 avant CMD-2026-0052)
       return (b.num || "").localeCompare(a.num || "");
     });
+    const deletables = myHistory.filter(h => canDeleteThisOrder(h));
+    const deleteAll = async () => {
+      if(!confirm(`Supprimer les ${deletables.length} commande(s) supprimable(s) parmi celles affichées ?`))return;
+      let okCount = 0;
+      for(const h of deletables){
+        const ok = await performDeleteOrder(h, false);
+        if (ok) okCount++;
+      }
+      showT(`🗑️ ${okCount} commande(s) supprimée(s)`);
+    };
+    const deleteOne = async (h) => {
+      const ok = await performDeleteOrder(h, true);
+      if (ok) showT("🗑️ Supprimée"); else showT("❌ Erreur");
+    };
+    // Lignes enrichies pour <DataTable> (tri sur valeurs réelles)
+    const histRows = myHistory.map((h,i)=>({ ...h, _key: h._id || String(i), _refs:(h.items||[]).length, _cible: h.type==='chantier' ? `[${h.numAffaire||''}] ${h.chantier||''}` : (h.salarie||'') }));
+    const histCols = [
+      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}</span>) },
+      { key:'date', header:'Date', sortable:false },
+      { key:'user', header:'Demandeur' },
+      { key:'_cible', header:'Chantier / Destinataire' },
+      { key:'_refs', header:'Réf.', numeric:true },
+      { key:'statut', header:'Statut', render:(_,h)=>{const s=getStatusDisplay(h);return <Badge status={s.status} label={s.label||'—'} dot/>;} },
+      { key:'_del', header:'', sortable:false, align:'right', render:(_,h)=>canDeleteThisOrder(h)?(<IconButton variant="danger" label={`Supprimer ${h.num}`} onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}}>🗑</IconButton>):null },
+    ];
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
+    <div style={wrapStyle(1100)}>
       <Header title="Historique" back={true} backView="home" showCart={false}/>
-      <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
-        <div style={{display:'flex',gap:6}}>
-          <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{Object.keys(STATUS_COLORS).map(s=><option key={s} value={s}>{s}</option>)}</select>
-          <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
-        </div>
-        {(() => {
-          // v10.I — Fix 1 : "Supprimer tout" affiché si au moins 1 commande supprimable
-          const deletables = myHistory.filter(h => canDeleteThisOrder(h));
-          if (deletables.length === 0) return null;
-          return (
-            <button className="epj-btn" onClick={async()=>{
-              if(!confirm(`Supprimer les ${deletables.length} commande(s) supprimable(s) parmi celles affichées ?`))return;
-              let okCount = 0;
-              for(const h of deletables){
-                const ok = await performDeleteOrder(h, false);
-                if (ok) okCount++;
-              }
-              showT(`🗑️ ${okCount} commande(s) supprimée(s)`);
-            }} style={{width:'100%',marginTop:6,background:EPJ.red,color:'#fff',padding:'8px',fontSize:12}}>🗑️ Supprimer ({deletables.length})</button>
-          );
-        })()}
-      </div>
-      <div style={{padding:12}}>
-        {myHistory.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>📋</div><div style={{fontWeight:600}}>Aucune commande</div></div>
-        :myHistory.map((h,i)=>(
-          <div key={h._id||i} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
-            <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
-              <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
-              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:s.bg||'#eee',color:s.color||'#333'}}>{s.icon||''} {s.label||'—'}</div></div>);})()}
-            </div>
-            {canDeleteThisOrder(h)&&<button onClick={async(e)=>{
-              e.stopPropagation();
-              const ok = await performDeleteOrder(h, true);
-              if (ok) showT("🗑️ Supprimée"); else showT("❌ Erreur");
-            }} style={{marginTop:6,width:'100%',background:'#fee',color:EPJ.red,border:'none',borderRadius:6,padding:'4px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
+      <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.white,borderBottom:`1px solid ${EPJ.gray200}`}}>
+        <div style={{display:'flex',gap:space.sm,alignItems:'flex-end'}}>
+          <div style={{flex:1}}>
+            <Field as="select" dense value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))}
+              options={[{value:'',label:'Tous statuts'},...ORDER_STATUTS.map(s=>({value:s,label:s}))]}/>
           </div>
-        ))}
+          <div style={{flex:1}}>
+            <Field as="select" dense value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))}
+              options={[{value:'',label:'Tous chantiers'},...[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=>({value:c,label:c}))]}/>
+          </div>
+          {/* v10.I — Fix 1 : "Supprimer tout" affiché si au moins 1 commande supprimable */}
+          {deletables.length > 0 && !isPwa && (
+            <Button variant="danger" size="sm" onClick={deleteAll}>🗑️ Supprimer ({deletables.length})</Button>
+          )}
+        </div>
+        {deletables.length > 0 && isPwa && (
+          <div style={{marginTop:space.sm}}><Button full variant="danger" size="sm" onClick={deleteAll}>🗑️ Supprimer ({deletables.length})</Button></div>
+        )}
       </div>
+      <div style={{padding:space.md}}>
+        {isPwa ? (
+          myHistory.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>📋</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucune commande</div></div>
+          :myHistory.map((h,i)=>(
+          <div key={h._id||i} className="epj-card" style={{marginBottom:space.sm,cursor:'pointer'}}>
+            <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
+              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
+              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontVariantNumeric:'tabular-nums'}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:space.xs}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
+            </div>
+            {canDeleteThisOrder(h)&&<button onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}} style={{marginTop:space.sm,width:'100%',background:EPJ.dangerBg,color:EPJ.redText,border:'none',borderRadius:radius.sm,padding:`${space.xs}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
+          </div>
+        ))) : (
+          <DataTable
+            columns={histCols}
+            rows={histRows}
+            keyField="_key"
+            onRowClick={(h)=>{setSelectedOrder(h);setView('orderDetail')}}
+            empty={{ icon:'📋', title:'Aucune commande', text:'Aucune commande ne correspond aux filtres.' }}
+          />
+        )}
+      </div>
+      {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
     </div>
   );}
 
@@ -2635,18 +2592,17 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720)}>
         <Header title={o.num} back={true} backView="history" showCart={false}/>
-        <div style={{padding:12}}>
-          <div className="epj-card" style={{marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <div style={{fontSize:18,fontWeight:800,color:EPJ.dark}}>{o.num}</div>
-              {(()=>{const s=getStatusDisplay(o);return(<div className="status-pill" style={{background:s.bg,color:s.color,fontSize:12,padding:'5px 12px'}}>{s.icon} {s.label}</div>);})()}
+        <div style={{padding:space.md}}>
+          <div className="epj-card" style={{marginBottom:space.sm + 2}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.md}}>
+              <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{o.num}</div>
+              {(()=>{const s=getStatusDisplay(o);return(<Badge status={s.status} label={s.label} dot/>);})()}
             </div>
-            {o.urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
-            {o.motifRefus&&<div style={{background:'#FFEBEE',color:'#C62828',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>Motif : {o.motifRefus}</div>}
-            <div style={{background:EPJ.grayLight,borderRadius:10,padding:12,fontSize:13,lineHeight:1.8,color:EPJ.dark}}>
+            {o.urgent&&<div style={{marginBottom:space.sm + 2}}><Badge status="urgent" label="Urgent"/></div>}
+            {o.motifRefus&&<div style={{background:EPJ.dangerBg,color:EPJ.redText,padding:`${space.sm}px ${space.md}px`,borderRadius:radius.sm + 2,fontSize:fontSize.xs,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>Motif : {o.motifRefus}</div>}
+            <div style={{background:EPJ.gray50,borderRadius:radius.md,padding:space.md,fontSize:fontSize.sm,lineHeight:1.8,color:EPJ.dark}}>
               <strong>Date :</strong> {o.date}<br/><strong>Demandeur :</strong> {o.user}<br/>
               {o.chantier&&<><strong>Chantier :</strong> [{o.numAffaire}] {o.chantier}<br/></>}
               {o.type==='equipement'&&<><strong>Destinataire :</strong> {o.salarie}<br/></>}
@@ -2656,9 +2612,9 @@ export function CommandesInner({ onExitModule }) {
               {featureFlags.ocrArEnabled && o.datelivraison && (() => {
                 const { date: dFournisseur } = getExpectedDeliveryDate(o, { featureFlags });
                 return dFournisseur ? (
-                  <span style={{background:'#E3F2FD',padding:'2px 6px',borderRadius:4,fontSize:12}}>
-                    <strong style={{color:'#1565C0'}}>📨 Livraison annoncée fournisseur :</strong> {formatDateFR(dFournisseur)}
-                    {o.fournisseur ? <span style={{color:'#1565C0'}}> ({o.fournisseur})</span> : null}
+                  <span style={{background:EPJ.infoBg,padding:'2px 6px',borderRadius:radius.sm - 2,fontSize:fontSize.xs}}>
+                    <strong style={{color:EPJ.blueText}}>📨 Livraison annoncée fournisseur :</strong> {formatDateFR(dFournisseur)}
+                    {o.fournisseur ? <span style={{color:EPJ.blueText}}> ({o.fournisseur})</span> : null}
                   </span>
                 ) : null;
               })()}
@@ -2672,16 +2628,16 @@ export function CommandesInner({ onExitModule }) {
 
           {/* v10.D.2 — Actions workflow selon le statut ═══ */}
           {o.statut === "Validée" && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.blue}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.blue}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 📤 À ENVOYER AUX ACHATS
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Cette commande est validée mais n'a pas encore été envoyée aux achats.
                 Clique sur le bouton ci-dessous pour l'envoyer par email.
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
                 onClick={() => {
                   const mailDest = o.extraEmail ? `${dynEmailAchats},${o.extraEmail}` : dynEmailAchats;
                   const mailSubj = `${o.urgent?'⚠️ URGENT — ':''}Commande ${o.num} — ${o.chantier||o.salarie}`;
@@ -2704,51 +2660,41 @@ export function CommandesInner({ onExitModule }) {
                     }
                   }, 1500);
                 }}
-                style={{
-                  width:'100%',
-                  background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,
-                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
-                }}
-              >📨 Envoyer aux achats par email</button>
+              >📨 Envoyer aux achats par email</Button>
             </div>
           )}
 
           {/* v10.I — Fix 2 : bouton "Marquer commandée" réservé Admin/Direction/Assistante */}
           {/* v1.13.0 : ajout du bouton "Passer partiellement" à côté */}
           {(o.statut === "Envoyée aux achats" || o.statut === "Commandée partiellement") && canMarkAsCommandee() && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid #6A1B9A`}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#6A1B9A',marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.blue}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 🛒 COMMANDE PASSÉE CHEZ LE FOURNISSEUR ?
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 {o.statut === "Commandée partiellement"
                   ? "Cette commande a déjà été passée partiellement. Tu peux passer le reste, ou continuer en partiel si certaines lignes sont encore indisponibles."
                   : "Une fois que tu as effectivement passé la commande chez le fournisseur (saisie dans l'ERP, accusé de réception reçu...), clique ici. Si tu n'as pas pu tout commander (rupture, attente stock), utilise le bouton « partiellement »."}
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button
-                  className="epj-btn"
-                  onClick={() => {
-                    markOrderAsCommandee(o).then(() => {
-                      setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
-                    });
-                  }}
-                  style={{
-                    flex:2,
-                    background:'#6A1B9A',
-                    color:'#fff',padding:'12px',fontSize:13,fontWeight:700,
-                  }}
-                >🛒 Tout commandé</button>
-                <button
-                  className="epj-btn"
-                  onClick={() => setPartialPassOrder(o)}
-                  style={{
-                    flex:1,
-                    background:EPJ.orange,
-                    color:'#fff',padding:'12px',fontSize:12,fontWeight:700,
-                  }}
-                  title="Cocher ligne par ligne ce qui a été commandé"
-                >◐ Partiel…</button>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:2}}>
+                  <Button
+                    full
+                    onClick={() => {
+                      markOrderAsCommandee(o).then(() => {
+                        setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
+                      });
+                    }}
+                  >🛒 Tout commandé</Button>
+                </div>
+                <div style={{flex:1}}>
+                  <Button
+                    full
+                    variant="secondary"
+                    onClick={() => setPartialPassOrder(o)}
+                    title="Cocher ligne par ligne ce qui a été commandé"
+                  >◐ Partiel…</Button>
+                </div>
               </div>
             </div>
           )}
@@ -2770,25 +2716,25 @@ export function CommandesInner({ onExitModule }) {
               && (Date.now() - new Date(o.esaboraStartedAt).getTime() < 30000);
             return (
               <div className="epj-card" style={{
-                marginBottom:10,
+                marginBottom:space.sm + 2,
                 borderLeft:`3px solid ${isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue}`,
               }}>
-                <div style={{fontSize:12,fontWeight:700,
-                  color: isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue,
-                  marginBottom:8}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,letterSpacing:'0.03em',
+                  color: isSynced ? EPJ.greenText : isError ? EPJ.redText : isPartial ? EPJ.orangeText : EPJ.blueText,
+                  marginBottom:space.sm}}>
                   🔗 SYNCHRONISATION ESABORA
                 </div>
 
                 {/* Statut */}
                 {isSynced && (
                   <div style={{
-                    background:`${EPJ.green}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:'#1B5E20',marginBottom:8,lineHeight:1.5,
+                    background:EPJ.successBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.greenText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ✅ Synchronisée le {o.esaboraSyncedAt ? new Date(o.esaboraSyncedAt).toLocaleString('fr-FR') : ''}
                     {o.esaboraSyncedBy ? ` par ${o.esaboraSyncedBy}` : ''}
                     {Array.isArray(o.esaboraResults) && (
-                      <div style={{marginTop:4,fontSize:10}}>
+                      <div style={{marginTop:space.xs,fontSize:fontSize.xs}}>
                         {o.esaboraResults.length} fournisseur(s) :
                         {o.esaboraResults.map(r => ` ${r.codeEsabora}✓`).join(",")}
                       </div>
@@ -2798,14 +2744,14 @@ export function CommandesInner({ onExitModule }) {
 
                 {isPartial && (
                   <div style={{
-                    background:`${EPJ.orange}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:EPJ.orange,marginBottom:8,lineHeight:1.5,
+                    background:EPJ.warningBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.orangeText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ⚠️ Synchronisation partielle — certains fournisseurs ont échoué.
                     {Array.isArray(o.esaboraResults) && o.esaboraResults
                       .filter(r => !r.ok)
                       .map((r,i) => (
-                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                        <div key={i} style={{marginTop:2,fontSize:fontSize.xs}}>
                           • {r.codeEsabora} : {r.error || 'erreur inconnue'}
                         </div>
                       ))}
@@ -2814,14 +2760,14 @@ export function CommandesInner({ onExitModule }) {
 
                 {isError && (
                   <div style={{
-                    background:`${EPJ.red}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:EPJ.red,marginBottom:8,lineHeight:1.5,
+                    background:EPJ.dangerBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.redText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ❌ Échec de synchronisation
                     {Array.isArray(o.esaboraResults) && o.esaboraResults
                       .filter(r => !r.ok)
                       .map((r,i) => (
-                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                        <div key={i} style={{marginTop:2,fontSize:fontSize.xs}}>
                           • {r.codeEsabora} : {r.error || 'erreur'}
                         </div>
                       ))}
@@ -2829,7 +2775,7 @@ export function CommandesInner({ onExitModule }) {
                 )}
 
                 {!isSynced && !isPartial && !isError && (
-                  <div style={{fontSize:11,color:EPJ.gray,marginBottom:8,lineHeight:1.4}}>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm,lineHeight:1.4}}>
                     Cette commande peut être envoyée dans Esabora.
                     L'app va générer un fichier Excel par fournisseur (basé sur
                     le code Esabora de chaque article) et le pousser via Zapier.
@@ -2886,13 +2832,14 @@ export function CommandesInner({ onExitModule }) {
                   style={{
                     width:'100%',
                     background: isSynced
-                      ? `${EPJ.gray500}20`
+                      ? EPJ.white
                       : isError || isPartial
-                        ? `linear-gradient(135deg,${EPJ.orange},${EPJ.red})`
-                        : `linear-gradient(135deg,${EPJ.blue},#0077B6)`,
-                    color: isSynced ? EPJ.gray900 : '#fff',
-                    padding:'12px',fontSize:14,fontWeight:700,
+                        ? EPJ.orange
+                        : EPJ.blue,
+                    color: isSynced ? EPJ.gray900 : EPJ.white,
+                    padding:space.md,fontSize:fontSize.md,fontWeight:fontWeight.medium,
                     border: isSynced ? `1px solid ${EPJ.gray300}` : 'none',
+                    borderRadius:radius.md,fontFamily:font,
                     cursor: isInProgress ? 'wait' : 'pointer',
                     opacity: isInProgress ? 0.6 : 1,
                   }}
@@ -2919,33 +2866,33 @@ export function CommandesInner({ onExitModule }) {
               ? validateReceivedQuantities(items, reception.qties)
               : { valid: true, errors: [] };
             return (
-              <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.green}`}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#2E7D32',marginBottom:8}}>
+              <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.green}`}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.greenText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                   📦 RÉCEPTIONNER LA COMMANDE
                 </div>
 
                 {!isOpen && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Marque cette commande comme reçue sur le chantier.
                       Si une partie manque, choisis « Détailler article par article » :
                       un reliquat sera créé automatiquement pour les manquants.
                     </div>
-                    <button
-                      className="epj-btn"
+                    <Button
+                      full
                       onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'14px',fontSize:14,fontWeight:700}}
-                    >📦 Réceptionner cette commande</button>
+                    >📦 Réceptionner cette commande</Button>
                   </>
                 )}
 
                 {isOpen && reception.mode === "choice" && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Choisis le mode de réception :
                     </div>
-                    <button
-                      className="epj-btn"
+                    <div style={{marginBottom:space.sm}}>
+                    <Button
+                      full
                       onClick={async () => {
                         if (!confirm(`Confirmer que la commande ${o.num} a été entièrement reçue ?`)) return;
                         const ok = await performReceptionChantier(o, { quick: true });
@@ -2954,44 +2901,48 @@ export function CommandesInner({ onExitModule }) {
                           setSelectedOrder({...o, statut: "Réceptionnée", dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
                         }
                       }}
-                      style={{width:'100%',background:EPJ.green,color:'#fff',padding:'14px',fontSize:14,fontWeight:700,marginBottom:8}}
-                    >✅ Tout réceptionné</button>
-                    <button
+                    >✅ Tout réceptionné</Button>
+                    </div>
+                    <Button
+                      full
+                      variant="secondary"
                       onClick={() => {
                         // Pré-remplit chaque ligne avec la quantité commandée
                         const initQties = {};
                         items.forEach((it, idx) => { initQties[idx] = normalizeQty(it.qty || it.qte); });
                         setReception({ orderId: o._id, mode: "detail", qties: initQties });
                       }}
-                      style={{width:'100%',background:'#fff',color:EPJ.green,border:`2px solid ${EPJ.green}`,padding:'12px',fontSize:13,fontWeight:600,borderRadius:8,cursor:'pointer',fontFamily:font}}
-                    >📝 Détailler article par article</button>
-                    <button
+                    >📝 Détailler article par article</Button>
+                    <div style={{marginTop:6}}>
+                    <Button
+                      full
+                      variant="ghost"
                       onClick={() => setReception({ orderId: null, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
-                    >Annuler</button>
+                    >Annuler</Button>
+                    </div>
                   </>
                 )}
 
                 {isOpen && reception.mode === "detail" && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Saisis pour chaque article la quantité <b>réellement reçue</b>.
                       Les manquants seront mis en reliquat.
                     </div>
-                    <div style={{maxHeight:280,overflowY:'auto',background:'#fafafa',borderRadius:8,padding:8,marginBottom:10}}>
+                    <div style={{maxHeight:280,overflowY:'auto',background:EPJ.gray50,borderRadius:radius.sm + 2,padding:space.sm,marginBottom:space.sm + 2}}>
                       {items.map((it, idx) => {
                         const ordered = normalizeQty(it.qty || it.qte);
                         const received = normalizeQty(reception.qties[idx]);
                         return (
-                          <div key={idx} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,paddingBottom:6,borderBottom:'1px solid #eee'}}>
+                          <div key={idx} style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:6,paddingBottom:6,borderBottom:`1px solid ${EPJ.gray200}`}}>
                             <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontFamily:fontFamilies.mono}}>
                                 {it.r || it.ref || ""}
                               </div>
-                              <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                              <div style={{fontSize:fontSize.xs,color:EPJ.gray,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                                 {it.n || it.designation || ""}
                               </div>
-                              <div style={{fontSize:10,color:EPJ.gray}}>
+                              <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontVariantNumeric:'tabular-nums'}}>
                                 Commandé : <b>{ordered}</b> {it.u || "Pièce"}
                               </div>
                             </div>
@@ -3005,9 +2956,9 @@ export function CommandesInner({ onExitModule }) {
                                 setReception(r => ({ ...r, qties: { ...r.qties, [idx]: v }}));
                               }}
                               style={{
-                                width:60,padding:'6px',fontSize:14,fontWeight:700,
+                                width:60,padding:6,fontSize:fontSize.md,fontWeight:fontWeight.medium,
                                 border:`2px solid ${received === ordered ? EPJ.green : received === 0 ? EPJ.red : EPJ.orange}`,
-                                borderRadius:6,textAlign:'center',
+                                borderRadius:radius.sm,textAlign:'center',fontFamily:font,fontVariantNumeric:'tabular-nums',
                               }}
                             />
                           </div>
@@ -3015,7 +2966,7 @@ export function CommandesInner({ onExitModule }) {
                       })}
                     </div>
                     {!validation.valid && (
-                      <div style={{background:'#FFEBEE',color:'#C62828',padding:8,borderRadius:6,fontSize:11,marginBottom:8}}>
+                      <div style={{background:EPJ.dangerBg,color:EPJ.redText,padding:space.sm,borderRadius:radius.sm,fontSize:fontSize.xs,marginBottom:space.sm}}>
                         {validation.errors.map((err, i) => <div key={i}>⚠️ {err}</div>)}
                       </div>
                     )}
@@ -3033,12 +2984,15 @@ export function CommandesInner({ onExitModule }) {
                           setSelectedOrder({...o, statut: newStatut, dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
                         }
                       }}
-                      style={{width:'100%',background:validation.valid?EPJ.green:'#ccc',color:'#fff',padding:'14px',fontSize:14,fontWeight:700,cursor:validation.valid?'pointer':'not-allowed'}}
+                      style={{width:'100%',background:validation.valid?EPJ.green:EPJ.gray300,color:EPJ.white,padding:space.md + 2,fontSize:fontSize.md,fontWeight:fontWeight.medium,cursor:validation.valid?'pointer':'not-allowed',border:'none',borderRadius:radius.md,fontFamily:font}}
                     >✅ Valider la réception détaillée</button>
-                    <button
+                    <div style={{marginTop:6}}>
+                    <Button
+                      full
+                      variant="ghost"
                       onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
-                    >← Retour</button>
+                    >← Retour</Button>
+                    </div>
                   </>
                 )}
               </div>
@@ -3049,11 +3003,11 @@ export function CommandesInner({ onExitModule }) {
           {o.type === "chantier"
             && (o.statut === "Réceptionnée" || o.statut === "Réceptionnée partiellement")
             && (
-            <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',marginBottom:10,display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+            <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:`${space.md}px ${space.lg}px`,marginBottom:space.sm + 2,display:'flex',alignItems:'center',gap:space.sm + 2,border:`1px solid ${EPJ.green}66`}}>
               <span style={{fontSize:24}}>{o.statut === "Réceptionnée" ? "✅" : "📦"}</span>
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>{o.statut}</div>
-                <div style={{fontSize:11,color:'#388E3C'}}>
+                <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>{o.statut}</div>
+                <div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>
                   Le {o.dateReceptionEffective||o.date}{o.receptionParNom ? ` par ${o.receptionParNom}` : ''}
                 </div>
               </div>
@@ -3061,15 +3015,16 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           {o.statut === "Refusée" && user.fonction === "Admin" && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.gray}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.dark,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.gray400}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray600,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 ↩ RÉOUVRIR LA COMMANDE
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Cette commande a été refusée. Tu peux la réouvrir pour la re-valider.
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
+                variant="secondary"
                 onClick={async () => {
                   if (!confirm(`Réouvrir la commande ${o.num} ? Elle repassera en attente de validation.`)) return;
                   try {
@@ -3081,55 +3036,46 @@ export function CommandesInner({ onExitModule }) {
                     setSelectedOrder({...o, statut: "En attente de validation", motifRefus: ""});
                   } catch(e) { showT("❌ " + e.message); }
                 }}
-                style={{
-                  width:'100%',
-                  background:EPJ.gray,
-                  color:'#fff',padding:'12px',fontSize:14,
-                }}
-              >↩ Réouvrir cette commande</button>
+              >↩ Réouvrir cette commande</Button>
             </div>
           )}
 
           {/* ─── v10.G.2 — Bouton "Modifier" sur les commandes encore éditables ─── */}
           {canEditOrder(o) && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.orange}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.orange,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.orange}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.orangeText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 ✏️ MODIFIER CETTE COMMANDE
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 {o.statut === "Envoyée aux achats"
                   ? "Cette commande a été envoyée aux achats. La modifier déclenchera une notification à la Direction (à renvoyer aux achats)."
                   : (!user.directAchat && o.statut !== "En attente de validation")
                     ? "Après enregistrement, la commande repassera en attente de validation."
                     : "Tu peux ajouter, retirer ou modifier la quantité des articles."}
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
+                variant="secondary"
                 onClick={() => beginEditOrder(o)}
-                style={{
-                  width:'100%',
-                  background:EPJ.orange,
-                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
-                }}
-              >✏️ Modifier les articles ou les détails</button>
+              >✏️ Modifier les articles ou les détails</Button>
             </div>
           )}
 
           {/* ─── v10.G.2 — Historique des modifications ─── */}
           {Array.isArray(o.editHistory) && o.editHistory.length > 0 && (
-            <div className="epj-card" style={{marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm}}>
                 📝 Historique des modifications ({o.editHistory.length})
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:6}}>
                 {o.editHistory.slice().reverse().map((h, i) => (
-                  <div key={i} style={{fontSize:11,padding:8,background:EPJ.grayLight,borderRadius:6,lineHeight:1.4}}>
-                    <div style={{fontWeight:600,color:EPJ.dark}}>
+                  <div key={i} style={{fontSize:fontSize.xs,padding:space.sm,background:EPJ.gray50,borderRadius:radius.sm,lineHeight:1.4}}>
+                    <div style={{fontWeight:fontWeight.medium,color:EPJ.dark}}>
                       {h.by} • {new Date(h.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
                     </div>
                     <div style={{color:EPJ.gray,marginTop:2}}>{h.summary}</div>
                     {h.previousStatut !== h.newStatut && (
-                      <div style={{fontSize:10,color:EPJ.gray,fontStyle:'italic',marginTop:2}}>
+                      <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontStyle:'italic',marginTop:2}}>
                         statut : {h.previousStatut} → {h.newStatut}
                       </div>
                     )}
@@ -3140,26 +3086,28 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           <div className="epj-card">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>Articles par fournisseur</div>
-              {/* Bouton re-générer PDF */}
-              <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:EPJ.blue,color:'#fff',padding:'6px 14px',fontSize:11}}>📄 PDF</button>
-              {o.type==='equipement'&&(o.signatureData?<span style={{fontSize:11,color:'#2E7D32',fontWeight:700}}>✅ Réceptionnée</span>:<button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:EPJ.green,color:'#fff',padding:'6px 14px',fontSize:11}}>✍️ Réception</button>)}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.sm + 2,gap:space.sm}}>
+              <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark}}>Articles par fournisseur</div>
+              <div style={{display:'flex',gap:space.sm,alignItems:'center'}}>
+                {/* Bouton re-générer PDF */}
+                <Button size="sm" variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 PDF</Button>
+                {o.type==='equipement'&&(o.signatureData?<span style={{fontSize:fontSize.xs,color:EPJ.greenText,fontWeight:fontWeight.medium}}>✅ Réceptionnée</span>:<Button size="sm" onClick={()=>openReceptionSheet(o)}>✍️ Réception</Button>)}
+              </div>
             </div>
             {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
-              <div key={code} style={{marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:6,paddingBottom:4,borderBottom:`2px solid ${EPJ.blue}22`}}>▸ {code} ({items.length})</div>
-                {items.map(it=>(<div key={it.r} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #f5f5f5'}}><Thumb cat={it.c} imageUrl={it.img}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:EPJ.dark}}>{it.n}</div><div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div></div><div style={{fontSize:14,fontWeight:800,color:EPJ.blue}}>x{it.qty}</div></div>))}
+              <div key={code} style={{marginBottom:space.md}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:6,paddingBottom:space.xs,borderBottom:`2px solid ${EPJ.blue}22`,fontFamily:fontFamilies.mono}}>▸ {code} ({items.length})</div>
+                {items.map(it=>(<div key={it.r} style={{display:'flex',alignItems:'center',gap:space.sm,padding:'6px 0',borderBottom:`1px solid ${EPJ.gray100}`}}><Thumb cat={it.c} imageUrl={it.img}/><div style={{flex:1}}><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark}}>{it.n}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div></div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.blueText,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</div></div>))}
               </div>
             ))}
-            <div style={{marginTop:10,padding:'10px 0',borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
+            <div style={{marginTop:space.sm + 2,padding:`${space.sm + 2}px 0`,borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:fontWeight.medium,color:EPJ.dark,fontVariantNumeric:'tabular-nums'}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
           </div>
-          {o.signatureData&&<div className="epj-card" style={{marginBottom:10,border:`2px solid ${EPJ.green}`}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          {o.signatureData&&<div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.green}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:space.sm}}>
               <span style={{fontSize:20}}>✅</span>
-              <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+              <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>Réception confirmée</div><div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
             </div>
-            <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray}33`,borderRadius:8,background:'#fafafa',padding:4}}/>
+            <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,padding:space.xs}}/>
           </div>}
 
           {/* v1.13.0 — Fil de discussion sur la commande */}
@@ -3237,61 +3185,83 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(1100)}>
         <Header title="À commander" back={true} backView="home" showCart={false}/>
-        <div style={{padding:'10px 12px',background:'#FFF8E1',borderBottom:`1px solid ${EPJ.orange}33`,fontSize:12,color:'#E65100',lineHeight:1.4}}>
-          <strong>{toOrder.length}</strong> commande{toOrder.length>1?'s':''} à passer chez le fournisseur. Clique sur une commande pour la passer (en totalité ou partiellement).
+        <div style={{padding:`${space.sm}px ${space.md}px ${space.xs}px`}}>
+          <Banner
+            tone="warning"
+            icon="📦"
+            title={`${toOrder.length} commande${toOrder.length>1?'s':''} à passer chez le fournisseur`}
+            text="Clique sur une commande pour la passer (en totalité ou partiellement)."
+          />
         </div>
-        <div style={{padding:12}}>
+        <div style={{padding:`0 ${space.md}px ${space.md}px`}}>
           {toOrder.length === 0 && (
-            <div style={{textAlign:'center',padding:'40px 12px',color:EPJ.gray,fontSize:13}}>
-              <div style={{fontSize:44,marginBottom:8}}>✨</div>
+            <div style={{textAlign:'center',padding:`${space.xxl + 8}px ${space.md}px`,color:EPJ.gray500,fontSize:fontSize.sm}}>
+              <div style={{fontSize:44,marginBottom:space.sm,opacity:.7}}>✨</div>
               Tout est passé. Aucune commande en attente.
             </div>
           )}
           {Object.entries(byStatus).map(([statusName, list]) => (
             list.length > 0 && (
-              <div key={statusName} style={{marginBottom:14}}>
+              <div key={statusName} style={{marginBottom:space.md + 2}}>
                 <div style={{
-                  fontSize:11,fontWeight:700,letterSpacing:1,
-                  textTransform:'uppercase',color:STATUS_COLORS[statusName]?.color || EPJ.gray,
-                  marginBottom:6,paddingLeft:4,
+                  fontSize:fontSize.xs,fontWeight:fontWeight.medium,letterSpacing:'0.03em',
+                  textTransform:'uppercase',color:STATUT_ACCENT[statusName] || EPJ.gray,
+                  marginBottom:6,paddingLeft:space.xs,
                 }}>
-                  {STATUS_COLORS[statusName]?.icon} {statusName} ({list.length})
+                  {statusName} ({list.length})
                 </div>
-                {list.map(o => (
+                {isPwa ? list.map(o => (
                   <div
                     key={o._id}
                     onClick={() => { setSelectedOrder(o); setView('orderDetail'); }}
                     className="epj-card"
                     style={{
-                      marginBottom:8,cursor:'pointer',padding:12,
-                      borderLeft:`4px solid ${STATUS_COLORS[o.statut]?.color || EPJ.gray}`,
+                      marginBottom:space.sm,cursor:'pointer',padding:space.md,
+                      borderLeft:`4px solid ${STATUT_ACCENT[o.statut] || EPJ.gray}`,
                     }}
                   >
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4,gap:8}}>
-                      <div style={{fontSize:14,fontWeight:800,color:EPJ.dark}}>
-                        {o.urgent && <span style={{color:EPJ.red,marginRight:4}}>⚠️</span>}
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:space.xs,gap:space.sm}}>
+                      <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>
+                        {o.urgent && <span style={{color:EPJ.red,marginRight:space.xs}}>⚠️</span>}
                         {o.num}
                         {o.commanderPlusTard === true && (
-                          <span style={{marginLeft:6,fontSize:10,fontWeight:700,background:`${EPJ.orange}22`,color:'#E65100',padding:'2px 6px',borderRadius:4,whiteSpace:'nowrap'}}>⏳ Commander plus tard</span>
+                          <span style={{marginLeft:6,verticalAlign:'middle'}}><Badge tone="warning" label="⏳ Commander plus tard"/></span>
                         )}
                       </div>
-                      <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
+                      <div style={{fontSize:fontSize.xs,color:EPJ.gray,whiteSpace:'nowrap'}}>{o.date}</div>
                     </div>
-                    <div style={{fontSize:12,color:EPJ.dark,marginBottom:3}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.dark,marginBottom:3}}>
                       {o.type === 'equipement'
                         ? <>👤 {o.salarie || "—"}</>
                         : <>🏗️ {o.chantier || "—"}{o.numAffaire ? <span style={{color:EPJ.gray}}> [{o.numAffaire}]</span> : null}</>
                       }
                     </div>
-                    <div style={{fontSize:11,color:EPJ.gray,display:'flex',justifyContent:'space-between'}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,display:'flex',justifyContent:'space-between'}}>
                       <span>Par {o.user || "—"} · {(o.items||[]).length} réf.</span>
                       {o.dateReception && <span>Souhaité : {o.dateReception}</span>}
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <DataTable
+                    columns={[
+                      { key:'num', header:'N°', render:(v,o)=>(
+                        <span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>
+                          {o.urgent?'⚠️ ':''}{v}
+                          {o.commanderPlusTard === true && <span style={{marginLeft:6}}><Badge tone="warning" label="⏳ plus tard"/></span>}
+                        </span>) },
+                      { key:'date', header:'Date', sortable:false },
+                      { key:'_cible', header:'Chantier / Destinataire' },
+                      { key:'user', header:'Par' },
+                      { key:'_refs', header:'Réf.', numeric:true },
+                      { key:'dateReception', header:'Souhaité', render:(v)=>v||'—' },
+                    ]}
+                    rows={list.map(o=>({ ...o, _key:o._id, _refs:(o.items||[]).length, _cible: o.type==='equipement' ? (o.salarie||'—') : `${o.chantier||'—'}${o.numAffaire?` [${o.numAffaire}]`:''}` }))}
+                    keyField="_key"
+                    onRowClick={(o)=>{ setSelectedOrder(o); setView('orderDetail'); }}
+                  />
+                )}
               </div>
             )
           ))}
@@ -3358,8 +3328,9 @@ export function CommandesInner({ onExitModule }) {
       showT("Photo supprimée");
     };
     // ─── v10.G — Import / Export Excel du catalogue ───
-    const handleExportCatalog = () => {
+    const handleExportCatalog = async () => {
       try {
+        const XLSX = await import("xlsx");
         const aoa = articlesToAoa(dynCatalog);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         // Largeurs colonnes
@@ -3389,6 +3360,7 @@ export function CommandesInner({ onExitModule }) {
       }
       setAdminSaving(true);
       try {
+        const XLSX = await import("xlsx");
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
         // Cherche la feuille "Catalogue" en priorité, sinon la 1ère
@@ -3536,71 +3508,72 @@ export function CommandesInner({ onExitModule }) {
 
     // ─── Admin menu ───
     if(!adminSection) return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720)}>
         <Header title="⚙️ Admin Catalogue" back={true} backView="home" showCart={false}/>
-        <div style={{padding:16}}>
-          <div style={{background:'#E3F2FD',border:'1px solid #90CAF9',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:'#0D47A1',lineHeight:1.4}}>
-            ℹ️ <b>Utilisateurs & chantiers</b> sont désormais gérés dans l'Administration générale (icône ⚙ en haut à droite de l'accueil).
-          </div>
+        <div style={{padding:space.lg}}>
+          <Banner
+            tone="info"
+            icon="ℹ️"
+            title="Utilisateurs & chantiers"
+            text="Désormais gérés dans l'Administration générale (icône ⚙ en haut à droite de l'accueil)."
+          />
           {[
             {key:'categories',icon:'📁',label:'Catégories & Sous-catégories',desc:`${[...new Set(dynCatalog.map(p=>p.c))].length} catégories`},
             {key:'catalog',icon:'📦',label:'Articles du catalogue',desc:`${dynCatalog.length} article(s)`},
           ].map(s=>(
-            <div key={s.key} onClick={()=>{setAdminSection(s.key);setAdminEdit(null);setAdminForm({})}} className="epj-card" style={{marginBottom:10,cursor:'pointer',display:'flex',alignItems:'center',gap:14}}>
-              <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{s.icon}</div>
-              <div><div style={{fontWeight:700,fontSize:15,color:EPJ.dark}}>{s.label}</div><div style={{fontSize:12,color:EPJ.gray}}>{s.desc}</div></div>
+            <div key={s.key} onClick={()=>{setAdminSection(s.key);setAdminEdit(null);setAdminForm({})}} className="epj-card clickable" style={{marginBottom:space.sm + 2,cursor:'pointer',display:'flex',alignItems:'center',gap:space.md + 2}}>
+              <div style={{width:48,height:48,borderRadius:radius.lg,background:`${EPJ.blue}1A`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{s.icon}</div>
+              <div><div style={{fontWeight:fontWeight.medium,fontSize:fontSize.base,color:EPJ.dark}}>{s.label}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{s.desc}</div></div>
             </div>
           ))}
-          <div style={{marginTop:20,borderTop:`1px solid #ddd`,paddingTop:16}}>
+          <div style={{marginTop:space.xl - 4,borderTop:`1px solid ${EPJ.gray200}`,paddingTop:space.lg}}>
             {/* ─── v10.G — Bloc Import / Export Excel ─── */}
-            <div style={{marginBottom:18,padding:12,background:'#F4F8FB',border:`1px solid ${EPJ.blue}33`,borderRadius:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+            <div style={{marginBottom:space.lg + 2,padding:space.md,background:EPJ.gray50,border:`1px solid ${EPJ.blue}33`,borderRadius:radius.md}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm,display:'flex',alignItems:'center',gap:6}}>
                 📊 Import / Export Excel
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Mets à jour ou exporte le catalogue via un fichier Excel. Format à plat 9 colonnes (Catégorie, Sous-catégorie, Référence, Désignation, Unité, Stock, Fournisseur principal, Code Esabora, Photo URL).
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                <button
-                  className="epj-btn"
-                  onClick={()=>triggerImport('merge')}
-                  disabled={adminSaving}
-                  style={{flex:1,minWidth:140,background:EPJ.blue,color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Fusion (upsert) : ajoute les nouveaux, met à jour les existants. Articles non listés conservés."
-                >
-                  📥 Importer (fusionner)
-                </button>
-                <button
-                  className="epj-btn"
-                  onClick={()=>triggerImport('replace')}
-                  disabled={adminSaving}
-                  style={{flex:1,minWidth:140,background:'#C62828',color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Efface tout le catalogue Firestore puis importe. Action destructive."
-                >
-                  🗑️ Importer (remplacer)
-                </button>
-                <button
-                  className="epj-btn"
-                  onClick={handleExportCatalog}
-                  disabled={adminSaving || dynCatalog.length===0}
-                  style={{flex:1,minWidth:140,background:EPJ.green,color:'#fff',padding:'10px 12px',fontSize:12}}
-                  title="Télécharge le catalogue actuel au format Excel"
-                >
-                  📤 Exporter en Excel
-                </button>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm"
+                    onClick={()=>triggerImport('merge')}
+                    disabled={adminSaving}
+                    title="Fusion (upsert) : ajoute les nouveaux, met à jour les existants. Articles non listés conservés."
+                  >📥 Importer (fusionner)</Button>
+                </div>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm" variant="danger"
+                    onClick={()=>triggerImport('replace')}
+                    disabled={adminSaving}
+                    title="Efface tout le catalogue Firestore puis importe. Action destructive."
+                  >🗑️ Importer (remplacer)</Button>
+                </div>
+                <div style={{flex:1,minWidth:140}}>
+                  <Button
+                    full size="sm" variant="secondary"
+                    onClick={handleExportCatalog}
+                    disabled={adminSaving || dynCatalog.length===0}
+                    title="Télécharge le catalogue actuel au format Excel"
+                  >📤 Exporter en Excel</Button>
+                </div>
               </div>
-              <div style={{fontSize:10,color:EPJ.gray,marginTop:8,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.sm,lineHeight:1.4}}>
                 💡 <b>Fusionner</b> : ajoute / met à jour, sans supprimer les articles absents du fichier.
                 <br/>💡 <b>Remplacer</b> : EFFACE tout puis recharge depuis le fichier (confirmation requise).
               </div>
             </div>
 
-            <button className="epj-btn" onClick={adminInitAll} disabled={adminSaving} style={{width:'100%',background:'#555',color:'#fff',padding:'14px',fontSize:14,marginBottom:8}}>
-              {adminSaving?'⏳ En cours...':`🔄 Réinitialiser Firebase (${CATALOG_SEED.length} articles)`}
-            </button>
-            <div style={{fontSize:11,color:EPJ.gray,textAlign:'center',marginBottom:12}}>⚠️ Charge les données par défaut. Confirmation requise par saisie. À utiliser uniquement si la base est corrompue ou vide.</div>
-            <button className="epj-btn" onClick={async()=>{
+            <div style={{marginBottom:space.sm}}>
+              <Button full variant="secondary" onClick={adminInitAll} disabled={adminSaving} loading={adminSaving}>
+                {`🔄 Réinitialiser Firebase (${CATALOG_SEED.length} articles)`}
+              </Button>
+            </div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,textAlign:'center',marginBottom:space.md}}>⚠️ Charge les données par défaut. Confirmation requise par saisie. À utiliser uniquement si la base est corrompue ou vide.</div>
+            <Button full variant="secondary" onClick={async()=>{
               const validCats = new Set(CATALOG_SEED.map(p=>p.c));
               const orphanCats = [...new Set(dynCatalog.filter(p=>p.r && !validCats.has(p.c)).map(p=>p.c))];
               if(orphanCats.length===0){showT('✅ Aucune catégorie parasite');return;}
@@ -3611,13 +3584,13 @@ export function CommandesInner({ onExitModule }) {
                 try{ total += await deleteCategoryByQuery(cat); }catch(e){console.error("[admin] Erreur suppression catégorie parasite:", cat, e);}
               }
               setAdminSaving(false);showT(`🗑️ ${total} articles parasites supprimés`);
-            }} disabled={adminSaving} style={{width:'100%',background:'#E65100',color:'#fff',padding:'12px',fontSize:13,marginBottom:4}}>
+            }} disabled={adminSaving}>
               🧹 Nettoyer catégories parasites Firebase
-            </button>
-            <div style={{fontSize:10,color:EPJ.gray,textAlign:'center'}}>Supprime les anciennes catégories (Câbles, Câble Colonne, Vêtements...) non présentes dans le catalogue standard</div>
+            </Button>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray500,textAlign:'center',marginTop:space.xs}}>Supprime les anciennes catégories (Câbles, Câble Colonne, Vêtements...) non présentes dans le catalogue standard</div>
           </div>
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
 
@@ -3638,51 +3611,50 @@ export function CommandesInner({ onExitModule }) {
         showT('✅ Ordre sauvegardé');
       };
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
+      <div style={wrapStyle(720)}>
         <Header title={selectedCat?`📁 ${selectedCat}`:"📁 Catégories"} back={true} backView={selectedCat?"admin":"admin"} showCart={false}/>
-        <div style={{padding:12}}>
+        <div style={{padding:space.md}}>
           {!selectedCat ? (<>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle catégorie</button>
-            {adminEdit==='newCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
-                <input className="epj-input" placeholder="Nom de la catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
+            <div style={{marginBottom:space.md}}><Button full onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}}>+ Nouvelle catégorie</Button></div>
+            {adminEdit==='newCat'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+              <div style={{display:'flex',gap:space.sm,marginBottom:space.sm,alignItems:'flex-end'}}>
+                <div style={{flex:1}}><Field dense placeholder="Nom de la catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+                <div style={{width:56,height:46,borderRadius:radius.md,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:EPJ.gray50,overflow:'hidden',flexShrink:0}}>
                   {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
-                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:radius.sm + 2}}/>
                     : <span>{adminForm.icon||'📦'}</span>}
                 </div>
               </div>
-              <div style={{marginBottom:10}}>
+              <div style={{marginBottom:space.sm + 2}}>
                 <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full onClick={async()=>{
                   if(!adminForm.nom) return;
                   const newIcons = {...dynCatIcons, [adminForm.nom]:adminForm.icon||'📦'};
                   await setDoc(doc(db,"config","settings"),{catIcons:newIcons},{merge:true});
                   // Add a placeholder article to create the category
                   await setDoc(doc(db,"catalogue","__cat_"+adminForm.nom.replace(/\s/g,'_')),{c:adminForm.nom,s:'Général',r:'',n:'(catégorie vide)',u:'',img:''});
                   setAdminEdit(null);setAdminForm({});showT("✅ Catégorie ajoutée");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
+                }} disabled={adminSaving||!adminForm.nom}>💾 Ajouter</Button></div>
               </div>
             </div>}
             {cats.map((cat,idx)=>(
-              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+              <div key={cat} className="epj-card" style={{marginBottom:6,display:'flex',alignItems:'center',gap:space.sm}}>
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                  <button onClick={()=>moveCat(idx,-1)} disabled={idx===0} style={{background:idx===0?'#eee':EPJ.dark,color:idx===0?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===0?'default':'pointer',lineHeight:1}}>↑</button>
-                  <button onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?'#eee':EPJ.dark,color:idx===cats.length-1?'#bbb':'#fff',border:'none',borderRadius:6,width:24,height:22,fontSize:11,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
+                  <button aria-label={`Monter ${cat}`} onClick={()=>moveCat(idx,-1)} disabled={idx===0} style={{background:idx===0?EPJ.gray100:EPJ.dark,color:idx===0?EPJ.gray300:EPJ.white,border:'none',borderRadius:radius.sm,width:24,height:22,fontSize:fontSize.xs,cursor:idx===0?'default':'pointer',lineHeight:1}}>↑</button>
+                  <button aria-label={`Descendre ${cat}`} onClick={()=>moveCat(idx,1)} disabled={idx===cats.length-1} style={{background:idx===cats.length-1?EPJ.gray100:EPJ.dark,color:idx===cats.length-1?EPJ.gray300:EPJ.white,border:'none',borderRadius:radius.sm,width:24,height:22,fontSize:fontSize.xs,cursor:idx===cats.length-1?'default':'pointer',lineHeight:1}}>↓</button>
                 </div>
-                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+                <div onClick={()=>setSelectedCat(cat)} style={{flex:1,display:'flex',alignItems:'center',gap:space.sm + 2,cursor:'pointer'}}>
                   <CatIcon cat={cat} size={32}/>
                   <div>
-                    <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{cat}</div>
-                    <div style={{fontSize:10,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
+                    <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{cat}</div>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===cat).length} art. • {[...new Set(dynCatalog.filter(p=>p.c===cat).map(p=>p.s))].length} sous-cat.{dynEquipCats.includes(cat)?' • 👷 Équip.':''}</div>
                   </div>
                 </div>
-                <button onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>✏️</button>
-                <button onClick={async()=>{
+                <IconButton label={`Modifier la catégorie ${cat}`} onClick={()=>{setAdminEdit('renameCat');setAdminForm({oldNom:cat,nom:cat,icon:dynCatIcons[cat]||'📦',isEquip:dynEquipCats.includes(cat)})}}>✏️</IconButton>
+                <IconButton variant="danger" label={`Supprimer la catégorie ${cat}`} onClick={async()=>{
                   if(!confirm(`Supprimer la catégorie "${cat}" et tous ses articles ?`))return;
                   setAdminSaving(true);
                   try {
@@ -3694,29 +3666,29 @@ export function CommandesInner({ onExitModule }) {
                     showT(`🗑️ ${deleted} articles supprimés`);
                   } catch(e) { showT("❌ Erreur: "+e.message); }
                   setAdminSaving(false);
-                }} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:11,cursor:'pointer'}}>🗑️</button>
+                }}>🗑️</IconButton>
               </div>
             ))}
-            {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`,marginTop:10}}>
-              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✏️ Modifier la catégorie</div>
-              <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
-                <input className="epj-input" placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{flex:1,padding:'8px 10px',fontSize:13}}/>
-                <div style={{width:56,height:46,borderRadius:10,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:'#f8f9fa',overflow:'hidden',flexShrink:0}}>
+            {adminEdit==='renameCat'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`,marginTop:space.sm + 2}}>
+              <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>✏️ Modifier la catégorie</div>
+              <div style={{display:'flex',gap:space.sm,marginBottom:space.sm,alignItems:'flex-end'}}>
+                <div style={{flex:1}}><Field dense placeholder="Nouveau nom" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+                <div style={{width:56,height:46,borderRadius:radius.md,border:`2px solid ${EPJ.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,background:EPJ.gray50,overflow:'hidden',flexShrink:0}}>
                   {adminForm.icon&&(adminForm.icon.startsWith('http')||adminForm.icon.startsWith('data:'))
-                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}}/>
+                    ? <img src={adminForm.icon} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:radius.sm + 2}}/>
                     : <span>{adminForm.icon||'📦'}</span>}
                 </div>
               </div>
-              <div style={{marginBottom:10}}>
+              <div style={{marginBottom:space.sm + 2}}>
                 <EmojiPicker value={adminForm.icon||''} onChange={v=>setAdminForm(p=>({...p,icon:v}))}/>
               </div>
-              <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer',padding:'8px 10px',background:adminForm.isEquip?'#E8F5E9':'#f5f5f5',borderRadius:8,border:adminForm.isEquip?'2px solid #4CAF50':'2px solid #ddd'}}>
+              <label style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:space.md,cursor:'pointer',padding:`${space.sm}px ${space.sm + 2}px`,background:adminForm.isEquip?EPJ.successBg:EPJ.gray100,borderRadius:radius.sm + 2,border:adminForm.isEquip?`2px solid ${EPJ.green}`:`2px solid ${EPJ.gray200}`}}>
                 <input type="checkbox" checked={adminForm.isEquip||false} onChange={e=>setAdminForm(p=>({...p,isEquip:e.target.checked}))} style={{width:18,height:18}}/>
-                <div><div style={{fontSize:13,fontWeight:600}}>Équipement Salarié</div><div style={{fontSize:10,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
+                <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>Équipement Salarié</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Visible dans "Commande Équipement"</div></div>
               </label>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full loading={adminSaving} onClick={async()=>{
                   if(!adminForm.nom||!adminForm.oldNom)return;
                   setAdminSaving(true);
                   // Si le nom a changé : déplacer les articles vers le nouveau nom de catégorie
@@ -3748,37 +3720,37 @@ export function CommandesInner({ onExitModule }) {
                   await setDoc(doc(db,"config","settings"),{catIcons:newIcons,equipCategories:newEquip,catOrder:newOrder},{merge:true});
                   setDynEquipCats(newEquip);setDynCatOrder(newOrder);
                   setAdminSaving(false);setAdminEdit(null);setAdminForm({});showT("✅ Catégorie mise à jour");
-                }} disabled={adminSaving||!adminForm.nom} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Enregistrer'}</button>
+                }} disabled={adminSaving||!adminForm.nom}>💾 Enregistrer</Button></div>
               </div>
             </div>}
           </>) : (<>
-            <button className="epj-btn" onClick={()=>setSelectedCat(null)} style={{width:'100%',background:'#eee',color:EPJ.dark,padding:'10px',fontSize:13,marginBottom:12}}>← Toutes les catégories</button>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newSub');setAdminForm({nom:''})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle sous-catégorie dans {selectedCat}</button>
-            {adminEdit==='newSub'&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-              <input className="epj-input" placeholder="Nom de la sous-catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))} style={{marginBottom:8,padding:'8px 10px',fontSize:13}}/>
-              <div style={{display:'flex',gap:8}}>
-                <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-                <button className="epj-btn" onClick={async()=>{
+            <div style={{marginBottom:space.md}}><Button full variant="secondary" onClick={()=>setSelectedCat(null)}>← Toutes les catégories</Button></div>
+            <div style={{marginBottom:space.md}}><Button full onClick={()=>{setAdminEdit('newSub');setAdminForm({nom:''})}}>+ Nouvelle sous-catégorie dans {selectedCat}</Button></div>
+            {adminEdit==='newSub'&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+              <div style={{marginBottom:space.sm}}><Field dense placeholder="Nom de la sous-catégorie" value={adminForm.nom||''} onChange={e=>setAdminForm(p=>({...p,nom:e.target.value}))}/></div>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+                <div style={{flex:1}}><Button full onClick={async()=>{
                   const nom = (adminForm.nom||'').trim();
                   if(!nom) return;
                   try {
                     await setDoc(doc(db,"catalogue","__sub_"+selectedCat.replace(/[\/\s]/g,'_')+"_"+nom.replace(/[\/\s]/g,'_')),{c:selectedCat,s:nom,r:'',n:'(sous-catégorie vide)',u:'',img:'',stock:true});
                     setAdminEdit(null);setAdminForm({});showT("✅ Sous-catégorie ajoutée");
                   } catch(e) { showT("❌ Erreur: "+e.message); }
-                }} disabled={adminSaving||!(adminForm.nom||'').trim()} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>💾 Ajouter</button>
+                }} disabled={adminSaving||!(adminForm.nom||'').trim()}>💾 Ajouter</Button></div>
               </div>
             </div>}
             {subcats.map(sub=>(
               <div key={sub} className="epj-card" style={{marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{sub}</div>
-                  <div style={{fontSize:11,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===selectedCat&&p.s===sub).length} articles</div>
+                  <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{sub}</div>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{dynCatalog.filter(p=>p.c===selectedCat&&p.s===sub).length} articles</div>
                 </div>
               </div>
             ))}
           </>)}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );}
 
@@ -3791,33 +3763,37 @@ export function CommandesInner({ onExitModule }) {
       if(adminCatFilter) filtered = filtered.filter(p=>p.c===adminCatFilter);
       if(adminSearch) { const q=adminSearch.toLowerCase(); filtered=filtered.filter(p=>(p.n||'').toLowerCase().includes(q)||(p.r||'').toLowerCase().includes(q)); }
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
+      <div style={wrapStyle(900, { paddingBottom: 80 })}>
         <Header title="📦 Articles" back={true} backView="admin" showCart={false}/>
-        <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
-          <div style={{display:'flex',gap:6,marginBottom:6}}>
-            <select className="epj-input" value={adminCatFilter||''} onChange={e=>{setSelectedCat(e.target.value||null)}} style={{flex:1,fontSize:12,padding:'8px'}}><option value="">Toutes catégories</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
-          </div>
-          <input className="epj-input" placeholder="Rechercher..." value={adminSearch||''} onChange={e=>setSearch(e.target.value)} style={{fontSize:12,padding:'8px'}}/>
-        </div>
-        <div style={{padding:12}}>
-          <div style={{display:'flex',gap:6,marginBottom:12}}>
-            <button className="epj-btn" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:'',stock:true})}} style={{flex:1,background:EPJ.green,color:'#fff',padding:'10px',fontSize:13}}>+ Ajouter</button>
-            <button className="epj-btn" onClick={()=>{setBulkMode(!bulkMode);setBulkSelected([])}} style={{background:bulkMode?EPJ.orange:'#eee',color:bulkMode?'#fff':EPJ.dark,padding:'10px',fontSize:13}}>{bulkMode?'✓ Sélection':'☐ Sélection bloc'}</button>
-          </div>
-          {bulkMode&&bulkSelected.length>0&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.orange}`}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>{bulkSelected.length} article(s) sélectionné(s)</div>
-            <div style={{marginBottom:6}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Déplacer vers catégorie :</label>
-              <select className="epj-input" id="bulkCat" style={{padding:'6px',fontSize:12}}><option value="">--</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
+        <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.white,borderBottom:`1px solid ${EPJ.gray200}`}}>
+          <div style={{display:'flex',flexDirection:isPwa?'column':'row',gap:space.sm}}>
+            <div style={{flex:1}}>
+              <Field as="select" dense value={adminCatFilter||''} onChange={e=>{setSelectedCat(e.target.value||null)}}
+                options={[{value:'',label:'Toutes catégories'},...cats.map(c=>({value:c,label:c}))]}/>
             </div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>Sous-catégorie :</label>
-              <input className="epj-input" id="bulkSub" placeholder="Optionnel" style={{padding:'6px',fontSize:12}}/>
+            <div style={{flex:isPwa?undefined:2}}>
+              <Field dense placeholder="Rechercher..." value={adminSearch||''} onChange={e=>setSearch(e.target.value)}/>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:space.md}}>
+          <div style={{display:'flex',gap:6,marginBottom:space.md}}>
+            <div style={{flex:1}}><Button full size="sm" onClick={()=>{setAdminEdit('newArt');setAdminForm({c:adminCatFilter||cats[0]||'',s:'',r:'',n:'',u:'Pièce',img:'',stock:true})}}>+ Ajouter</Button></div>
+            <Button size="sm" variant={bulkMode?'primary':'secondary'} onClick={()=>{setBulkMode(!bulkMode);setBulkSelected([])}}>{bulkMode?'✓ Sélection':'☐ Sélection bloc'}</Button>
+          </div>
+          {bulkMode&&bulkSelected.length>0&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.orange}`}}>
+            <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,marginBottom:space.sm}}>{bulkSelected.length} article(s) sélectionné(s)</div>
+            <div style={{marginBottom:6}}>
+              <label style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500}}>Déplacer vers catégorie :</label>
+              <select className="epj-input" id="bulkCat" style={{padding:6,fontSize:fontSize.xs}}><option value="">--</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
+            </div>
+            <div style={{marginBottom:space.sm}}>
+              <label style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500}}>Sous-catégorie :</label>
+              <input className="epj-input" id="bulkSub" placeholder="Optionnel" style={{padding:6,fontSize:fontSize.xs}}/>
             </div>
             <div style={{display:'flex',gap:6}}>
-              <button className="epj-btn" onClick={()=>setBulkSelected([])} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'8px',fontSize:12}}>Tout désélectionner</button>
-              <button className="epj-btn" onClick={async()=>{
+              <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>setBulkSelected([])}>Tout désélectionner</Button></div>
+              <div style={{flex:1}}><Button full size="sm" loading={adminSaving} onClick={async()=>{
                 const newCat=document.getElementById('bulkCat').value;
                 const newSub=document.getElementById('bulkSub').value;
                 if(!newCat){showT('Choisissez une catégorie');return}
@@ -3843,67 +3819,66 @@ export function CommandesInner({ onExitModule }) {
                 }
                 setAdminSaving(false);setBulkSelected([]);setBulkMode(false);
                 showT(`✅ ${moved} article(s) déplacé(s)`);
-              }} disabled={adminSaving} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'8px',fontSize:12}}>{adminSaving?'⏳':'📦 Déplacer'}</button>
+              }} disabled={adminSaving}>📦 Déplacer</Button></div>
             </div>
           </div>}
-          {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:12,border:`2px solid ${EPJ.blue}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray}}>CATÉGORIE</label>
-              <select className="epj-input" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value,s:''}))} style={{padding:'8px',fontSize:13}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
+          {adminEdit&&(adminEdit==='newArt'||adminEdit.startsWith?.('edit_'))&&<div className="epj-card" style={{marginBottom:space.md,border:`1px solid ${EPJ.blue}`}}>
+            <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>{adminEdit==='newArt'?'Nouvel article':'Modifier article'}</div>
+            <div style={{marginBottom:space.sm}}>
+              <Field as="select" dense label="Catégorie" value={adminForm.c||''} onChange={e=>setAdminForm(p=>({...p,c:e.target.value,s:''}))}
+                options={cats.map(c=>({value:c,label:c}))}/>
             </div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>SOUS-CATÉGORIE</label>
+            <div style={{marginBottom:space.sm}}>
+              <label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:2}}>Sous-catégorie</label>
               {(()=>{const subs=[...new Set(dynCatalog.filter(p=>p.c===adminForm.c).map(p=>p.s))].sort();return subs.length>0?(
                 <div style={{display:'flex',gap:6}}>
-                  <select className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} style={{flex:1,padding:'8px',fontSize:13}}>
+                  <select className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} style={{flex:1,padding:space.sm,fontSize:fontSize.sm}}>
                     <option value="">-- Choisir --</option>
                     {subs.map(s=><option key={s} value={s}>{s}</option>)}
                     <option value="__new__">+ Nouvelle...</option>
                   </select>
-                  {adminForm.s==='__new__'&&<input className="epj-input" placeholder="Nom" value={adminForm._newSub||''} onChange={e=>setAdminForm(p=>({...p,_newSub:e.target.value,s:'__new__'}))} style={{flex:1,padding:'8px',fontSize:13}}/>}
+                  {adminForm.s==='__new__'&&<input className="epj-input" placeholder="Nom" value={adminForm._newSub||''} onChange={e=>setAdminForm(p=>({...p,_newSub:e.target.value,s:'__new__'}))} style={{flex:1,padding:space.sm,fontSize:fontSize.sm}}/>}
                 </div>
-              ):(<input className="epj-input" value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie" style={{padding:'8px 10px',fontSize:13}}/>)})()}
+              ):(<Field dense value={adminForm.s||''} onChange={e=>setAdminForm(p=>({...p,s:e.target.value}))} placeholder="Nom de la sous-catégorie"/>)})()}
             </div>
             {['r','n','u'].map(f=>(
-              <div key={f} style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:2}}>{f==='r'?'RÉFÉRENCE':f==='n'?'DÉSIGNATION':'UNITÉ'}</label>
-                <input className="epj-input" value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))} style={{padding:'8px 10px',fontSize:13}}/>
+              <div key={f} style={{marginBottom:space.sm}}>
+                <Field dense label={f==='r'?'Référence':f==='n'?'Désignation':'Unité'} mono={f==='r'} value={adminForm[f]||''} onChange={e=>setAdminForm(p=>({...p,[f]:e.target.value}))}/>
               </div>
             ))}
             {/* ─── Photo de l'article ─── */}
-            <div style={{marginBottom:12}}>
-              <label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>PHOTO</label>
+            <div style={{marginBottom:space.md}}>
+              <label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:space.xs}}>Photo</label>
               {adminForm.img ? (
                 <div>
-                  <img src={adminForm.img} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:8,border:'1px solid #ddd',display:'block',marginBottom:6}} onError={e=>{e.target.style.display='none'}}/>
+                  <img src={adminForm.img} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:radius.sm + 2,border:`1px solid ${EPJ.gray200}`,display:'block',marginBottom:6}} onError={e=>{e.target.style.display='none'}}/>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🖼 Bibliothèque</button>
-                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} disabled={!!artPhotoUploading} style={{flex:1,background:'#f5f5f5',color:EPJ.dark,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>📷 Caméra</button>
-                    <button type="button" onClick={handleArticlePhotoRemove} style={{background:'#fde7e7',color:EPJ.red,border:'none',borderRadius:6,padding:'8px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>🗑 Supprimer</button>
+                    <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>artFileInputLibraryRef.current?.click()} disabled={!!artPhotoUploading}>🖼 Bibliothèque</Button></div>
+                    <div style={{flex:1}}><Button full size="sm" variant="secondary" onClick={()=>artFileInputCameraRef.current?.click()} disabled={!!artPhotoUploading}>📷 Caméra</Button></div>
+                    <Button size="sm" variant="danger" onClick={handleArticlePhotoRemove}>🗑 Supprimer</Button>
                   </div>
                 </div>
               ) : (
                 artPhotoUploading ? (
-                  <div style={{width:'100%',padding:'18px 10px',border:`2px dashed ${EPJ.orange}`,borderRadius:8,background:`${EPJ.orange}14`,color:EPJ.orange,fontSize:13,fontWeight:600,textAlign:'center'}}>📤 Téléversement en cours… ({artPhotoUploading})</div>
+                  <div style={{width:'100%',padding:`${space.lg + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.orange}`,borderRadius:radius.sm + 2,background:EPJ.warningBg,color:EPJ.orangeText,fontSize:fontSize.sm,fontWeight:fontWeight.medium,textAlign:'center'}}>📤 Téléversement en cours… ({artPhotoUploading})</div>
                 ) : (
                   <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>🖼 Choisir depuis la bibliothèque</button>
-                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} style={{width:'100%',padding:'14px 10px',border:'2px dashed #ccc',borderRadius:8,background:'#fafafa',color:EPJ.dark,fontSize:13,fontWeight:600,cursor:'pointer'}}>📷 Prendre une photo (mobile)</button>
+                    <button type="button" onClick={()=>artFileInputLibraryRef.current?.click()} style={{width:'100%',padding:`${space.md + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,color:EPJ.dark,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font}}>🖼 Choisir depuis la bibliothèque</button>
+                    <button type="button" onClick={()=>artFileInputCameraRef.current?.click()} style={{width:'100%',padding:`${space.md + 2}px ${space.sm + 2}px`,border:`2px dashed ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,color:EPJ.dark,fontSize:fontSize.sm,fontWeight:fontWeight.medium,cursor:'pointer',fontFamily:font}}>📷 Prendre une photo (mobile)</button>
                   </div>
                 )
               )}
               <input ref={artFileInputLibraryRef} type="file" accept="image/*" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
               <input ref={artFileInputCameraRef} type="file" accept="image/*" capture="environment" onChange={handleArticlePhotoSelect} style={{display:'none'}}/>
-              <div style={{fontSize:10,color:EPJ.gray,marginTop:4}}>L'image sera compressée (max 1024 px) avant envoi.</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.xs}}>L'image sera compressée (max 1024 px) avant envoi.</div>
             </div>
-            <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,cursor:"pointer",padding:"8px 10px",background:adminForm.stock!==false?"#E8F5E9":"#FFF3E0",borderRadius:8,border:adminForm.stock!==false?"2px solid #4CAF50":"2px solid #FF9800"}}>
+            <label style={{display:"flex",alignItems:"center",gap:space.sm,marginBottom:space.md,cursor:"pointer",padding:`${space.sm}px ${space.sm + 2}px`,background:adminForm.stock!==false?EPJ.successBg:EPJ.warningBg,borderRadius:radius.sm + 2,border:adminForm.stock!==false?`2px solid ${EPJ.green}`:`2px solid ${EPJ.orange}`}}>
               <input type="checkbox" checked={adminForm.stock!==false} onChange={e=>setAdminForm(p=>({...p,stock:e.target.checked}))} style={{width:18,height:18}}/>
-              <div><div style={{fontSize:13,fontWeight:600}}>{adminForm.stock!==false?"📦 En stock":"⚠️ Hors stock"}</div><div style={{fontSize:10,color:EPJ.gray}}>Article tenu en stock au dépôt</div></div>
+              <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>{adminForm.stock!==false?"📦 En stock":"⚠️ Hors stock"}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>Article tenu en stock au dépôt</div></div>
             </label>
-            <div style={{display:'flex',gap:8}}>
-              <button className="epj-btn" onClick={()=>{setAdminEdit(null);setAdminForm({})}} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'10px'}}>Annuler</button>
-              <button className="epj-btn" onClick={async()=>{
+            <div style={{display:'flex',gap:space.sm}}>
+              <div style={{flex:1}}><Button full variant="secondary" onClick={()=>{setAdminEdit(null);setAdminForm({})}}>Annuler</Button></div>
+              <div style={{flex:1}}><Button full loading={adminSaving} onClick={async()=>{
                 // ─── v10.G.1 — Sauvegarde article ───────────────────
                 // docId composite {catégorie}__{référence}.
                 const newDocId = adminForm.r ? buildCatalogueDocId(adminForm.c, adminForm.r) : 'art_'+Date.now();
@@ -3917,25 +3892,25 @@ export function CommandesInner({ onExitModule }) {
                   try { await deleteDoc(doc(db,'catalogue',origDocId)); } catch(e){ console.warn("Suppression ancien docId échouée:", e); }
                 }
                 adminSave('catalogue',newDocId,saveData);
-              }} disabled={adminSaving||!adminForm.r||!adminForm.n} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'10px'}}>{adminSaving?'⏳':'💾 Sauvegarder'}</button>
+              }} disabled={adminSaving||!adminForm.r||!adminForm.n}>💾 Sauvegarder</Button></div>
             </div>
           </div>}
-          <div style={{fontSize:12,color:EPJ.gray,marginBottom:8}}>{filtered.length} article(s)</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm,fontVariantNumeric:'tabular-nums'}}>{filtered.length} article(s)</div>
           {filtered.slice(0,50).map(p=>(
-            <div key={p._docId||(p.c+'__'+p.r)} className="epj-card" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:bulkSelected.some(x=>x.c===p.c&&x.r===p.r)?'#E3F2FD':'#fff'}}>
+            <div key={p._docId||(p.c+'__'+p.r)} className="epj-card" style={{marginBottom:space.xs,display:'flex',alignItems:'center',gap:space.sm,padding:`${space.sm}px ${space.md}px`,background:bulkSelected.some(x=>x.c===p.c&&x.r===p.r)?EPJ.infoBg:EPJ.white}}>
               {bulkMode&&<input type="checkbox" checked={bulkSelected.some(x=>x.c===p.c&&x.r===p.r)} onChange={e=>{if(e.target.checked)setBulkSelected(s=>[...s,{c:p.c,r:p.r}]);else setBulkSelected(s=>s.filter(x=>!(x.c===p.c&&x.r===p.r)))}} style={{width:18,height:18,flexShrink:0}}/>}
-              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:6,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
+              {p.img?<img src={p.img} alt="" style={{width:36,height:36,borderRadius:radius.sm,objectFit:'cover'}}/>:<CatIcon cat={p.c} size={36}/>}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
-                <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.n}</div>
+                <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{p.r} • {p.s} {p.stock===false?'• ⚠️':''}</div>
               </div>
-              {!bulkMode&&<button onClick={()=>{setAdminEdit('edit_'+p.c+'__'+p.r);setAdminForm({...p,_origRef:p.r,_origCat:p.c})}} style={{background:EPJ.blue,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>✏️</button>}
-              {!bulkMode&&<button onClick={()=>{const docId=buildCatalogueDocId(p.c,p.r);adminDelete('catalogue',docId)}} style={{background:EPJ.red,color:'#fff',border:'none',borderRadius:8,padding:'4px 8px',fontSize:10,cursor:'pointer'}}>🗑️</button>}
+              {!bulkMode&&<IconButton label={`Modifier ${p.r}`} onClick={()=>{setAdminEdit('edit_'+p.c+'__'+p.r);setAdminForm({...p,_origRef:p.r,_origCat:p.c})}}>✏️</IconButton>}
+              {!bulkMode&&<IconButton variant="danger" label={`Supprimer ${p.r}`} onClick={()=>{const docId=buildCatalogueDocId(p.c,p.r);adminDelete('catalogue',docId)}}>🗑️</IconButton>}
             </div>
           ))}
-          {filtered.length>50&&<div style={{textAlign:'center',padding:10,fontSize:12,color:EPJ.gray}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
+          {filtered.length>50&&<div style={{textAlign:'center',padding:space.sm + 2,fontSize:fontSize.xs,color:EPJ.gray500}}>... et {filtered.length-50} autres articles (utilisez la recherche)</div>}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );}
   }

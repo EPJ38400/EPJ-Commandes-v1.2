@@ -32,6 +32,7 @@ export const EPJ = {
   warningBg:  "#FFF3E0",
   dangerBg:   "#FFEBEE",
   infoBg:     "#E3F2FD",
+  violetBg:   "#F3E8FA",  // fond doux assorti à catEtude — états « partiels » du workflow commandes
 
   // Texte sémantique foncé — lisible sur fonds clairs/doux (teinte foncée de chaque famille)
   greenText:  "#4C7A14",
