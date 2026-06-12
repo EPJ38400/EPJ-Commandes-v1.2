@@ -19,6 +19,10 @@ const TONES = {
   neutral: { bg: EPJ.gray100,   text: EPJ.gray600    },
   etude:   { bg: `${EPJ.catEtude}1A`, text: EPJ.catEtude },
   urgent:  { bg: `${EPJ.urgent}1A`,   text: EPJ.urgent   },
+  // Workflow commandes (décision PJ, lot trio) :
+  violet:        { bg: EPJ.violetBg,  text: EPJ.catEtude }, // règle : partiel = violet
+  successStrong: { bg: EPJ.greenText, text: EPJ.white },    // PLEIN — état terminal du
+  // workflow (Réceptionnée). Seule exception assumée au pattern fond doux + texte foncé.
 };
 
 // Table statut métier → { tone, label }. Source unique de vérité couleur.
@@ -29,16 +33,16 @@ const STATUS_MAP = {
   "Disponible":            { tone: "success", label: "Disponible" },
   "Maintenance":           { tone: "warning", label: "Maintenance" },
   "Hors service":          { tone: "danger",  label: "Hors service" },
-  // Commandes
-  "Commandée":             { tone: "info",    label: "Commandée" },
+  // Commandes — 4 états du workflow = 4 couleurs distinctes (décision PJ, lot trio) :
+  // Envoyée = bleu · partiel = violet · Commandée = vert clair · Réceptionnée = vert plein.
+  "Commandée":             { tone: "success", label: "Commandée" },
   "En attente de validation": { tone: "warning", label: "En attente" },
   "Validée":               { tone: "info",    label: "Validée" },
   "Envoyée aux achats":    { tone: "info",    label: "Envoyée aux achats" },
-  "Réceptionnée":          { tone: "success", label: "Réceptionnée" },
+  "Réceptionnée":          { tone: "successStrong", label: "Réceptionnée" },
   "Refusée":               { tone: "danger",  label: "Refusée" },
-  // Commandes — statuts partiels & scission (ajout lot trio, strictement additif)
-  "Commandée partiellement":    { tone: "warning", label: "Commandée partiellement" },
-  "Réceptionnée partiellement": { tone: "warning", label: "Réceptionnée partiellement" },
+  "Commandée partiellement":    { tone: "violet", label: "Commandée partiellement" },
+  "Réceptionnée partiellement": { tone: "violet", label: "Réceptionnée partiellement" },
   "Scindée":               { tone: "neutral", label: "Scindée" },
   // Réserves (clés = statut Firestore)
   "creee":                 { tone: "neutral", label: "Créée" },

@@ -85,11 +85,11 @@ const STATUT_ACCENT = {
   "En attente de validation": EPJ.orangeText,
   "Validée": EPJ.blueText,
   "Envoyée aux achats": EPJ.blueText,
-  "Commandée": EPJ.blueText,
-  "Commandée partiellement": EPJ.orangeText,
+  "Commandée": EPJ.greenText,
+  "Commandée partiellement": EPJ.catEtude,      // partiel = violet (décision PJ)
   "Refusée": EPJ.redText,
   "Réceptionnée": EPJ.greenText,
-  "Réceptionnée partiellement": EPJ.orangeText,
+  "Réceptionnée partiellement": EPJ.catEtude,   // partiel = violet (décision PJ)
   "Scindée": EPJ.gray600,
 };
 
