@@ -1717,43 +1717,44 @@ export function CommandesInner({ onExitModule }) {
     const o = receptionOrder;
     const alreadySigned = !!o.signatureData;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
-        <div style={{padding:'12px 16px'}}>
+      <div style={wrapStyle(720)}>
+        <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
+        <div style={{padding:`${space.md}px ${space.lg}px`}}>
           {/* Infos commande */}
-          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Bénéficiaire</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{o.salarie||o.user}</div></div>
-              <div><div style={{fontSize:9,fontWeight:700,color:EPJ.gray,textTransform:'uppercase'}}>Date de remise</div><div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>{new Date().toLocaleDateString('fr-FR')}</div></div>
+          <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`,borderLeft:`3px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:space.sm,marginBottom:space.sm}}>
+              <div><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em'}}>Bénéficiaire</div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{o.salarie||o.user}</div></div>
+              <div><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em'}}>Date de remise</div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{new Date().toLocaleDateString('fr-FR')}</div></div>
             </div>
-            <div style={{fontSize:10,color:EPJ.gray}}>Commande {o.num} • {o.date}</div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>Commande {o.num} • {o.date}</div>
           </div>
           {/* Articles */}
-          <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',marginBottom:8}}>Articles ({o.items?.length||0} réf.)</div>
+          <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`}}>
+            <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray500,textTransform:'uppercase',letterSpacing:'0.03em',marginBottom:space.sm}}>Articles ({o.items?.length||0} réf.)</div>
             {(o.items||[]).map((it,i)=>(
-              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<(o.items.length-1)?`1px solid ${EPJ.grayLight}`:'none'}}>
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<(o.items.length-1)?`1px solid ${EPJ.gray100}`:'none'}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.n}</div>
-                  <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.n}</div>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div>
                 </div>
-                <div style={{marginLeft:8,background:EPJ.blue,color:'#fff',borderRadius:8,padding:'2px 10px',fontWeight:700,fontSize:13}}>×{it.qty}</div>
+                <div style={{marginLeft:space.sm,background:EPJ.infoBg,color:EPJ.blueText,borderRadius:radius.pill,padding:'2px 10px',fontWeight:fontWeight.medium,fontSize:fontSize.sm,fontVariantNumeric:'tabular-nums'}}>×{it.qty}</div>
               </div>
             ))}
           </div>
           {alreadySigned ? (
             /* Vue si déjà réceptionnée */
-            <div style={{background:'#E8F5E9',borderRadius:14,padding:20,textAlign:'center',border:'2px solid #4CAF50'}}>
-              <div style={{fontSize:32,marginBottom:8}}>✅</div>
-              <div style={{fontSize:16,fontWeight:700,color:'#2E7D32',marginBottom:4}}>Réception confirmée</div>
-              <div style={{fontSize:12,color:'#388E3C',marginBottom:16}}>Signée le {o.dateReception||o.date}</div>
-              <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:100,objectFit:'contain',border:'1px solid #ccc',borderRadius:8,background:'#fff',padding:4}}/>
-              <button className="epj-btn" onClick={()=>setView('history')} style={{width:'100%',marginTop:16,background:EPJ.dark,color:'#fff',padding:'12px'}}>← Retour historique</button>
+            <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:space.xl - 4,textAlign:'center',border:`1px solid ${EPJ.green}66`}}>
+              <div style={{fontSize:32,marginBottom:space.sm}}>✅</div>
+              <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.greenText,marginBottom:space.xs}}>Réception confirmée</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85,marginBottom:space.lg}}>Signée le {o.dateReception||o.date}</div>
+              <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:100,objectFit:'contain',border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.white,padding:space.xs}}/>
+              <div style={{marginTop:space.lg}}><Button full variant="secondary" onClick={()=>setView('history')}>← Retour historique</Button></div>
             </div>
           ) : (
             /* Zone signature */
-            <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${EPJ.dark}`}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>✍️ Signature de {o.salarie||o.user}</div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10}}>Signez avec le doigt ci-dessous, puis appuyez sur Enregistrer</div>
+            <div style={{background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.md,border:`1px solid ${EPJ.gray200}`,borderLeft:`3px solid ${EPJ.dark}`}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs}}>✍️ Signature de {o.salarie||o.user}</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2}}>Signez avec le doigt (ou la souris) ci-dessous, puis appuyez sur Enregistrer</div>
               <canvas
                 id="receptionCanvas"
                 width={460} height={160}
@@ -1776,11 +1777,11 @@ export function CommandesInner({ onExitModule }) {
                   el.addEventListener('touchend',()=>drawing=false);
                 }}
               />
-              <button onClick={()=>{const c=document.getElementById('receptionCanvas');const ctx=c.getContext('2d');ctx.fillStyle='#fafafa';ctx.fillRect(0,0,c.width,c.height);}} style={{width:'100%',marginTop:8,padding:'8px',border:`1px solid ${EPJ.gray}`,borderRadius:8,background:'#fff',cursor:'pointer',fontSize:12,color:EPJ.gray}}>🗑 Effacer et recommencer</button>
+              <button onClick={()=>{const c=document.getElementById('receptionCanvas');const ctx=c.getContext('2d');ctx.fillStyle='#fafafa';ctx.fillRect(0,0,c.width,c.height);}} style={{width:'100%',marginTop:space.sm,padding:space.sm,border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.white,cursor:'pointer',fontSize:fontSize.xs,color:EPJ.gray,fontFamily:font}}>🗑 Effacer et recommencer</button>
             </div>
           )}
           {!alreadySigned && (
-            <button className="epj-btn" style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:16,fontWeight:700,borderRadius:14}} onClick={async()=>{
+            <Button full onClick={async()=>{
               const c = document.getElementById('receptionCanvas');
               if(!c){showT('❌ Erreur canvas');return;}
               const sigData = c.toDataURL('image/png');
@@ -1809,10 +1810,10 @@ export function CommandesInner({ onExitModule }) {
                   console.warn("[v10.I] SMS réception non bloquant:", smsErr);
                 }
               }catch(e){showT('❌ Erreur: '+e.message);}
-            }}>✅ Enregistrer la réception</button>
+            }}>✅ Enregistrer la réception</Button>
           )}
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
@@ -2591,16 +2592,17 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={o.num} back={true} backView="history" showCart={false}/>
-        <div style={{padding:12}}>
-          <div className="epj-card" style={{marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <div style={{fontSize:18,fontWeight:800,color:EPJ.dark}}>{o.num}</div>
+      <div style={wrapStyle(720)}>
+        <Header title={o.num} back={true} backView="history" showCart={false}/>
+        <div style={{padding:space.md}}>
+          <div className="epj-card" style={{marginBottom:space.sm + 2}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.md}}>
+              <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{o.num}</div>
               {(()=>{const s=getStatusDisplay(o);return(<Badge status={s.status} label={s.label} dot/>);})()}
             </div>
-            {o.urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
-            {o.motifRefus&&<div style={{background:'#FFEBEE',color:'#C62828',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>Motif : {o.motifRefus}</div>}
-            <div style={{background:EPJ.grayLight,borderRadius:10,padding:12,fontSize:13,lineHeight:1.8,color:EPJ.dark}}>
+            {o.urgent&&<div style={{marginBottom:space.sm + 2}}><Badge status="urgent" label="Urgent"/></div>}
+            {o.motifRefus&&<div style={{background:EPJ.dangerBg,color:EPJ.redText,padding:`${space.sm}px ${space.md}px`,borderRadius:radius.sm + 2,fontSize:fontSize.xs,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>Motif : {o.motifRefus}</div>}
+            <div style={{background:EPJ.gray50,borderRadius:radius.md,padding:space.md,fontSize:fontSize.sm,lineHeight:1.8,color:EPJ.dark}}>
               <strong>Date :</strong> {o.date}<br/><strong>Demandeur :</strong> {o.user}<br/>
               {o.chantier&&<><strong>Chantier :</strong> [{o.numAffaire}] {o.chantier}<br/></>}
               {o.type==='equipement'&&<><strong>Destinataire :</strong> {o.salarie}<br/></>}
@@ -2610,9 +2612,9 @@ export function CommandesInner({ onExitModule }) {
               {featureFlags.ocrArEnabled && o.datelivraison && (() => {
                 const { date: dFournisseur } = getExpectedDeliveryDate(o, { featureFlags });
                 return dFournisseur ? (
-                  <span style={{background:'#E3F2FD',padding:'2px 6px',borderRadius:4,fontSize:12}}>
-                    <strong style={{color:'#1565C0'}}>📨 Livraison annoncée fournisseur :</strong> {formatDateFR(dFournisseur)}
-                    {o.fournisseur ? <span style={{color:'#1565C0'}}> ({o.fournisseur})</span> : null}
+                  <span style={{background:EPJ.infoBg,padding:'2px 6px',borderRadius:radius.sm - 2,fontSize:fontSize.xs}}>
+                    <strong style={{color:EPJ.blueText}}>📨 Livraison annoncée fournisseur :</strong> {formatDateFR(dFournisseur)}
+                    {o.fournisseur ? <span style={{color:EPJ.blueText}}> ({o.fournisseur})</span> : null}
                   </span>
                 ) : null;
               })()}
@@ -2626,16 +2628,16 @@ export function CommandesInner({ onExitModule }) {
 
           {/* v10.D.2 — Actions workflow selon le statut ═══ */}
           {o.statut === "Validée" && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.blue}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.blue}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 📤 À ENVOYER AUX ACHATS
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Cette commande est validée mais n'a pas encore été envoyée aux achats.
                 Clique sur le bouton ci-dessous pour l'envoyer par email.
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
                 onClick={() => {
                   const mailDest = o.extraEmail ? `${dynEmailAchats},${o.extraEmail}` : dynEmailAchats;
                   const mailSubj = `${o.urgent?'⚠️ URGENT — ':''}Commande ${o.num} — ${o.chantier||o.salarie}`;
@@ -2658,51 +2660,41 @@ export function CommandesInner({ onExitModule }) {
                     }
                   }, 1500);
                 }}
-                style={{
-                  width:'100%',
-                  background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,
-                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
-                }}
-              >📨 Envoyer aux achats par email</button>
+              >📨 Envoyer aux achats par email</Button>
             </div>
           )}
 
           {/* v10.I — Fix 2 : bouton "Marquer commandée" réservé Admin/Direction/Assistante */}
           {/* v1.13.0 : ajout du bouton "Passer partiellement" à côté */}
           {(o.statut === "Envoyée aux achats" || o.statut === "Commandée partiellement") && canMarkAsCommandee() && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid #6A1B9A`}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#6A1B9A',marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.blue}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 🛒 COMMANDE PASSÉE CHEZ LE FOURNISSEUR ?
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 {o.statut === "Commandée partiellement"
                   ? "Cette commande a déjà été passée partiellement. Tu peux passer le reste, ou continuer en partiel si certaines lignes sont encore indisponibles."
                   : "Une fois que tu as effectivement passé la commande chez le fournisseur (saisie dans l'ERP, accusé de réception reçu...), clique ici. Si tu n'as pas pu tout commander (rupture, attente stock), utilise le bouton « partiellement »."}
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <button
-                  className="epj-btn"
-                  onClick={() => {
-                    markOrderAsCommandee(o).then(() => {
-                      setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
-                    });
-                  }}
-                  style={{
-                    flex:2,
-                    background:'#6A1B9A',
-                    color:'#fff',padding:'12px',fontSize:13,fontWeight:700,
-                  }}
-                >🛒 Tout commandé</button>
-                <button
-                  className="epj-btn"
-                  onClick={() => setPartialPassOrder(o)}
-                  style={{
-                    flex:1,
-                    background:EPJ.orange,
-                    color:'#fff',padding:'12px',fontSize:12,fontWeight:700,
-                  }}
-                  title="Cocher ligne par ligne ce qui a été commandé"
-                >◐ Partiel…</button>
+              <div style={{display:'flex',gap:space.sm}}>
+                <div style={{flex:2}}>
+                  <Button
+                    full
+                    onClick={() => {
+                      markOrderAsCommandee(o).then(() => {
+                        setSelectedOrder({...o, statut: "Commandée", dateCommande: new Date().toISOString()});
+                      });
+                    }}
+                  >🛒 Tout commandé</Button>
+                </div>
+                <div style={{flex:1}}>
+                  <Button
+                    full
+                    variant="secondary"
+                    onClick={() => setPartialPassOrder(o)}
+                    title="Cocher ligne par ligne ce qui a été commandé"
+                  >◐ Partiel…</Button>
+                </div>
               </div>
             </div>
           )}
@@ -2724,25 +2716,25 @@ export function CommandesInner({ onExitModule }) {
               && (Date.now() - new Date(o.esaboraStartedAt).getTime() < 30000);
             return (
               <div className="epj-card" style={{
-                marginBottom:10,
+                marginBottom:space.sm + 2,
                 borderLeft:`3px solid ${isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue}`,
               }}>
-                <div style={{fontSize:12,fontWeight:700,
-                  color: isSynced ? EPJ.green : isError ? EPJ.red : isPartial ? EPJ.orange : EPJ.blue,
-                  marginBottom:8}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,letterSpacing:'0.03em',
+                  color: isSynced ? EPJ.greenText : isError ? EPJ.redText : isPartial ? EPJ.orangeText : EPJ.blueText,
+                  marginBottom:space.sm}}>
                   🔗 SYNCHRONISATION ESABORA
                 </div>
 
                 {/* Statut */}
                 {isSynced && (
                   <div style={{
-                    background:`${EPJ.green}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:'#1B5E20',marginBottom:8,lineHeight:1.5,
+                    background:EPJ.successBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.greenText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ✅ Synchronisée le {o.esaboraSyncedAt ? new Date(o.esaboraSyncedAt).toLocaleString('fr-FR') : ''}
                     {o.esaboraSyncedBy ? ` par ${o.esaboraSyncedBy}` : ''}
                     {Array.isArray(o.esaboraResults) && (
-                      <div style={{marginTop:4,fontSize:10}}>
+                      <div style={{marginTop:space.xs,fontSize:fontSize.xs}}>
                         {o.esaboraResults.length} fournisseur(s) :
                         {o.esaboraResults.map(r => ` ${r.codeEsabora}✓`).join(",")}
                       </div>
@@ -2752,14 +2744,14 @@ export function CommandesInner({ onExitModule }) {
 
                 {isPartial && (
                   <div style={{
-                    background:`${EPJ.orange}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:EPJ.orange,marginBottom:8,lineHeight:1.5,
+                    background:EPJ.warningBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.orangeText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ⚠️ Synchronisation partielle — certains fournisseurs ont échoué.
                     {Array.isArray(o.esaboraResults) && o.esaboraResults
                       .filter(r => !r.ok)
                       .map((r,i) => (
-                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                        <div key={i} style={{marginTop:2,fontSize:fontSize.xs}}>
                           • {r.codeEsabora} : {r.error || 'erreur inconnue'}
                         </div>
                       ))}
@@ -2768,14 +2760,14 @@ export function CommandesInner({ onExitModule }) {
 
                 {isError && (
                   <div style={{
-                    background:`${EPJ.red}12`,padding:'8px 10px',borderRadius:6,
-                    fontSize:11,color:EPJ.red,marginBottom:8,lineHeight:1.5,
+                    background:EPJ.dangerBg,padding:`${space.sm}px ${space.sm + 2}px`,borderRadius:radius.sm,
+                    fontSize:fontSize.xs,color:EPJ.redText,marginBottom:space.sm,lineHeight:1.5,
                   }}>
                     ❌ Échec de synchronisation
                     {Array.isArray(o.esaboraResults) && o.esaboraResults
                       .filter(r => !r.ok)
                       .map((r,i) => (
-                        <div key={i} style={{marginTop:2,fontSize:10}}>
+                        <div key={i} style={{marginTop:2,fontSize:fontSize.xs}}>
                           • {r.codeEsabora} : {r.error || 'erreur'}
                         </div>
                       ))}
@@ -2783,7 +2775,7 @@ export function CommandesInner({ onExitModule }) {
                 )}
 
                 {!isSynced && !isPartial && !isError && (
-                  <div style={{fontSize:11,color:EPJ.gray,marginBottom:8,lineHeight:1.4}}>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm,lineHeight:1.4}}>
                     Cette commande peut être envoyée dans Esabora.
                     L'app va générer un fichier Excel par fournisseur (basé sur
                     le code Esabora de chaque article) et le pousser via Zapier.
@@ -2840,13 +2832,14 @@ export function CommandesInner({ onExitModule }) {
                   style={{
                     width:'100%',
                     background: isSynced
-                      ? `${EPJ.gray500}20`
+                      ? EPJ.white
                       : isError || isPartial
-                        ? `linear-gradient(135deg,${EPJ.orange},${EPJ.red})`
-                        : `linear-gradient(135deg,${EPJ.blue},#0077B6)`,
-                    color: isSynced ? EPJ.gray900 : '#fff',
-                    padding:'12px',fontSize:14,fontWeight:700,
+                        ? EPJ.orange
+                        : EPJ.blue,
+                    color: isSynced ? EPJ.gray900 : EPJ.white,
+                    padding:space.md,fontSize:fontSize.md,fontWeight:fontWeight.medium,
                     border: isSynced ? `1px solid ${EPJ.gray300}` : 'none',
+                    borderRadius:radius.md,fontFamily:font,
                     cursor: isInProgress ? 'wait' : 'pointer',
                     opacity: isInProgress ? 0.6 : 1,
                   }}
@@ -2873,33 +2866,33 @@ export function CommandesInner({ onExitModule }) {
               ? validateReceivedQuantities(items, reception.qties)
               : { valid: true, errors: [] };
             return (
-              <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.green}`}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#2E7D32',marginBottom:8}}>
+              <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.green}`}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.greenText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                   📦 RÉCEPTIONNER LA COMMANDE
                 </div>
 
                 {!isOpen && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Marque cette commande comme reçue sur le chantier.
                       Si une partie manque, choisis « Détailler article par article » :
                       un reliquat sera créé automatiquement pour les manquants.
                     </div>
-                    <button
-                      className="epj-btn"
+                    <Button
+                      full
                       onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'14px',fontSize:14,fontWeight:700}}
-                    >📦 Réceptionner cette commande</button>
+                    >📦 Réceptionner cette commande</Button>
                   </>
                 )}
 
                 {isOpen && reception.mode === "choice" && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Choisis le mode de réception :
                     </div>
-                    <button
-                      className="epj-btn"
+                    <div style={{marginBottom:space.sm}}>
+                    <Button
+                      full
                       onClick={async () => {
                         if (!confirm(`Confirmer que la commande ${o.num} a été entièrement reçue ?`)) return;
                         const ok = await performReceptionChantier(o, { quick: true });
@@ -2908,44 +2901,48 @@ export function CommandesInner({ onExitModule }) {
                           setSelectedOrder({...o, statut: "Réceptionnée", dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
                         }
                       }}
-                      style={{width:'100%',background:EPJ.green,color:'#fff',padding:'14px',fontSize:14,fontWeight:700,marginBottom:8}}
-                    >✅ Tout réceptionné</button>
-                    <button
+                    >✅ Tout réceptionné</Button>
+                    </div>
+                    <Button
+                      full
+                      variant="secondary"
                       onClick={() => {
                         // Pré-remplit chaque ligne avec la quantité commandée
                         const initQties = {};
                         items.forEach((it, idx) => { initQties[idx] = normalizeQty(it.qty || it.qte); });
                         setReception({ orderId: o._id, mode: "detail", qties: initQties });
                       }}
-                      style={{width:'100%',background:'#fff',color:EPJ.green,border:`2px solid ${EPJ.green}`,padding:'12px',fontSize:13,fontWeight:600,borderRadius:8,cursor:'pointer',fontFamily:font}}
-                    >📝 Détailler article par article</button>
-                    <button
+                    >📝 Détailler article par article</Button>
+                    <div style={{marginTop:6}}>
+                    <Button
+                      full
+                      variant="ghost"
                       onClick={() => setReception({ orderId: null, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
-                    >Annuler</button>
+                    >Annuler</Button>
+                    </div>
                   </>
                 )}
 
                 {isOpen && reception.mode === "detail" && (
                   <>
-                    <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                       Saisis pour chaque article la quantité <b>réellement reçue</b>.
                       Les manquants seront mis en reliquat.
                     </div>
-                    <div style={{maxHeight:280,overflowY:'auto',background:'#fafafa',borderRadius:8,padding:8,marginBottom:10}}>
+                    <div style={{maxHeight:280,overflowY:'auto',background:EPJ.gray50,borderRadius:radius.sm + 2,padding:space.sm,marginBottom:space.sm + 2}}>
                       {items.map((it, idx) => {
                         const ordered = normalizeQty(it.qty || it.qte);
                         const received = normalizeQty(reception.qties[idx]);
                         return (
-                          <div key={idx} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,paddingBottom:6,borderBottom:'1px solid #eee'}}>
+                          <div key={idx} style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:6,paddingBottom:6,borderBottom:`1px solid ${EPJ.gray200}`}}>
                             <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontFamily:fontFamilies.mono}}>
                                 {it.r || it.ref || ""}
                               </div>
-                              <div style={{fontSize:10,color:EPJ.gray,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                              <div style={{fontSize:fontSize.xs,color:EPJ.gray,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                                 {it.n || it.designation || ""}
                               </div>
-                              <div style={{fontSize:10,color:EPJ.gray}}>
+                              <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontVariantNumeric:'tabular-nums'}}>
                                 Commandé : <b>{ordered}</b> {it.u || "Pièce"}
                               </div>
                             </div>
@@ -2959,9 +2956,9 @@ export function CommandesInner({ onExitModule }) {
                                 setReception(r => ({ ...r, qties: { ...r.qties, [idx]: v }}));
                               }}
                               style={{
-                                width:60,padding:'6px',fontSize:14,fontWeight:700,
+                                width:60,padding:6,fontSize:fontSize.md,fontWeight:fontWeight.medium,
                                 border:`2px solid ${received === ordered ? EPJ.green : received === 0 ? EPJ.red : EPJ.orange}`,
-                                borderRadius:6,textAlign:'center',
+                                borderRadius:radius.sm,textAlign:'center',fontFamily:font,fontVariantNumeric:'tabular-nums',
                               }}
                             />
                           </div>
@@ -2969,7 +2966,7 @@ export function CommandesInner({ onExitModule }) {
                       })}
                     </div>
                     {!validation.valid && (
-                      <div style={{background:'#FFEBEE',color:'#C62828',padding:8,borderRadius:6,fontSize:11,marginBottom:8}}>
+                      <div style={{background:EPJ.dangerBg,color:EPJ.redText,padding:space.sm,borderRadius:radius.sm,fontSize:fontSize.xs,marginBottom:space.sm}}>
                         {validation.errors.map((err, i) => <div key={i}>⚠️ {err}</div>)}
                       </div>
                     )}
@@ -2987,12 +2984,15 @@ export function CommandesInner({ onExitModule }) {
                           setSelectedOrder({...o, statut: newStatut, dateReceptionEffective: new Date().toLocaleDateString('fr-FR')});
                         }
                       }}
-                      style={{width:'100%',background:validation.valid?EPJ.green:'#ccc',color:'#fff',padding:'14px',fontSize:14,fontWeight:700,cursor:validation.valid?'pointer':'not-allowed'}}
+                      style={{width:'100%',background:validation.valid?EPJ.green:EPJ.gray300,color:EPJ.white,padding:space.md + 2,fontSize:fontSize.md,fontWeight:fontWeight.medium,cursor:validation.valid?'pointer':'not-allowed',border:'none',borderRadius:radius.md,fontFamily:font}}
                     >✅ Valider la réception détaillée</button>
-                    <button
+                    <div style={{marginTop:6}}>
+                    <Button
+                      full
+                      variant="ghost"
                       onClick={() => setReception({ orderId: o._id, mode: "choice", qties: {} })}
-                      style={{width:'100%',background:'transparent',color:EPJ.gray,border:'none',padding:'8px',fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}
-                    >← Retour</button>
+                    >← Retour</Button>
+                    </div>
                   </>
                 )}
               </div>
@@ -3003,11 +3003,11 @@ export function CommandesInner({ onExitModule }) {
           {o.type === "chantier"
             && (o.statut === "Réceptionnée" || o.statut === "Réceptionnée partiellement")
             && (
-            <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',marginBottom:10,display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+            <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:`${space.md}px ${space.lg}px`,marginBottom:space.sm + 2,display:'flex',alignItems:'center',gap:space.sm + 2,border:`1px solid ${EPJ.green}66`}}>
               <span style={{fontSize:24}}>{o.statut === "Réceptionnée" ? "✅" : "📦"}</span>
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>{o.statut}</div>
-                <div style={{fontSize:11,color:'#388E3C'}}>
+                <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>{o.statut}</div>
+                <div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>
                   Le {o.dateReceptionEffective||o.date}{o.receptionParNom ? ` par ${o.receptionParNom}` : ''}
                 </div>
               </div>
@@ -3015,15 +3015,16 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           {o.statut === "Refusée" && user.fonction === "Admin" && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.gray}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.dark,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.gray400}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray600,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 ↩ RÉOUVRIR LA COMMANDE
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 Cette commande a été refusée. Tu peux la réouvrir pour la re-valider.
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
+                variant="secondary"
                 onClick={async () => {
                   if (!confirm(`Réouvrir la commande ${o.num} ? Elle repassera en attente de validation.`)) return;
                   try {
@@ -3035,55 +3036,46 @@ export function CommandesInner({ onExitModule }) {
                     setSelectedOrder({...o, statut: "En attente de validation", motifRefus: ""});
                   } catch(e) { showT("❌ " + e.message); }
                 }}
-                style={{
-                  width:'100%',
-                  background:EPJ.gray,
-                  color:'#fff',padding:'12px',fontSize:14,
-                }}
-              >↩ Réouvrir cette commande</button>
+              >↩ Réouvrir cette commande</Button>
             </div>
           )}
 
           {/* ─── v10.G.2 — Bouton "Modifier" sur les commandes encore éditables ─── */}
           {canEditOrder(o) && (
-            <div className="epj-card" style={{marginBottom:10,borderLeft:`3px solid ${EPJ.orange}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:EPJ.orange,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.orange}`}}>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.orangeText,marginBottom:space.sm,letterSpacing:'0.03em'}}>
                 ✏️ MODIFIER CETTE COMMANDE
               </div>
-              <div style={{fontSize:11,color:EPJ.gray,marginBottom:10,lineHeight:1.4}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:space.sm + 2,lineHeight:1.4}}>
                 {o.statut === "Envoyée aux achats"
                   ? "Cette commande a été envoyée aux achats. La modifier déclenchera une notification à la Direction (à renvoyer aux achats)."
                   : (!user.directAchat && o.statut !== "En attente de validation")
                     ? "Après enregistrement, la commande repassera en attente de validation."
                     : "Tu peux ajouter, retirer ou modifier la quantité des articles."}
               </div>
-              <button
-                className="epj-btn"
+              <Button
+                full
+                variant="secondary"
                 onClick={() => beginEditOrder(o)}
-                style={{
-                  width:'100%',
-                  background:EPJ.orange,
-                  color:'#fff',padding:'12px',fontSize:14,fontWeight:700,
-                }}
-              >✏️ Modifier les articles ou les détails</button>
+              >✏️ Modifier les articles ou les détails</Button>
             </div>
           )}
 
           {/* ─── v10.G.2 — Historique des modifications ─── */}
           {Array.isArray(o.editHistory) && o.editHistory.length > 0 && (
-            <div className="epj-card" style={{marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8}}>
+            <div className="epj-card" style={{marginBottom:space.sm + 2}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm}}>
                 📝 Historique des modifications ({o.editHistory.length})
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:6}}>
                 {o.editHistory.slice().reverse().map((h, i) => (
-                  <div key={i} style={{fontSize:11,padding:8,background:EPJ.grayLight,borderRadius:6,lineHeight:1.4}}>
-                    <div style={{fontWeight:600,color:EPJ.dark}}>
+                  <div key={i} style={{fontSize:fontSize.xs,padding:space.sm,background:EPJ.gray50,borderRadius:radius.sm,lineHeight:1.4}}>
+                    <div style={{fontWeight:fontWeight.medium,color:EPJ.dark}}>
                       {h.by} • {new Date(h.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
                     </div>
                     <div style={{color:EPJ.gray,marginTop:2}}>{h.summary}</div>
                     {h.previousStatut !== h.newStatut && (
-                      <div style={{fontSize:10,color:EPJ.gray,fontStyle:'italic',marginTop:2}}>
+                      <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontStyle:'italic',marginTop:2}}>
                         statut : {h.previousStatut} → {h.newStatut}
                       </div>
                     )}
@@ -3094,26 +3086,28 @@ export function CommandesInner({ onExitModule }) {
           )}
 
           <div className="epj-card">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>Articles par fournisseur</div>
-              {/* Bouton re-générer PDF */}
-              <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:EPJ.blue,color:'#fff',padding:'6px 14px',fontSize:11}}>📄 PDF</button>
-              {o.type==='equipement'&&(o.signatureData?<span style={{fontSize:11,color:'#2E7D32',fontWeight:700}}>✅ Réceptionnée</span>:<button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:EPJ.green,color:'#fff',padding:'6px 14px',fontSize:11}}>✍️ Réception</button>)}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.sm + 2,gap:space.sm}}>
+              <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark}}>Articles par fournisseur</div>
+              <div style={{display:'flex',gap:space.sm,alignItems:'center'}}>
+                {/* Bouton re-générer PDF */}
+                <Button size="sm" variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 PDF</Button>
+                {o.type==='equipement'&&(o.signatureData?<span style={{fontSize:fontSize.xs,color:EPJ.greenText,fontWeight:fontWeight.medium}}>✅ Réceptionnée</span>:<Button size="sm" onClick={()=>openReceptionSheet(o)}>✍️ Réception</Button>)}
+              </div>
             </div>
             {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
-              <div key={code} style={{marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:6,paddingBottom:4,borderBottom:`2px solid ${EPJ.blue}22`}}>▸ {code} ({items.length})</div>
-                {items.map(it=>(<div key={it.r} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #f5f5f5'}}><Thumb cat={it.c} imageUrl={it.img}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:EPJ.dark}}>{it.n}</div><div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div></div><div style={{fontSize:14,fontWeight:800,color:EPJ.blue}}>x{it.qty}</div></div>))}
+              <div key={code} style={{marginBottom:space.md}}>
+                <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:6,paddingBottom:space.xs,borderBottom:`2px solid ${EPJ.blue}22`,fontFamily:fontFamilies.mono}}>▸ {code} ({items.length})</div>
+                {items.map(it=>(<div key={it.r} style={{display:'flex',alignItems:'center',gap:space.sm,padding:'6px 0',borderBottom:`1px solid ${EPJ.gray100}`}}><Thumb cat={it.c} imageUrl={it.img}/><div style={{flex:1}}><div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark}}>{it.n}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div></div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.blueText,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</div></div>))}
               </div>
             ))}
-            <div style={{marginTop:10,padding:'10px 0',borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
+            <div style={{marginTop:space.sm + 2,padding:`${space.sm + 2}px 0`,borderTop:`2px solid ${EPJ.dark}11`,display:'flex',justifyContent:'space-between',fontWeight:fontWeight.medium,color:EPJ.dark,fontVariantNumeric:'tabular-nums'}}><span>Total</span><span>{(o.items||[]).reduce((s,i)=>s+(i.qty||0),0)} articles ({(o.items||[]).length} réf.)</span></div>
           </div>
-          {o.signatureData&&<div className="epj-card" style={{marginBottom:10,border:`2px solid ${EPJ.green}`}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          {o.signatureData&&<div className="epj-card" style={{marginBottom:space.sm + 2,borderLeft:`3px solid ${EPJ.green}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:space.sm,marginBottom:space.sm}}>
               <span style={{fontSize:20}}>✅</span>
-              <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+              <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>Réception confirmée</div><div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
             </div>
-            <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray}33`,borderRadius:8,background:'#fafafa',padding:4}}/>
+            <img src={o.signatureData} alt="Signature" style={{width:'100%',maxHeight:90,objectFit:'contain',border:`1px solid ${EPJ.gray300}`,borderRadius:radius.sm + 2,background:EPJ.gray50,padding:space.xs}}/>
           </div>}
 
           {/* v1.13.0 — Fil de discussion sur la commande */}
