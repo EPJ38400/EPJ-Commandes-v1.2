@@ -25,6 +25,7 @@ const DEFAULT_COMPANY = {
   mentionLegale: "Je soussigné(e) {CLIENT_NOM}, agissant en qualité de {CLIENT_QUALITE}, reconnais que les travaux de levée de la présente réserve ont été réalisés à ma satisfaction par l'entreprise EPJ Électricité Générale et accepte la levée définitive.",
   papierEnteteUrl: "",
   papierEntetePath: "",
+  papierEnteteDataUri: "", // Volet 2 BUG 3 : fond PDF embarqué (CORS hors-jeu)
   // v10.B.2 — Envoi email du quitus
   emailCopieAuto: "contact@epj-electricite.com", // Email en CC à chaque envoi quitus
   signatureMail:
@@ -39,6 +40,51 @@ const DEFAULT_COMPANY = {
     "pour une durée de 10 ans (prescription décennale BTP). Droit d'accès, " +
     "rectification ou suppression : contact@epj-electricite.com",
 };
+
+// ── Volet 2 BUG 3 : génération d'un data URI compressé du papier en-tête.
+//    Embarqué dans config/company → le quitus PDF (html2canvas) le lit en
+//    même origine, sans dépendre du CORS du bucket Storage. Best-effort :
+//    si trop lourd, on n'écrit rien et l'asset repo prend le relais.
+const MAX_PAPIER_SIDE = 1400;       // côté long max du fond A4
+const PAPIER_DATAURI_MAX = 300 * 1024; // garde-fou (config/company lu en continu)
+
+// Estime le poids réel (octets) encodés derrière un data URI base64.
+const dataUriBytes = (uri) => {
+  const i = (uri || "").indexOf(",");
+  if (i < 0) return 0;
+  const b64 = uri.slice(i + 1);
+  return Math.floor(b64.length * 0.75);
+};
+
+// Charge le fichier dans une <img> puis le ré-encode en JPEG compressé via canvas.
+// Tente qualité 0.8 ; si > 300 Ko, retente à 0.6. Renvoie "" si toujours trop lourd.
+const buildPapierDataUri = (file) => new Promise((resolve) => {
+  const img = new Image();
+  const objUrl = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(objUrl);
+    try {
+      const ratio = Math.min(1, MAX_PAPIER_SIDE / Math.max(img.width, img.height));
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; // aplat blanc (PNG transparent → fond blanc)
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      let uri = canvas.toDataURL("image/jpeg", 0.8);
+      if (dataUriBytes(uri) > PAPIER_DATAURI_MAX) {
+        uri = canvas.toDataURL("image/jpeg", 0.6);
+      }
+      resolve(dataUriBytes(uri) > PAPIER_DATAURI_MAX ? "" : uri);
+    } catch {
+      resolve("");
+    }
+  };
+  img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(""); };
+  img.src = objUrl;
+});
 
 export function AdminCompany({ onBack }) {
   const { config } = useData();
@@ -98,11 +144,28 @@ export function AdminCompany({ onBack }) {
       const fileRef2 = ref(storage, path);
       await uploadBytes(fileRef2, file);
       const url = await getDownloadURL(fileRef2);
-      const newForm = { ...form, papierEnteteUrl: url, papierEntetePath: path };
+
+      // Volet 2 : data URI compressé embarqué pour le rendu PDF (CORS hors-jeu).
+      const dataUri = await buildPapierDataUri(file);
+      let papierTropLourd = false;
+      if (!dataUri) {
+        // Soit erreur de lecture, soit > 300 Ko même après recompression :
+        // on ne stocke pas le champ (l'asset repo couvre le PDF par défaut).
+        papierTropLourd = true;
+      }
+
+      const newForm = {
+        ...form,
+        papierEnteteUrl: url,
+        papierEntetePath: path,
+        papierEnteteDataUri: dataUri, // "" si trop lourd → fallback asset repo
+      };
       setForm(newForm);
-      // Sauvegarde immédiate de l'URL
-      await setDoc(doc(db, "config", "company"), newForm);
-      alert("✓ Papier en-tête uploadé");
+      // Sauvegarde immédiate (merge : config/company est lu en continu par DataContext).
+      await setDoc(doc(db, "config", "company"), newForm, { merge: true });
+      alert(papierTropLourd
+        ? "✓ Papier en-tête uploadé.\n⚠️ Trop lourd pour l'aperçu PDF embarqué : le PDF utilisera la feuille en-tête par défaut. Pour un rendu PDF fidèle, fournis une image plus légère (< ~2 Mo)."
+        : "✓ Papier en-tête uploadé");
     } catch (e) {
       alert("❌ " + e.message);
     }
@@ -116,9 +179,9 @@ export function AdminCompany({ onBack }) {
       if (form.papierEntetePath) {
         try { await deleteObject(ref(storage, form.papierEntetePath)); } catch {}
       }
-      const newForm = { ...form, papierEnteteUrl: "", papierEntetePath: "" };
+      const newForm = { ...form, papierEnteteUrl: "", papierEntetePath: "", papierEnteteDataUri: "" };
       setForm(newForm);
-      await setDoc(doc(db, "config", "company"), newForm);
+      await setDoc(doc(db, "config", "company"), newForm, { merge: true });
     } catch (e) { alert("❌ " + e.message); }
   };
 

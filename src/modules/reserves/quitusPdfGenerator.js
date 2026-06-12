@@ -7,6 +7,16 @@
 //                               clientSignaturePng })
 // ═══════════════════════════════════════════════════════════════
 
+// Feuille en-tête embarquée dans le repo (même origine que l'app) : html2canvas
+// peut la lire sans en-têtes CORS. On n'utilise PLUS company.papierEnteteUrl
+// (image Storage cross-origin) comme source de l'<img> de fond, car le bucket
+// ne renvoie pas les en-têtes CORS → zone blanche dans le PDF (BUG 3).
+import papierEnteteAsset from "./assets/papier-entete.jpg";
+
+// Source du fond papier en-tête : un data URI configuré prime (si un jour
+// company.papierEnteteDataUri existe), sinon l'asset embarqué.
+const resolvePapierUrl = (co) => (co && co.papierEnteteDataUri) || papierEnteteAsset;
+
 const fmt = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -57,7 +67,7 @@ export function openQuitusWindow({
 }) {
   const co = company || {};
   const numReserve = reserve.numReserve || "—";
-  const papierUrl = co.papierEnteteUrl || "";
+  const papierUrl = resolvePapierUrl(co);
 
   // Variables de substitution pour la mention légale
   const mentionText = renderMention(co.mentionLegale || "", {
@@ -266,7 +276,7 @@ export function openQuitusWindow({
 </head>
 <body class="notranslate" translate="no">
   <div id="quitus-page">
-    ${papierUrl ? `<img class="bg-papier" src="${escapeHtml(papierUrl)}" crossorigin="anonymous" alt=""/>` : ""}
+    ${papierUrl ? `<img class="bg-papier" src="${escapeHtml(papierUrl)}" alt=""/>` : ""}
     <div class="content">
 
       <div class="title-block">
@@ -477,7 +487,7 @@ export function buildQuitusHtml({
 }) {
   const co = company || {};
   const numReserve = reserve.numReserve || "—";
-  const papierUrl = co.papierEnteteUrl || "";
+  const papierUrl = resolvePapierUrl(co);
 
   const mentionText = renderMention(co.mentionLegale || "", {
     CLIENT_NOM: clientNom || reserve.clientFinal?.nom || "—",
@@ -557,7 +567,7 @@ export function buildQuitusHtml({
 </head>
 <body class="notranslate" translate="no">
   <div id="quitus-page">
-    ${papierUrl ? `<img class="bg-papier" src="${escapeHtml(papierUrl)}" crossorigin="anonymous" alt=""/>` : ""}
+    ${papierUrl ? `<img class="bg-papier" src="${escapeHtml(papierUrl)}" alt=""/>` : ""}
     <div class="content">
       <div class="title-block">
         <div class="title-main">QUITUS DE LEVÉE<br/>DE RÉSERVE</div>
