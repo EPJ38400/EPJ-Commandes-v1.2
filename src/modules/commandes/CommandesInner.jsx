@@ -22,6 +22,15 @@ import {
   deleteSentSmsQueueDocs,
 } from "../../core/smsService";
 import { can } from "../../core/permissions";
+// Lot trio — tokens charte + primitives DS-1 (DIRECTION_ARTISTIQUE.md)
+import { EPJ, fontString as font, font as fontFamilies, radius, space, fontSize, fontWeight, shadow } from "../../core/theme";
+import { Badge } from "../../core/components/Badge";
+import { Button } from "../../core/components/Button";
+import { IconButton } from "../../core/components/IconButton";
+import { Field } from "../../core/components/Field";
+import { Banner } from "../../core/components/Banner";
+import { DataTable } from "../../core/components/DataTable";
+import { useViewport } from "../../core/useViewport";
 // v10.J — helpers réception (chantier) + dates (souhaitée/fournisseur)
 import {
   buildReceptionPayload, computeReliquatItems, validateReceivedQuantities, normalizeQty,
@@ -66,22 +75,37 @@ import { buildPartialPassPayload } from "./orderPartialPass";
 const CAT_ICONS = {"Béton + Descente":"🧱","Conduit + Manchon":"🔧","Équip. Sous-Sol":"🏗️","Plexo":"🔌","Placo":"📦","Colonne Montante":"⚡","Équipement Commun":"🏢","Équipement Logement":"🏠","Audace + Ovalis":"⚪","Courant Faible":"📡","Interphonie":"🔔","Lustrerie":"💡","Quincaillerie":"🔩","Outillage":"🛠️","Divers":"📎","Fils / Câbles":"🔌","Vêtements de travail":"👔","EPI":"🦺"};
 
 const EPJ_LOGO = "data:image/jpeg;base64,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gXajx44X0weCKetrJyHupXUggqVUdfoKAK1nqFzqMJuLaCNYtxCmVyC2O+AOKI9WC3Vxa3UflyQR+aSjblZfarNhYx6daLbRMzIpJBY880w6ZA2oSXrFmeSPy2U/dIoAoJqpv4o5lkht0Dbgj3G1mx/ewP0qzNq3lfZYkRJp7kkIEf5BjvnH9Kkg0z7LEIre6mjiBO1Plbb9MjNLJpkc1zbXMssjSW2dp4G7PrgUASK90hLTrCsagklGJP8AKqFvrn2uMyx/Z4kyQommwxHrgDitaRBJG0ZzhgQcVBYWMWn2i20RZlXOC3Xk5oAoprqk3UZjQy28RkBR9yOPY9qvafdm+sIbkpsMi525ziozpdub+S8bczSx+WyH7pFJBpv2WIQ293PHEv3U+Vtv5jNAEd7q6W18lmip5jLuLyPtVR9fWpLW9aecIZLVsgnEcpZvyxTptNjmniufMdLiNdolXGSPcYwaligljfc11JIP7rKoH6CgCeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
-const EPJ = {dark:"#3d3d3d",blue:"#00A3E0",orange:"#F5841F",green:"#A8C536",gray:"#8C8C8C",grayLight:"#f4f5f7",white:"#fff",red:"#E53935"};
-const font = "'Inter','Segoe UI',-apple-system,sans-serif";
-const STATUS_COLORS = {"En attente de validation":{bg:"#FFF3E0",color:"#E65100",icon:"⏳"},"Validée":{bg:"#E8F5E9",color:"#2E7D32",icon:"✅"},"Envoyée aux achats":{bg:"#E3F2FD",color:"#1565C0",icon:"📨"},"Commandée":{bg:"#F3E5F5",color:"#6A1B9A",icon:"🛒"},"Commandée partiellement":{bg:"#FFF8E1",color:"#E65100",icon:"🛒"},"Refusée":{bg:"#FFEBEE",color:"#C62828",icon:"❌"},"Réceptionnée":{bg:"#E8F5E9",color:"#1B5E20",icon:"📦"},"Réceptionnée partiellement":{bg:"#FFF8E1",color:"#F57F17",icon:"📦"},"Scindée":{bg:"#F5F5F5",color:"#9E9E9E",icon:"📂"}};
+// Lot trio : EPJ / font viennent désormais de src/core/theme.js (tokens charte).
+// La table statut→couleur vit dans <Badge> (source unique, DA §5). Restent ici :
+//   • ORDER_STATUTS : liste ordonnée des statuts commande (filtre Historique).
+//   • STATUT_ACCENT : teinte foncée par statut (bordures / labels de section),
+//     même famille que le tone <Badge> correspondant.
+const ORDER_STATUTS = ["En attente de validation","Validée","Envoyée aux achats","Commandée","Commandée partiellement","Refusée","Réceptionnée","Réceptionnée partiellement","Scindée"];
+const STATUT_ACCENT = {
+  "En attente de validation": EPJ.orangeText,
+  "Validée": EPJ.blueText,
+  "Envoyée aux achats": EPJ.blueText,
+  "Commandée": EPJ.blueText,
+  "Commandée partiellement": EPJ.orangeText,
+  "Refusée": EPJ.redText,
+  "Réceptionnée": EPJ.greenText,
+  "Réceptionnée partiellement": EPJ.orangeText,
+  "Scindée": EPJ.gray600,
+};
 
 // Affichage statut. Les enfants de scission ("-1"/"-2") suivent le cycle normal
 // d'une commande (Envoyée aux achats → Commandée …). Seul l'AFFICHAGE diffère :
 // une fois réellement commandé, un enfant de scission (createdBySplit) montre
 // "Partiellement commandée" (c'est une fraction de la commande d'origine).
 // Le statut réel reste "Commandée" → filtres et logique inchangés.
+// Retourne { status, label } à passer à <Badge status label> (la couleur est
+// décidée par la table centralisée de Badge, plus par cet écran).
 function getStatusDisplay(order) {
-  if (!order || !order.statut) return { bg:"#eee", color:"#333", icon:"", label:"—" };
-  const base = STATUS_COLORS[order.statut] || { bg:"#eee", color:"#333", icon:"" };
+  if (!order || !order.statut) return { status: null, label: "—" };
   if (order.createdBySplit === true && order.statut === "Commandée") {
-    return { ...base, label: "Partiellement commandée" };
+    return { status: "Commandée", label: "Partiellement commandée" };
   }
-  return { ...base, label: order.statut };
+  return { status: order.statut, label: order.statut };
 }
 
 // Équipement salarié = only Outillage category
@@ -1581,25 +1605,9 @@ export function CommandesInner({ onExitModule }) {
     }
   };
 
-  const css = `
-    *{box-sizing:border-box;margin:0;padding:0}
-    input:focus,select:focus,textarea:focus{border-color:${EPJ.blue}!important;outline:none;box-shadow:0 0 0 3px ${EPJ.blue}1A}
-    ::placeholder{color:#C7C7C7}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.4)}50%{box-shadow:0 0 0 8px rgba(229,57,53,0)}}
-    .epj-btn{border:none;border-radius:10px;padding:13px 18px;font-size:14px;font-weight:600;letter-spacing:-.01em;cursor:pointer;font-family:${font};transition:transform .15s ease,box-shadow .15s ease,background .15s ease}
-    .epj-btn:hover{transform:translateY(-1px)}
-    .epj-btn:active{transform:translateY(0) scale(.98)}
-    .epj-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
-    .epj-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #EAEAEA;font-size:14px;font-family:${font};background:#fff;transition:border-color .15s ease,box-shadow .15s ease;color:#1A1A1A}
-    .epj-card{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid #EAEAEA;border-radius:16px;padding:18px;transition:all .2s ease}
-    .epj-row{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid #EAEAEA;border-radius:12px;padding:12px 14px;margin-bottom:6px}
-    .badge-pulse{animation:badgePulse 2s infinite}
-    .status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
-    .qty-input{width:56px;text-align:center;font-size:16px;font-weight:700;border:1px solid #EAEAEA;border-radius:10px;padding:6px 4px;font-family:${font};background:#fff;font-variant-numeric:tabular-nums;color:#1A1A1A}
-    .qty-input:focus{border-color:${EPJ.blue};outline:none;box-shadow:0 0 0 3px ${EPJ.blue}1A}
-  `;
+  // Lot trio : le <style> local a été supprimé — les classes .epj-btn/.epj-input/
+  // .epj-card/.epj-row/.badge-pulse et les keyframes (fadeUp, spin, badgePulse)
+  // sont fournies par globalCss (src/core/theme.js), injecté par Layout.
 
   // ─── Header interne du module Commandes — v10.G ───
   // Sub-header sticky avec :
@@ -1726,9 +1734,7 @@ export function CommandesInner({ onExitModule }) {
     const o = receptionOrder;
     const alreadySigned = !!o.signatureData;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={`✍️ Réception ${o.num}`} back={!alreadySigned} backView="detail" showCart={false}/>
         <div style={{padding:'12px 16px'}}>
           {/* Infos commande */}
           <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:12,border:`2px solid ${alreadySigned?EPJ.green:EPJ.blue}`}}>
@@ -1832,9 +1838,7 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ HOME (page d'accueil du module Commandes) ═══
   if(view==="home") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
-      <div style={{padding:'18px 16px 8px',borderBottom:`1px solid #EAEAEA`,marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <div style={{padding:'18px 16px 8px',borderBottom:`1px solid #EAEAEA`,marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
         {/* v10.G : Le bouton "← Accueil" a été supprimé d'ici car le bouton
             🏠 Accueil du header global de l'app fait déjà cette action. */}
         <div style={{flex:1}}>
@@ -1887,9 +1891,7 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ CATALOG ═══
   if(view==="catalog") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-      <style>{css}</style>
-      <Header title={selectedCat||(orderType==='chantier'?'Catalogue Chantier':'Catalogue Équipement')} back={true} backView={selectedCat?'cats':'home'}/>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>      <Header title={selectedCat||(orderType==='chantier'?'Catalogue Chantier':'Catalogue Équipement')} back={true} backView={selectedCat?'cats':'home'}/>
       <div style={{padding:'8px 12px',background:EPJ.dark}}>
         <input className="epj-input" placeholder="Rechercher article, référence..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff'}}/>
       </div>
@@ -1963,9 +1965,7 @@ export function CommandesInner({ onExitModule }) {
   if(view==="cart"){
     const cg={};cartItems.forEach(i=>{if(!cg[i.c])cg[i.c]=[];cg[i.c].push(i)});
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
-        <Header title="Panier" back={true} backView="catalog" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="Panier" back={true} backView="catalog" showCart={false}/>
         <div style={{padding:'6px 12px',background:EPJ.dark,color:'rgba(255,255,255,.6)',fontSize:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span>{user.prenom} {user.nom} • {orderType==='chantier'?'Chantier':'Équipement'}</span>
           {cartItems.length>0&&<button onClick={()=>{setCart({});showT('Panier vidé')}} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff',borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑 Vider</button>}
@@ -2006,9 +2006,7 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ ORDER DETAILS ═══
   if(view==="details") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-      <style>{css}</style>
-      <Header title="Détails commande" back={true} backView="cart" showCart={false}/>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>      <Header title="Détails commande" back={true} backView="cart" showCart={false}/>
       <div style={{padding:12}}>
         <div className="epj-card" style={{marginBottom:10}}>
           {orderType==='chantier'?(
@@ -2059,9 +2057,7 @@ export function CommandesInner({ onExitModule }) {
     const byFourn={};cartItems.forEach(it=>{const c=it.r.split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
     const needsVal=orderType==='chantier'&&!user.directAchat;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
-        <Header title="Confirmation" back={true} backView="details" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="Confirmation" back={true} backView="details" showCart={false}/>
         <div style={{padding:12}}>
           <div className="epj-card" style={{marginBottom:10}}>
             {/* v10.G.2 : en mode édition, on affiche le numéro existant + bandeau */}
@@ -2141,12 +2137,10 @@ export function CommandesInner({ onExitModule }) {
     const mailtoUrl = `mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(buildMailBody())}`;
 
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>
-      <style>{css}</style>
-      <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>      <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
       <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
       <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
-      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div className="status-pill" style={{background:s.bg,color:s.color,marginTop:4}}>{s.icon||''} {s.label}</div></div>);})()}
+      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div style={{marginTop:4}}><Badge status={s.status} label={s.label} dot/></div></div>);})()}
       
       {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
         <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
@@ -2250,9 +2244,7 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title="Valider la commande" back={false} showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="Valider la commande" back={false} showCart={false}/>
         <div style={{padding:12}}>
           {/* Infos commande */}
           <div className="epj-card" style={{padding:14,marginBottom:10}}>
@@ -2423,9 +2415,7 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>
-        <style>{css}</style>
-        <div style={{fontSize:56,marginBottom:12}}>✅</div>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>        <div style={{fontSize:56,marginBottom:12}}>✅</div>
         <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>Commande validée !</div>
         <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>
           Elle est enregistrée en statut <strong>Validée</strong>.<br/>
@@ -2435,7 +2425,7 @@ export function CommandesInner({ onExitModule }) {
         <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}>
           <div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div>
           <div style={{fontSize:11,color:EPJ.gray,marginTop:2}}>{o.date} • {o.user} • {o.chantier||o.salarie}</div>
-          <div className="status-pill" style={{background:STATUS_COLORS['Validée']?.bg,color:STATUS_COLORS['Validée']?.color,marginTop:6}}>✅ Validée</div>
+          <div style={{marginTop:6}}><Badge status="Validée" label="Validée" dot/></div>
         </div>
         <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
           <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
@@ -2474,9 +2464,7 @@ export function CommandesInner({ onExitModule }) {
     const fullName=`${user.prenom} ${user.nom}`;
     const myP=user.fonction==="Admin"?pendingOrders:pendingOrders.filter(o=>{const ch=dynChantiers.find(c=>c.nom===o.chantier);return ch&&ch.conducteur===fullName});
     return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title="Commandes à valider" back={true} backView="home" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="Commandes à valider" back={true} backView="home" showCart={false}/>
         <div style={{padding:12}}>
           {myP.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>✅</div><div style={{fontWeight:600}}>Aucune commande en attente</div></div>
           :myP.map(o=>(
@@ -2512,9 +2500,7 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ PDF PREVIEW (after validation) ═══
   if(view==="pdfPreview"&&pdfOrder) return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
-      <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <Header title="PDF Commande" back={true} backView="home" showCart={false}/>
       <div style={{padding:12}}>
         <PdfView order={pdfOrder}/>
         <button className="epj-btn" onClick={()=>{setPdfOrder(null);setView('home')}} style={{width:'100%',marginTop:12,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>← Commandes</button>
@@ -2568,12 +2554,10 @@ export function CommandesInner({ onExitModule }) {
       return (b.num || "").localeCompare(a.num || "");
     });
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-      <style>{css}</style>
-      <Header title="Historique" back={true} backView="home" showCart={false}/>
+    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>      <Header title="Historique" back={true} backView="home" showCart={false}/>
       <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
         <div style={{display:'flex',gap:6}}>
-          <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{Object.keys(STATUS_COLORS).map(s=><option key={s} value={s}>{s}</option>)}</select>
+          <select className="epj-input" value={historyFilter.statut} onChange={e=>setHistoryFilter(f=>({...f,statut:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous statuts</option>{ORDER_STATUTS.map(s=><option key={s} value={s}>{s}</option>)}</select>
           <select className="epj-input" value={historyFilter.chantier} onChange={e=>setHistoryFilter(f=>({...f,chantier:e.target.value}))} style={{flex:1,fontSize:12,padding:'8px 10px'}}><option value="">Tous chantiers</option>{[...new Set(myHistory.filter(h=>h.chantier).map(h=>h.chantier))].map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
         {(() => {
@@ -2599,7 +2583,7 @@ export function CommandesInner({ onExitModule }) {
           <div key={h._id||i} className="epj-card" style={{marginBottom:8,cursor:'pointer'}}>
             <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
               <div><div style={{fontSize:14,fontWeight:700,color:EPJ.dark}}>{h.num}</div><div style={{fontSize:12,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:12,color:EPJ.blue,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
-              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginBottom:4}}>URGENT</div>}<div className="status-pill" style={{background:s.bg||'#eee',color:s.color||'#333'}}>{s.icon||''} {s.label||'—'}</div></div>);})()}
+              {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:4}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
             </div>
             {canDeleteThisOrder(h)&&<button onClick={async(e)=>{
               e.stopPropagation();
@@ -2635,14 +2619,12 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title={o.num} back={true} backView="history" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={o.num} back={true} backView="history" showCart={false}/>
         <div style={{padding:12}}>
           <div className="epj-card" style={{marginBottom:10}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
               <div style={{fontSize:18,fontWeight:800,color:EPJ.dark}}>{o.num}</div>
-              {(()=>{const s=getStatusDisplay(o);return(<div className="status-pill" style={{background:s.bg,color:s.color,fontSize:12,padding:'5px 12px'}}>{s.icon} {s.label}</div>);})()}
+              {(()=>{const s=getStatusDisplay(o);return(<Badge status={s.status} label={s.label} dot/>);})()}
             </div>
             {o.urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
             {o.motifRefus&&<div style={{background:'#FFEBEE',color:'#C62828',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>Motif : {o.motifRefus}</div>}
@@ -3237,9 +3219,7 @@ export function CommandesInner({ onExitModule }) {
           }}
         />
       )}
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title="À commander" back={true} backView="home" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="À commander" back={true} backView="home" showCart={false}/>
         <div style={{padding:'10px 12px',background:'#FFF8E1',borderBottom:`1px solid ${EPJ.orange}33`,fontSize:12,color:'#E65100',lineHeight:1.4}}>
           <strong>{toOrder.length}</strong> commande{toOrder.length>1?'s':''} à passer chez le fournisseur. Clique sur une commande pour la passer (en totalité ou partiellement).
         </div>
@@ -3255,10 +3235,10 @@ export function CommandesInner({ onExitModule }) {
               <div key={statusName} style={{marginBottom:14}}>
                 <div style={{
                   fontSize:11,fontWeight:700,letterSpacing:1,
-                  textTransform:'uppercase',color:STATUS_COLORS[statusName]?.color || EPJ.gray,
+                  textTransform:'uppercase',color:STATUT_ACCENT[statusName] || EPJ.gray,
                   marginBottom:6,paddingLeft:4,
                 }}>
-                  {STATUS_COLORS[statusName]?.icon} {statusName} ({list.length})
+                  {statusName} ({list.length})
                 </div>
                 {list.map(o => (
                   <div
@@ -3267,7 +3247,7 @@ export function CommandesInner({ onExitModule }) {
                     className="epj-card"
                     style={{
                       marginBottom:8,cursor:'pointer',padding:12,
-                      borderLeft:`4px solid ${STATUS_COLORS[o.statut]?.color || EPJ.gray}`,
+                      borderLeft:`4px solid ${STATUT_ACCENT[o.statut] || EPJ.gray}`,
                     }}
                   >
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4,gap:8}}>
@@ -3538,9 +3518,7 @@ export function CommandesInner({ onExitModule }) {
 
     // ─── Admin menu ───
     if(!adminSection) return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title="⚙️ Admin Catalogue" back={true} backView="home" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="⚙️ Admin Catalogue" back={true} backView="home" showCart={false}/>
         <div style={{padding:16}}>
           <div style={{background:'#E3F2FD',border:'1px solid #90CAF9',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:'#0D47A1',lineHeight:1.4}}>
             ℹ️ <b>Utilisateurs & chantiers</b> sont désormais gérés dans l'Administration générale (icône ⚙ en haut à droite de l'accueil).
@@ -3640,9 +3618,7 @@ export function CommandesInner({ onExitModule }) {
         showT('✅ Ordre sauvegardé');
       };
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>
-        <style>{css}</style>
-        <Header title={selectedCat?`📁 ${selectedCat}`:"📁 Catégories"} back={true} backView={selectedCat?"admin":"admin"} showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title={selectedCat?`📁 ${selectedCat}`:"📁 Catégories"} back={true} backView={selectedCat?"admin":"admin"} showCart={false}/>
         <div style={{padding:12}}>
           {!selectedCat ? (<>
             <button className="epj-btn" onClick={()=>{setAdminEdit('newCat');setAdminForm({nom:'',icon:'📦'})}} style={{width:'100%',background:EPJ.green,color:'#fff',padding:'12px',fontSize:14,marginBottom:12}}>+ Nouvelle catégorie</button>
@@ -3793,9 +3769,7 @@ export function CommandesInner({ onExitModule }) {
       if(adminCatFilter) filtered = filtered.filter(p=>p.c===adminCatFilter);
       if(adminSearch) { const q=adminSearch.toLowerCase(); filtered=filtered.filter(p=>(p.n||'').toLowerCase().includes(q)||(p.r||'').toLowerCase().includes(q)); }
       return(
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>
-        <style>{css}</style>
-        <Header title="📦 Articles" back={true} backView="admin" showCart={false}/>
+      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="📦 Articles" back={true} backView="admin" showCart={false}/>
         <div style={{padding:'8px 12px',background:'#fff',borderBottom:'1px solid #eee'}}>
           <div style={{display:'flex',gap:6,marginBottom:6}}>
             <select className="epj-input" value={adminCatFilter||''} onChange={e=>{setSelectedCat(e.target.value||null)}} style={{flex:1,fontSize:12,padding:'8px'}}><option value="">Toutes catégories</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>

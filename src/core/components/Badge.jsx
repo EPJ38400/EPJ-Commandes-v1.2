@@ -36,6 +36,10 @@ const STATUS_MAP = {
   "Envoyée aux achats":    { tone: "info",    label: "Envoyée aux achats" },
   "Réceptionnée":          { tone: "success", label: "Réceptionnée" },
   "Refusée":               { tone: "danger",  label: "Refusée" },
+  // Commandes — statuts partiels & scission (ajout lot trio, strictement additif)
+  "Commandée partiellement":    { tone: "warning", label: "Commandée partiellement" },
+  "Réceptionnée partiellement": { tone: "warning", label: "Réceptionnée partiellement" },
+  "Scindée":               { tone: "neutral", label: "Scindée" },
   // Réserves (clés = statut Firestore)
   "creee":                 { tone: "neutral", label: "Créée" },
   "attribuee":             { tone: "info",    label: "Attribuée" },
