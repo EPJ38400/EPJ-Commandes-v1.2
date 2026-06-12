@@ -253,6 +253,39 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
     }
   };
 
+  // ─── Photo avant/après du quitus depuis une pièce jointe image ───
+  // Copie de référence : la pièce jointe RESTE dans piecesJointes (pas de
+  // déplacement, pas de suppression Storage). Seuls les champs photoX/photoXPath
+  // de la réserve sont mis à jour → c'est ce que lit quitusPdfGenerator.
+  const PHOTO_SLOTS = {
+    avant: { field: "photoAvant", pathField: "photoAvantPath", label: "avant (constat)" },
+    apres: { field: "photoApres", pathField: "photoApresPath", label: "après (reprise)" },
+  };
+  const setReservePhoto = async (att, slot) => {
+    const cfg = PHOTO_SLOTS[slot];
+    if (!cfg || !att?.url) return;
+    if (reserve[cfg.field] === att.url) return; // déjà cette image → no-op
+    if (reserve[cfg.field]
+        && !confirm(`Remplacer la photo ${cfg.label} actuelle par « ${att.nom} » ?`)) return;
+    try {
+      await updateDoc(doc(db, "reserves", reserve._id), {
+        [cfg.field]: att.url,
+        [cfg.pathField]: att.path || "",
+      });
+    } catch (e) { alert("❌ " + (e.message || "Échec")); }
+  };
+  const clearReservePhoto = async (slot) => {
+    const cfg = PHOTO_SLOTS[slot];
+    if (!cfg) return;
+    if (!confirm(`Retirer la photo ${cfg.label} du quitus ?\n(La pièce jointe n'est pas supprimée.)`)) return;
+    try {
+      await updateDoc(doc(db, "reserves", reserve._id), {
+        [cfg.field]: "",
+        [cfg.pathField]: "",
+      });
+    } catch (e) { alert("❌ " + (e.message || "Échec")); }
+  };
+
   return (
     <div style={{ paddingTop: space.md, paddingBottom: space.xxl }}>
       {/* Header */}
@@ -276,14 +309,17 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
         {retard && <Badge tone="danger" icon="⏰" label="En retard"/>}
       </div>
 
-      {/* Photo */}
+      {/* Photo — ce qui sortira dans le quitus PDF */}
       {reserve.photoAvant && (
         <div style={{ ...panel(), padding: space.xs + 2 }}>
           <img src={reserve.photoAvant} alt="constat" style={{
             width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: radius.md, display: "block",
           }}/>
-          <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, textAlign: "center", marginTop: space.xs }}>
-            Photo du constat
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: space.sm, marginTop: space.xs }}>
+            <span style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>Photo du constat (avant)</span>
+            {canEdit && (
+              <Button variant="ghost" size="sm" onClick={() => clearReservePhoto("avant")}>Retirer</Button>
+            )}
           </div>
         </div>
       )}
@@ -292,8 +328,11 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           <img src={reserve.photoApres} alt="après reprise" style={{
             width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: radius.md, display: "block",
           }}/>
-          <div style={{ fontSize: fontSize.xs, color: EPJ.greenText, textAlign: "center", marginTop: space.xs, fontWeight: fontWeight.medium }}>
-            ✓ Photo après reprise
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: space.sm, marginTop: space.xs }}>
+            <span style={{ fontSize: fontSize.xs, color: EPJ.greenText, fontWeight: fontWeight.medium }}>✓ Photo après reprise</span>
+            {canEdit && (
+              <Button variant="ghost" size="sm" onClick={() => clearReservePhoto("apres")}>Retirer</Button>
+            )}
           </div>
         </div>
       )}
@@ -314,6 +353,9 @@ export function ReserveDetail({ reserveId, onBack, onLevee }) {
           attachments={reserve.piecesJointes || []}
           onAdd={addAttachment}
           onRemove={removeAttachment}
+          onSetPhoto={canEdit ? setReservePhoto : undefined}
+          photoAvantUrl={reserve.photoAvant || ""}
+          photoApresUrl={reserve.photoApres || ""}
           readOnly={!canEdit}
         />
       </div>
