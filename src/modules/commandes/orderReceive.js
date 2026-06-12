@@ -11,7 +11,7 @@ export function validateReceivedQuantities(items, receivedByIndex) {
   const errors = [];
   if (!Array.isArray(items)) return { valid: false, errors: ["items invalide"] };
   items.forEach((it, idx) => {
-    const ordered = normalizeQty(it.qte);
+    const ordered = normalizeQty(it.qty ?? it.qte);
     const received = normalizeQty(receivedByIndex && receivedByIndex[idx]);
     if (received > ordered) {
       errors.push("Ligne " + (idx + 1) + " (" + (it.ref || it.designation || "?") + ") : qte recue (" + received + ") > qte commandee (" + ordered + ")");
@@ -25,7 +25,7 @@ export function getReceptionKind(items, receivedByIndex) {
   let totalOrdered = 0;
   let totalReceived = 0;
   items.forEach((it, idx) => {
-    totalOrdered += normalizeQty(it.qte);
+    totalOrdered += normalizeQty(it.qty ?? it.qte);
     totalReceived += normalizeQty(receivedByIndex && receivedByIndex[idx]);
   });
   if (totalReceived === 0) return "vide";
@@ -37,11 +37,11 @@ export function computeReliquatItems(items, receivedByIndex) {
   if (!Array.isArray(items)) return [];
   const out = [];
   items.forEach((it, idx) => {
-    const ordered = normalizeQty(it.qte);
+    const ordered = normalizeQty(it.qty ?? it.qte);
     const received = normalizeQty(receivedByIndex && receivedByIndex[idx]);
     const missing = ordered - received;
     if (missing > 0) {
-      out.push(Object.assign({}, it, { qte: missing }));
+      out.push(Object.assign({}, it, { qty: missing }));
     }
   });
   return out;
@@ -54,7 +54,7 @@ export function buildReceptionPayload(order, receivedByIndex, opts) {
   if (!o.detailMode) {
     effectiveReceived = {};
     (order.items || []).forEach(function (it, idx) {
-      effectiveReceived[idx] = normalizeQty(it.qte);
+      effectiveReceived[idx] = normalizeQty(it.qty ?? it.qte);
     });
   }
   const kind = getReceptionKind(order.items, effectiveReceived);
