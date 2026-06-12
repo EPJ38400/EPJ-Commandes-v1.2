@@ -1673,13 +1673,13 @@ export function CommandesInner({ onExitModule }) {
   const CatIcon = ({cat, size=36}) => {
     const icon = dynCatIcons[cat] || '📦';
     const isImg = icon.startsWith('http') || icon.startsWith('data:');
-    if(isImg) return <img src={icon} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0}}/>;
-    return <div style={{width:size,height:size,borderRadius:8,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
+    if(isImg) return <img src={icon} alt="" style={{width:size,height:size,borderRadius:radius.sm + 2,objectFit:'cover',flexShrink:0}}/>;
+    return <div style={{width:size,height:size,borderRadius:radius.sm + 2,background:`${EPJ.blue}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.5),flexShrink:0,border:`1px solid ${EPJ.blue}22`}}>{icon}</div>;
   };
 
   const Thumb = ({cat, imageUrl, size=36}) => {
     if (imageUrl) {
-      return <img src={imageUrl} alt="" style={{width:size,height:size,borderRadius:8,objectFit:'cover',flexShrink:0,background:EPJ.grayLight}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>;
+      return <img src={imageUrl} alt="" style={{width:size,height:size,borderRadius:radius.sm + 2,objectFit:'cover',flexShrink:0,background:EPJ.gray100}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>;
     }
     return <CatIcon cat={cat} size={size}/>;
   };
@@ -1688,25 +1688,25 @@ export function CommandesInner({ onExitModule }) {
   const [qtyPopup, setQtyPopup] = useState(null); // {r, value}
   const [qtyPopupVal, setQtyPopupVal] = useState('');
   const QtyControl = ({r, value, compact, showDelete}) => (
-    <div style={{display:'flex',alignItems:'center',gap:4}}>
-      {showDelete && <button onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:8,border:'none',background:'#fee',color:EPJ.red,fontSize:12,cursor:'pointer',fontWeight:700}}>🗑</button>}
-      <button onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:value<=1&&!showDelete?'#fee':'#eee',color:value<=1&&!showDelete?EPJ.red:EPJ.dark,fontSize:16,cursor:'pointer',fontWeight:700}}>−</button>
-      <div onClick={()=>{setQtyPopup({r,value});setQtyPopupVal(String(value))}} style={{width:compact?48:60,height:compact?30:34,borderRadius:8,border:`2px solid ${EPJ.blue}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,fontFamily:font,cursor:'pointer',color:EPJ.blue}}>{value}</div>
-      <button onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:8,border:'none',background:'#eee',fontSize:16,cursor:'pointer',fontWeight:700}}>+</button>
+    <div style={{display:'flex',alignItems:'center',gap:space.xs}}>
+      {showDelete && <button aria-label="Retirer du panier" onClick={()=>{setCart(p=>{const n={...p};delete n[r];return n})}} style={{width:28,height:28,borderRadius:radius.sm + 2,border:'none',background:EPJ.dangerBg,color:EPJ.redText,fontSize:fontSize.xs,cursor:'pointer'}}>🗑</button>}
+      <button aria-label="Diminuer la quantité" onClick={()=>updateQty(r,value-1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:radius.sm + 2,border:'none',background:value<=1&&!showDelete?EPJ.dangerBg:EPJ.gray100,color:value<=1&&!showDelete?EPJ.redText:EPJ.dark,fontSize:fontSize.base,cursor:'pointer',fontWeight:fontWeight.medium}}>−</button>
+      <div onClick={()=>{setQtyPopup({r,value});setQtyPopupVal(String(value))}} style={{width:compact?48:60,height:compact?30:34,borderRadius:radius.sm + 2,border:`2px solid ${EPJ.blue}`,background:EPJ.white,display:'flex',alignItems:'center',justifyContent:'center',fontSize:fontSize.base,fontWeight:fontWeight.medium,fontFamily:font,cursor:'pointer',color:EPJ.blue,fontVariantNumeric:'tabular-nums'}}>{value}</div>
+      <button aria-label="Augmenter la quantité" onClick={()=>updateQty(r,value+1)} style={{width:compact?30:34,height:compact?30:34,borderRadius:radius.sm + 2,border:'none',background:EPJ.gray100,fontSize:fontSize.base,cursor:'pointer',fontWeight:fontWeight.medium}}>+</button>
     </div>
   );
 
   const QtyPopupOverlay = () => qtyPopup ? (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setQtyPopup(null)}>
-      <div style={{background:'#fff',borderRadius:20,padding:24,width:'100%',maxWidth:320,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Saisir la quantité</div>
+    <div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:space.xl - 4}} onClick={()=>setQtyPopup(null)}>
+      <div style={{background:EPJ.white,borderRadius:radius.xl,padding:space.xl,width:'100%',maxWidth:320,textAlign:'center',boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Saisir la quantité</div>
         <input type="text" inputMode="numeric" pattern="[0-9]*" autoFocus
           value={qtyPopupVal} onChange={e=>setQtyPopupVal(e.target.value.replace(/[^0-9]/g,''))}
           onKeyDown={e=>{if(e.key==='Enter'){const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}}}
-          style={{width:'100%',fontSize:32,fontWeight:800,textAlign:'center',border:`3px solid ${EPJ.blue}`,borderRadius:12,padding:'12px',fontFamily:font,color:EPJ.dark,marginBottom:16}}/>
-        <div style={{display:'flex',gap:10}}>
-          <button className="epj-btn" onClick={()=>setQtyPopup(null)} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'12px'}}>Annuler</button>
-          <button className="epj-btn" onClick={()=>{const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}} style={{flex:1,background:EPJ.blue,color:'#fff',padding:'12px'}}>✓ OK</button>
+          style={{width:'100%',fontSize:32,fontWeight:fontWeight.semibold,textAlign:'center',border:`2px solid ${EPJ.blue}`,borderRadius:radius.lg,padding:space.md,fontFamily:font,color:EPJ.dark,marginBottom:space.lg,fontVariantNumeric:'tabular-nums'}}/>
+        <div style={{display:'flex',gap:space.sm + 2}}>
+          <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setQtyPopup(null)}>Annuler</Button></div>
+          <div style={{flex:1}}><Button full onClick={()=>{const n=parseInt(qtyPopupVal)||1;updateQty(qtyPopup.r,n);setQtyPopup(null)}}>✓ OK</Button></div>
         </div>
       </div>
     </div>
@@ -1884,70 +1884,70 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ CATALOG ═══
   if(view==="catalog") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>      <Header title={selectedCat||(orderType==='chantier'?'Catalogue Chantier':'Catalogue Équipement')} back={true} backView={selectedCat?'cats':'home'}/>
-      <div style={{padding:'8px 12px',background:EPJ.dark}}>
-        <input className="epj-input" placeholder="Rechercher article, référence..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff'}}/>
+    <div style={wrapStyle(1100, { paddingBottom: 80 })}>
+      <Header title={selectedCat||(orderType==='chantier'?'Catalogue Chantier':'Catalogue Équipement')} back={true} backView={selectedCat?'cats':'home'}/>
+      <div style={{padding:`${space.sm}px ${space.md}px`,background:EPJ.dark}}>
+        <input className="epj-input" placeholder="Rechercher article, référence..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:'rgba(255,255,255,.1)',border:'none',color:EPJ.white}}/>
       </div>
-      <div style={{padding:12}}>
+      <div style={{padding:space.md}}>
         {!selectedCat&&!search ? (
           <>
             {!configLoaded ? (
-              <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 20px',gap:10,color:EPJ.gray}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:`${space.xxl + 8}px ${space.xl}px`,gap:space.sm + 2,color:EPJ.gray}}>
                 <div style={{width:20,height:20,border:`3px solid ${EPJ.blue}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>
-                <span style={{fontSize:13,fontWeight:600}}>Chargement du catalogue…</span>
+                <span style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium}}>Chargement du catalogue…</span>
               </div>
             ) : (
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={{display:'grid',gridTemplateColumns:isPwa?'1fr 1fr':'repeat(auto-fill,minmax(150px,1fr))',gap:space.sm}}>
               {availableCategories.map(cat=>(
-                <div key={cat} onClick={()=>setSelectedCat(cat)} style={{background:'#fff',borderRadius:14,padding:'14px 10px',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:600,color:EPJ.dark,boxShadow:'0 1px 3px rgba(0,0,0,.04)',lineHeight:1.3,border:'2px solid transparent'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:4}}><CatIcon cat={cat} size={40}/></div>{cat}
+                <div key={cat} onClick={()=>setSelectedCat(cat)} style={{background:EPJ.white,borderRadius:radius.lg,padding:`${space.md + 2}px ${space.sm + 2}px`,cursor:'pointer',textAlign:'center',fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,boxShadow:shadow.sm,lineHeight:1.3,border:`1px solid ${EPJ.gray200}`}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:space.xs}}><CatIcon cat={cat} size={40}/></div>{cat}
                 </div>
               ))}
             </div>
             )}
-            <div onClick={()=>setShowDivers(true)} style={{marginTop:10,background:'#fff',borderRadius:14,padding:14,cursor:'pointer',textAlign:'center',border:`2px dashed ${EPJ.blue}`,color:EPJ.blue,fontWeight:600,fontSize:13}}>+ Article divers</div>
+            <div onClick={()=>setShowDivers(true)} style={{marginTop:space.sm + 2,background:EPJ.white,borderRadius:radius.lg,padding:space.md + 2,cursor:'pointer',textAlign:'center',border:`2px dashed ${EPJ.blue}`,color:EPJ.blue,fontWeight:fontWeight.medium,fontSize:fontSize.sm}}>+ Article divers</div>
           </>
         ) : (
-          Object.keys(grouped).length===0 ? <div style={{textAlign:'center',padding:'40px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>🔍</div><div style={{fontWeight:600}}>Aucun résultat</div></div>
+          Object.keys(grouped).length===0 ? <div style={{textAlign:'center',padding:`${space.xxl + 8}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>🔍</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Aucun résultat</div></div>
           : Object.entries(grouped).map(([g,items])=>(
             <div key={g}>
-              <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',letterSpacing:.5,margin:'14px 0 6px',paddingLeft:4}}>{g}</div>
+              <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray,textTransform:'uppercase',letterSpacing:'0.03em',margin:`${space.md + 2}px 0 6px`,paddingLeft:space.xs}}>{g}</div>
               {items.map(p=>(
                 <div key={p.r} className="epj-row">
                   <Thumb cat={p.c} imageUrl={p.img}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,color:EPJ.dark,lineHeight:1.3}}>{p.n}</div>
-                    <div style={{fontSize:10,color:EPJ.gray,marginTop:2,fontFamily:'monospace'}}>{p.r} • {p.u||'Pièce'} <span style={{display:'inline-block',marginLeft:4,padding:'1px 6px',borderRadius:8,fontSize:9,fontWeight:700,background:p.stock===false?'#FFF3E0':'#E8F5E9',color:p.stock===false?'#E65100':'#2E7D32'}}>{p.stock===false?'⚠️ Hors stock':'📦 En stock'}</span></div>
+                    <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,lineHeight:1.3}}>{p.n}</div>
+                    <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginTop:2,fontFamily:fontFamilies.mono}}>{p.r} • {p.u||'Pièce'} <span style={{marginLeft:space.xs,verticalAlign:'middle'}}><Badge tone={p.stock===false?'warning':'success'} label={p.stock===false?'Hors stock':'En stock'}/></span></div>
                   </div>
-                  {cart[p.r] ? <QtyControl r={p.r} value={cart[p.r]} compact={true}/> : <button onClick={()=>addToCart(p.r)} style={{width:36,height:36,borderRadius:10,border:'none',background:EPJ.blue,color:'#fff',fontSize:20,cursor:'pointer',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>}
+                  {cart[p.r] ? <QtyControl r={p.r} value={cart[p.r]} compact={true}/> : <button aria-label={`Ajouter ${p.n}`} onClick={()=>addToCart(p.r)} style={{width:36,height:36,borderRadius:radius.md,border:'none',background:EPJ.blue,color:EPJ.white,fontSize:fontSize.lg,cursor:'pointer',fontWeight:fontWeight.medium,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>}
                 </div>
               ))}
             </div>
           ))
         )}
       </div>
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:1100,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
         {/* v10.G : "← Accueil" devient "← Retour" et ramène à la PAGE PRÉCÉDENTE
             (liste des catégories si on est dans une catégorie, sinon home du module). */}
-        <button
-          className="epj-btn"
+        <Button
+          variant="secondary"
           onClick={()=>{
             if(selectedCat){ setSelectedCat(null); setSearch(''); }
             else { setView('home'); setSearch(''); }
           }}
-          style={{background:EPJ.dark,color:'#fff',padding:'12px 16px',fontWeight:700,boxShadow:'0 1px 2px rgba(0,0,0,0.1)'}}
           title="Retour à l'écran précédent"
-        >← Retour</button>
-        {cartCount>0&&<button className="epj-btn" onClick={()=>setView('cart')} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>🛒 Panier ({cartCount})</button>}
+        >← Retour</Button>
+        {cartCount>0&&<div style={{flex:1}}><Button full onClick={()=>setView('cart')}>🛒 Panier ({cartCount})</Button></div>}
       </div>
-      {toast&&<div style={{position:'fixed',bottom:80,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:200,animation:'fadeUp .3s ease'}}>{toast}</div>}
-      {showDivers&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setShowDivers(false)}>
-        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'24px 20px 30px',width:'100%',maxWidth:520}} onClick={e=>e.stopPropagation()}>
-          <div style={{fontSize:18,fontWeight:700,color:EPJ.dark,marginBottom:16}}>Article divers</div>
-          <div style={{marginBottom:10}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>DÉSIGNATION *</label><input className="epj-input" value={diversName} onChange={e=>setDiversName(e.target.value)} placeholder="Description"/></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>RÉFÉRENCE</label><input className="epj-input" value={diversRef} onChange={e=>setDiversRef(e.target.value)} placeholder="Optionnel"/></div>
-          <div style={{marginBottom:16}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>QUANTITÉ</label><input className="epj-input" type="number" min="1" value={diversQty} onChange={e=>setDiversQty(parseInt(e.target.value)||1)} style={{width:100}}/></div>
-          <button className="epj-btn" onClick={()=>{if(diversName.trim()){const ref=diversRef.trim()||`DIV-${Date.now()}`;const newArticle={c:'Divers',s:'Article libre',r:ref,n:diversName.trim(),u:'Pièce',stock:false};setDynCatalog(prev=>[...prev,newArticle]);setCart(p=>({...p,[ref]:diversQty}));setDiversName('');setDiversRef('');setDiversQty(1);setShowDivers(false);showT('✓ Ajouté au panier')}}} style={{width:'100%',background:EPJ.blue,color:'#fff'}} disabled={!diversName.trim()}>Ajouter au panier</button>
+      {toast&&<div style={{position:'fixed',bottom:80,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:200,animation:'fadeUp .3s ease'}}>{toast}</div>}
+      {showDivers&&<div style={{position:'fixed',inset:0,background:EPJ.scrim,zIndex:300,display:'flex',alignItems:isPwa?'flex-end':'center',justifyContent:'center'}} onClick={()=>setShowDivers(false)}>
+        <div style={{background:EPJ.white,borderRadius:isPwa?`${radius.xl + 4}px ${radius.xl + 4}px 0 0`:radius.xl,padding:`${space.xl}px ${space.xl - 4}px ${isPwa?space.xxl - 2:space.xl}px`,width:'100%',maxWidth:520,boxShadow:shadow.lg}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:fontSize.lg,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.lg}}>Article divers</div>
+          <div style={{marginBottom:space.sm + 2}}><Field label="Désignation" required value={diversName} onChange={e=>setDiversName(e.target.value)} placeholder="Description"/></div>
+          <div style={{marginBottom:space.sm + 2}}><Field label="Référence" value={diversRef} onChange={e=>setDiversRef(e.target.value)} placeholder="Optionnel"/></div>
+          <div style={{marginBottom:space.lg}}><Field label="Quantité" type="number" min="1" width={120} value={diversQty} onChange={e=>setDiversQty(parseInt(e.target.value)||1)}/></div>
+          <Button full onClick={()=>{if(diversName.trim()){const ref=diversRef.trim()||`DIV-${Date.now()}`;const newArticle={c:'Divers',s:'Article libre',r:ref,n:diversName.trim(),u:'Pièce',stock:false};setDynCatalog(prev=>[...prev,newArticle]);setCart(p=>({...p,[ref]:diversQty}));setDiversName('');setDiversRef('');setDiversQty(1);setShowDivers(false);showT('✓ Ajouté au panier')}}} disabled={!diversName.trim()}>Ajouter au panier</Button>
         </div>
       </div>}
       <QtyPopupOverlay/>
@@ -1958,39 +1958,40 @@ export function CommandesInner({ onExitModule }) {
   if(view==="cart"){
     const cg={};cartItems.forEach(i=>{if(!cg[i.c])cg[i.c]=[];cg[i.c].push(i)});
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="Panier" back={true} backView="catalog" showCart={false}/>
-        <div style={{padding:'6px 12px',background:EPJ.dark,color:'rgba(255,255,255,.6)',fontSize:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <div style={wrapStyle(720, { paddingBottom: 80 })}>
+        <Header title="Panier" back={true} backView="catalog" showCart={false}/>
+        <div style={{padding:`6px ${space.md}px`,background:EPJ.dark,color:'rgba(255,255,255,.6)',fontSize:fontSize.xs,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span>{user.prenom} {user.nom} • {orderType==='chantier'?'Chantier':'Équipement'}</span>
-          {cartItems.length>0&&<button onClick={()=>{setCart({});showT('Panier vidé')}} style={{background:'rgba(255,255,255,.1)',border:'none',color:'#fff',borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer',fontFamily:font}}>🗑 Vider</button>}
+          {cartItems.length>0&&<button onClick={()=>{setCart({});showT('Panier vidé')}} style={{background:'rgba(255,255,255,.1)',border:'none',color:EPJ.white,borderRadius:radius.sm,padding:`${space.xs}px ${space.sm + 2}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑 Vider</button>}
         </div>
-        <div style={{padding:12}}>
-          {cartItems.length===0?<div style={{textAlign:'center',padding:'50px 20px',color:EPJ.gray}}><div style={{fontSize:40,marginBottom:8}}>🛒</div><div style={{fontWeight:600}}>Panier vide</div></div>:(
+        <div style={{padding:space.md}}>
+          {cartItems.length===0?<div style={{textAlign:'center',padding:`${space.xxl + 16}px ${space.xl}px`,color:EPJ.gray500}}><div style={{fontSize:40,marginBottom:space.sm,opacity:.7}}>🛒</div><div style={{fontWeight:fontWeight.medium,color:EPJ.gray600}}>Panier vide</div></div>:(
             <>
               {Object.entries(cg).map(([cat,items])=>(
                 <div key={cat}>
-                  <div style={{fontSize:11,fontWeight:700,color:EPJ.gray,textTransform:'uppercase',margin:'12px 0 6px',display:'flex',alignItems:'center',gap:6}}><CatIcon cat={cat} size={16}/> {cat}</div>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.gray,textTransform:'uppercase',letterSpacing:'0.03em',margin:`${space.md}px 0 6px`,display:'flex',alignItems:'center',gap:6}}><CatIcon cat={cat} size={16}/> {cat}</div>
                   {items.map(it=>(
                     <div key={it.r} className="epj-row">
                       <Thumb cat={it.c} imageUrl={it.img}/>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:600,color:EPJ.dark}}>{it.n}</div>
-                        <div style={{fontSize:10,color:EPJ.gray,fontFamily:'monospace'}}>{it.r}</div>
+                        <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>{it.n}</div>
+                        <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>{it.r}</div>
                       </div>
                       <QtyControl r={it.r} value={cart[it.r]} showDelete={true}/>
                     </div>
                   ))}
                 </div>
               ))}
-              <div className="epj-card" style={{marginTop:14}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontWeight:700,color:EPJ.dark}}><span>Total</span><span>{cartCount} articles</span></div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:EPJ.gray,marginTop:4}}><span>Références</span><span>{cartItems.length}</span></div>
+              <div className="epj-card" style={{marginTop:space.md + 2}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontWeight:fontWeight.medium,color:EPJ.dark,fontVariantNumeric:'tabular-nums'}}><span>Total</span><span>{cartCount} articles</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,color:EPJ.gray,marginTop:space.xs,fontVariantNumeric:'tabular-nums'}}><span>Références</span><span>{cartItems.length}</span></div>
               </div>
             </>
           )}
         </div>
-        {cartItems.length>0&&<div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-          <button className="epj-btn" onClick={()=>setView('catalog')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Catalogue</button>
-          <button className="epj-btn" onClick={()=>setView('details')} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>Finaliser →</button>
+        {cartItems.length>0&&<div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+          <Button variant="secondary" onClick={()=>setView('catalog')}>← Catalogue</Button>
+          <div style={{flex:1}}><Button full onClick={()=>setView('details')}>Finaliser →</Button></div>
         </div>}
         <QtyPopupOverlay/>
       </div>
@@ -1999,48 +2000,45 @@ export function CommandesInner({ onExitModule }) {
 
   // ═══ ORDER DETAILS ═══
   if(view==="details") return (
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>      <Header title="Détails commande" back={true} backView="cart" showCart={false}/>
-      <div style={{padding:12}}>
-        <div className="epj-card" style={{marginBottom:10}}>
+    <div style={wrapStyle(720, { paddingBottom: 80 })}>
+      <Header title="Détails commande" back={true} backView="cart" showCart={false}/>
+      <div style={{padding:space.md}}>
+        <div className="epj-card" style={{marginBottom:space.sm + 2}}>
           {orderType==='chantier'?(
             <>
-              <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>CHANTIER *</label>
+              <div style={{marginBottom:space.md}}>
                 {!showNewChantier?(<>
-                  <select className="epj-input" value={chantier} onChange={e=>setChantier(e.target.value)} style={{cursor:'pointer'}}>
-                    <option value="">-- Sélectionnez --</option>
-                    {dynChantiers.filter(c=>c.statut==='Actif').map(c=><option key={c.nom} value={c.nom}>[{c.num}] {c.nom}</option>)}
-                  </select>
+                  <Field as="select" label="Chantier" required value={chantier} onChange={e=>setChantier(e.target.value)}
+                    options={[{value:'',label:'-- Sélectionnez --'},...dynChantiers.filter(c=>c.statut==='Actif').map(c=>({value:c.nom,label:`[${c.num}] ${c.nom}`}))]}/>
                   {/* N° affaire auto */}
-                  {selectedChantierObj&&<div style={{marginTop:6,fontSize:12,color:EPJ.blue,fontWeight:600}}>📋 N° Affaire : {selectedChantierObj.num} — Conducteur : {selectedChantierObj.conducteur}</div>}
-                  {(user.fonction==='Conducteur de travaux'||user.fonction==='Admin')&&<button onClick={()=>setShowNewChantier(true)} style={{background:'none',border:'none',color:EPJ.blue,fontSize:12,fontWeight:600,cursor:'pointer',marginTop:6,fontFamily:font}}>+ Nouveau chantier</button>}
+                  {selectedChantierObj&&<div style={{marginTop:6,fontSize:fontSize.xs,color:EPJ.blueText,fontWeight:fontWeight.medium}}>📋 N° Affaire : {selectedChantierObj.num} — Conducteur : {selectedChantierObj.conducteur}</div>}
+                  {(user.fonction==='Conducteur de travaux'||user.fonction==='Admin')&&<button onClick={()=>setShowNewChantier(true)} style={{background:'none',border:'none',color:EPJ.blue,fontSize:fontSize.xs,fontWeight:fontWeight.medium,cursor:'pointer',marginTop:6,fontFamily:font}}>+ Nouveau chantier</button>}
                 </>):(<>
-                  <input className="epj-input" value={newChantier} onChange={e=>setNewChantier(e.target.value)} placeholder="Nom du nouveau chantier"/>
-                  <button onClick={()=>setShowNewChantier(false)} style={{background:'none',border:'none',color:EPJ.gray,fontSize:12,cursor:'pointer',marginTop:6,fontFamily:font}}>← Chantier existant</button>
+                  <Field label="Nouveau chantier" value={newChantier} onChange={e=>setNewChantier(e.target.value)} placeholder="Nom du nouveau chantier"/>
+                  <button onClick={()=>setShowNewChantier(false)} style={{background:'none',border:'none',color:EPJ.gray,fontSize:fontSize.xs,cursor:'pointer',marginTop:6,fontFamily:font}}>← Chantier existant</button>
                 </>)}
               </div>
-              <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>LIVRAISON</label>
-                <div style={{display:'flex',gap:8}}>
-                  {['Dépôt','Chantier'].map(l=>(<button key={l} onClick={()=>setLivraison(l)} className="epj-btn" style={{flex:1,background:livraison===l?EPJ.blue:'#eee',color:livraison===l?'#fff':EPJ.dark,padding:'10px'}}>{l==='Chantier'?'🏗️':'🏭'} {l}</button>))}
+              <div style={{marginBottom:space.md}}><label style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.gray700,display:'block',marginBottom:space.xs + 2}}>Livraison</label>
+                <div style={{display:'flex',gap:space.sm}}>
+                  {['Dépôt','Chantier'].map(l=>(<div key={l} style={{flex:1}}><Button full variant={livraison===l?'primary':'secondary'} onClick={()=>setLivraison(l)}>{l==='Chantier'?'🏗️':'🏭'} {l}</Button></div>))}
                 </div>
               </div>
             </>
           ):(
-            <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>SALARIÉ DESTINATAIRE</label>
-              <select className="epj-input" value={targetSalarie} onChange={e=>setTargetSalarie(e.target.value)} style={{cursor:'pointer'}}>
-                <option value="">Moi-même ({user.prenom} {user.nom})</option>
-                {dynUsers.filter(u=>u.id!==user.id).map(u=><option key={u.id} value={`${u.prenom} ${u.nom}`}>{u.prenom} {u.nom}</option>)}
-              </select>
+            <div style={{marginBottom:space.md}}>
+              <Field as="select" label="Salarié destinataire" value={targetSalarie} onChange={e=>setTargetSalarie(e.target.value)}
+                options={[{value:'',label:`Moi-même (${user.prenom} ${user.nom})`},...dynUsers.filter(u=>u.id!==user.id).map(u=>({value:`${u.prenom} ${u.nom}`,label:`${u.prenom} ${u.nom}`}))]}/>
             </div>
           )}
-          <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>DATE DE RÉCEPTION SOUHAITÉE</label><input className="epj-input" type="date" value={dateReception} onChange={e=>setDateReception(e.target.value)}/></div>
-          <div style={{marginBottom:12}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}><input type="checkbox" checked={urgent} onChange={e=>setUrgent(e.target.checked)} style={{width:20,height:20,accentColor:EPJ.red}}/><span style={{fontSize:14,fontWeight:600,color:urgent?EPJ.red:EPJ.dark}}>⚠️ Commande URGENTE</span></label></div>
-          <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>EMAIL SUPPLÉMENTAIRE</label><input className="epj-input" type="email" value={extraEmail} onChange={e=>setExtraEmail(e.target.value)} placeholder="email@exemple.fr"/></div>
-          <div><label style={{fontSize:11,fontWeight:700,color:EPJ.gray,display:'block',marginBottom:4}}>REMARQUES</label><textarea className="epj-input" rows={3} value={remarques} onChange={e=>setRemarques(e.target.value)} placeholder="Instructions..." style={{resize:'vertical'}}/></div>
+          <div style={{marginBottom:space.md}}><Field label="Date de réception souhaitée" type="date" value={dateReception} onChange={e=>setDateReception(e.target.value)}/></div>
+          <div style={{marginBottom:space.md}}><label style={{display:'flex',alignItems:'center',gap:space.sm,cursor:'pointer'}}><input type="checkbox" checked={urgent} onChange={e=>setUrgent(e.target.checked)} style={{width:20,height:20,accentColor:EPJ.red}}/><span style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:urgent?EPJ.redText:EPJ.dark}}>⚠️ Commande URGENTE</span></label></div>
+          <div style={{marginBottom:space.md}}><Field label="Email supplémentaire" type="email" value={extraEmail} onChange={e=>setExtraEmail(e.target.value)} placeholder="email@exemple.fr"/></div>
+          <div><Field as="textarea" label="Remarques" rows={3} value={remarques} onChange={e=>setRemarques(e.target.value)} placeholder="Instructions..."/></div>
         </div>
       </div>
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-        <button className="epj-btn" onClick={()=>setView('cart')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Panier</button>
-        <button className="epj-btn" onClick={()=>setView('confirm')} disabled={orderType==='chantier'&&!chantier&&!newChantier} style={{flex:1,background:(orderType==='chantier'&&!chantier&&!newChantier)?'#ccc':`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff'}}>Récapitulatif →</button>
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+        <Button variant="secondary" onClick={()=>setView('cart')}>← Panier</Button>
+        <div style={{flex:1}}><Button full onClick={()=>setView('confirm')} disabled={orderType==='chantier'&&!chantier&&!newChantier}>Récapitulatif →</Button></div>
       </div>
     </div>
   );
@@ -2050,29 +2048,30 @@ export function CommandesInner({ onExitModule }) {
     const byFourn={};cartItems.forEach(it=>{const c=it.r.split(' ')[0].substring(0,3).toUpperCase();if(!byFourn[c])byFourn[c]=[];byFourn[c].push(it)});
     const needsVal=orderType==='chantier'&&!user.directAchat;
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',paddingBottom:80}}>        <Header title="Confirmation" back={true} backView="details" showCart={false}/>
-        <div style={{padding:12}}>
-          <div className="epj-card" style={{marginBottom:10}}>
+      <div style={wrapStyle(720, { paddingBottom: 80 })}>
+        <Header title="Confirmation" back={true} backView="details" showCart={false}/>
+        <div style={{padding:space.md}}>
+          <div className="epj-card" style={{marginBottom:space.sm + 2}}>
             {/* v10.G.2 : en mode édition, on affiche le numéro existant + bandeau */}
             {editingOrder?.editMode === 'rework' && (
-              <div style={{background:'#E3F2FD',borderLeft:`4px solid ${EPJ.blue}`,padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:12,color:EPJ.dark}}>
-                ✏️ <strong>Modification de la commande {editingOrder.num}</strong>
-                {editingOrder._originalStatut === "Envoyée aux achats" && (
-                  <div style={{marginTop:6,fontSize:11,color:'#E65100'}}>
-                    ⚠️ Cette commande a déjà été envoyée aux achats. La modification les rendra incohérents — la Direction sera notifiée.
-                  </div>
-                )}
-                {!user.directAchat && (
-                  <div style={{marginTop:6,fontSize:11,color:EPJ.gray}}>
-                    Après enregistrement, la commande repassera en attente de validation par le conducteur.
-                  </div>
-                )}
-              </div>
+              <Banner
+                tone="info"
+                icon="✏️"
+                title={`Modification de la commande ${editingOrder.num}`}
+                text={<>
+                  {editingOrder._originalStatut === "Envoyée aux achats" && (
+                    <div>⚠️ Cette commande a déjà été envoyée aux achats. La modification les rendra incohérents — la Direction sera notifiée.</div>
+                  )}
+                  {!user.directAchat && (
+                    <div>Après enregistrement, la commande repassera en attente de validation par le conducteur.</div>
+                  )}
+                </>}
+              />
             )}
-            <div style={{fontSize:16,fontWeight:700,color:EPJ.dark,marginBottom:12}}>{editingOrder?.editMode==='rework' ? editingOrder.num : numCmd()}</div>
-            {urgent&&<div style={{background:EPJ.red,color:'#fff',padding:'6px 12px',borderRadius:8,fontSize:13,fontWeight:700,marginBottom:10,display:'inline-block'}}>⚠️ URGENT</div>}
-            {needsVal&&<div style={{background:'#FFF3E0',color:'#E65100',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,marginBottom:10}}>⏳ Soumise à validation ({selectedChantierObj?.conducteur})</div>}
-            <div style={{background:EPJ.grayLight,borderRadius:10,padding:12,fontSize:13,lineHeight:1.8,color:EPJ.dark}}>
+            <div style={{fontSize:fontSize.base,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.md,fontFamily:fontFamilies.mono}}>{editingOrder?.editMode==='rework' ? editingOrder.num : numCmd()}</div>
+            {urgent&&<div style={{marginBottom:space.sm + 2}}><Badge status="urgent" label="Urgent"/></div>}
+            {needsVal&&<div style={{background:EPJ.warningBg,color:EPJ.orangeText,padding:`${space.sm}px ${space.md}px`,borderRadius:radius.sm + 2,fontSize:fontSize.xs,fontWeight:fontWeight.medium,marginBottom:space.sm + 2}}>⏳ Soumise à validation ({selectedChantierObj?.conducteur})</div>}
+            <div style={{background:EPJ.gray50,borderRadius:radius.md,padding:space.md,fontSize:fontSize.sm,lineHeight:1.8,color:EPJ.dark}}>
               <strong>Demandeur :</strong> {user.prenom} {user.nom}<br/>
               {orderType==='chantier'&&<><strong>Chantier :</strong> {showNewChantier?newChantier:chantier}<br/>{selectedChantierObj&&<><strong>N° Affaire :</strong> {selectedChantierObj.num}<br/></>}<strong>Livraison :</strong> {livraison}<br/></>}
               {orderType==='equipement'&&<><strong>Destinataire :</strong> {targetSalarie||`${user.prenom} ${user.nom}`}<br/></>}
@@ -2082,26 +2081,25 @@ export function CommandesInner({ onExitModule }) {
             </div>
           </div>
           <div className="epj-card">
-            <div style={{fontSize:13,fontWeight:700,color:EPJ.dark,marginBottom:8}}>Articles par fournisseur</div>
+            <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.sm}}>Articles par fournisseur</div>
             <div style={{maxHeight:250,overflowY:'auto'}}>
               {Object.entries(byFourn).sort(([a],[b])=>a.localeCompare(b)).map(([code,items])=>(
-                <div key={code} style={{marginBottom:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:EPJ.blue,marginBottom:4}}>▸ {code}</div>
-                  {items.map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'3px 0',borderBottom:'1px solid #f0f0f0'}}><span style={{color:EPJ.dark,flex:1}}>{it.n}</span><span style={{color:EPJ.blue,fontWeight:700,marginLeft:8}}>x{it.qty}</span></div>))}
+                <div key={code} style={{marginBottom:space.sm + 2}}>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.blueText,marginBottom:space.xs,fontFamily:fontFamilies.mono}}>▸ {code}</div>
+                  {items.map(it=>(<div key={it.r} style={{display:'flex',justifyContent:'space-between',fontSize:fontSize.xs,padding:'3px 0',borderBottom:`1px solid ${EPJ.gray100}`}}><span style={{color:EPJ.dark,flex:1}}>{it.n}</span><span style={{color:EPJ.blueText,fontWeight:fontWeight.medium,marginLeft:space.sm,fontVariantNumeric:'tabular-nums'}}>x{it.qty}</span></div>))}
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:520,background:'#fff',padding:'10px 16px',boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:8,zIndex:100}}>
-          <button className="epj-btn" onClick={()=>setView('details')} style={{background:'#eee',color:EPJ.dark,padding:'12px 16px'}}>← Modifier</button>
+        <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:isPwa?520:720,background:EPJ.white,padding:`${space.sm + 2}px ${space.lg}px`,boxShadow:'0 -2px 10px rgba(0,0,0,.06)',display:'flex',gap:space.sm,zIndex:100}}>
+          <Button variant="secondary" onClick={()=>setView('details')}>← Modifier</Button>
           {/* v10.G.2 — Libellé adapté en mode édition d'une commande existante */}
-          <button className="epj-btn" onClick={sendOrder} disabled={sending} style={{flex:1,background:`linear-gradient(135deg,${EPJ.green},${EPJ.blue})`,color:'#fff'}}>
-            {sending
-              ? (editingOrder?.editMode==='rework' ? '⏳ Sauvegarde...' : '⏳ Envoi en cours...')
-              : (editingOrder?.editMode==='rework' ? '💾 Enregistrer les modifications' : (needsVal ? '📤 Soumettre' : '✉️ Envoyer + PDF'))
-            }
-          </button>
+          <div style={{flex:1}}>
+            <Button full onClick={sendOrder} disabled={sending} loading={sending}>
+              {editingOrder?.editMode==='rework' ? '💾 Enregistrer les modifications' : (needsVal ? '📤 Soumettre' : '✉️ Envoyer + PDF')}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -2130,34 +2128,33 @@ export function CommandesInner({ onExitModule }) {
     const mailtoUrl = `mailto:${mailDest}?subject=${encodeURIComponent(mailSubj)}&body=${encodeURIComponent(buildMailBody())}`;
 
     return(
-    <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>      <div style={{fontSize:56,marginBottom:12}}>{wasV?'📤':'✅'}</div>
-      <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
-      <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
-      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}><div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div style={{marginTop:4}}><Badge status={s.status} label={s.label} dot/></div></div>);})()}
-      
-      {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-        <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
-        <a href={mailtoUrl} style={{textDecoration:'none'}}>
-          <div className="epj-btn" style={{background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,color:'#fff',padding:'16px',fontSize:15,width:'100%',textAlign:'center'}}>✉️ Envoyer par email</div>
-        </a>
+    <div style={wrapStyle(720, { textAlign:'center', padding:`${space.xxl - 2}px ${space.lg}px` })}>
+      <div style={{fontSize:56,marginBottom:space.md}}>{wasV?'📤':'✅'}</div>
+      <div style={{fontSize:fontSize.xl,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:6}}>{wasV?'Commande soumise !':'Commande enregistrée !'}</div>
+      <div style={{fontSize:fontSize.sm,color:EPJ.gray,lineHeight:1.6,marginBottom:space.lg}}>{wasV?'Transmise au conducteur pour validation.':'Enregistrée dans Firebase. Utilisez les boutons ci-dessous.'}</div>
+      {o&&(()=>{const s=getStatusDisplay(o);return(<div style={{background:EPJ.white,border:`1px solid ${EPJ.gray200}`,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.lg,textAlign:'left',fontSize:fontSize.sm}}><div style={{fontWeight:fontWeight.medium,fontFamily:fontFamilies.mono}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div><div style={{marginTop:space.xs}}><Badge status={s.status} label={s.label} dot/></div></div>);})()}
+
+      {!wasV&&<div style={{display:'flex',flexDirection:'column',gap:space.sm + 2,marginBottom:space.lg}}>
+        <a href={mailtoUrl} style={{textDecoration:'none',display:'block',background:EPJ.blue,color:EPJ.white,padding:`${space.md}px`,fontSize:fontSize.base,fontWeight:fontWeight.medium,fontFamily:font,borderRadius:radius.md,textAlign:'center'}}>✉️ Envoyer par email</a>
+        <Button full variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 Voir / Télécharger le PDF</Button>
         {o&&o.type==='equipement'&&(
           o.signatureData
-            ? <div style={{background:'#E8F5E9',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:10,border:'2px solid #4CAF50'}}>
+            ? <div style={{background:EPJ.successBg,borderRadius:radius.lg,padding:`${space.md}px ${space.lg}px`,display:'flex',alignItems:'center',gap:space.sm + 2,border:`1px solid ${EPJ.green}66`}}>
                 <span style={{fontSize:24}}>✅</span>
-                <div><div style={{fontSize:13,fontWeight:700,color:'#2E7D32'}}>Réception confirmée</div><div style={{fontSize:11,color:'#388E3C'}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
+                <div><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.greenText}}>Réception confirmée</div><div style={{fontSize:fontSize.xs,color:EPJ.greenText,opacity:.85}}>Signée le {o.dateReceptionEffective||o.date}</div></div>
               </div>
-            : <button className="epj-btn" onClick={()=>openReceptionSheet(o)} style={{background:`linear-gradient(135deg,${EPJ.green},#2E7D32)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>✍️ Feuille de réception + Signature</button>
+            : <Button full variant="secondary" onClick={()=>openReceptionSheet(o)}>✍️ Feuille de réception + Signature</Button>
         )}
       </div>}
 
       {/* Aperçu rapide */}
-      {pdfOrder&&<div style={{marginBottom:16}}>
-        <div style={{background:EPJ.dark,color:'#fff',padding:'8px 14px',borderRadius:'14px 14px 0 0',fontSize:11,fontWeight:700}}>Aperçu du bon de commande</div>
-        <div style={{border:'1px solid #ddd',borderTop:'none',borderRadius:'0 0 14px 14px',overflow:'hidden',maxHeight:300,overflowY:'auto'}}>
+      {pdfOrder&&<div style={{marginBottom:space.lg}}>
+        <div style={{background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.md + 2}px`,borderRadius:`${radius.lg}px ${radius.lg}px 0 0`,fontSize:fontSize.xs,fontWeight:fontWeight.medium}}>Aperçu du bon de commande</div>
+        <div style={{border:`1px solid ${EPJ.gray200}`,borderTop:'none',borderRadius:`0 0 ${radius.lg}px ${radius.lg}px`,overflow:'hidden',maxHeight:300,overflowY:'auto'}}>
           <PdfView order={pdfOrder}/>
         </div>
       </div>}
-      <button className="epj-btn" onClick={()=>{clearOrder();setPdfOrder(null);setLastSentOrder(null);setView('home')}} style={{background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'16px 40px',fontSize:16,width:'100%'}}>🏠 Nouvelle commande</button>
+      <Button full variant={wasV?'primary':'secondary'} onClick={()=>{clearOrder();setPdfOrder(null);setLastSentOrder(null);setView('home')}}>🏠 Nouvelle commande</Button>
     </div>
   )}
 
@@ -2237,36 +2234,37 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto'}}>        <Header title="Valider la commande" back={false} showCart={false}/>
-        <div style={{padding:12}}>
+      <div style={wrapStyle(720)}>
+        <Header title="Valider la commande" back={false} showCart={false}/>
+        <div style={{padding:space.md}}>
           {/* Infos commande */}
-          <div className="epj-card" style={{padding:14,marginBottom:10}}>
-            <div style={{fontSize:14,fontWeight:700,color:EPJ.dark,marginBottom:4}}>{o.num}</div>
-            <div style={{fontSize:11,color:EPJ.gray,marginBottom:2}}>{o.date} • par {o.user}</div>
+          <div className="epj-card" style={{padding:space.md + 2,marginBottom:space.sm + 2}}>
+            <div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontFamily:fontFamilies.mono}}>{o.num}</div>
+            <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginBottom:2}}>{o.date} • par {o.user}</div>
             {o.type === 'chantier' && (
-              <div style={{fontSize:11,color:EPJ.blue,marginBottom:2}}>🏗 [{o.numAffaire || o.chantierNum || '?'}] {o.chantier}</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginBottom:2}}>🏗 [{o.numAffaire || o.chantierNum || '?'}] {o.chantier}</div>
             )}
             {o.urgent && (
-              <span style={{display:'inline-block',fontSize:10,background:EPJ.red,color:'#fff',padding:'2px 6px',borderRadius:4,fontWeight:700,marginTop:2}}>⚠️ URGENT</span>
+              <div style={{marginTop:2}}><Badge status="urgent" label="Urgent"/></div>
             )}
             {o.remarques && (
-              <div style={{fontSize:11,color:EPJ.dark,marginTop:6,padding:6,background:'#FFF8E1',borderRadius:4,borderLeft:`3px solid ${EPJ.orange}`}}>
+              <div style={{fontSize:fontSize.xs,color:EPJ.orangeText,marginTop:6,padding:6,background:EPJ.warningBg,borderRadius:radius.sm,borderLeft:`3px solid ${EPJ.orange}`}}>
                 <strong>Remarque :</strong> {o.remarques}
               </div>
             )}
           </div>
 
           {/* Liste articles éditable */}
-          <div className="epj-card" style={{padding:14,marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:EPJ.dark}}>Articles à commander</div>
-              <div style={{fontSize:11,color:EPJ.gray}}>{totalRefs} réf. · {totalQty} pcs</div>
+          <div className="epj-card" style={{padding:space.md + 2,marginBottom:space.sm + 2}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:space.sm + 2}}>
+              <div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark}}>Articles à commander</div>
+              <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontVariantNumeric:'tabular-nums'}}>{totalRefs} réf. · {totalQty} pcs</div>
             </div>
 
             {editingItems.length === 0 && (
               <div style={{
-                padding:16,textAlign:'center',color:EPJ.gray,fontSize:12,
-                background:EPJ.grayLight,borderRadius:8,marginBottom:10,
+                padding:space.lg,textAlign:'center',color:EPJ.gray500,fontSize:fontSize.xs,
+                background:EPJ.gray50,borderRadius:radius.sm + 2,marginBottom:space.sm + 2,
               }}>
                 Aucune référence — ajoute au moins un article pour valider.
               </div>
@@ -2274,100 +2272,57 @@ export function CommandesInner({ onExitModule }) {
 
             {editingItems.map((it, idx) => (
               <div key={idx} style={{
-                display:'flex',alignItems:'center',gap:8,
-                padding:'8px 0',borderBottom:`1px solid ${EPJ.grayLight}`,
+                display:'flex',alignItems:'center',gap:space.sm,
+                padding:`${space.sm}px 0`,borderBottom:`1px solid ${EPJ.gray100}`,
               }}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  <div style={{fontSize:fontSize.xs,fontWeight:fontWeight.medium,color:EPJ.dark,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     {it.n}
                   </div>
-                  <div style={{fontSize:10,color:EPJ.gray}}>
+                  <div style={{fontSize:fontSize.xs,color:EPJ.gray,fontFamily:fontFamilies.mono}}>
                     {it.r} · {it.u || 'Pièce'}
                   </div>
                 </div>
-                <input
+                <Field
+                  dense width={64}
                   type="number" min="0" value={it.qty || 0}
                   onChange={e => updateItemQty(idx, e.target.value)}
-                  style={{
-                    width:60,padding:'6px 8px',textAlign:'center',
-                    border:`1px solid ${EPJ.grayLight}`,borderRadius:6,
-                    fontSize:13,fontWeight:700,color:EPJ.blue,
-                    fontFamily:font,
-                  }}
+                  inputStyle={{textAlign:'center',fontWeight:fontWeight.medium,color:EPJ.blueText,fontVariantNumeric:'tabular-nums'}}
                 />
-                <button
-                  onClick={() => removeItem(idx)}
-                  style={{
-                    background:'transparent',border:'none',
-                    color:EPJ.red,cursor:'pointer',fontSize:16,
-                    padding:4,
-                  }}
-                  title="Retirer"
-                >🗑</button>
+                <IconButton variant="danger" label="Retirer cette référence" onClick={() => removeItem(idx)}>🗑</IconButton>
               </div>
             ))}
 
             <button
               onClick={addItemFromCatalog}
-              className="epj-btn"
               style={{
-                width:'100%',marginTop:10,
-                background:EPJ.grayLight,color:EPJ.dark,
-                padding:'10px',fontSize:13,fontWeight:600,
-                border:`1px dashed ${EPJ.gray}`,
+                width:'100%',marginTop:space.sm + 2,
+                background:EPJ.gray50,color:EPJ.dark,
+                padding:space.sm + 2,fontSize:fontSize.sm,fontWeight:fontWeight.medium,
+                border:`1px dashed ${EPJ.gray400}`,borderRadius:radius.md,
+                cursor:'pointer',fontFamily:font,
               }}
             >➕ Ajouter une référence</button>
           </div>
 
           {/* Actions */}
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            <button
-              className="epj-btn"
-              onClick={saveAndSendMail}
-              disabled={editingItems.length === 0}
-              style={{
-                width:'100%',
-                background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,
-                color:'#fff',padding:'14px',fontSize:15,fontWeight:700,
-                opacity:editingItems.length === 0 ? 0.5 : 1,
-              }}
-            >✅ Valider et envoyer aux achats</button>
-
-            <button
-              className="epj-btn"
-              onClick={saveLater}
-              disabled={editingItems.length === 0}
-              style={{
-                width:'100%',
-                background:'#fff',color:EPJ.dark,
-                border:`1px solid ${EPJ.blue}`,
-                padding:'12px',fontSize:14,fontWeight:600,
-                opacity:editingItems.length === 0 ? 0.5 : 1,
-              }}
-            >💾 Valider (envoyer plus tard)</button>
-
-            <button
-              className="epj-btn"
-              onClick={cancel}
-              style={{
-                width:'100%',
-                background:'#eee',color:EPJ.gray,
-                padding:'10px',fontSize:13,
-              }}
-            >← Annuler</button>
+          <div style={{display:'flex',flexDirection:'column',gap:space.sm}}>
+            <Button full onClick={saveAndSendMail} disabled={editingItems.length === 0}>✅ Valider et envoyer aux achats</Button>
+            <Button full variant="secondary" onClick={saveLater} disabled={editingItems.length === 0}>💾 Valider (envoyer plus tard)</Button>
+            <Button full variant="ghost" onClick={cancel}>← Annuler</Button>
           </div>
 
           <div style={{
-            fontSize:10,color:EPJ.gray,marginTop:12,
-            padding:'8px 10px',background:`${EPJ.blue}10`,
-            borderRadius:6,lineHeight:1.4,
+            fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.md,
+            padding:`${space.sm}px ${space.sm + 2}px`,background:`${EPJ.blue}10`,
+            borderRadius:radius.sm,lineHeight:1.4,
           }}>
             💡 <strong>Envoyer plus tard</strong> : la commande reste dans l'historique
             en attente d'envoi. Tu pourras l'envoyer quand tu voudras via le bouton
             « Envoyer aux achats ».
           </div>
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
@@ -2408,46 +2363,37 @@ export function CommandesInner({ onExitModule }) {
     };
 
     return (
-      <div style={{fontFamily:font,background:'transparent',minHeight:'100vh',maxWidth:520,margin:'0 auto',textAlign:'center',padding:'30px 16px'}}>        <div style={{fontSize:56,marginBottom:12}}>✅</div>
-        <div style={{fontSize:22,fontWeight:800,color:EPJ.dark,marginBottom:6}}>Commande validée !</div>
-        <div style={{fontSize:13,color:EPJ.gray,lineHeight:1.6,marginBottom:16}}>
+      <div style={wrapStyle(720, { textAlign:'center', padding:`${space.xxl - 2}px ${space.lg}px` })}>
+        <div style={{fontSize:56,marginBottom:space.md}}>✅</div>
+        <div style={{fontSize:fontSize.xl,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:6}}>Commande validée !</div>
+        <div style={{fontSize:fontSize.sm,color:EPJ.gray,lineHeight:1.6,marginBottom:space.lg}}>
           Elle est enregistrée en statut <strong>Validée</strong>.<br/>
           Clique sur <strong>« Envoyer par email »</strong> pour la transmettre
           aux achats — tu seras invité à confirmer l'envoi après.
         </div>
-        <div style={{background:'#fff',borderRadius:14,padding:14,marginBottom:16,textAlign:'left',fontSize:13}}>
-          <div style={{fontWeight:700}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div>
-          <div style={{fontSize:11,color:EPJ.gray,marginTop:2}}>{o.date} • {o.user} • {o.chantier||o.salarie}</div>
+        <div style={{background:EPJ.white,border:`1px solid ${EPJ.gray200}`,borderRadius:radius.lg,padding:space.md + 2,marginBottom:space.lg,textAlign:'left',fontSize:fontSize.sm}}>
+          <div style={{fontWeight:fontWeight.medium,fontFamily:fontFamilies.mono}}>{o.num}{(o.numAffaire||o.chantierNum)?` — N°${o.numAffaire||o.chantierNum}`:''}</div>
+          <div style={{fontSize:fontSize.xs,color:EPJ.gray,marginTop:2}}>{o.date} • {o.user} • {o.chantier||o.salarie}</div>
           <div style={{marginTop:6}}><Badge status="Validée" label="Validée" dot/></div>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-          <button className="epj-btn" onClick={()=>generateAndOpenPdf(o)} style={{background:`linear-gradient(135deg,${EPJ.blue},#0077B6)`,color:'#fff',padding:'16px',fontSize:15,width:'100%'}}>📄 Voir / Télécharger le PDF</button>
-          <button
-            type="button"
-            className="epj-btn"
-            onClick={handleEmailClick}
-            style={{
-              background:`linear-gradient(135deg,${EPJ.orange},${EPJ.red})`,
-              color:'#fff',padding:'16px',fontSize:15,
-              width:'100%',textAlign:'center',borderRadius:12,
-              fontWeight:700,cursor:'pointer',border:'none',fontFamily:font,
-            }}
-          >✉️ Envoyer par email aux achats</button>
+        <div style={{display:'flex',flexDirection:'column',gap:space.sm + 2,marginBottom:space.lg}}>
+          <Button full onClick={handleEmailClick}>✉️ Envoyer par email aux achats</Button>
+          <Button full variant="secondary" onClick={()=>generateAndOpenPdf(o)}>📄 Voir / Télécharger le PDF</Button>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <button className="epj-btn" onClick={()=>setView('pending')} style={{flex:1,background:'#eee',color:EPJ.dark,padding:'12px',fontSize:14}}>← Autres commandes</button>
-          <button className="epj-btn" onClick={()=>{setPdfOrder(null);setLastSentOrder(null);setView('home')}} style={{flex:1,background:`linear-gradient(135deg,${EPJ.blue},${EPJ.green})`,color:'#fff',padding:'12px',fontSize:14}}>🏠 Accueil</button>
+        <div style={{display:'flex',gap:space.sm}}>
+          <div style={{flex:1}}><Button full variant="secondary" onClick={()=>setView('pending')}>← Autres commandes</Button></div>
+          <div style={{flex:1}}><Button full variant="ghost" onClick={()=>{setPdfOrder(null);setLastSentOrder(null);setView('home')}}>🏠 Accueil</Button></div>
         </div>
         <div style={{
-          fontSize:10,color:EPJ.gray,marginTop:16,textAlign:'left',
-          padding:'8px 10px',background:`${EPJ.orange}10`,
-          borderRadius:6,lineHeight:1.4,
+          fontSize:fontSize.xs,color:EPJ.gray500,marginTop:space.lg,textAlign:'left',
+          padding:`${space.sm}px ${space.sm + 2}px`,background:`${EPJ.orange}10`,
+          borderRadius:radius.sm,lineHeight:1.4,
         }}>
           💡 Tant que tu n'as pas confirmé l'envoi, la commande reste en
           statut <strong>Validée</strong> (= à envoyer) dans l'historique.
           Tu pourras la renvoyer plus tard via le bouton « Envoyer aux achats ».
         </div>
-        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:'#fff',padding:'8px 20px',borderRadius:20,fontSize:13,fontWeight:600,zIndex:400}}>{toast}</div>}
+        {toast&&<div style={{position:'fixed',bottom:30,left:'50%',transform:'translateX(-50%)',background:EPJ.dark,color:EPJ.white,padding:`${space.sm}px ${space.xl - 4}px`,borderRadius:radius.pill,fontSize:fontSize.sm,fontWeight:fontWeight.medium,zIndex:400}}>{toast}</div>}
       </div>
     );
   }
