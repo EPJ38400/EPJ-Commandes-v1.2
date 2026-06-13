@@ -54,12 +54,12 @@ const MODULES_META = [
     enabled: true,
   },
   {
-    id: "suivi-esabora",
-    title: "Suivi chantier",
-    subtitle: "Liaison Esabora",
-    icon: "📋",
+    id: "gestionChantier",
+    title: "Gestion de chantier",
+    subtitle: "Chantiers, onglets & suivi",
+    icon: "🏗️",
     accent: EPJ.gray700,
-    enabled: false,
+    enabled: true,
   },
 ];
 
