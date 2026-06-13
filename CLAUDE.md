@@ -17,6 +17,8 @@ Ce qui tourne = **Commandes (M1)** — désormais avec un **dashboard achat comp
 en prod** (suivi AR fournisseurs, résync, réclamations déterministes, référentiel
 fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers)** + serveur
 MCP. Développé mais peu adopté = Réserves (M4, 1 réserve) + Parc machines (M2).
+**Gestion de chantier (M5) : squelette L1 en prod** (création module + nav
+chantier-first + permissions par onglet ; onglets = coquilles vides « à venir »).
 Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
@@ -150,9 +152,28 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | M2 | Parc machines | Développé (schémas v8) | attente photos, peu de données |
 | M3 | Avancement | EN PROD, dev récent intense | 21 chantiers — usage réel |
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
-| M5 | Suivi + Esabora | NON DÉVELOPPÉ | — |
+| M5 | Gestion de chantier | **L1 EN PROD** (squelette : module + nav + permissions onglets, onglets vides) | nouveau — pas encore d'usage |
 
 Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
+
+### M5 Gestion de chantier — squelette L1 (EN PROD) [C]
+
+Renommage du stub `suivi-esabora` (« Suivi chantier ») → module `gestionChantier`
+(« Gestion de chantier »). **Navigation chantier-first** : landing = liste des
+chantiers filtrée `own_chantiers` pour le Conducteur (helper testant `conducteurId`
++ `affectations.conducteurId` + tableaux d'affectation, calibre Avancement) avec
+toggle « Tout voir » ; Admin/Direction = tous ; ouvrir un chantier → **fiche à
+onglets**. 7 onglets, chacun = **clé de permission** `gestionChantier.<onglet>`
+(pieuvres, commandes, financier, suivi, gantt, tma, demarches) ; visibilité gatée
+par `can()` ; **contenu = placeholder « à venir »** (lots L2+). Assistante ne voit
+que financier + demarches ; Chef/Monteur/Artisan fermés par défaut (Chef ouvrable
+via `permissionsOverride`). **Lecture seule de `chantiers`, AUCUNE écriture
+Firestore, aucune nouvelle collection.** Structure module classique
+(`src/modules/gestion-chantier/`, calibre `avancement/`), pas de split N2.
+Fichiers : `GestionChantierModule.jsx` (landing), `ChantierFiche.jsx` (onglets) ;
+branché dans `App.jsx` (route `module:gestionChantier`) + tuile `HomePage.jsx`.
+**Reste à développer : tout le contenu des onglets** (lots L2→L15 de la spec
+`Spec_M5_GestionChantier_et_RH_V1.md`) + le **module RH** séparé.
 
 ### M1 Commandes — dashboard achat (EN PROD depuis 2026-06-07) [V][C]
 
