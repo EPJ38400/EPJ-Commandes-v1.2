@@ -171,6 +171,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── pieuvres/{id} — M5 Gestion de chantier (onglet Pieuvres) ──
+    // Per-chantier, éditable par tout employé (le gating fin Admin/Direction/
+    // Conducteur own_chantiers est assuré côté client par can()). Suppression
+    // réservée au conducteur (calque reserves/commandes).
+    match /pieuvres/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isConducteur();
+    }
+
     // ─── smsTemplates + smsQueue ──────────────────────────────────
     match /smsTemplates/{id} {
       allow read: if isEmployee();
