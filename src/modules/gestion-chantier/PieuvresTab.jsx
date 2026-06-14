@@ -59,19 +59,37 @@ export function PieuvresTab({ chantier }) {
   const [rows, setRows] = useState([]);
   const [loadedSnap, setLoadedSnap] = useState(false);
   const [working, setWorking] = useState(false);
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const genTried = useRef(false);
 
   // ─── Lecture live de pieuvres (1 clause where = pas d'index) ───
+  // Le callback d'erreur attrape tout échec (permission-denied si la règle
+  // pieuvres n'est pas déployée, perte réseau…) et bascule en état d'erreur
+  // lisible plutôt que de rester bloqué sur « Chargement… ».
   useEffect(() => {
     setLoadedSnap(false);
+    setError(null);
     genTried.current = false;
     const q = query(collection(db, "pieuvres"), where("chantierId", "==", chantier.num));
-    const unsub = onSnapshot(q, (snap) => {
-      setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoadedSnap(true);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setError(null);
+        setLoadedSnap(true);
+      },
+      (err) => {
+        console.error("[PieuvresTab] lecture pieuvres échouée :", err);
+        setRows([]);
+        setError(err);
+        setLoadedSnap(true);
+      },
+    );
     return unsub;
-  }, [chantier.num]);
+  }, [chantier.num, reloadKey]);
+
+  const retry = () => { setError(null); setLoadedSnap(false); setReloadKey((k) => k + 1); };
 
   const rowsById = useMemo(() => {
     const m = new Map();
@@ -81,7 +99,7 @@ export function PieuvresTab({ chantier }) {
 
   // ─── Génération idempotente (crée seulement les lignes manquantes) ───
   const ensurePieuvres = async () => {
-    if (!canEdit || working) return;
+    if (!canEdit || working || error) return; // jamais de génération si la lecture a échoué
     const existing = new Set(rows.map((r) => r.id));
     const missing = expectedPieuvres(chantier).filter((e) => !existing.has(e.id));
     if (missing.length === 0) return;
@@ -99,19 +117,22 @@ export function PieuvresTab({ chantier }) {
         },
         { merge: true },
       )));
+    } catch (e) {
+      console.error("[PieuvresTab] génération pieuvres échouée :", e);
+      setError(e);
     } finally {
       setWorking(false);
     }
   };
 
-  // Auto-génération à la 1re ouverture (une seule fois).
+  // Auto-génération à la 1re ouverture (une seule fois) — jamais si erreur de lecture.
   useEffect(() => {
-    if (!loadedSnap || genTried.current) return;
+    if (!loadedSnap || genTried.current || error) return;
     if (rows.length === 0 && canEdit && hasRealBuildings(chantier)) {
       genTried.current = true;
       ensurePieuvres();
     }
-  }, [loadedSnap, rows.length, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadedSnap, rows.length, canEdit, error]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Sauvegarde d'un champ (par doc, merge:true) ───
   const saveField = (row, field, rawValue) => {
@@ -121,7 +142,10 @@ export function PieuvresTab({ chantier }) {
       doc(db, "pieuvres", row.id),
       { [field]: value, updatedAt: serverTimestamp() },
       { merge: true },
-    );
+    ).catch((e) => {
+      console.error("[PieuvresTab] sauvegarde échouée :", e);
+      setError(e);
+    });
   };
 
   // ─── Regroupement par bâtiment, ordre piloté par le modèle ───
@@ -140,6 +164,17 @@ export function PieuvresTab({ chantier }) {
     return (
       <EmptyBox icon="🏢"
         text="Aucun bâtiment configuré sur ce chantier. Renseignez les bâtiments dans l'administration du chantier pour générer les pieuvres." />
+    );
+  }
+  if (error) {
+    return (
+      <div>
+        <EmptyBox icon="⚠️"
+          text="Impossible de charger les pieuvres. Vérifiez votre connexion et réessayez." />
+        <div style={{ display: "flex", justifyContent: "center", marginTop: space.md }}>
+          <Button variant="secondary" size="sm" onClick={retry}>Réessayer</Button>
+        </div>
+      </div>
     );
   }
   if (!loadedSnap) {
