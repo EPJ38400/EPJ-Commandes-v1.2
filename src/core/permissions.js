@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 export const ROLES = [
-  "Admin", "Direction", "Conducteur travaux", "Assistante",
+  "Admin", "Direction", "Conducteur travaux", "Assistante", "Achat",
   "Chef chantier", "Monteur", "Artisan",
 ];
 
@@ -109,6 +109,21 @@ export const DEFAULT_PERMISSIONS = {
     "gestionChantier.demarches": { _access:"all", view:"all" },
     _dashboards: { direction:false, conducteur:false, public:true },
     _admin: false,
+  },
+  // Rôle « Achat » — pilotage achats / dashboard achat@. Clés canoniques
+  // (pas reserves/outillage/chantiers : ce sont des clés legacy de l'override
+  // Firestore rolesConfig/Achat, qui reste inchangé et prioritaire par clé).
+  Achat: {
+    commandes:         { _access:"all", view:"all", create:"all", edit:"all", delete:"all", validate:"all", export:"all" },
+    "parc-machines":   { _access:"all", view:"all", create:false, edit:false, delete:false, export:false },
+    avancement:        { _access:"all", view:"all", create:false, edit:false, validate:false },
+    "reserves-quitus": { _access:"all", view:"all", create:false, edit:false, delete:false, validate:false },
+    gestionChantier:             { _access:"all", view:"all", create:false, edit:false, delete:false },
+    "gestionChantier.pieuvres":  { _access:"all", view:"all" },
+    "gestionChantier.commandes": { _access:"all", view:"all" },
+    "gestionChantier.financier": { _access:"all", view:"all" },
+    _dashboards: { conducteur: true },
+    _admin: true,
   },
   "Chef chantier": {
     // v10.I — Fix 1 : delete autorisé sur ses chantiers.
