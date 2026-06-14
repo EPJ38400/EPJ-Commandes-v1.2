@@ -30,6 +30,8 @@ on:
       - 'firebase.json'
       - '.firebaserc'
       - '.github/workflows/main.yml'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
   workflow_dispatch:  # permet déclenchement manuel
 
 jobs:
@@ -81,6 +83,13 @@ jobs:
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
           firebase deploy --only functions --project ap-epj --non-interactive
+
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/../firebase-key.json
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
+          firebase deploy --only firestore:rules --project ap-epj --non-interactive
 
       - name: Cleanup credentials
         if: always()
