@@ -15,6 +15,7 @@ import { useData } from "../../core/DataContext";
 import { useViewport } from "../../core/useViewport";
 import { can } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
+import { PieuvresTab } from "./PieuvresTab";
 
 // Onglets de la fiche — la clé = sous-clé de permission gestionChantier.<clé>
 const TABS = [
@@ -100,8 +101,13 @@ export function ChantierFiche({ chantier, onBack }) {
             })}
           </div>
 
-          {/* Contenu de l'onglet actif — placeholder L1 */}
-          {active && (
+          {/* Contenu de l'onglet actif — Pieuvres livré (L2), autres = placeholder */}
+          {active && active.key === "pieuvres" && (
+            <div role="tabpanel">
+              <PieuvresTab chantier={chantier} />
+            </div>
+          )}
+          {active && active.key !== "pieuvres" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",
