@@ -17,9 +17,11 @@ Ce qui tourne = **Commandes (M1)** — désormais avec un **dashboard achat comp
 en prod** (suivi AR fournisseurs, résync, réclamations déterministes, référentiel
 fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers)** + serveur
 MCP. Développé mais peu adopté = Réserves (M4, 1 réserve) + Parc machines (M2).
-**Gestion de chantier (M5) : squelette L1 en prod** (création module + nav
-chantier-first + permissions par onglet ; onglets = coquilles vides « à venir »).
-Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
+**Gestion de chantier (M5) : L1 + onglet Pieuvres (L2) en prod** (nav chantier-first +
+permissions par onglet ; **onglet Pieuvres livré** = collection `pieuvres`, génération
+idempotente + édition ; 6 autres onglets = coquilles « à venir »). Rôle **Achat** ajouté
+en factory (`permissions.js`). Spec seulement = Chiffrage, cockpits, archi N2, mode admin,
+migration v11.
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
 - **Cible métier** : **EPJ Électricité Générale**, PME du bâtiment.
@@ -53,11 +55,16 @@ Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
 - Firebase Auth ACTIF : chaque fiche `utilisateurs` porte un `uid` Auth.
   **L'objet user porte `roles` (TABLEAU)**, pas `role` — piège corrigé en juin (cf. §11).
 - Cloud Functions Node 22, europe-west1.
-- **Déploiement Functions : auto via GitHub Actions sur push `main` (`--only functions`).
-  Jamais `firebase deploy` manuel sans GO.**
-- **⚠️ Les règles Firestore NE SONT PAS déployées par le CI** →
-  `firebase deploy --only firestore:rules --project ap-epj` MANUEL requis
-  (exception légitime, avec GO).
+- **Déploiement auto via GitHub Actions sur push `main`** (`.github/workflows/main.yml`,
+  paths : `functions/**`, `firebase.json`, `.firebaserc`, `firestore.rules`,
+  `firestore.indexes.json`, le workflow). Le job enchaîne `firebase deploy --only functions`
+  **puis** `firebase deploy --only firestore:rules` (étape « Deploy Firestore rules »,
+  ajoutée juin 2026). Jamais `firebase deploy` manuel sans GO.
+- **⚠️ Les règles Firestore SONT désormais déployées par le CI** (depuis juin 2026 ;
+  avant : déploiement manuel obligatoire). Un push `main` touchant `firestore.rules`
+  les déploie automatiquement. Déploiement manuel `firebase deploy --only firestore:rules
+  --project ap-epj` = filet de secours possible **avec GO** (ex. règle déjà mergée mais
+  CI non redéclenché).
 
 ### Authentification Gmail [V]
 - `sav@` : OAuth, aspiration + envoi.
@@ -152,11 +159,11 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | M2 | Parc machines | Développé (schémas v8) | attente photos, peu de données |
 | M3 | Avancement | EN PROD, dev récent intense | 21 chantiers — usage réel |
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
-| M5 | Gestion de chantier | **L1 EN PROD** (squelette : module + nav + permissions onglets, onglets vides) | nouveau — pas encore d'usage |
+| M5 | Gestion de chantier | **L1 + onglet Pieuvres (L2) EN PROD** (nav + permissions onglets ; Pieuvres = collection `pieuvres`, gén. idempotente + édition ; 6 onglets restants vides) | nouveau — pas encore d'usage |
 
 Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
 
-### M5 Gestion de chantier — squelette L1 (EN PROD) [C]
+### M5 Gestion de chantier — L1 + onglet Pieuvres L2 (EN PROD) [C]
 
 Renommage du stub `suivi-esabora` (« Suivi chantier ») → module `gestionChantier`
 (« Gestion de chantier »). **Navigation chantier-first** : landing = liste des
@@ -165,15 +172,29 @@ chantiers filtrée `own_chantiers` pour le Conducteur (helper testant `conducteu
 toggle « Tout voir » ; Admin/Direction = tous ; ouvrir un chantier → **fiche à
 onglets**. 7 onglets, chacun = **clé de permission** `gestionChantier.<onglet>`
 (pieuvres, commandes, financier, suivi, gantt, tma, demarches) ; visibilité gatée
-par `can()` ; **contenu = placeholder « à venir »** (lots L2+). Assistante ne voit
-que financier + demarches ; Chef/Monteur/Artisan fermés par défaut (Chef ouvrable
-via `permissionsOverride`). **Lecture seule de `chantiers`, AUCUNE écriture
-Firestore, aucune nouvelle collection.** Structure module classique
+par `can()`. Assistante ne voit que financier + demarches ; Chef/Monteur/Artisan
+fermés par défaut (Chef ouvrable via `permissionsOverride`). **Lecture seule de
+`chantiers`** (jamais d'écriture). Structure module classique
 (`src/modules/gestion-chantier/`, calibre `avancement/`), pas de split N2.
 Fichiers : `GestionChantierModule.jsx` (landing), `ChantierFiche.jsx` (onglets) ;
 branché dans `App.jsx` (route `module:gestionChantier`) + tuile `HomePage.jsx`.
-**Reste à développer : tout le contenu des onglets** (lots L2→L15 de la spec
-`Spec_M5_GestionChantier_et_RH_V1.md`) + le **module RH** séparé.
+
+**Onglet Pieuvres (L2) livré** [C] : nouvelle **collection racine `pieuvres`**
+(`PieuvresTab.jsx` + `pieuvresModel.js`). Génération **idempotente** des lignes
+« 1 dalle = 1 pieuvre » par bâtiment depuis `buildings[].config` (ss→rdc→r→combles,
+radier exclu ; `posteAvancementKey` aligné M3 : `beton-dalle-*`, combles =
+`beton-combles`) ; ID déterministe `{chantierId}_{batiment}_{niveau}` (`batiment` =
+lettre affichée) → ne duplique/n'écrase jamais (auto à la 1re ouverture si droit
+edit + bouton « Compléter les pieuvres »). Lecture via `onSnapshot` filtré
+`chantierId` (tri client, **pas d'index composite**, pas de listener global) +
+**callback d'erreur** (état « réessayer », pas de blocage). Édition en ligne par
+doc (`merge:true`), gardée par `can(user,"gestionChantier","edit")`. Rule
+`match /pieuvres/{id}` (read employee / create-update employee / delete conducteur,
+calque `reserves`). **Toujours lecture seule de `chantiers`.**
+
+**Reste à développer** : les 6 autres onglets (commandes, financier, suivi, gantt,
+tma, demarches) + lots L3→L15 de la spec `Spec_M5_GestionChantier_et_RH_V1.md` + le
+**module RH** séparé.
 
 ### M1 Commandes — dashboard achat (EN PROD depuis 2026-06-07) [V][C]
 
@@ -232,12 +253,16 @@ Dashboard direction : `src/pages/DashboardDirection.jsx`. Dashboard achat :
 
 ---
 
-## 6. Les 7 rôles & le modèle de permissions [C]
+## 6. Les 8 rôles & le modèle de permissions [C]
 
 Rôles (`ROLES` dans `permissions.js`) : **Admin** (total + écrans admin) ·
 **Direction** (total sauf delete) · **Conducteur travaux** (scoped `own_chantiers`) ·
-**Assistante** (large, pas validate/delete) · **Chef chantier** (`own_chantiers`,
-crée/édite) · **Monteur** (ses items) · **Artisan** (très restreint).
+**Assistante** (large, pas validate/delete) · **Achat** (pilotage achats : commandes
+plein, parc/avancement/réserves lecture, gestionChantier onglets pieuvres/commandes/
+financier, `_admin:true` ; factory depuis juin 2026, l'override `rolesConfig/Achat`
+reste prioritaire par clé — à ne pas confondre avec le flag user `directAchat`) ·
+**Chef chantier** (`own_chantiers`, crée/édite) · **Monteur** (ses items) ·
+**Artisan** (très restreint).
 
 **Modèle 3 couches** : (1) **FACTORY** `DEFAULT_PERMISSIONS` (code, jamais perdu) ;
 (2) **OVERRIDE DE RÔLE** Firestore `rolesConfig/{role}` ; (3) **OVERRIDE
@@ -278,17 +303,23 @@ Logique fine non documentée ici : lecture du code `functions/` requise.
 
 ---
 
-## 8. Firestore — 30 collections réelles [V] (2026-06-07)
+## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2, juin 2026)
 
 ```
 achatEcartsPrix · avancementValidations · catalogue · chantiers · commandes ·
 commandesEsabora · config · esabora_import · fournisseurs · fournisseursContacts ·
 gmailAchatExtractions · gmailConfig · gmailConfigAchat ·
-outillageCategories · outillagePannes · outillageSorties · outils ·
+outillageCategories · outillagePannes · outillageSorties · outils · pieuvres ·
 reserveMails · reserveMailsAClasser · reserves · reservesCategories ·
 reservesEmetteurs · rolesConfig · smsQueue · smsTemplates · utilisateurs ·
 mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
 ```
+
+`pieuvres/{chantierId_batiment_niveau}` (M5 onglet Pieuvres) : `chantierId`, `batiment`
+(lettre), `niveau`, `posteAvancementKey` (jointure M3), `jourDemande`/`dateReceptionPlansCotes`/
+`dateLivraison` (Timestamp|null), `lieuLivraison` (CHANTIER|BUREAU), `statut`
+(A_DEMANDER|DEMANDEE|PLANS_RECUS|LIVREE), `commandeId`, `remarques`, `createdAt`/`updatedAt`.
+Généré idempotemment depuis `buildings[].config` ; aucune écriture dans `chantiers`.
 
 ### Cluster achat / Esabora
 - `commandesEsabora/{numero}` — id = n° Esabora 6 chiffres. Champs : `codeFournisseur`,
@@ -388,11 +419,15 @@ Un GO oral ou implicite ne suffit pas.
 
 ### Git & déploiement
 - Preprod (branche → preview Vercel) → **GO écrit** → merge `main` (auto Vercel prod +
-  GitHub Actions functions).
+  GitHub Actions functions **+ firestore:rules**).
 - **Jamais** `firebase deploy` / `vercel --prod` / merge `main` / push `main` sans GO écrit.
-- **Les rules Firestore ne passent PAS par le CI** → déploiement manuel
-  `firebase deploy --only firestore:rules --project ap-epj` (avec GO), sinon la
-  feature dépendante reste en `permission-denied`.
+- **Les rules Firestore passent désormais par le CI** (étape « Deploy Firestore rules »
+  de `main.yml`, depuis juin 2026) : un push `main` touchant `firestore.rules` les déploie
+  automatiquement. Déploiement manuel `firebase deploy --only firestore:rules --project ap-epj`
+  = filet de secours avec GO (ex. CI non redéclenché). Sans déploiement, la feature
+  dépendante reste en `permission-denied`.
+- ⚠️ **Modif d'un fichier `.github/workflows/*`** : le token Claude Code n'a pas le scope
+  GitHub `workflow` → push refusé. Toute retouche du workflow passe par PJ (terminal/GitHub web).
 
 ### Rythme & format
 - PJ veut l'app **rapidement opérationnelle en prod**. Plans **concis**, exécution
