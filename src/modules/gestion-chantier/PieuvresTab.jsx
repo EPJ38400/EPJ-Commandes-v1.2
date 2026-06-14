@@ -30,6 +30,7 @@ import {
   expectedPieuvres, niveauxForConfig, pieuvreId, niveauLabel,
   hasRealBuildings, LIEU_OPTIONS, STATUT_OPTIONS, STATUT_TONE,
 } from "./pieuvresModel";
+import { openPieuvresPdfWindow, loadLogoDataUri } from "./pieuvresPdf";
 
 const DATE_FIELDS = ["jourDemande", "dateReceptionPlansCotes", "dateLivraison"];
 
@@ -55,13 +56,24 @@ export function PieuvresTab({ chantier }) {
 
   const editScope = can(user, "gestionChantier", "edit", rolesConfig);
   const canEdit = editScope === "all" || editScope === "own_chantiers";
+  // Export PDF : gardé par le droit de LECTURE de l'onglet pieuvres.
+  const canExport = !!can(user, "gestionChantier.pieuvres", "view", rolesConfig);
 
   const [rows, setRows] = useState([]);
   const [loadedSnap, setLoadedSnap] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const genTried = useRef(false);
+  // Logo EPJ préchargé en data URI (geste utilisateur préservé au clic export ;
+  // évite le bug logo du quitus : pas de chemin relatif ni d'URL cross-origin).
+  const logoRef = useRef("");
+  useEffect(() => {
+    let alive = true;
+    loadLogoDataUri().then((d) => { if (alive) logoRef.current = d; });
+    return () => { alive = false; };
+  }, []);
 
   // ─── Lecture live de pieuvres (1 clause where = pas d'index) ───
   // Le callback d'erreur attrape tout échec (permission-denied si la règle
@@ -159,6 +171,29 @@ export function PieuvresTab({ chantier }) {
     }).filter((g) => g.rows.length > 0);
   }, [chantier, rowsById]);
 
+  // ─── Sélection (cases à cocher) pour l'export partiel ───
+  const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const selectedCount = useMemo(
+    () => rows.reduce((n, r) => n + (selectedIds.has(r.id) ? 1 : 0), 0),
+    [rows, selectedIds],
+  );
+  const allSelected = allIds.length > 0 && selectedCount === allIds.length;
+  const toggleSelect = (id) => setSelectedIds((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const toggleSelectAll = () => setSelectedIds(() => (allSelected ? new Set() : new Set(allIds)));
+
+  // ─── Export PDF (lecture seule, logo préchargé en data URI) ───
+  const exportAll = () =>
+    openPieuvresPdfWindow({ chantier, rows, logoDataUri: logoRef.current, selection: false });
+  const exportSelection = () => {
+    const sel = rows.filter((r) => selectedIds.has(r.id));
+    if (sel.length === 0) return;
+    openPieuvresPdfWindow({ chantier, rows: sel, logoDataUri: logoRef.current, selection: true });
+  };
+
   // ─── États particuliers ───
   if (!hasRealBuildings(chantier)) {
     return (
@@ -194,7 +229,24 @@ export function PieuvresTab({ chantier }) {
 
   return (
     <div>
-      <ToolBar canEdit={canEdit} working={working} onGenerate={ensurePieuvres} hasRows />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
+        {canExport ? (
+          <ExportBar
+            total={rows.length}
+            selectedCount={selectedCount}
+            allSelected={allSelected}
+            onToggleAll={toggleSelectAll}
+            onExportAll={exportAll}
+            onExportSelection={exportSelection}
+          />
+        ) : <span />}
+        {canEdit && (
+          <Button variant="secondary" size="sm" onClick={ensurePieuvres} loading={working}>
+            Compléter les pieuvres
+          </Button>
+        )}
+      </div>
+
       {groups.map((g) => (
         <div key={g.lettre} style={{ marginBottom: space.xl }}>
           <div style={{
@@ -207,10 +259,31 @@ export function PieuvresTab({ chantier }) {
             </span>
           </div>
           {isPwa
-            ? <PieuvreCards rows={g.rows} canEdit={canEdit} onSave={saveField} />
-            : <PieuvreTable rows={g.rows} canEdit={canEdit} onSave={saveField} />}
+            ? <PieuvreCards rows={g.rows} canEdit={canEdit} onSave={saveField}
+                selectable={canExport} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+            : <PieuvreTable rows={g.rows} canEdit={canEdit} onSave={saveField}
+                selectable={canExport} selectedIds={selectedIds} onToggleSelect={toggleSelect} />}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Barre d'export PDF ───
+function ExportBar({ total, selectedCount, allSelected, onToggleAll, onExportAll, onExportSelection }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, alignItems: "center" }}>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontSize: fontSize.sm, color: EPJ.gray700, cursor: "pointer" }}>
+        <input type="checkbox" checked={allSelected} onChange={onToggleAll}
+          style={{ width: 16, height: 16, accentColor: EPJ.blue, cursor: "pointer" }} />
+        Tout sélectionner ({total})
+      </label>
+      <Button variant="primary" size="sm" onClick={onExportAll}>
+        📄 Exporter le planning (PDF)
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onExportSelection} disabled={selectedCount === 0}>
+        📄 Exporter la sélection{selectedCount > 0 ? ` (${selectedCount})` : ""}
+      </Button>
     </div>
   );
 }
@@ -238,17 +311,18 @@ const COLS = [
   { key: "remarques", label: "Remarques",     w: "1.4fr" },
 ];
 
-function PieuvreTable({ rows, canEdit, onSave }) {
-  const template = COLS.map((c) => c.w).join(" ");
+function PieuvreTable({ rows, canEdit, onSave, selectable, selectedIds, onToggleSelect }) {
+  const template = (selectable ? "34px " : "") + COLS.map((c) => c.w).join(" ");
   return (
     <div style={{ overflowX: "auto", border: `1px solid ${EPJ.gray200}`, borderRadius: radius.lg, background: EPJ.white }}>
-      <div style={{ minWidth: 880 }}>
+      <div style={{ minWidth: selectable ? 914 : 880 }}>
         {/* En-têtes */}
         <div style={{
           display: "grid", gridTemplateColumns: template, gap: space.sm,
           padding: `${space.sm}px ${space.md}px`, borderBottom: `1px solid ${EPJ.gray200}`,
           background: EPJ.gray50,
         }}>
+          {selectable && <div />}
           {COLS.map((c) => (
             <div key={c.key} style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray600 }}>
               {c.label}
@@ -261,6 +335,11 @@ function PieuvreTable({ rows, canEdit, onSave }) {
             display: "grid", gridTemplateColumns: template, gap: space.sm, alignItems: "center",
             padding: `${space.sm}px ${space.md}px`, borderBottom: `1px solid ${EPJ.gray100}`,
           }}>
+            {selectable && (
+              <input type="checkbox" checked={selectedIds.has(r.id)}
+                onChange={() => onToggleSelect(r.id)} aria-label={`Sélectionner ${niveauLabel(r.niveau)}`}
+                style={{ width: 16, height: 16, accentColor: EPJ.blue, cursor: "pointer" }} />
+            )}
             <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900 }}>
               {niveauLabel(r.niveau)}
             </div>
@@ -284,7 +363,7 @@ function PieuvreTable({ rows, canEdit, onSave }) {
 }
 
 // ─── Cartes (PWA) ───
-function PieuvreCards({ rows, canEdit, onSave }) {
+function PieuvreCards({ rows, canEdit, onSave, selectable, selectedIds, onToggleSelect }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       {rows.map((r) => (
@@ -293,8 +372,15 @@ function PieuvreCards({ rows, canEdit, onSave }) {
           borderRadius: radius.lg, padding: space.md,
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.sm }}>
-            <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
-              {niveauLabel(r.niveau)}
+            <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
+              {selectable && (
+                <input type="checkbox" checked={selectedIds.has(r.id)}
+                  onChange={() => onToggleSelect(r.id)} aria-label={`Sélectionner ${niveauLabel(r.niveau)}`}
+                  style={{ width: 18, height: 18, accentColor: EPJ.blue, cursor: "pointer", flexShrink: 0 }} />
+              )}
+              <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+                {niveauLabel(r.niveau)}
+              </div>
             </div>
             <Badge tone={STATUT_TONE[r.statut] || "neutral"}
               label={(STATUT_OPTIONS.find((o) => o.value === r.statut) || {}).label || r.statut || "—"} />
