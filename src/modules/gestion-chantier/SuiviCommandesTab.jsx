@@ -15,8 +15,23 @@
 import { useState, useMemo } from "react";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useData } from "../../core/DataContext";
+import { useAuth } from "../../core/AuthContext";
 import { useViewport } from "../../core/useViewport";
+import { canSeePrix } from "../../core/pricesAccess";
 import { Badge } from "../../core/components/Badge";
+import { EsaboraHistory } from "../commandes/EsaboraHistory";
+
+// Petit titre de section (cohérent avec le calibre de la fiche chantier).
+function SectionTitle({ children }) {
+  return (
+    <div style={{
+      fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
+      color: EPJ.gray900, letterSpacing: "-0.01em", marginBottom: space.sm,
+    }}>
+      {children}
+    </div>
+  );
+}
 
 // "JJ/MM/AAAA" → timestamp (ms). Invalide/vide → 0 (rejeté en bas du tri).
 function parseFrDate(s) {
@@ -33,6 +48,7 @@ function esaboraLabel(status) {
 
 export function SuiviCommandesTab({ chantier }) {
   const { commandes } = useData();
+  const { user } = useAuth();
   const isPwa = useViewport() === "mobile";
   const [openId, setOpenId] = useState(null);
 
@@ -44,34 +60,46 @@ export function SuiviCommandesTab({ chantier }) {
       .sort((a, b) => parseFrDate(b.date) - parseFrDate(a.date));
   }, [commandes, chantier.num]);
 
-  if (rows.length === 0) {
-    return (
-      <div style={{
-        background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
-        borderRadius: radius.lg, padding: space.xl, textAlign: "center",
-      }}>
-        <div style={{ fontSize: 32, marginBottom: space.sm }}>📦</div>
-        <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, lineHeight: 1.5 }}>
-          Aucune commande rattachée à ce chantier.
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-      <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginBottom: space.xs }}>
-        {rows.length} commande{rows.length > 1 ? "s" : ""}
+    <div style={{ display: "flex", flexDirection: "column", gap: space.xl }}>
+      {/* ─── Section 1 : commandes de l'app (LOT 1) ─── */}
+      <div>
+        <SectionTitle>Commandes</SectionTitle>
+        {rows.length === 0 ? (
+          <div style={{
+            background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
+            borderRadius: radius.lg, padding: space.xl, textAlign: "center",
+          }}>
+            <div style={{ fontSize: 32, marginBottom: space.sm }}>📦</div>
+            <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, lineHeight: 1.5 }}>
+              Aucune commande rattachée à ce chantier.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+            <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginBottom: space.xs }}>
+              {rows.length} commande{rows.length > 1 ? "s" : ""}
+            </div>
+            {rows.map((o) => (
+              <CommandeRow
+                key={o.id || o.num}
+                order={o}
+                isPwa={isPwa}
+                open={openId === (o.id || o.num)}
+                onToggle={() => setOpenId((k) => (k === (o.id || o.num) ? null : (o.id || o.num)))}
+              />
+            ))}
+          </div>
+        )}
       </div>
-      {rows.map((o) => (
-        <CommandeRow
-          key={o.id || o.num}
-          order={o}
-          isPwa={isPwa}
-          open={openId === (o.id || o.num)}
-          onToggle={() => setOpenId((k) => (k === (o.id || o.num) ? null : (o.id || o.num)))}
-        />
-      ))}
+
+      {/* ─── Section 2 : AR fournisseurs (Esabora, LOT 2) ─── */}
+      {/* Composant Dashboard achat réutilisé, query scopée chantierNum, lecture
+          seule. Prix (Total HT) masqués hors rôles prix via canSeePrix(user). */}
+      <div>
+        <SectionTitle>AR fournisseurs — dates de livraison</SectionTitle>
+        <EsaboraHistory chantierNum={chantier.num} showPrix={canSeePrix(user)} />
+      </div>
     </div>
   );
 }

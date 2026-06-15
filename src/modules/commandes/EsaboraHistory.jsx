@@ -30,13 +30,22 @@ const FILTERS = [
 // Colonnes : chevron · N° · Date · Fournisseur · Total HT · État · Origine ·
 // AR · Livraison (dérivée) · Actions.
 const GRID = "26px 84px 92px minmax(120px,1fr) 110px minmax(100px,1fr) 96px 110px minmax(130px,1fr) 80px";
+// Variante sans prix (showPrix=false) : colonne « Total HT » (110px) retirée.
+const GRID_NO_PRIX = "26px 84px 92px minmax(120px,1fr) minmax(100px,1fr) 96px 110px minmax(130px,1fr) 80px";
 // Largeur mini sous laquelle le tableau scrolle horizontalement (somme des
 // colonnes fixes/min + gaps) — évite le troncage des colonnes de droite sur
 // desktop dans un conteneur étroit.
 const TABLE_MIN_WIDTH = 1080;
 
-export function EsaboraHistory({ chantierNum = null }) {
+export function EsaboraHistory({ chantierNum = null, showPrix = true }) {
   const isNarrow = useIsNarrow();
+  // Filtres visibles : « Avec écart » est un concept prix/achat → masqué si !showPrix.
+  const filters = useMemo(
+    () => FILTERS.filter((f) => showPrix || f.key !== "ECART"),
+    [showPrix]
+  );
+  const grid = showPrix ? GRID : GRID_NO_PRIX;
+  const tableMinWidth = showPrix ? TABLE_MIN_WIDTH : TABLE_MIN_WIDTH - 118; // -110px col -8px gap
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,7 +104,7 @@ export function EsaboraHistory({ chantierNum = null }) {
     <div>
       {/* Filtre */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-        {FILTERS.map((f) => {
+        {filters.map((f) => {
           const active = filter === f.key;
           return (
             <button
@@ -123,17 +132,17 @@ export function EsaboraHistory({ chantierNum = null }) {
       ) : isNarrow ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {visible.map((r) => (
-            <CardRow key={r._id} r={r} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
+            <CardRow key={r._id} r={r} showPrix={showPrix} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
           ))}
         </div>
       ) : (
         <div style={{ border: `1px solid ${EPJ.gray200}`, borderRadius: 12, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: TABLE_MIN_WIDTH }}>
+            <div style={{ minWidth: tableMinWidth }}>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: GRID,
+                  gridTemplateColumns: grid,
                   gap: 8,
                   padding: "10px 12px",
                   background: EPJ.gray50,
@@ -144,12 +153,12 @@ export function EsaboraHistory({ chantierNum = null }) {
                   letterSpacing: 0.4,
                 }}
               >
-                <div /><div>N°</div><div>Date</div><div>Fournisseur</div><div>Total HT</div>
+                <div /><div>N°</div><div>Date</div><div>Fournisseur</div>{showPrix && <div>Total HT</div>}
                 <div>État</div><div>Origine</div><div>AR</div><div>Livraison</div><div>Actions</div>
               </div>
               {visible.map((r) => (
                 <Fragment key={r._id}>
-                  <TableRow r={r} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
+                  <TableRow r={r} grid={grid} showPrix={showPrix} expanded={expandedId === r._id} onToggle={() => toggleExpand(r._id)} />
                   {expandedId === r._id && <DetailLignes r={r} />}
                 </Fragment>
               ))}
@@ -184,14 +193,14 @@ function OrigineCell({ r }) {
   );
 }
 
-function TableRow({ r, expanded, onToggle }) {
+function TableRow({ r, grid = GRID, showPrix = true, expanded, onToggle }) {
   const liv = deriveLivraison(r);
   return (
     <div
       onClick={onToggle}
       style={{
         display: "grid",
-        gridTemplateColumns: GRID,
+        gridTemplateColumns: grid,
         gap: 8,
         padding: "11px 12px",
         borderTop: `1px solid ${EPJ.gray100}`,
@@ -208,7 +217,7 @@ function TableRow({ r, expanded, onToggle }) {
       <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={fournisseurLabel(r)}>
         {fournisseurLabel(r)}
       </div>
-      <div style={{ fontVariantNumeric: "tabular-nums" }}>{fmtMoney(r.totalHT)}</div>
+      {showPrix && <div style={{ fontVariantNumeric: "tabular-nums" }}>{fmtMoney(r.totalHT)}</div>}
       <div style={{ color: EPJ.gray700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.etat || ""}>
         {r.etat || "—"}
       </div>
@@ -255,7 +264,7 @@ function DetailLignes({ r }) {
   );
 }
 
-function CardRow({ r, expanded, onToggle }) {
+function CardRow({ r, showPrix = true, expanded, onToggle }) {
   const liv = deriveLivraison(r);
   const lignes = Array.isArray(r.lignesAR) ? r.lignesAR : [];
   const Line = ({ k, children }) => (
@@ -272,7 +281,7 @@ function CardRow({ r, expanded, onToggle }) {
       </div>
       <Line k="Date">{fmtDate(r.dateCommande)}</Line>
       <Line k="Fournisseur">{fournisseurLabel(r)}</Line>
-      <Line k="Total HT"><b>{fmtMoney(r.totalHT)}</b></Line>
+      {showPrix && <Line k="Total HT"><b>{fmtMoney(r.totalHT)}</b></Line>}
       <Line k="État">{r.etat || "—"}</Line>
       <Line k="Origine"><OrigineCell r={r} /></Line>
       <Line k="Livraison">
