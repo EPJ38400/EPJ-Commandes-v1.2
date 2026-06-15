@@ -163,6 +163,14 @@ service cloud.firestore {
       allow read: if isEmployee();
       allow write: if isAdmin();
     }
+    // Interventions SAV (déclaration de panne autonome + suivi). Collection
+    // complémentaire d'outillageSorties (calque ses droits) : tout employé
+    // crée/édite, suppression réservée à l'admin.
+    match /outillageInterventions/{id} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee();
+      allow delete: if isAdmin();
+    }
 
     // ─── avancement chantier ──────────────────────────────────────
     match /avancementValidations/{id} {

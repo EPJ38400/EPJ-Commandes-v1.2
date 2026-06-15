@@ -18,6 +18,8 @@ import {
 import { ParcOutilSortie } from "./ParcOutilSortie";
 import { ParcOutilRetour } from "./ParcOutilRetour";
 import { ParcOutilTransfert } from "./ParcOutilTransfert";
+import { ParcDeclarerPanne } from "./ParcDeclarerPanne";
+import { INTERVENTION_STATUTS, isInterventionOuverte } from "./outillageInterventions";
 // v10.K — Prolongation +7j et demande de retour manuelle
 import {
   canProlonger, canDemanderRetour, buildProlongationPayload,
@@ -31,6 +33,7 @@ export function ParcOutilDetail({ outil, onBack }) {
   const {
     outillageSorties, users, chantiers,
     outillageCategories, outillagePannes, smsTemplates,
+    outillageInterventions,
   } = useData();
   const toast = useToast();
 
@@ -88,6 +91,14 @@ export function ParcOutilDetail({ outil, onBack }) {
       .slice(0, 5);
   }, [outillageSorties, outil._id]);
 
+  // Interventions SAV ouvertes pour cet outil (déclaration de panne autonome)
+  const interventionsOuvertes = useMemo(
+    () => (outillageInterventions || [])
+      .filter(it => it.outilId === outil._id && isInterventionOuverte(it))
+      .sort((a, b) => (b.dateSignalement || "").localeCompare(a.dateSignalement || "")),
+    [outillageInterventions, outil._id]
+  );
+
   // Si on est dans un sous-flow → affiche le formulaire correspondant
   if (flow === "sortie") {
     return <ParcOutilSortie outil={outil} onBack={() => setFlow(null)} onDone={() => setFlow(null)}/>;
@@ -97,6 +108,9 @@ export function ParcOutilDetail({ outil, onBack }) {
   }
   if (flow === "transfert" && sortieEnCours) {
     return <ParcOutilTransfert outil={outil} sortie={sortieEnCours} onBack={() => setFlow(null)} onDone={() => setFlow(null)}/>;
+  }
+  if (flow === "panne") {
+    return <ParcDeclarerPanne outil={outil} onBack={() => setFlow(null)} onDone={() => setFlow(null)}/>;
   }
 
   // Génère le SMS de rappel avec le premier template actif de module parc-machines
@@ -539,6 +553,46 @@ export function ParcOutilDetail({ outil, onBack }) {
           {st.icon} Cet outil est actuellement <b>{st.label.toLowerCase()}</b> et ne peut pas être sorti.
         </div>
       )}
+
+      {/* Interventions SAV en cours pour cet outil */}
+      {interventionsOuvertes.length > 0 && (
+        <div className="epj-card" style={{
+          padding: "12px 14px", marginBottom: 10,
+          background: `${EPJ.orange}06`,
+          borderLeft: `3px solid ${EPJ.orange}`,
+        }}>
+          <div style={{
+            fontSize: 10, color: EPJ.orange, fontWeight: 700,
+            letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6,
+          }}>🛠 Intervention{interventionsOuvertes.length > 1 ? "s" : ""} en cours</div>
+          {interventionsOuvertes.map(it => {
+            const ist = INTERVENTION_STATUTS[it.statut] || INTERVENTION_STATUTS.signalee;
+            return (
+              <div key={it._id} style={{
+                fontSize: 11, color: EPJ.gray700, lineHeight: 1.5,
+                padding: "6px 0", borderTop: `1px solid ${EPJ.gray100}`,
+              }}>
+                <span style={{ fontWeight: 700, color: ist.color }}>{ist.icon} {ist.label}</span>
+                {it.descriptionLibre && <> — {it.descriptionLibre}</>}
+                {it.panneIds?.length > 0 && (
+                  <span style={{ color: EPJ.gray500 }}> ({it.panneIds.join(", ")})</span>
+                )}
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 6 }}>
+            Suivi détaillé dans l'onglet <b>Pannes & SAV</b>.
+          </div>
+        </div>
+      )}
+
+      {/* Déclarer une panne (hors flux retour) — disponible quel que soit le statut */}
+      <button onClick={() => setFlow("panne")} style={{
+        width: "100%", padding: "12px 0", marginBottom: 10,
+        background: EPJ.white, color: EPJ.orange,
+        border: `1px solid ${EPJ.orange}`, borderRadius: 10,
+        fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: font.body,
+      }}>🛠 Déclarer une panne</button>
 
       {/* Historique récent (sorties rendues) */}
       {historiqueRendues.length > 0 && (
