@@ -7,9 +7,10 @@
 //   • Une fonction `refreshReferenceData()` est exposée pour que les
 //     écrans Admin rechargent le référentiel après modification.
 //
-//  TEMPS RÉEL (onSnapshot, 8 collections) :
+//  TEMPS RÉEL (onSnapshot, 9 collections) :
 //    utilisateurs, chantiers, commandes, reserves,
-//    outils, outillageSorties, avancementValidations, reserveMailsAClasser
+//    outils, outillageSorties, outillageInterventions,
+//    avancementValidations, reserveMailsAClasser
 //
 //  RÉFÉRENTIEL (getDocs au démarrage + refresh manuel, 9 collections) :
 //    config/settings, config/company, rolesConfig, tasksConfig,
@@ -55,6 +56,7 @@ export function DataProvider({ children }) {
   const [reserves, setReserves] = useState([]);
   const [outils, setOutils] = useState([]);
   const [outillageSorties, setOutillageSorties] = useState([]);
+  const [outillageInterventions, setOutillageInterventions] = useState([]);
   const [avancementValidations, setAvancementValidations] = useState([]);
 
   // ─── États : référentiel (chargement initial + refresh manuel) ──
@@ -70,7 +72,8 @@ export function DataProvider({ children }) {
 
   const [loaded, setLoaded] = useState({
     users: false, chantiers: false, commandes: false, reserves: false,
-    outils: false, outillageSorties: false, avancementValidations: false,
+    outils: false, outillageSorties: false, outillageInterventions: false,
+    avancementValidations: false,
     config: false, company: false, rolesConfig: false, tasksConfig: false,
     outillageCategories: false, outillagePannes: false, smsTemplates: false,
     reservesCategories: false, reservesEmetteurs: false,
@@ -239,6 +242,20 @@ export function DataProvider({ children }) {
     return () => unsub();
   }, [authReady]);
 
+  // Interventions SAV (déclaration de panne autonome + suivi)
+  useEffect(() => {
+    if (!authReady) return;
+    const unsub = onSnapshot(
+      collection(db, "outillageInterventions"),
+      snap => {
+        setOutillageInterventions(mapDocs(snap));
+        setLoaded(l => ({ ...l, outillageInterventions: true }));
+      },
+      err => { console.error("Firestore outillageInterventions:", err); setLoaded(l => ({ ...l, outillageInterventions: true })); }
+    );
+    return () => unsub();
+  }, [authReady]);
+
   // Validations d'avancement mensuel
   useEffect(() => {
     if (!authReady) return;
@@ -255,7 +272,8 @@ export function DataProvider({ children }) {
 
   const allLoaded =
     loaded.users && loaded.chantiers && loaded.commandes && loaded.reserves &&
-    loaded.outils && loaded.outillageSorties && loaded.avancementValidations &&
+    loaded.outils && loaded.outillageSorties && loaded.outillageInterventions &&
+    loaded.avancementValidations &&
     loaded.config && loaded.company && loaded.rolesConfig && loaded.tasksConfig &&
     loaded.outillageCategories && loaded.outillagePannes && loaded.smsTemplates &&
     loaded.reservesCategories && loaded.reservesEmetteurs;
@@ -273,7 +291,7 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{
       users, chantiers, commandes, reserves,
-      outils, outillageSorties, avancementValidations,
+      outils, outillageSorties, outillageInterventions, avancementValidations,
       config, company, rolesConfig, tasksConfig,
       outillageCategories, outillagePannes, smsTemplates,
       reservesCategories, reservesEmetteurs,

@@ -10,6 +10,7 @@ import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { ParcDashboard } from "./ParcDashboard";
 import { ParcMateriels } from "./ParcMateriels";
 import { ParcHistorique } from "./ParcHistorique";
+import { ParcInterventionsTab } from "./ParcInterventionsTab";
 import { ParcOutilDetail } from "./ParcOutilDetail";
 import { ParcSortieMultiple } from "./ParcSortieMultiple";
 import { PanierSortieProvider, usePanierSortie } from "./PanierSortieContext";
@@ -25,7 +26,7 @@ export function ParcMachinesModule({ onExitModule }) {
 
 function ParcMachinesInner({ onExitModule }) {
   const { outils } = useData();
-  const [tab, setTab] = useState("dashboard"); // dashboard | materiels | historique
+  const [tab, setTab] = useState("dashboard"); // dashboard | materiels | sav | historique
   const [selectedOutilId, setSelectedOutilId] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
   const panier = usePanierSortie();
@@ -80,6 +81,9 @@ function ParcMachinesInner({ onExitModule }) {
         <TabButton active={tab === "materiels"} onClick={() => setTab("materiels")}>
           🔧 Matériels
         </TabButton>
+        <TabButton active={tab === "sav"} onClick={() => setTab("sav")}>
+          🛠 Pannes & SAV
+        </TabButton>
         <TabButton active={tab === "historique"} onClick={() => setTab("historique")}>
           📋 Historique
         </TabButton>
@@ -88,6 +92,7 @@ function ParcMachinesInner({ onExitModule }) {
       {/* Contenu onglet */}
       {tab === "dashboard" && <ParcDashboard onSelectOutil={setSelectedOutilId}/>}
       {tab === "materiels" && <ParcMateriels onSelectOutil={setSelectedOutilId}/>}
+      {tab === "sav" && <ParcInterventionsTab onSelectOutil={setSelectedOutilId}/>}
       {tab === "historique" && <ParcHistorique/>}
 
       {/* Barre flottante quand panier actif (fixe en bas) */}
