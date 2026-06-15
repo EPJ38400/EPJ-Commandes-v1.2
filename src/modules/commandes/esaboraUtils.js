@@ -94,7 +94,8 @@ export function groupItemsByEsaboraCode(items, catalog) {
  * @param {object} group - { codeEsabora, items }
  * @param {object} order - la commande EPJ (avec num, chantier, dateReception, etc.)
  * @param {object} chantier - le chantier (avec numAffaire, adresse, etc.) ou null
- * @param {object} opts - { tvaDefault } : taux TVA par défaut (v10.L.1)
+ * @param {object} opts - { tvaDefault, depot } : taux TVA par défaut (v10.L.1)
+ *   + adresse du dépôt EPJ { adresse, codePostal, ville } pour les livraisons "Dépôt"
  * @returns {Blob} - le fichier .xlsx prêt à envoyer
  */
 export function buildEsaboraExcel(group, order, chantier, opts) {
@@ -147,11 +148,6 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
     return v.length <= max ? v : v.slice(0, max);
   };
 
-  // Adresse livraison = chantier si renseigné, sinon vide
-  const livAdr1 = trunc(chantier?.adresse || "", 40);
-  const livCP = trunc(chantier?.codePostal || "", 10);
-  const livVille = trunc(chantier?.ville || "", 40);
-
   // v10.L.4 — Titre commande = numéro EPJ + nom du chantier (tronqué)
   // Ex : "Commande EPJ CMD-2026-0042 — Résidence Les Hauts"
   // Limité à 40 caractères pour respecter la limite Esabora.
@@ -162,7 +158,25 @@ export function buildEsaboraExcel(group, order, chantier, opts) {
       : `Commande EPJ ${order.num || ""}`,
     40
   );
-  const titreLiv = trunc(chantierNom || "Chantier", 40);
+
+  // FIX livraison — l'adresse de livraison Esabora suit le choix order.livraison
+  // ('Dépôt' par défaut, ou 'Chantier'). Avant ce fix, on mettait TOUJOURS
+  // l'adresse chantier, donc une commande "Dépôt" partait avec la mauvaise
+  // adresse. opts.depot = { adresse, codePostal, ville } (config/company avec
+  // fallback en dur côté sendOrderToEsabora — jamais vide).
+  let livAdr1, livCP, livVille, titreLiv;
+  if (order.livraison === "Chantier") {
+    livAdr1 = trunc(chantier?.adresse || "", 40);
+    livCP = trunc(chantier?.codePostal || "", 10);
+    livVille = trunc(chantier?.ville || "", 40);
+    titreLiv = trunc(chantierNom || "Chantier", 40);
+  } else {
+    const depot = (opts && opts.depot) || {};
+    livAdr1 = trunc(depot.adresse || "", 40);
+    livCP = trunc(depot.codePostal || "", 10);
+    livVille = trunc(depot.ville || "", 40);
+    titreLiv = trunc("EPJ — Dépôt", 40);
+  }
 
   const rowGen = [
     titreCmd,                                    // A Titre commande (v10.L.4)
@@ -290,6 +304,28 @@ export async function sendOrderToEsabora({ order, catalog, chantier, user, webho
     };
   }
 
+  // Adresse du dépôt EPJ (config/company), lue une fois. Sert d'adresse de
+  // livraison pour les commandes "Dépôt". Fallback en dur si le doc est absent :
+  // on ne doit JAMAIS envoyer une adresse de livraison vide à Esabora.
+  let depot = {
+    adresse: "3, rue Georges Pérec",
+    codePostal: "38400",
+    ville: "Saint Martin d'Hères",
+  };
+  try {
+    const snap = await getDoc(doc(db, "config", "company"));
+    if (snap.exists()) {
+      const d = snap.data() || {};
+      depot = {
+        adresse: d.adresse || depot.adresse,
+        codePostal: d.codePostal || depot.codePostal,
+        ville: d.ville || depot.ville,
+      };
+    }
+  } catch (e) {
+    console.warn("[esabora] config/company:", e.message);
+  }
+
   // Marque pending au tout début
   try {
     await updateDoc(doc(db, "commandes", order._id), {
@@ -308,7 +344,7 @@ export async function sendOrderToEsabora({ order, catalog, chantier, user, webho
     // de titre arrivant dans la même fenêtre (ErrNumeroNonUnique côté Zapier).
     // Pas de tempo avant la 1ère itération, ni après la dernière.
     if (i > 0) await new Promise(r => setTimeout(r, 15000));
-    const blob = buildEsaboraExcel(group, order, chantier, { tvaDefault });
+    const blob = buildEsaboraExcel(group, order, chantier, { tvaDefault, depot });
     const filename = `EPJ_${order.num || "CMD"}_${group.codeEsabora}.xlsx`;
     const res = await sendFileToZapier(webhookUrl, blob, filename, {
       orderNum: order.num || "",
