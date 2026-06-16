@@ -13,7 +13,7 @@
 //
 //  Pas de SMS pour cette V1 — juste l'historique dans la commande.
 // ═══════════════════════════════════════════════════════════════
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ } from "../../core/theme";
@@ -66,10 +66,31 @@ export function OrderMessageThread({ order, user, dynChantiers, rolesConfig, onU
 
   const messages = Array.isArray(order?.messages) ? order.messages : [];
 
+  const myId = user?.id || user?._id || "";
+
   const canPost = useMemo(
     () => canPostInThread(user, order, dynChantiers, rolesConfig),
     [user, order, dynChantiers, rolesConfig]
   );
+
+  // Marqueur de lecture : à l'ouverture du fil (commande affichée), si le
+  // dernier message vient d'un AUTRE et est plus récent que mon dernier "vu",
+  // on écrit messagesSeen.<myId>. Non bloquant (try/catch silencieux), et
+  // pas de réécriture si déjà à jour (évite les writes en boucle).
+  useEffect(() => {
+    if (!order?._id || !myId || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.userId === myId) return;
+    const lastTs = Date.parse(last.createdAt) || 0;
+    const seenTs = Date.parse(order.messagesSeen?.[myId] || 0) || 0;
+    if (lastTs <= seenTs) return;
+    updateDoc(doc(db, "commandes", order._id), {
+      ["messagesSeen." + myId]: new Date().toISOString(),
+    }).catch((err) => {
+      console.error("OrderMessageThread markSeen:", err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?._id, messages.length, myId]);
 
   const send = async () => {
     const text = draft.trim();
@@ -83,13 +104,15 @@ export function OrderMessageThread({ order, user, dynChantiers, rolesConfig, onU
     try {
       const newMessage = {
         id: `msg_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-        userId: user.id || user._id || "",
+        userId: myId,
         userName: `${user.prenom || ""} ${user.nom || ""}`.trim() || (user._id || "—"),
         text,
         createdAt: new Date().toISOString(),
       };
       await updateDoc(doc(db, "commandes", order._id), {
         messages: arrayUnion(newMessage),
+        // Poster vaut lecture de tout le fil pour l'auteur
+        ...(myId ? { ["messagesSeen." + myId]: newMessage.createdAt } : {}),
       });
       setDraft("");
       // Notifie le parent pour qu'il rafraîchisse selectedOrder localement

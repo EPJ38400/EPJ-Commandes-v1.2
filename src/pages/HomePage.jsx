@@ -196,6 +196,22 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
       isMyCommande(cmd) && isOrderLate(cmd, { featureFlags })
     );
 
+    // Nouveaux messages non lus sur une commande qui me concerne (fil
+    // OrderMessageThread). myId aligné sur message.userId (= user.id||user._id).
+    const myId = user?.id || user?._id || "";
+    const hasUnreadMsg = (cmd) => {
+      const msgs = Array.isArray(cmd.messages) ? cmd.messages : [];
+      const seen = Date.parse(cmd.messagesSeen?.[myId] || 0) || 0;
+      return msgs.some(m => m.userId !== myId && (Date.parse(m.createdAt) || 0) > seen);
+    };
+    const iParticipate = (cmd) =>
+      cmd.userId === myId ||
+      (Array.isArray(cmd.messages) ? cmd.messages : []).some(m => m.userId === myId) ||
+      isMyCommande(cmd);
+    const commandesNouveauxMessages = myId
+      ? safeCommandes.filter(c => iParticipate(c) && hasUnreadMsg(c))
+      : [];
+
     // v10.L — Commandes À ENVOYER DANS ESABORA
     // Affiché uniquement si esaboraEnabled === true
     // Compte les commandes "Envoyée aux achats" pas encore syncées (esaboraStatus !== "synced")
@@ -247,6 +263,13 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
         : null,
       "commandesAEsabora": commandesAEsabora.length > 0
         ? { count: commandesAEsabora.length }
+        : null,
+      "commandesMessages": commandesNouveauxMessages.length > 0
+        ? { count: commandesNouveauxMessages.length }
+        : null,
+      // Allume le badge de la tuile "commandes" (pas d'autre agrégateur existant)
+      "commandes": commandesNouveauxMessages.length > 0
+        ? { count: commandesNouveauxMessages.length }
         : null,
     };
   }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig, featureFlags]);
@@ -311,6 +334,17 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           icon="⏰"
           title={`${notifications.commandesEnRetard.count} commande${notifications.commandesEnRetard.count > 1 ? "s" : ""} en retard de livraison`}
           text="La date de réception prévue est dépassée."
+          onClick={() => onOpenModule("commandes")}
+        />
+      )}
+
+      {/* Bannière NOUVEAUX MESSAGES sur mes commandes (fil de discussion) */}
+      {(notifications.commandesMessages?.count || 0) > 0 && (
+        <Banner
+          tone="info"
+          icon="💬"
+          title={`${notifications.commandesMessages.count} nouveau${notifications.commandesMessages.count > 1 ? "x" : ""} message${notifications.commandesMessages.count > 1 ? "s" : ""} sur vos commandes`}
+          text="Quelqu'un a répondu — tape ici pour voir."
           onClick={() => onOpenModule("commandes")}
         />
       )}
