@@ -63,6 +63,17 @@ const MODULES_META = [
   },
 ];
 
+// Tuile Planning ressources (L8) — page indépendante (route module:planning),
+// gatée par le droit rh.planning. Distincte de l'onglet planning d'un chantier.
+const PLANNING_TILE = {
+  id: "planning",
+  title: "Planning",
+  subtitle: "Affectation des équipes",
+  icon: "📆",
+  accent: EPJ.catEtude,
+  enabled: true,
+};
+
 const DASHBOARD_TILE = {
   id: "dashboard",
   title: "Dashboard",
@@ -99,8 +110,11 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     can(user, "_dashboards", "conducteur", rolesConfig) ||
     can(user, "_dashboards", "public", rolesConfig);
 
+  const showPlanning = can(user, "rh.planning", "_access", rolesConfig);
+
   const allTiles = [
     ...visibleModules,
+    ...(showPlanning ? [PLANNING_TILE] : []),
     ...(showDashboard ? [DASHBOARD_TILE] : []),
     ...(canSeeDashboards(user) ? [COLLECTION_DASHBOARDS_TILE] : []),
   ];

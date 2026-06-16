@@ -17,11 +17,13 @@ import { can } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { PieuvresTab } from "./PieuvresTab";
 import { SuiviCommandesTab } from "./SuiviCommandesTab";
+import { PlanningTab } from "../planning/PlanningTab";
 
 // Onglets de la fiche — la clé = sous-clé de permission gestionChantier.<clé>
 const TABS = [
   { key: "pieuvres",  label: "Pieuvres",          icon: "🕸️" },
   { key: "commandes", label: "Suivi commandes",   icon: "📦" },
+  { key: "planning",  label: "Planning ressources", icon: "📆" },
   { key: "financier", label: "Suivi financier",   icon: "💶" },
   { key: "suivi",     label: "Suivi de chantier", icon: "📋" },
   { key: "gantt",     label: "Planning / Gantt",  icon: "📅" },
@@ -113,7 +115,12 @@ export function ChantierFiche({ chantier, onBack }) {
               <SuiviCommandesTab chantier={chantier} />
             </div>
           )}
-          {active && active.key !== "pieuvres" && active.key !== "commandes" && (
+          {active && active.key === "planning" && (
+            <div role="tabpanel">
+              <PlanningTab chantier={chantier} />
+            </div>
+          )}
+          {active && active.key !== "pieuvres" && active.key !== "commandes" && active.key !== "planning" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",

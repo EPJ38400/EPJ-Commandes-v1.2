@@ -71,6 +71,22 @@
         { "fieldPath": "status",    "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "planningCreneaux",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chantierId", "order": "ASCENDING" },
+        { "fieldPath": "date",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "planningCreneaux",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ressourceId", "order": "ASCENDING" },
+        { "fieldPath": "date",        "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
