@@ -49,6 +49,9 @@ service cloud.firestore {
         role() == "Assistante"
       );
     }
+    function isAchat() {
+      return isSignedIn() && role() == "Achat";
+    }
     // Tout user authentifié et avec un rôle valide (= au moins Monteur/Artisan)
     function isEmployee() {
       return isSignedIn() && role() != null;
@@ -145,31 +148,33 @@ service cloud.firestore {
     }
 
     // ─── outils + parc machines ───────────────────────────────────
+    // Achat gère l'intégralité du parc machines (ajouté juin 2026 sans rien
+    // retirer des droits existants).
     match /outils/{id} {
       allow read: if isEmployee();
-      allow create, update: if isAssistante();
-      allow delete: if isAdmin();
+      allow create, update: if isAssistante() || isAchat();
+      allow delete: if isAdmin() || isAchat();
     }
     match /outillageSorties/{id} {
       allow read: if isEmployee();
       allow create, update: if isEmployee();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isAchat();
     }
     match /outillageCategories/{id} {
       allow read: if isEmployee();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isAchat();
     }
     match /outillagePannes/{id} {
       allow read: if isEmployee();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isAchat();
     }
     // Interventions SAV (déclaration de panne autonome + suivi). Collection
     // complémentaire d'outillageSorties (calque ses droits) : tout employé
-    // crée/édite, suppression réservée à l'admin.
+    // crée/édite, suppression réservée à l'admin (ou Achat, gestionnaire parc).
     match /outillageInterventions/{id} {
       allow read: if isEmployee();
       allow create, update: if isEmployee();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isAchat();
     }
 
     // ─── avancement chantier ──────────────────────────────────────

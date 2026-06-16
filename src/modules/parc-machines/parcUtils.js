@@ -83,7 +83,7 @@ export function canSortirOutil(user) {
   if (user.canSortirOutil === false) return false;
   // Utilise getRoles() pour gérer les 3 formats possibles (roles / role / fonction)
   const roles = getRoles(user).map(r => (r || "").toLowerCase());
-  return roles.includes("admin") || roles.includes("direction");
+  return roles.includes("admin") || roles.includes("direction") || roles.includes("achat");
 }
 
 // Droit de gérer le catalogue (outils + catégories + pannes)
@@ -92,7 +92,8 @@ export function canGererCatalogue(user) {
   const roles = getRoles(user).map(r => (r || "").toLowerCase());
   return roles.includes("admin")
     || roles.includes("direction")
-    || roles.includes("assistante");
+    || roles.includes("assistante")
+    || roles.includes("achat");
 }
 
 // v10.M — Droits spécifiques à l'import/export Excel du parc d'outils.
@@ -105,6 +106,7 @@ export function canImportExportOutils(user) {
   const roles = getRoles(user).map(r => (r || "").toLowerCase());
   if (roles.includes("admin")) return true;
   if (roles.includes("direction")) return true;
+  if (roles.includes("achat")) return true;
   if (user.fonction === "Admin" || user.fonction === "Direction") return true;
   if (user.responsableParc === true) return true;
   return false;
