@@ -5,13 +5,43 @@ import { EPJ } from "../../core/theme";
 //  2. MODÈLE GLOBAL (Firestore tasksConfig/default) — modifiable par l'admin
 //  3. OVERRIDE PAR CHANTIER (chantier.avancementTasksOverride)
 //
-//  Tâches de certaines catégories sont GÉNÉRÉES (béton, placo) selon la
-//  typologie bâtiment. Les autres catégories sont 100% éditables.
+//  Tâches de certaines catégories sont GÉNÉRÉES selon la typologie bâtiment :
+//   - "beton" / "placo" : 100% généré (une tâche par niveau).
+//   - "logements" / "courant-faible" : MIXTE = tâches PAR ÉTAGE (appareillage /
+//     RJ45, même mécanique que placo) PRÉFIXÉES à une liste FIXE d'usine.
+//  Ces 4 catégories sont read-only (comme beton/placo) : non éditables au modèle
+//  global ni par chantier. Les autres catégories sont 100% éditables.
 // ═══════════════════════════════════════════════════════════════
 
+// ─── Listes FIXES des catégories mixtes (préfixées par les tâches par étage) ──
+// Hors FACTORY_CATEGORIES.tasks car la catégorie est "generated" (tasks: []) :
+// le builder concatène [tâches par étage] + [liste fixe ci-dessous].
+const FIXED_LOG_TASKS = [
+  { id: "log-1", label: "Pose DCL" },
+  { id: "log-2", label: "Pose DB + Platine" },
+  { id: "log-3", label: "ECL balcon" },
+  { id: "log-4", label: "Prise balcon" },
+  { id: "log-5", label: "Tableau" },
+  { id: "log-6", label: "Porte + trappe de tableau" },
+  { id: "log-7", label: "Plaque de finition" },
+  { id: "log-8", label: "Essai + Ampoule" },
+  { id: "log-9", label: "Contrôle qualité" },
+];
+const FIXED_CF_TASKS = [
+  { id: "cf-1", label: "Étier interphone" },
+  { id: "cf-2", label: "Câblage tableau de communication" },
+  { id: "cf-3", label: "Colonne interphone" },
+  { id: "cf-4", label: "Colonne TV" },
+  { id: "cf-5", label: "Colonne Fibre" },
+  { id: "cf-6", label: "Tirage des fibres lgt + DTIO" },
+  { id: "cf-7", label: "Pose Mâts + antennes" },
+  { id: "cf-8", label: "Combiné Interphone" },
+  { id: "cf-9", label: "Programmation + essai interphone" },
+];
+
 // ─── 1. FACTORY (modèle d'usine, jamais perdu) ──────────────────
-// Les catégories "beton" et "placo" sont générées dynamiquement
-// (leurs tâches dépendent de la config bâtiment), donc pas listées ici.
+// Les catégories générées ("beton", "placo", "logements", "courant-faible")
+// portent tasks: [] : leurs tâches dépendent de la config bâtiment (cf. builders).
 
 export const FACTORY_CATEGORIES = [
   {
@@ -33,13 +63,19 @@ export const FACTORY_CATEGORIES = [
     id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: EPJ.orange,
     generated: false,
     tasks: [
-      { id: "divers-1", label: "Installation de chantier" },
-      { id: "divers-2", label: "Équipement sous-sol (Lustrerie / bloc secours)" },
-      { id: "divers-3", label: "Chemin de câble" },
-      { id: "divers-4", label: "Préparation des gaines techniques" },
-      { id: "divers-5", label: "Préparation avant doublage" },
-      { id: "divers-6", label: "Amorce colonne" },
-      { id: "divers-7", label: "Pose coffret de Façade" },
+      { id: "divers-1",  label: "Installation de chantier" },
+      { id: "divers-2",  label: "Équipement sous-sol (Lustrerie / bloc secours)" },
+      { id: "divers-3",  label: "Equipement box ECL + PC" },
+      { id: "divers-4",  label: "Chemin de câble" },
+      { id: "divers-5",  label: "Préparation des gaines techniques" },
+      { id: "divers-6",  label: "Préparation avant doublage" },
+      { id: "divers-7",  label: "Amorce colonne" },
+      { id: "divers-8",  label: "Cheminement colonne IRVE" },
+      { id: "divers-9",  label: "Tronçon colonne IRVE" },
+      { id: "divers-10", label: "Colonne IRVE (SPCM)" },
+      { id: "divers-11", label: "Equipement box IRVE" },
+      { id: "divers-12", label: "Amorce colonne IRVE" },
+      { id: "divers-13", label: "Pose coffret de Façade" },
     ],
   },
   {
@@ -49,43 +85,33 @@ export const FACTORY_CATEGORIES = [
   },
   {
     id: "logements", num: 5, label: "ÉQUIPEMENT DES LOGEMENTS", color: EPJ.blue,
-    generated: false,
-    tasks: [
-      { id: "log-1",  label: "Appareillage" },
-      { id: "log-2",  label: "Appareillage courant faible" },
-      { id: "log-3",  label: "DCL" },
-      { id: "log-4",  label: "ECL balcon" },
-      { id: "log-5",  label: "Étier interphone" },
-      { id: "log-6",  label: "Tableau" },
-      { id: "log-7",  label: "Tableau de communication" },
-      { id: "log-8",  label: "Interphone" },
-      { id: "log-9",  label: "Porte de tableau + Plaque de finition" },
-      { id: "log-10", label: "Essai + Ampoule" },
-      { id: "log-11", label: "Contrôle qualité" },
-      { id: "log-12", label: "Pose DB + Platine" },
-    ],
+    generated: "logements", // par étage (appareillage) + liste fixe FIXED_LOG_TASKS
+    tasks: [],
   },
   {
     id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: EPJ.blue,
     generated: false,
     tasks: [
-      { id: "com-1",  label: "Colonne Montante + colonne de terre" },
-      { id: "com-2",  label: "Colonne service généraux" },
-      { id: "com-3",  label: "Colonne interphone" },
-      { id: "com-4",  label: "Colonne Fibre" },
-      { id: "com-5",  label: "Colonne TV + pose des antennes" },
-      { id: "com-6",  label: "Appareillage" },
-      { id: "com-7",  label: "Armoire des services généraux" },
-      { id: "com-8",  label: "Interphone" },
-      { id: "com-9",  label: "Lustrerie coursive" },
-      { id: "com-10", label: "Lustrerie escalier" },
-      { id: "com-11", label: "Lustrerie extérieur" },
-      { id: "com-12", label: "Essai" },
-      { id: "com-13", label: "Contrôle qualité" },
+      { id: "com-1",  label: "Colonne Montante Enedis" },
+      { id: "com-2",  label: "Colonne de terre" },
+      { id: "com-3",  label: "Colonne service généraux" },
+      { id: "com-4",  label: "Appareillage" },
+      { id: "com-5",  label: "Pose DB + Platine" },
+      { id: "com-6",  label: "Armoire des services généraux" },
+      { id: "com-7",  label: "Interphone" },
+      { id: "com-8",  label: "Lustrerie coursive" },
+      { id: "com-9",  label: "Lustrerie escalier" },
+      { id: "com-10", label: "Lustrerie extérieur" },
+      { id: "com-11", label: "Contrôle qualité" },
     ],
   },
   {
-    id: "controle", num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green,
+    id: "courant-faible", num: 7, label: "COURANT FAIBLE", color: EPJ.catCourantFaible,
+    generated: "courant-faible", // par étage (RJ45) + liste fixe FIXED_CF_TASKS
+    tasks: [],
+  },
+  {
+    id: "controle", num: 8, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green,
     generated: false,
     tasks: [
       { id: "ctrl-1", label: "Pré Réception colonne ENEDIS" },
@@ -125,21 +151,38 @@ function buildBetonTasks(cfg) {
   return tasks;
 }
 
-// ─── Génération PLACO selon la typologie ───────────────────────
+// ─── Génération PLACO selon la typologie (SANS sous-sol) ────────
+// Placo ne couvre plus le sous-sol (ni en bâtiment, ni en sous-sol commun) :
+// uniquement RDC + étages, libellés "Placo RDC" / "Placo R+{i}".
 function buildPlacoTasks(cfg) {
-  const tasks = [];
-  const ss = Number(cfg?.nbSousSols || 0);
+  const tasks = [{ id: "placo-rdc", label: "Placo RDC" }];
   const et = Number(cfg?.nbEtages || 0);
-  for (let i = ss; i >= 1; i--) {
-    const suffix = ss > 1 ? ` ${i}` : "";
-    tasks.push({ id: `placo-ss${i}`, label: `Sous-sol${suffix}` });
-  }
-  tasks.push({ id: "placo-rdc", label: "RDC" });
   for (let i = 1; i <= et; i++) {
-    tasks.push({ id: `placo-r${i}`, label: `R+${i}` });
+    tasks.push({ id: `placo-r${i}`, label: `Placo R+${i}` });
   }
   return tasks;
 }
+
+// ─── Génération PAR ÉTAGE générique (même mécanique que placo) ──
+// RDC + r1..r{nbEtages} ; ni sous-sol, ni combles. Utilisée par les catégories
+// mixtes (appareillage logements, RJ45 courant faible).
+function buildFloorTasks(cfg, idPrefix, labelPrefix) {
+  const tasks = [{ id: `${idPrefix}-rdc`, label: `${labelPrefix} RDC` }];
+  const et = Number(cfg?.nbEtages || 0);
+  for (let i = 1; i <= et; i++) {
+    tasks.push({ id: `${idPrefix}-r${i}`, label: `${labelPrefix} R+${i}` });
+  }
+  return tasks;
+}
+
+// ─── Dispatch des catégories GÉNÉRÉES (clé = cat.generated) ─────
+// Les catégories mixtes concatènent [tâches par étage] + [liste fixe d'usine].
+const GENERATED_BUILDERS = {
+  beton: buildBetonTasks,
+  placo: buildPlacoTasks,
+  logements: (cfg) => [...buildFloorTasks(cfg, "appareillage", "Appareillage"), ...FIXED_LOG_TASKS],
+  "courant-faible": (cfg) => [...buildFloorTasks(cfg, "cf-rj45", "Appareillage RJ45"), ...FIXED_CF_TASKS],
+};
 
 // ─── Génération des tâches d'un SOUS-SOL COMMUN ────────────────
 // cfg = { nbNiveaux }
@@ -155,15 +198,7 @@ function buildSousSolBetonTasks(cfg) {
   }
   return tasks;
 }
-function buildSousSolPlacoTasks(cfg) {
-  const tasks = [];
-  const nb = Number(cfg?.nbNiveaux || 0);
-  for (let i = nb; i >= 1; i--) {
-    const suffix = nb > 1 ? ` ${i}` : "";
-    tasks.push({ id: `placo-ss${i}`, label: `Sous-sol${suffix}` });
-  }
-  return tasks;
-}
+// NB : plus de génération PLACO en sous-sol commun (placo ne couvre plus le sous-sol).
 
 // Équipement d'un sous-sol commun (catégorie éditable par chantier)
 export const SOUSSOL_EQUIP_TASKS = [
@@ -175,11 +210,11 @@ export const SOUSSOL_EQUIP_TASKS = [
   { id: "ssequip-6", label: "Essai + Contrôle qualité" },
 ];
 
-// Catégories d'un sous-sol commun : béton + placo (générés) + équipement (éditable)
+// Catégories d'un sous-sol commun : béton (généré) + équipement (éditable).
+// Plus de placo en sous-sol commun.
 function buildSousSolCategories(cfg) {
   return [
     { id: "beton",   num: 2, label: "INCORPORATION BÉTON",  color: EPJ.gray500, generated: "beton", tasks: buildSousSolBetonTasks(cfg) },
-    { id: "placo",   num: 4, label: "AVANCEMENT PLACO",     color: EPJ.red, generated: "placo", tasks: buildSousSolPlacoTasks(cfg) },
     { id: "ssequip", num: 6, label: "ÉQUIPEMENT SOUS-SOL",  color: EPJ.blue, generated: false,   tasks: SOUSSOL_EQUIP_TASKS },
   ];
 }
@@ -224,11 +259,10 @@ export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, build
   // jamais muté en base, donc l'opération est réversible au détachement.
   const genCfg = getSousSolIdFromConfig(cfg) != null ? { ...cfg, nbSousSols: 0 } : cfg;
 
-  // 1. FACTORY (génère les tâches dynamiques)
+  // 1. FACTORY (génère les tâches dynamiques selon cat.generated)
   let cats = FACTORY_CATEGORIES.map(cat => {
-    if (cat.generated === "beton") return { ...cat, tasks: buildBetonTasks(genCfg) };
-    if (cat.generated === "placo") return { ...cat, tasks: buildPlacoTasks(genCfg) };
-    return cat;
+    const build = cat.generated ? GENERATED_BUILDERS[cat.generated] : null;
+    return build ? { ...cat, tasks: build(genCfg) } : cat;
   });
 
   // 2. Applique le modèle global

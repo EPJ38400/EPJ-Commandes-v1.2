@@ -14,6 +14,7 @@ export const EPJ = {
   // Accents métier / signal (≠ palette de marque)
   urgent:     "#E65100",   // signal d'alerte / retard — volontairement distinct d'EPJ.orange
   catEtude:   "#8E44AD",   // couleur métier catégorie « ÉTUDE / TMA » (avancement)
+  catCourantFaible: "#00897B", // couleur métier catégorie « COURANT FAIBLE » (avancement)
 
   // Échelle de gris
   gray900:    "#1A1A1A",
