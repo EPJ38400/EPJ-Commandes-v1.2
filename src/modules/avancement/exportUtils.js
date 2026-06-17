@@ -43,9 +43,10 @@ function categoriesFromSnapshot(snapshotBuilding) {
     logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: "#00A3E0" },
     communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: "#00A3E0" },
     ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: "#00A3E0" },
-    controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
+    "courant-faible": { num: 7, label: "COURANT FAIBLE",       color: "#00897B" },
+    controle:  { num: 8, label: "CONTRÔLE ET MISE EN SERVICE", color: "#A8C536" },
   };
-  const order = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
+  const order = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "courant-faible", "controle"];
   // Ordre connu en premier, puis toute catégorie inconnue (robustesse)
   const ids = [
     ...order.filter(id => snapshotBuilding.categories[id]),

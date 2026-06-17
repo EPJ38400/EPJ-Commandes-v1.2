@@ -21,9 +21,10 @@ const FACTORY_META = {
   logements: { num: 5, label: "ÉQUIPEMENT DES LOGEMENTS",    color: EPJ.blue },
   communs:   { num: 6, label: "ÉQUIPEMENT DES COMMUNS",      color: EPJ.blue },
   ssequip:   { num: 6, label: "ÉQUIPEMENT SOUS-SOL",         color: EPJ.blue },
-  controle:  { num: 7, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green },
+  "courant-faible": { num: 7, label: "COURANT FAIBLE",       color: EPJ.catCourantFaible },
+  controle:  { num: 8, label: "CONTRÔLE ET MISE EN SERVICE", color: EPJ.green },
 };
-const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "controle"];
+const CAT_ORDER = ["etude", "beton", "divers", "placo", "ssequip", "logements", "communs", "courant-faible", "controle"];
 
 export function AvancementEvolution({ chantier }) {
   const isPwa = useViewport() === "mobile";
