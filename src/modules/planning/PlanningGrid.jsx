@@ -37,9 +37,11 @@ const PALETTE = [
 ];
 const NB_SLOTS = NB_WEEK_DAYS * 2;
 // Colonnes : ressource (170px) + jours/slots + colonne « Total » (72px).
-const DAY_TEMPLATE  = `170px repeat(${NB_WEEK_DAYS}, 2fr) 72px`;
-const CELL_TEMPLATE = `170px repeat(${NB_SLOTS}, 1fr) 72px`;
-const INNER_MIN_W = 170 + NB_SLOTS * 78 + 72;
+// minmax(0, …) (et non `1fr` = minmax(auto,1fr)) → colonnes STRICTEMENT égales :
+// un libellé non sécable ne peut plus élargir sa colonne et déborder sur les voisines.
+const DAY_TEMPLATE  = `170px repeat(${NB_WEEK_DAYS}, minmax(0, 2fr)) 72px`;
+const CELL_TEMPLATE = `170px repeat(${NB_SLOTS}, minmax(0, 1fr)) 72px`;
+const INNER_MIN_W = 170 + NB_SLOTS * 104 + 72;
 
 export function PlanningGrid({ chantier = null }) {
   const { user } = useAuth();
@@ -280,6 +282,7 @@ export function PlanningGrid({ chantier = null }) {
                         style={{
                           gridColumn: `${2 + seg.start} / ${2 + seg.end + 1}`, gridRow: 1,
                           padding: 3, display: "flex", alignItems: "center", pointerEvents: "none",
+                          minWidth: 0, // sinon min-width:auto empêche overflow:hidden + ellipsis du libellé
                         }}
                       >
                         <div
