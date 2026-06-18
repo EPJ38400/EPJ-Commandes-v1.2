@@ -84,12 +84,12 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
           firebase deploy --only functions --project ap-epj --non-interactive
 
-      - name: Deploy Firestore rules
+      - name: Deploy Firestore rules & indexes
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/../firebase-key.json
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-key.json
-          firebase deploy --only firestore:rules --project ap-epj --non-interactive
+          firebase deploy --only firestore:rules,firestore:indexes --project ap-epj --non-interactive
 
       - name: Cleanup credentials
         if: always()
