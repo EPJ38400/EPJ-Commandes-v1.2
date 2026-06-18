@@ -28,6 +28,7 @@ import {
   slotIndex, slotToCell, expandRange,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
+import { GroupedPosteSelect } from "./GroupedPosteSelect";
 
 const PERIODE_OPTIONS = PERIODES.map((p) => ({ value: p, label: PERIODE_LABEL[p] || p }));
 
@@ -84,10 +85,6 @@ export function AffectationModal({
   const batimentOptions = [
     { value: "", label: "— Aucun —" },
     ...units.map((u) => ({ value: u.unite, label: u.label })),
-  ];
-  const posteOptions = [
-    { value: "", label: "— Aucun poste précis —" },
-    ...(currentUnit?.postesFlat || []).map((p) => ({ value: p.key, label: p.label })),
   ];
 
   const onChantierChange = (v) => { setChantierId(v); setBatiment(""); setPoste(""); };
@@ -282,7 +279,8 @@ export function AffectationModal({
             <>
               <Field as="select" label="Bâtiment / unité" value={batiment} options={batimentOptions}
                 disabled={!canWrite} onChange={(e) => onBatimentChange(e.target.value)} />
-              <Field as="select" label="Poste (optionnel)" value={poste} options={posteOptions}
+              <GroupedPosteSelect label="Poste (optionnel)" value={poste}
+                categories={currentUnit?.categories || []}
                 disabled={!canWrite || !batiment}
                 hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
                 onChange={(e) => setPoste(e.target.value)} />

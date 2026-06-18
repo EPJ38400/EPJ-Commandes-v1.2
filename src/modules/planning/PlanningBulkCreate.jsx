@@ -23,6 +23,7 @@ import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { getPosteOptions, creneauId, fromISO, addDays, toISODate } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
+import { GroupedPosteSelect } from "./GroupedPosteSelect";
 
 const PERIODE_MODE_OPTIONS = [
   { value: "AM", label: "Matin" },
@@ -75,18 +76,20 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
     ...units.map((u) => ({ value: u.unite, label: u.label })),
   ];
   const currentUnit = useMemo(() => units.find((u) => u.unite === batiment) || null, [units, batiment]);
-  const posteOptions = [
-    { value: "", label: "— Aucun poste précis —" },
-    ...(currentUnit?.postesFlat || []).map((p) => ({ value: p.key, label: p.label })),
-  ];
 
-  // ── Multi (pool) : postes = union des bâtiments sélectionnés ──
-  const multiPosteOptions = useMemo(() => {
-    const seen = new Map();
+  // ── Multi (pool) : catégories FUSIONNÉES des bâtiments sélectionnés ──
+  // Par catId : { catId, catLabel, color, postes:[{key,label}] }, postes dédup
+  // par key, ordre des catégories = 1re apparition. Labels NON préfixés.
+  const groupedPostes = useMemo(() => {
+    const byCat = new Map();
     units
       .filter((u) => selBats.includes(u.unite))
-      .forEach((u) => u.postesFlat.forEach((p) => { if (!seen.has(p.key)) seen.set(p.key, p.label); }));
-    return [...seen.entries()].map(([key, label]) => ({ key, label }));
+      .forEach((u) => u.categories.forEach((cat) => {
+        if (!byCat.has(cat.catId)) byCat.set(cat.catId, { catId: cat.catId, catLabel: cat.catLabel, color: cat.color, postes: new Map() });
+        const entry = byCat.get(cat.catId);
+        cat.postes.forEach((p) => { if (!entry.postes.has(p.key)) entry.postes.set(p.key, p.label); });
+      }));
+    return [...byCat.values()].map((c) => ({ ...c, postes: [...c.postes.entries()].map(([key, label]) => ({ key, label })) }));
   }, [units, selBats]);
 
   const toggle = (arr, setArr, v) =>
@@ -244,7 +247,8 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
             <>
               <Field as="select" label="Bâtiment / unité" value={batiment} options={batimentOptions}
                 disabled={!canWrite} onChange={(e) => { setBatiment(e.target.value); setPoste(""); }} />
-              <Field as="select" label="Poste (optionnel)" value={poste} options={posteOptions}
+              <GroupedPosteSelect label="Poste (optionnel)" value={poste}
+                categories={currentUnit?.categories || []}
                 disabled={!canWrite || !batiment}
                 hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
                 onChange={(e) => setPoste(e.target.value)} />
@@ -273,13 +277,22 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
                 {selBats.length === 0 ? (
                   <span style={{ fontSize: fontSize.sm, color: EPJ.gray400 }}>Choisissez d'abord un ou plusieurs bâtiments.</span>
                 ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
-                    {multiPosteOptions.map((p) => (
-                      <label key={p.key} style={chk(selPostes.includes(p.key))}>
-                        <input type="checkbox" checked={selPostes.includes(p.key)} disabled={!canWrite}
-                          onChange={() => toggle(selPostes, setSelPostes, p.key)} />
-                        {p.label}
-                      </label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+                    {groupedPostes.map((cat) => (
+                      <div key={cat.catId}>
+                        <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: EPJ.gray500, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: space.xs }}>
+                          {cat.catLabel}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
+                          {cat.postes.map((p) => (
+                            <label key={p.key} style={chk(selPostes.includes(p.key))}>
+                              <input type="checkbox" checked={selPostes.includes(p.key)} disabled={!canWrite}
+                                onChange={() => toggle(selPostes, setSelPostes, p.key)} />
+                              {p.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
