@@ -27,7 +27,7 @@ import { AffectationModal } from "./AffectationModal";
 import {
   PERIODES, NB_WEEK_DAYS, weekColumns, weekRange, weekLabel, startOfWeek, addDays, fromISO, toISODate,
   creneauId, terrainResources, resourcesForConductor, chantierColorIndex, posteLabel,
-  isMyChantier, rowSegments, weeklyTotalHours, slotToCell,
+  isMyChantier, rowSegments, weeklyTotalHours, slotToCell, slotIndex, isPool, poolTasksAt,
 } from "./planningModel";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
@@ -98,6 +98,20 @@ export function PlanningGrid({ chantier = null }) {
     rows.forEach((r) => m.set(r.id, r));
     return m;
   }, [rows]);
+
+  // date ISO → index de colonne (jour) de la semaine courante.
+  const dateToDayIdx = useMemo(() => {
+    const m = new Map();
+    cols.forEach((c, i) => m.set(c.iso, i));
+    return m;
+  }, [cols]);
+
+  // Tâches « à affecter » (pool) du chantier — affichées en onglet uniquement
+  // (la zone pool d'accueil = LOT 2). rowSegments les ignore (auto-id).
+  const poolTasks = useMemo(
+    () => (isTab ? rows.filter(isPool) : []),
+    [isTab, rows],
+  );
 
   // ─── Ressources (lignes) selon le mode/scope ───
   const resources = useMemo(() => {
@@ -178,7 +192,23 @@ export function PlanningGrid({ chantier = null }) {
       prefill: existing?.chantierId
         ? { chantierId: existing.chantierId, batiment: existing.batiment, posteAvancementKey: existing.posteAvancementKey }
         : null,
+      poolTask: null,
     });
+  };
+
+  // Créer une tâche non affectée sur un slot (vue chantier, sans ressource).
+  const openPoolCreate = (slot) => {
+    if (!canWrite) return;
+    setModal({ resource: null, fromSlot: slot, toSlot: slot, prefill: null, poolTask: null });
+  };
+
+  // Éditer / affecter / supprimer une tâche déjà au pool.
+  const openPoolTask = (task) => {
+    const di = dateToDayIdx.get(task.date);
+    if (di == null) return;
+    if (!canWrite) return;
+    const slot = slotIndex(di, task.periode);
+    setModal({ resource: null, fromSlot: slot, toSlot: slot, prefill: null, poolTask: task });
   };
 
   // ─── États ───
@@ -252,6 +282,43 @@ export function PlanningGrid({ chantier = null }) {
                 h
               </div>
             </div>
+            {/* Ligne « À affecter » — tâches du chantier sans ressource (onglet) */}
+            {isTab && (
+              <div style={{ display: "grid", gridTemplateColumns: CELL_TEMPLATE, borderBottom: `1px solid ${EPJ.gray200}`, background: EPJ.gray50, minHeight: 44, alignItems: "stretch" }}>
+                <div style={{ gridColumn: "1 / 2", gridRow: 1, padding: `${space.sm}px ${space.md}px`, display: "flex", alignItems: "center", minWidth: 0 }}>
+                  <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray600, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    À affecter
+                  </span>
+                </div>
+                {Array.from({ length: NB_SLOTS }).map((_, s) => {
+                  const { dayIdx, periode } = slotToCell(s);
+                  const tasks = poolTasksAt(poolTasks, chantierId, cols[dayIdx].iso, periode);
+                  return (
+                    <div key={`p${s}`} style={{ gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, borderLeft: `1px solid ${EPJ.gray100}`, padding: 2, display: "flex", flexDirection: "column", gap: 2, justifyContent: "center", minWidth: 0 }}>
+                      {tasks.map((t) => {
+                        const label = t.posteAvancementKey
+                          ? posteLabel(chantier, t.batiment, t.posteAvancementKey, tasksConfig)
+                          : (t.batiment ? `Bât. ${t.batiment}` : "À affecter");
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={canWrite ? () => openPoolTask(t) : undefined}
+                            title={label}
+                            style={{ borderRadius: radius.sm, background: EPJ.gray100, border: `1px dashed ${EPJ.gray300}`, color: EPJ.gray600, padding: "2px 5px", fontSize: 11, lineHeight: 1.2, cursor: canWrite ? "pointer" : "default", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {label}
+                          </div>
+                        );
+                      })}
+                      {canWrite && (
+                        <div onClick={() => openPoolCreate(s)} style={{ textAlign: "center", color: EPJ.gray300, fontSize: 14, cursor: "pointer", lineHeight: 1 }}>+</div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div style={{ gridColumn: `${2 + NB_SLOTS} / ${2 + NB_SLOTS + 1}`, gridRow: 1, borderLeft: `1px solid ${EPJ.gray200}` }} />
+              </div>
+            )}
             {/* Lignes ressources — 2 couches : barres (visuel) + clic par demi-journée */}
             {resources.map((r) => {
               const segs = rowSegments(r.id, cols, creneauMap);
@@ -340,13 +407,15 @@ export function PlanningGrid({ chantier = null }) {
       {modal && (
         <AffectationModal
           user={user}
-          ressource={modal.resource}
+          initialRessource={modal.resource}
+          resources={resources}
           weekCols={cols}
           fromSlot={modal.fromSlot}
           toSlot={modal.toSlot}
           prefill={modal.prefill}
-          getExisting={(dateIso, periode) =>
-            creneauMap.get(creneauId(modal.resource.id, dateIso, periode)) || null}
+          poolTask={modal.poolTask}
+          getExisting={(resId, dateIso, periode) =>
+            creneauMap.get(creneauId(resId, dateIso, periode)) || null}
           canWrite={canWrite}
           fixedChantier={isTab ? chantier : null}
           allChantiers={pickerChantiers}

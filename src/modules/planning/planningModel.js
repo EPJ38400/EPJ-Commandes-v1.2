@@ -80,10 +80,28 @@ export function weekLabel(mondayDate) {
   return `${pad2(mondayDate.getDate())}/${pad2(mondayDate.getMonth() + 1)} – ${pad2(last.getDate())}/${pad2(last.getMonth() + 1)}`;
 }
 
-// ─── ID déterministe d'un créneau ──────────────────────────────
-// {ressourceId}_{date}_{periode} → ex. "Bilardo_2026-06-17_AM"
+// ─── ID déterministe d'un créneau AFFECTÉ ──────────────────────
+// {ressourceId}_{date}_{periode} → ex. "Bilardo_2026-06-17_AM".
+// Réservé aux créneaux AFFECTÉS (ressourceId non nul) : garantit l'unicité
+// « 1 affectation / ressource / demi-journée » + compat des données existantes.
+// Les tâches « à affecter » (pool, ressourceId null) sont en doc AUTO-ID
+// (addDoc) → plusieurs tâches possibles par chantier+demi-journée.
 export function creneauId(ressourceId, date, periode) {
   return `${ressourceId}_${date}_${periode}`;
+}
+
+// Un créneau sans ressource = tâche « à affecter » (pool, doc auto-id).
+// V3 : ressourceId est NULLABLE. isPool distingue pool ⟂ affecté.
+export function isPool(cr) {
+  return !cr?.ressourceId;
+}
+
+// Tâches « à affecter » (pool) d'un chantier sur un slot donné (filtré client).
+// Plusieurs tâches par slot possibles (plusieurs postes / personnes prévues).
+export function poolTasksAt(rows, chantierId, dateIso, periode) {
+  return (rows || []).filter(
+    (r) => isPool(r) && r.chantierId === chantierId && r.date === dateIso && r.periode === periode,
+  );
 }
 
 // ─── Identité ressource ────────────────────────────────────────
