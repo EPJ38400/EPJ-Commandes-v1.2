@@ -2,14 +2,15 @@
 //  PlanningTab — entrée ONGLET du Planning (fiche Gestion de chantier)
 //
 //  Droit de visibilité : gestionChantier.planning (gaté en amont par
-//  ChantierFiche). Rend le MÊME composant cœur PlanningGrid, filtré sur
-//  le chantier courant. Le grounding (poste/bâtiment) vient du chantier.
+//  ChantierFiche). Rend la vue MENSUELLE chantier-centric (Lot 2),
+//  filtrée sur le chantier courant. L'accueil (rh.planning) conserve la
+//  grille hebdo par ressources via PlanningGrid — NON modifié.
 // ═══════════════════════════════════════════════════════════════
 import { EPJ, font, radius, space, fontSize } from "../../core/theme";
-import { PlanningGrid } from "./PlanningGrid";
+import { ChantierPlanningMonth } from "./ChantierPlanningMonth";
 
 export function PlanningTab({ chantier }) {
-  return <PlanningGrid chantier={chantier} />;
+  return <ChantierPlanningMonth chantier={chantier} />;
 }
 
 // Encart « pas d'accès » partagé (réutilisé par PlanningPage).

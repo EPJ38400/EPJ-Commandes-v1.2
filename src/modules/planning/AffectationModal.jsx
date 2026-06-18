@@ -17,7 +17,7 @@
 //  ÉCRIT UNIQUEMENT dans planningCreneaux. Lecture seule si pas de droit.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { doc, collection, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, collection, writeBatch, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useViewport } from "../../core/useViewport";
@@ -25,8 +25,10 @@ import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
-  slotIndex, slotToCell, expandRange, demiJourneeHeures,
+  slotIndex, slotToCell, expandRange,
 } from "./planningModel";
+import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
+import { GroupedPosteSelect } from "./GroupedPosteSelect";
 
 const PERIODE_OPTIONS = PERIODES.map((p) => ({ value: p, label: PERIODE_LABEL[p] || p }));
 
@@ -84,10 +86,6 @@ export function AffectationModal({
     { value: "", label: "— Aucun —" },
     ...units.map((u) => ({ value: u.unite, label: u.label })),
   ];
-  const posteOptions = [
-    { value: "", label: "— Aucun poste précis —" },
-    ...(currentUnit?.postesFlat || []).map((p) => ({ value: p.key, label: p.label })),
-  ];
 
   const onChantierChange = (v) => { setChantierId(v); setBatiment(""); setPoste(""); };
   const onBatimentChange = (v) => { setBatiment(v); setPoste(""); };
@@ -110,43 +108,22 @@ export function AffectationModal({
     return { dayIdx, periode, dateIso: weekCols[dayIdx].iso };
   };
 
-  // ─── Payloads ──────────────────────────────────────────────────
+  // ─── Payloads (builders partagés planningWrites — zéro duplication) ──
   const payloadAffected = (res, slot) => {
     const { dayIdx, periode, dateIso } = slotMeta(slot);
-    const existing = getExisting(res.id, dateIso, periode);
-    return {
-      ressourceId: res.id, ressourceNom: res.nom, ressourceType: res.type,
-      date: dateIso, periode,
-      chantierId: chantierId || null,
-      batiment: chantierId ? (batiment || null) : null,
-      posteAvancementKey: chantierId ? (poste || null) : null,
-      tempsEstimeH: chantierId
-        ? (temps !== "" && temps != null ? Number(temps) : demiJourneeHeures(dayIdx))
-        : null,
-      tacheId: null,
-      etatValidationMonteur: existing?.etatValidationMonteur || "NON",
-      smsEnvoye: existing?.smsEnvoye ?? false,
-      creePar: existing?.creePar || user._id,
-      modifiePar: user._id,
-      updatedAt: serverTimestamp(),
-    };
+    return affectedCreneauPayload({
+      res, date: dateIso, periode, dayIdx,
+      chantierId, batiment, poste, tempsEstimeH: temps,
+      existing: getExisting(res.id, dateIso, periode), userId: user._id,
+    });
   };
 
   const payloadPool = (slot) => {
     const { periode, dateIso } = slotMeta(slot);
-    return {
-      ressourceId: null,
-      date: dateIso, periode,
-      chantierId: chantierId || null,
-      batiment: chantierId ? (batiment || null) : null,
-      posteAvancementKey: chantierId ? (poste || null) : null,
-      tempsEstimeH: temps !== "" && temps != null ? Number(temps) : null,
-      tacheId: null,
-      creePar: poolTask?.creePar || user._id,
-      modifiePar: user._id,
-      createdAt: poolTask?.createdAt || serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+    return poolCreneauPayload({
+      date: dateIso, periode, chantierId, batiment, poste,
+      tempsEstimeH: temps, source: poolTask, userId: user._id,
+    });
   };
 
   // ─── Enregistrer (affecter OU pool, selon la ressource cible) ───
@@ -157,35 +134,40 @@ export function AffectationModal({
 
     // ── AFFECTER (target défini) ──
     if (target) {
-      const conflicts = rangeSlots.filter((s) => {
-        const { dateIso, periode } = slotMeta(s);
-        const ex = getExisting(target.id, dateIso, periode);
-        return ex?.chantierId && ex.chantierId !== chantierId;
-      });
-      if (conflicts.length > 0) {
-        const ok = window.confirm(
-          `${conflicts.length} demi-journée(s) sont déjà affectées à un autre chantier pour ${target.nom}. Les écraser ?`,
-        );
-        if (!ok) return;
-      }
       setSaving(true); setErr(null);
       try {
-        // writeBatch = atomique : pas d'orphelin si la suppression du pool
-        // (ou de l'ancienne ressource) échoue après l'écriture de l'affecté.
+        // Anti-collision AUTORITATIVE : 1 getDoc par id déterministe (pas
+        // d'index). Le cache (getExisting) est aveugle aux AUTRES chantiers
+        // en vue filtrée → on lit la source. Collision inter-chantiers →
+        // window.confirm « déplacer ici ? » ; refus = on n'écrit PAS ce slot.
+        // Collision MÊME chantier = écrasement silencieux (comportement actuel).
+        // writeBatch = atomique : pas d'orphelin si une suppression échoue.
         const batch = writeBatch(db);
-        rangeSlots.forEach((s) => {
+        let wrote = 0;
+        for (const s of rangeSlots) {
           const { dateIso, periode } = slotMeta(s);
-          batch.set(doc(db, "planningCreneaux", creneauId(target.id, dateIso, periode)), payloadAffected(target, s), { merge: true });
-        });
+          const ref = doc(db, "planningCreneaux", creneauId(target.id, dateIso, periode));
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            const ex = snap.data();
+            if (ex.chantierId && ex.chantierId !== chantierId) {
+              const autre = (allChantiers || []).find((c) => c.num === ex.chantierId)?.nom || ex.chantierId;
+              const ok = window.confirm(
+                `${target.nom} est déjà affecté au chantier ${autre} ce créneau (${dateIso} ${periode}). Le déplacer ici ?`,
+              );
+              if (!ok) continue; // ne pas écrire ce slot
+            }
+          }
+          batch.set(ref, payloadAffected(target, s), { merge: true });
+          wrote++;
+          // Réaffectation : libérer le créneau de l'ancienne ressource (ce slot).
+          if (initialRessource && initialRessource.id !== target.id) {
+            batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
+          }
+        }
+        if (wrote === 0) { setSaving(false); onClose(); return; }
         // Source pool → on retire la tâche du pool (elle devient affectée).
         if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
-        // Réaffectation : on libère les créneaux de l'ancienne ressource.
-        if (initialRessource && initialRessource.id !== target.id) {
-          rangeSlots.forEach((s) => {
-            const { dateIso, periode } = slotMeta(s);
-            batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
-          });
-        }
         await batch.commit();
         onClose();
       } catch (e) {
@@ -297,7 +279,8 @@ export function AffectationModal({
             <>
               <Field as="select" label="Bâtiment / unité" value={batiment} options={batimentOptions}
                 disabled={!canWrite} onChange={(e) => onBatimentChange(e.target.value)} />
-              <Field as="select" label="Poste (optionnel)" value={poste} options={posteOptions}
+              <GroupedPosteSelect label="Poste (optionnel)" value={poste}
+                categories={currentUnit?.categories || []}
                 disabled={!canWrite || !batiment}
                 hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
                 onChange={(e) => setPoste(e.target.value)} />
