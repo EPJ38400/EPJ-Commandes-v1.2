@@ -39,6 +39,7 @@ import { getExpectedDeliveryDate, formatDateFR } from "./orderDates";
 import { OrderMessageThread } from "./OrderMessageThread";
 import { PartialPassSheet } from "./PartialPassSheet";
 import { buildPartialPassPayload } from "./orderPartialPass";
+import { hasUnreadMessages } from "./orderMessages";
 
 /* ═══════════════════════════════════════════════════
    EPJ App Globale — Module Commandes (ex-V1.3)
@@ -180,8 +181,11 @@ const PdfView = ({order, onClose}) => {
 };
 
 // ═══ MODULE COMMANDES ═══
-export function CommandesInner({ onExitModule }) {
+export function CommandesInner({ onExitModule, initialOrderId }) {
   const { user } = useAuth();
+  // Identifiant aligné sur message.userId (= user.id||user._id) — sert au
+  // calcul "message non lu" (enveloppe historique), source unique orderMessages.js.
+  const myId = user?.id || user?._id || "";
   // v10.H — smsTemplates pour SMS conducteur
   // v10.I — rolesConfig pour gardes UI propres via can()
   // v10.J — featureFlags.ocrArEnabled pour affichage date fournisseur (AR/BL)
@@ -237,6 +241,20 @@ export function CommandesInner({ onExitModule }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, user]);
+  // ─── Ouverture directe d'une commande (bannière "messages non lus") ───
+  // initialOrderId est transmis par le Socle quand on tape la bannière depuis
+  // l'accueil. One-shot : dès qu'on a ouvert le fil pour un id donné, on le
+  // mémorise pour ne pas ré-ouvrir si l'utilisateur revient en arrière.
+  const consumedOrderIdRef = useRef(null);
+  useEffect(() => {
+    if (!initialOrderId || consumedOrderIdRef.current === initialOrderId) return;
+    const target = history.find(h => h._id === initialOrderId);
+    if (!target) return; // pas encore chargé (ou hors périmètre) → on retentera au prochain snapshot
+    consumedOrderIdRef.current = initialOrderId;
+    setSelectedOrder(target);
+    setView('orderDetail');
+  }, [initialOrderId, history]);
+
   // ─── v10.G — Helper pour retour à l'accueil du module ───
   // Reset propre (vues, sélections temporaires) quand on clique sur le
   // bouton "← Commandes" du sub-header.
@@ -2514,7 +2532,7 @@ export function CommandesInner({ onExitModule }) {
     // Lignes enrichies pour <DataTable> (tri sur valeurs réelles)
     const histRows = myHistory.map((h,i)=>({ ...h, _key: h._id || String(i), _refs:(h.items||[]).length, _cible: h.type==='chantier' ? `[${h.numAffaire||''}] ${h.chantier||''}` : (h.salarie||'') }));
     const histCols = [
-      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}</span>) },
+      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}{hasUnreadMessages(h,myId)&&<span title="Nouveau message" style={{marginLeft:space.xs,fontSize:fontSize.sm}}>✉️</span>}</span>) },
       { key:'date', header:'Date', sortable:false },
       { key:'user', header:'Demandeur' },
       { key:'_cible', header:'Chantier / Destinataire' },
@@ -2550,7 +2568,7 @@ export function CommandesInner({ onExitModule }) {
           :myHistory.map((h,i)=>(
           <div key={h._id||i} className="epj-card" style={{marginBottom:space.sm,cursor:'pointer'}}>
             <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
-              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
+              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}{hasUnreadMessages(h,myId)&&<span title="Nouveau message" style={{marginLeft:space.xs}}>✉️</span>}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
               {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontVariantNumeric:'tabular-nums'}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:space.xs}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
             </div>
             {canDeleteThisOrder(h)&&<button onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}} style={{marginTop:space.sm,width:'100%',background:EPJ.dangerBg,color:EPJ.redText,border:'none',borderRadius:radius.sm,padding:`${space.xs}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}

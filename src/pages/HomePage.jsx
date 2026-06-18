@@ -18,6 +18,7 @@ import {
 } from "../core/notificationsUtils";
 // v10.J — bannière "commandes en retard" basée sur la date pertinente
 import { isOrderLate } from "../modules/commandes/orderDates";
+import { hasUnreadMessages } from "../modules/commandes/orderMessages";
 
 // 5 modules métier
 const MODULES_META = [
@@ -213,11 +214,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     // Nouveaux messages non lus sur une commande qui me concerne (fil
     // OrderMessageThread). myId aligné sur message.userId (= user.id||user._id).
     const myId = user?.id || user?._id || "";
-    const hasUnreadMsg = (cmd) => {
-      const msgs = Array.isArray(cmd.messages) ? cmd.messages : [];
-      const seen = Date.parse(cmd.messagesSeen?.[myId] || 0) || 0;
-      return msgs.some(m => m.userId !== myId && (Date.parse(m.createdAt) || 0) > seen);
-    };
+    const hasUnreadMsg = (cmd) => hasUnreadMessages(cmd, myId);
     const iParticipate = (cmd) =>
       cmd.userId === myId ||
       (Array.isArray(cmd.messages) ? cmd.messages : []).some(m => m.userId === myId) ||
@@ -279,7 +276,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
         ? { count: commandesAEsabora.length }
         : null,
       "commandesMessages": commandesNouveauxMessages.length > 0
-        ? { count: commandesNouveauxMessages.length }
+        ? { count: commandesNouveauxMessages.length, items: commandesNouveauxMessages }
         : null,
       // Allume le badge de la tuile "commandes" (pas d'autre agrégateur existant)
       "commandes": commandesNouveauxMessages.length > 0
@@ -359,7 +356,10 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           icon="💬"
           title={`${notifications.commandesMessages.count} nouveau${notifications.commandesMessages.count > 1 ? "x" : ""} message${notifications.commandesMessages.count > 1 ? "s" : ""} sur vos commandes`}
           text="Quelqu'un a répondu — tape ici pour voir."
-          onClick={() => onOpenModule("commandes")}
+          onClick={() => {
+            const cmds = notifications.commandesMessages.items || [];
+            onOpenModule("commandes", cmds.length === 1 ? { orderId: cmds[0]._id } : undefined);
+          }}
         />
       )}
 
