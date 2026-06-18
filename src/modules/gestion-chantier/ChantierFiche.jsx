@@ -26,7 +26,6 @@ const TABS = [
   { key: "planning",  label: "Planning ressources", icon: "📆" },
   { key: "financier", label: "Suivi financier",   icon: "💶" },
   { key: "suivi",     label: "Suivi de chantier", icon: "📋" },
-  { key: "gantt",     label: "Planning / Gantt",  icon: "📅" },
   { key: "tma",       label: "TMA",               icon: "🔧" },
   { key: "demarches", label: "Démarches admin",   icon: "🗂️" },
 ];
