@@ -198,15 +198,14 @@ service cloud.firestore {
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.
     // read : tout employé (le client borne le Monteur à ses créneaux, scope
-    //   own_items). create/update : Assistante OU Chef chantier OU Conducteur —
-    //   déjà couvert car isAssistante() inclut « Conducteur travaux »
-    //   (+ Admin/Direction). Chef chantier inline (pas de helper isChef).
+    //   own_items). create/update/delete UNIFORMES : Admin OU Assistante OU
+    //   Conducteur OU Chef chantier (les conducteurs font le planning ; lève
+    //   l'asymétrie create/delete → affecter/libérer/supprimer atomiques).
+    //   isAdmin() est explicite (inoffensif même si couvert ailleurs).
     //   Le gating fin own_chantiers/own_items est assuré côté client par can().
-    // delete : Conducteur OU Chef chantier — couvre affecter/libérer/supprimer.
     match /planningCreneaux/{id} {
       allow read: if isEmployee();
-      allow create, update: if isAssistante() || role() == "Chef chantier";
-      allow delete: if isConducteur() || role() == "Chef chantier";
+      allow create, update, delete: if isAdmin() || isAssistante() || isConducteur() || role() == "Chef chantier";
     }
 
     // ─── smsTemplates + smsQueue ──────────────────────────────────
