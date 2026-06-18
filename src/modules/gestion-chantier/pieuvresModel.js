@@ -12,6 +12,7 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   resolveBuildings, getBuildingLetter, DEFAULT_BUILDING_CONFIG,
+  getChantierSousSols,
 } from "../avancement/avancementTasks";
 
 // ─── Référentiels d'affichage ──────────────────────────────────
@@ -58,6 +59,26 @@ export function niveauxForConfig(cfg) {
   return L;
 }
 
+// ─── Config d'un SOUS-SOL COMMUN ──────────────────────────────
+// La typologie d'un sous-sol commun est APLATIE sur l'item (ss.nbNiveaux),
+// PAS rangée dans un sous-objet `config` (≠ buildings[].config). On reconstruit
+// la même forme que l'avancement : cf. AvancementChantier qui lit
+// `{ nbNiveaux: ss.nbNiveaux ?? 1 }` et la passe à getCategoriesForSousSol.
+export function sousSolConfig(ss) {
+  return { nbNiveaux: ss?.nbNiveaux ?? 1 };
+}
+
+// ─── Niveaux (= dalles) d'un SOUS-SOL COMMUN ───────────────────
+// Un sous-sol commun ne porte QUE des niveaux de sous-sol (ss1→ssN) :
+// aligné 1:1 sur avancementTasks.buildSousSolBetonTasks (poste `beton-dalle-ss*`),
+// pas de RDC / étages / combles. Ordre ascendant ss1→ssN (comme niveauxForConfig).
+export function niveauxForSousSol(cfg) {
+  const nb = Number(cfg?.nbNiveaux || 0);
+  const L = [];
+  for (let i = 1; i <= nb; i++) L.push({ niveau: `ss${i}`, posteAvancementKey: `beton-dalle-ss${i}` });
+  return L;
+}
+
 // ─── Lignes attendues, tous bâtiments confondus (génération) ────
 export function expectedPieuvres(chantier) {
   const rows = [];
@@ -70,6 +91,21 @@ export function expectedPieuvres(chantier) {
         batiment,
         niveau: n.niveau,
         posteAvancementKey: n.posteAvancementKey,
+      });
+    }
+  }
+  // Sous-sols communs : unités autonomes, batiment = ss.id (≠ lettres de
+  // bâtiment → aucune collision d'ID `{chantierId}_{batiment}_{niveau}`).
+  for (const ss of getChantierSousSols(chantier)) {
+    for (const n of niveauxForSousSol(sousSolConfig(ss))) {
+      rows.push({
+        id: pieuvreId(chantier.num, ss.id, n.niveau),
+        chantierId: chantier.num,
+        batiment: ss.id,
+        niveau: n.niveau,
+        posteAvancementKey: n.posteAvancementKey,
+        isSousSol: true,
+        sousSolNom: ss.nom || "",
       });
     }
   }

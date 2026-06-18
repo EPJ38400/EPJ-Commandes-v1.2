@@ -25,10 +25,10 @@ import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { Badge } from "../../core/components/Badge";
-import { resolveBuildings, getBuildingLetter } from "../avancement/avancementTasks";
+import { resolveBuildings, getBuildingLetter, getChantierSousSols } from "../avancement/avancementTasks";
 import {
-  expectedPieuvres, niveauxForConfig, pieuvreId, niveauLabel,
-  hasRealBuildings, LIEU_OPTIONS, STATUT_OPTIONS, STATUT_TONE,
+  expectedPieuvres, niveauxForConfig, niveauxForSousSol, sousSolConfig,
+  pieuvreId, niveauLabel, hasRealBuildings, LIEU_OPTIONS, STATUT_OPTIONS, STATUT_TONE,
 } from "./pieuvresModel";
 import { openPieuvresPdfWindow, loadLogoDataUri } from "./pieuvresPdf";
 
@@ -160,15 +160,22 @@ export function PieuvresTab({ chantier }) {
     });
   };
 
-  // ─── Regroupement par bâtiment, ordre piloté par le modèle ───
+  // ─── Regroupement par bâtiment puis sous-sols communs, ordre modèle ───
   const groups = useMemo(() => {
-    return resolveBuildings(chantier).map((b) => {
+    const out = resolveBuildings(chantier).map((b) => {
       const lettre = getBuildingLetter(b);
       const ordered = niveauxForConfig(b.config)
         .map((n) => rowsById.get(pieuvreId(chantier.num, lettre, n.niveau)))
         .filter(Boolean);
-      return { lettre, rows: ordered };
-    }).filter((g) => g.rows.length > 0);
+      return { key: `bat-${lettre}`, title: `Bâtiment ${lettre}`, rows: ordered };
+    });
+    for (const ss of getChantierSousSols(chantier)) {
+      const ordered = niveauxForSousSol(sousSolConfig(ss))
+        .map((n) => rowsById.get(pieuvreId(chantier.num, ss.id, n.niveau)))
+        .filter(Boolean);
+      out.push({ key: `ss-${ss.id}`, title: `Sous-sol commun ${ss.nom || ""}`.trim(), rows: ordered });
+    }
+    return out.filter((g) => g.rows.length > 0);
   }, [chantier, rowsById]);
 
   // ─── Sélection (cases à cocher) pour l'export partiel ───
@@ -248,12 +255,12 @@ export function PieuvresTab({ chantier }) {
       </div>
 
       {groups.map((g) => (
-        <div key={g.lettre} style={{ marginBottom: space.xl }}>
+        <div key={g.key} style={{ marginBottom: space.xl }}>
           <div style={{
             fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
             color: EPJ.gray900, letterSpacing: "-0.01em", marginBottom: space.sm,
           }}>
-            Bâtiment {g.lettre}
+            {g.title}
             <span style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginLeft: space.sm }}>
               · {g.rows.length} dalle{g.rows.length > 1 ? "s" : ""}
             </span>
