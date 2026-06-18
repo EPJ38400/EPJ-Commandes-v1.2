@@ -16,14 +16,15 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   resolveBuildings, getBuildingLetter, getCategoriesForConfig,
+  getCategoriesForSousSol, getChantierSousSols,
 } from "../avancement/avancementTasks";
 
 // ─── Constantes ────────────────────────────────────────────────
 export const PERIODES = ["AM", "PM"];
 export const PERIODE_LABEL = { AM: "Matin", PM: "Après-midi" };
 
-// Lundi → Samedi (le BTP travaille parfois le samedi ; dimanche exclu).
-export const WEEK_DAY_LABELS = ["Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
+// Lundi → Vendredi (samedi/dimanche exclus — L8b).
+export const WEEK_DAY_LABELS = ["Lun.", "Mar.", "Mer.", "Jeu.", "Ven."];
 export const NB_WEEK_DAYS = WEEK_DAY_LABELS.length;
 
 // Rôles considérés comme « ressource planifiable » (= ligne du planning).
@@ -155,47 +156,144 @@ export function resourcesForConductor(users, chantiers, user) {
   );
 }
 
-// ─── Options de poste (picker) — réutilise la TAXONOMIE M3 ─────
-// Retourne, par bâtiment du chantier :
-//   { lettre, buildingId, label, postes: [{ key (slug), label, color }] }
-// postes = slugs RÉELLEMENT présents dans avancementProgress[building.id],
-// libellés + ordonnés via getCategoriesForConfig (jamais de libellé en dur).
-export function chantierPlanningOptions(chantier, tasksConfig) {
-  if (!chantier) return [];
-  const override = chantier.avancementTasksOverride;
-  return resolveBuildings(chantier).map((b) => {
-    const lettre = getBuildingLetter(b);
-    const progress = chantier.avancementProgress?.[b.id] || {};
-    const present = new Set(Object.keys(progress));
-    const cats = getCategoriesForConfig(b.config, tasksConfig, override, b.id);
+// ─── Options de poste (picker) — réutilise la TAXONOMIE M3 (v2) ─
+// Libellés courts par cat.id (taxo v2). Source unique de vérité.
+const SHORT_CAT = {
+  etude: "Étude", beton: "Béton", divers: "Divers", placo: "Placo",
+  logements: "Logement", communs: "Commun", "courant-faible": "Courant faible",
+  controle: "Contrôle", ssequip: "Sous-sol",
+};
 
-    const postes = [];
-    const seen = new Set();
-    // 1) Ordre/ libellés de la taxonomie, filtré aux slugs présents.
-    for (const cat of cats) {
-      for (const t of cat.tasks || []) {
-        if (present.has(t.id)) {
-          postes.push({ key: t.id, label: t.label, color: cat.color });
-          seen.add(t.id);
-        }
-      }
-    }
-    // 2) Slugs présents mais hors taxonomie courante (config modifiée) :
-    //    libellé brut, en queue — on n'invente rien.
-    for (const slug of present) {
-      if (!seen.has(slug)) postes.push({ key: slug, label: slug, color: null });
-    }
-    return { lettre, buildingId: b.id, label: `Bâtiment ${lettre}`, postes };
-  });
+// Anti-doublon : ne préfixe pas si le libellé tâche commence déjà par la cat
+// courte (ex. "Placo RDC" reste "Placo RDC", pas "Placo — Placo RDC").
+function prefixedLabel(catShort, taskLabel) {
+  if (!catShort) return taskLabel;
+  return taskLabel.toLowerCase().startsWith(catShort.toLowerCase())
+    ? taskLabel
+    : `${catShort} — ${taskLabel}`;
 }
 
-// Libellé lisible d'un poste depuis sa clé, pour un chantier+lettre donnés.
+function buildUnit({ unite, label, type, cats }) {
+  const categories = [];
+  const postesFlat = [];
+  for (const cat of cats) {
+    const tasks = cat.tasks || [];
+    if (tasks.length === 0) continue;
+    const short = SHORT_CAT[cat.id] || "";
+    categories.push({
+      catId: cat.id, catLabel: short || cat.label, color: cat.color,
+      postes: tasks.map((t) => ({ key: t.id, label: t.label })),
+    });
+    for (const t of tasks) {
+      postesFlat.push({
+        key: t.id, label: prefixedLabel(short, t.label),
+        catLabel: short || cat.label, color: cat.color,
+      });
+    }
+  }
+  return { unite, label, type, categories, postesFlat };
+}
+
+// getPosteOptions : TOUTE la taxonomie générée selon la config (SANS intersection
+// avec avancementProgress → un poste est toujours choisissable), bâtiments +
+// sous-sols communs. Libellés "Cat — Tâche". posteAvancementKey reste = t.id.
+export function getPosteOptions(chantier, tasksConfig) {
+  if (!chantier) return [];
+  const override = chantier.avancementTasksOverride;
+  const units = [];
+  for (const b of resolveBuildings(chantier)) {
+    const lettre = getBuildingLetter(b);
+    units.push(buildUnit({
+      unite: lettre, label: `Bâtiment ${lettre}`, type: "BAT",
+      cats: getCategoriesForConfig(b.config, tasksConfig, override, b.id),
+    }));
+  }
+  // ⚠️ resolveBuildings n'énumère PAS les sous-sols communs → on les ajoute.
+  for (const ss of getChantierSousSols(chantier)) {
+    units.push(buildUnit({
+      unite: ss.id, label: `Sous-sol commun${ss.nom ? " " + ss.nom : ""}`, type: "SS",
+      cats: getCategoriesForSousSol(ss.config, tasksConfig, override, ss.id),
+    }));
+  }
+  return units;
+}
+
+// Libellé complet "Cat — Tâche" d'un poste, pour une unité (lettre OU ss.id) donnée.
 export function posteLabel(chantier, batiment, posteKey, tasksConfig) {
   if (!posteKey) return "";
-  const groups = chantierPlanningOptions(chantier, tasksConfig);
-  const g = groups.find((x) => x.lettre === batiment) || groups[0];
-  const p = g?.postes.find((x) => x.key === posteKey);
+  const units = getPosteOptions(chantier, tasksConfig);
+  const u = units.find((x) => x.unite === batiment) || units[0];
+  const p = u?.postesFlat.find((x) => x.key === posteKey);
   return p ? p.label : posteKey;
+}
+
+// ─── Slots de demi-journée (0..NB_WEEK_DAYS*2-1) ───────────────
+export function slotIndex(dayIdx, periode) {
+  return dayIdx * 2 + (periode === "AM" ? 0 : 1);
+}
+export function slotToCell(idx) {
+  return { dayIdx: Math.floor(idx / 2), periode: idx % 2 === 0 ? "AM" : "PM" };
+}
+export function expandRange(fromSlot, toSlot) {
+  const a = Math.min(fromSlot, toSlot), b = Math.max(fromSlot, toSlot);
+  const out = [];
+  for (let i = a; i <= b; i++) out.push(i);
+  return out;
+}
+
+// ─── Heures ────────────────────────────────────────────────────
+// Demi-journée : 4 h (Lun–Jeu) ; 3,5 h (Ven, dayIdx 4). Jour = 8 h / 7 h Ven.
+export function demiJourneeHeures(dayIdx) {
+  return dayIdx === 4 ? 3.5 : 4;
+}
+export function weeklyTotalHours(resourceId, weekCols, creneauMap) {
+  let total = 0;
+  for (let dayIdx = 0; dayIdx < weekCols.length; dayIdx++) {
+    for (const p of PERIODES) {
+      const cr = creneauMap.get(creneauId(resourceId, weekCols[dayIdx].iso, p));
+      if (cr?.chantierId) {
+        total += cr.tempsEstimeH != null ? Number(cr.tempsEstimeH) : demiJourneeHeures(dayIdx);
+      }
+    }
+  }
+  return total;
+}
+
+// ─── Regroupement créneaux → barres (rendu) ────────────────────
+// Fusionne les slots contigus de même chantier + bâtiment + poste.
+function barKey(cr) {
+  return `${cr.chantierId}|${cr.batiment || ""}|${cr.posteAvancementKey || ""}`;
+}
+export function rowSegments(resourceId, weekCols, creneauMap) {
+  const nbSlots = weekCols.length * 2;
+  const slots = [];
+  for (let i = 0; i < nbSlots; i++) {
+    const { dayIdx, periode } = slotToCell(i);
+    slots.push(creneauMap.get(creneauId(resourceId, weekCols[dayIdx].iso, periode)) || null);
+  }
+  const segments = [];
+  let i = 0;
+  while (i < nbSlots) {
+    const cr = slots[i];
+    if (!cr?.chantierId) { segments.push({ kind: "empty", start: i, end: i }); i++; continue; }
+    const key = barKey(cr);
+    let j = i, hours = 0;
+    const creneaux = [];
+    while (j < nbSlots && slots[j]?.chantierId && barKey(slots[j]) === key) {
+      creneaux.push(slots[j]);
+      const { dayIdx } = slotToCell(j);
+      hours += slots[j].tempsEstimeH != null ? Number(slots[j].tempsEstimeH) : demiJourneeHeures(dayIdx);
+      j++;
+    }
+    segments.push({
+      kind: "bar", start: i, end: j - 1,
+      chantierId: cr.chantierId, batiment: cr.batiment || null,
+      posteAvancementKey: cr.posteAvancementKey || null,
+      hours, creneaux,
+    });
+    i = j;
+  }
+  return segments;
 }
 
 // ─── Couleur de pastille par chantier (déterministe, tokens) ───

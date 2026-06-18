@@ -27,7 +27,7 @@ import { AffectationModal } from "./AffectationModal";
 import {
   PERIODES, NB_WEEK_DAYS, weekColumns, weekRange, weekLabel, startOfWeek, addDays, fromISO, toISODate,
   creneauId, terrainResources, resourcesForConductor, chantierColorIndex, posteLabel,
-  isMyChantier,
+  isMyChantier, rowSegments, weeklyTotalHours,
 } from "./planningModel";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
@@ -35,9 +35,11 @@ const PALETTE = [
   EPJ.blue, EPJ.green, EPJ.orange, EPJ.catEtude,
   EPJ.urgent, EPJ.red, EPJ.blueText, EPJ.greenText,
 ];
-const DAY_TEMPLATE  = `170px repeat(${NB_WEEK_DAYS}, 2fr)`;
-const CELL_TEMPLATE = `170px repeat(${NB_WEEK_DAYS * 2}, 1fr)`;
-const INNER_MIN_W = 170 + NB_WEEK_DAYS * 2 * 78;
+const NB_SLOTS = NB_WEEK_DAYS * 2;
+// Colonnes : ressource (170px) + jours/slots + colonne « Total » (72px).
+const DAY_TEMPLATE  = `170px repeat(${NB_WEEK_DAYS}, 2fr) 72px`;
+const CELL_TEMPLATE = `170px repeat(${NB_SLOTS}, 1fr) 72px`;
+const INNER_MIN_W = 170 + NB_SLOTS * 78 + 72;
 
 export function PlanningGrid({ chantier = null }) {
   const { user } = useAuth();
@@ -159,10 +161,18 @@ export function PlanningGrid({ chantier = null }) {
     }
   };
 
-  const openCell = (resource, iso, periode) => {
-    const existing = creneauMap.get(creneauId(resource.id, iso, periode)) || null;
-    if (!canWrite && !existing?.chantierId) return; // lecture seule : rien à montrer sur une case vide
-    setModal({ resource, date: iso, periode, existing });
+  // Clic sur une barre → modale plage pré-remplie [start..end]. Clic case vide →
+  // plage Du=Au=slot. Lecture seule : on ouvre une barre (consultation) mais pas
+  // une case vide.
+  const openBar = (resource, seg) => {
+    setModal({
+      resource, fromSlot: seg.start, toSlot: seg.end,
+      prefill: { chantierId: seg.chantierId, batiment: seg.batiment, posteAvancementKey: seg.posteAvancementKey },
+    });
+  };
+  const openEmpty = (resource, slot) => {
+    if (!canWrite) return;
+    setModal({ resource, fromSlot: slot, toSlot: slot, prefill: null });
   };
 
   // ─── États ───
@@ -220,6 +230,9 @@ export function PlanningGrid({ chantier = null }) {
                   {c.dayLabel} <span style={{ color: EPJ.gray400 }}>{c.dateLabel}</span>
                 </div>
               ))}
+              <div style={{ padding: `${space.sm}px ${space.xs}px`, textAlign: "center", fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray600, borderLeft: `1px solid ${EPJ.gray200}` }}>
+                Total
+              </div>
             </div>
             {/* En-tête — ligne AM/PM */}
             <div style={{ display: "grid", gridTemplateColumns: CELL_TEMPLATE, background: EPJ.gray50, borderBottom: `1px solid ${EPJ.gray200}` }}>
@@ -229,52 +242,81 @@ export function PlanningGrid({ chantier = null }) {
                   {p}
                 </div>
               )))}
+              <div style={{ borderLeft: `1px solid ${EPJ.gray200}`, textAlign: "center", fontSize: fontSize.xs, color: EPJ.gray500, padding: `2px 0` }}>
+                h
+              </div>
             </div>
-            {/* Lignes ressources */}
-            {resources.map((r) => (
-              <div key={r.id} style={{ display: "grid", gridTemplateColumns: CELL_TEMPLATE, borderBottom: `1px solid ${EPJ.gray100}`, minHeight: 44 }}>
-                <div style={{ padding: `${space.sm}px ${space.md}px`, display: "flex", alignItems: "center", gap: space.xs, minWidth: 0 }}>
-                  <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.nom}
-                  </span>
-                  {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
-                </div>
-                {cols.map((c) => PERIODES.map((p) => {
-                  const cr = creneauMap.get(creneauId(r.id, c.iso, p));
-                  const assigned = cr?.chantierId || null;
-                  const color = assigned ? PALETTE[chantierColorIndex(assigned)] : null;
-                  const chObj = assigned ? chantierById.get(assigned) : null;
-                  const poste = assigned && cr.posteAvancementKey
-                    ? posteLabel(chObj, cr.batiment, cr.posteAvancementKey, tasksConfig)
-                    : (cr?.batiment ? `Bât. ${cr.batiment}` : "");
-                  const clickable = canWrite || !!assigned;
-                  return (
-                    <div
-                      key={`${r.id}_${c.iso}_${p}`}
-                      onClick={clickable ? () => openCell(r, c.iso, p) : undefined}
-                      style={{
-                        borderLeft: `1px solid ${EPJ.gray100}`, padding: 3,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        cursor: clickable ? "pointer" : "default",
-                      }}
-                    >
-                      {assigned ? (
-                        <div title={`${assigned}${poste ? " · " + poste : ""}${cr.tempsEstimeH != null ? " · " + cr.tempsEstimeH + "h" : ""}`}
+            {/* Lignes ressources — affichage en BARRES (segments contigus) */}
+            {resources.map((r) => {
+              const segs = rowSegments(r.id, cols, creneauMap);
+              const total = weeklyTotalHours(r.id, cols, creneauMap);
+              return (
+                <div key={r.id} style={{ display: "grid", gridTemplateColumns: CELL_TEMPLATE, borderBottom: `1px solid ${EPJ.gray100}`, minHeight: 44, alignItems: "stretch" }}>
+                  <div style={{ gridColumn: "1 / 2", padding: `${space.sm}px ${space.md}px`, display: "flex", alignItems: "center", gap: space.xs, minWidth: 0 }}>
+                    <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.nom}
+                    </span>
+                    {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
+                  </div>
+                  {segs.map((seg) => {
+                    const colStart = 2 + seg.start;
+                    if (seg.kind === "empty") {
+                      return (
+                        <div
+                          key={`e${seg.start}`}
+                          onClick={canWrite ? () => openEmpty(r, seg.start) : undefined}
+                          style={{
+                            gridColumn: `${colStart} / ${colStart + 1}`,
+                            borderLeft: `1px solid ${EPJ.gray100}`, padding: 3,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: canWrite ? "pointer" : "default",
+                          }}
+                        >
+                          {canWrite && <span style={{ color: EPJ.gray300, fontSize: 14 }}>+</span>}
+                        </div>
+                      );
+                    }
+                    const color = PALETTE[chantierColorIndex(seg.chantierId)];
+                    const chObj = chantierById.get(seg.chantierId);
+                    const poste = seg.posteAvancementKey
+                      ? posteLabel(chObj, seg.batiment, seg.posteAvancementKey, tasksConfig)
+                      : (seg.batiment ? `Bât. ${seg.batiment}` : "");
+                    return (
+                      <div
+                        key={`b${seg.start}`}
+                        onClick={() => openBar(r, seg)}
+                        style={{
+                          gridColumn: `${colStart} / ${2 + seg.end + 1}`,
+                          borderLeft: `1px solid ${EPJ.gray100}`, padding: 3,
+                          display: "flex", alignItems: "center", cursor: "pointer",
+                        }}
+                      >
+                        <div
+                          title={`${seg.chantierId}${poste ? " · " + poste : ""} · ${seg.hours} h`}
                           style={{
                             width: "100%", borderRadius: radius.sm, background: color, color: EPJ.white,
-                            padding: "3px 5px", overflow: "hidden", lineHeight: 1.1,
-                          }}>
-                          <div style={{ fontSize: 10, fontWeight: fontWeight.semibold, fontVariantNumeric: "tabular-nums", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{assigned}</div>
-                          {poste && <div style={{ fontSize: 9, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{poste}</div>}
+                            padding: "4px 7px", overflow: "hidden", lineHeight: 1.15,
+                          }}
+                        >
+                          <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, fontVariantNumeric: "tabular-nums", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {seg.chantierId} <span style={{ opacity: 0.85, fontWeight: fontWeight.regular }}>· {seg.hours} h</span>
+                          </div>
+                          {poste && <div style={{ fontSize: 11, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{poste}</div>}
                         </div>
-                      ) : canWrite ? (
-                        <span style={{ color: EPJ.gray300, fontSize: 14 }}>+</span>
-                      ) : null}
-                    </div>
-                  );
-                }))}
-              </div>
-            ))}
+                      </div>
+                    );
+                  })}
+                  <div style={{
+                    gridColumn: `${2 + NB_SLOTS} / ${2 + NB_SLOTS + 1}`,
+                    borderLeft: `1px solid ${EPJ.gray200}`, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: total > 0 ? EPJ.gray900 : EPJ.gray400,
+                    fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {total > 0 ? `${total} h` : "—"}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -283,9 +325,12 @@ export function PlanningGrid({ chantier = null }) {
         <AffectationModal
           user={user}
           ressource={modal.resource}
-          date={modal.date}
-          periode={modal.periode}
-          existing={modal.existing}
+          weekCols={cols}
+          fromSlot={modal.fromSlot}
+          toSlot={modal.toSlot}
+          prefill={modal.prefill}
+          getExisting={(dateIso, periode) =>
+            creneauMap.get(creneauId(modal.resource.id, dateIso, periode)) || null}
           canWrite={canWrite}
           fixedChantier={isTab ? chantier : null}
           allChantiers={pickerChantiers}
