@@ -27,9 +27,11 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { Button } from "../../core/components/Button";
 import { AffectationModal } from "./AffectationModal";
+import { PlanningBulkCreate } from "./PlanningBulkCreate";
 import {
   PERIODES, WEEK_DAY_LABELS, startOfWeek, addDays, toISODate,
-  creneauId, slotIndex, terrainResources, chantierColorIndex, posteLabel, isPool,
+  creneauId, slotIndex, terrainResources, resourcesForConductor,
+  chantierColorIndex, posteLabel, isPool,
 } from "./planningModel";
 
 // Palette de pastille (alignée PlanningGrid — taille 8 = chantierColorIndex).
@@ -72,7 +74,7 @@ function monthMatrix(year, month) {
 
 export function ChantierPlanningMonth({ chantier }) {
   const { user } = useAuth();
-  const { users, rolesConfig, tasksConfig, loaded } = useData();
+  const { users, chantiers, rolesConfig, tasksConfig, loaded } = useData();
 
   const chantierId = chantier?.num || null;
 
@@ -95,6 +97,7 @@ export function ChantierPlanningMonth({ chantier }) {
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [modal, setModal] = useState(null);
+  const [bulk, setBulk] = useState(null);   // création « bulk » sur plage
 
   const weeks = useMemo(() => monthMatrix(year, month), [year, month]);
   const range = useMemo(() => ({
@@ -144,8 +147,14 @@ export function ChantierPlanningMonth({ chantier }) {
     return m;
   }, [rows]);
 
-  // Ressources sélectionnables dans la modale (tout le terrain, calque onglet).
-  const resources = useMemo(() => terrainResources(users), [users]);
+  // Ressources sélectionnables — scope conducteur (ses chantiers + son équipe),
+  // sinon tout le terrain (Admin/Direction/Assistante).
+  const resources = useMemo(
+    () => (viewScope === "own_chantiers"
+      ? resourcesForConductor(users, chantiers, user)
+      : terrainResources(users)),
+    [viewScope, users, chantiers, user],
+  );
 
   const chantierColor = PALETTE[chantierColorIndex(chantierId)];
 
@@ -156,13 +165,12 @@ export function ChantierPlanningMonth({ chantier }) {
     return [{ iso, dayLabel: WEEK_DAY_LABELS[weekdayIdx] || "", dateLabel: `${dd}/${mm}` }];
   };
 
-  // Créer une tâche sur un jour (ressource optionnelle, AM par défaut).
+  // Créer des tâches : clic sur un jour → modale « bulk » (plage Du→Au,
+  // période, poste(s)/bâtiment(s) multi, ressource optionnelle), pré-remplie
+  // sur le jour cliqué.
   const openCreate = (day) => {
     if (!canWrite || !day.inMonth) return;
-    setModal({
-      weekCols: dayCols(day.iso, day.weekdayIdx),
-      resource: null, fromSlot: 0, toSlot: 0, prefill: null, poolTask: null,
-    });
+    setBulk({ date: day.iso });
   };
 
   // Éditer une pastille (affectée OU pool) → 4 opérations Lot 1.
@@ -309,9 +317,21 @@ export function ChantierPlanningMonth({ chantier }) {
             creneauMap.get(creneauId(resId, dateIso, periode)) || null}
           canWrite={canWrite}
           fixedChantier={chantier}
-          allChantiers={[]}
+          allChantiers={chantiers || []}
           tasksConfig={tasksConfig}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {bulk && (
+        <PlanningBulkCreate
+          chantier={chantier}
+          resources={resources}
+          tasksConfig={tasksConfig}
+          initialDate={bulk.date}
+          canWrite={canWrite}
+          user={user}
+          onClose={() => setBulk(null)}
         />
       )}
     </div>
