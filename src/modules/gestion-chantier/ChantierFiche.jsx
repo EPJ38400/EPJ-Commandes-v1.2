@@ -23,7 +23,7 @@ import { PlanningTab } from "../planning/PlanningTab";
 const TABS = [
   { key: "pieuvres",  label: "Pieuvres",          icon: "🕸️" },
   { key: "commandes", label: "Suivi commandes",   icon: "📦" },
-  { key: "planning",  label: "Planning ressources", icon: "📆" },
+  { key: "planning",  label: "Planning",            icon: "📆" },
   { key: "financier", label: "Suivi financier",   icon: "💶" },
   { key: "suivi",     label: "Suivi de chantier", icon: "📋" },
   { key: "tma",       label: "TMA",               icon: "🔧" },
