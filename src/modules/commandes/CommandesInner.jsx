@@ -241,19 +241,6 @@ export function CommandesInner({ onExitModule, initialOrderId }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, user]);
-  // ─── Ouverture directe d'une commande (bannière "messages non lus") ───
-  // initialOrderId est transmis par le Socle quand on tape la bannière depuis
-  // l'accueil. One-shot : dès qu'on a ouvert le fil pour un id donné, on le
-  // mémorise pour ne pas ré-ouvrir si l'utilisateur revient en arrière.
-  const consumedOrderIdRef = useRef(null);
-  useEffect(() => {
-    if (!initialOrderId || consumedOrderIdRef.current === initialOrderId) return;
-    const target = history.find(h => h._id === initialOrderId);
-    if (!target) return; // pas encore chargé (ou hors périmètre) → on retentera au prochain snapshot
-    consumedOrderIdRef.current = initialOrderId;
-    setSelectedOrder(target);
-    setView('orderDetail');
-  }, [initialOrderId, history]);
 
   // ─── v10.G — Helper pour retour à l'accueil du module ───
   // Reset propre (vues, sélections temporaires) quand on clique sur le
@@ -338,6 +325,22 @@ export function CommandesInner({ onExitModule, initialOrderId }) {
   const [bulkMode, setBulkMode] = useState(false);
   // v1.13.0 — modale passage partiel chez fournisseur
   const [partialPassOrder, setPartialPassOrder] = useState(null);
+
+  // ─── Ouverture directe d'une commande (bannière "messages non lus") ───
+  // initialOrderId est transmis par le Socle quand on tape la bannière depuis
+  // l'accueil. One-shot : dès qu'on a ouvert le fil pour un id donné, on le
+  // mémorise pour ne pas ré-ouvrir si l'utilisateur revient en arrière.
+  // ⚠️ Placé APRÈS la déclaration de `history` (useState plus haut) : le tableau
+  // de deps est évalué au render, référencer `history` avant son init = TDZ.
+  const consumedOrderIdRef = useRef(null);
+  useEffect(() => {
+    if (!initialOrderId || consumedOrderIdRef.current === initialOrderId) return;
+    const target = history.find(h => h._id === initialOrderId);
+    if (!target) return; // pas encore chargé (ou hors périmètre) → on retentera au prochain snapshot
+    consumedOrderIdRef.current = initialOrderId;
+    setSelectedOrder(target);
+    setView('orderDetail');
+  }, [initialOrderId, history]);
 
   // ─── FIREBASE : écoute temps réel des commandes ───
   useEffect(() => {
