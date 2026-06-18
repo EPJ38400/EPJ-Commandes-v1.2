@@ -15,9 +15,10 @@
 //  chargées. Aucune écriture Firestore.
 // ═══════════════════════════════════════════════════════════════
 import { LOGO_HEADER } from "../../core/logo";
-import { resolveBuildings, getBuildingLetter } from "../avancement/avancementTasks";
+import { resolveBuildings, getBuildingLetter, getChantierSousSols } from "../avancement/avancementTasks";
 import {
-  niveauxForConfig, pieuvreId, niveauLabel, LIEU_OPTIONS, STATUT_OPTIONS,
+  buildingNiveaux, niveauxForSousSol, sousSolConfig,
+  pieuvreId, niveauLabel, LIEU_OPTIONS, STATUT_OPTIONS,
 } from "./pieuvresModel";
 
 // Charte EPJ (cf. theme.js / DIRECTION_ARTISTIQUE)
@@ -53,24 +54,30 @@ const escapeHtml = (s) => String(s == null ? "" : s)
 const lieuLabel = (v) => (LIEU_OPTIONS.find((o) => o.value === v) || {}).label || "—";
 const statutLabel = (v) => (STATUT_OPTIONS.find((o) => o.value === v) || {}).label || "—";
 
-// Regroupe les lignes par bâtiment dans l'ordre du modèle (SS→RDC→R→Combles).
+// Regroupe les lignes par bâtiment (SS→RDC→R→Combles) puis par sous-sol commun.
 function groupRowsByBuilding(chantier, rows) {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const out = [];
   for (const b of resolveBuildings(chantier)) {
     const lettre = getBuildingLetter(b);
-    const ordered = niveauxForConfig(b.config)
+    const ordered = buildingNiveaux(b)
       .map((n) => byId.get(pieuvreId(chantier.num, lettre, n.niveau)))
       .filter(Boolean);
-    if (ordered.length) out.push({ lettre, rows: ordered });
+    if (ordered.length) out.push({ titre: `Bâtiment ${lettre}`, rows: ordered });
   }
-  // Filet de sécurité : lignes non rattachées à un (bâtiment×niveau) attendu
+  for (const ss of getChantierSousSols(chantier)) {
+    const ordered = niveauxForSousSol(sousSolConfig(ss))
+      .map((n) => byId.get(pieuvreId(chantier.num, ss.id, n.niveau)))
+      .filter(Boolean);
+    if (ordered.length) out.push({ titre: `Sous-sol commun ${ss.nom || ""}`.trim(), rows: ordered });
+  }
+  // Filet de sécurité : lignes non rattachées à un (unité×niveau) attendu
   const matched = new Set(out.flatMap((g) => g.rows.map((r) => r.id)));
   const leftovers = rows.filter((r) => !matched.has(r.id));
   if (leftovers.length) {
     const byBat = {};
     leftovers.forEach((r) => { (byBat[r.batiment || "?"] ||= []).push(r); });
-    Object.entries(byBat).forEach(([lettre, rs]) => out.push({ lettre, rows: rs }));
+    Object.entries(byBat).forEach(([lettre, rs]) => out.push({ titre: `Bâtiment ${lettre}`, rows: rs }));
   }
   return out;
 }
@@ -111,7 +118,7 @@ function buildPageHtml(group, pageNo, total, ctx) {
     </div>
     <div class="rule"></div>
 
-    <div class="bat">Bâtiment ${escapeHtml(group.lettre)}</div>
+    <div class="bat">${escapeHtml(group.titre)}</div>
 
     <table>
       <colgroup>

@@ -12,6 +12,7 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   resolveBuildings, getBuildingLetter, DEFAULT_BUILDING_CONFIG,
+  getChantierSousSols, getBuildingSousSolId,
 } from "../avancement/avancementTasks";
 
 // ─── Référentiels d'affichage ──────────────────────────────────
@@ -58,18 +59,66 @@ export function niveauxForConfig(cfg) {
   return L;
 }
 
+// ─── Niveaux (= dalles) d'un BÂTIMENT, avec masquage sous-sol commun ──
+// Si le bâtiment est rattaché à un sous-sol commun (config.sousSolId), ses
+// dalles de sous-sol PRIVÉES sont masquées (nbSousSols=0) : elles relèvent du
+// sous-sol commun (lui-même généré à part). Aligné 1:1 sur l'avancement
+// (getCategoriesForConfig : `genCfg.nbSousSols=0` si sousSolId). Réversible :
+// nbSousSols n'est jamais muté en base. À utiliser pour TOUTE génération/
+// regroupement par bâtiment (génération, grille, PDF) pour rester cohérent.
+export function buildingNiveaux(building) {
+  const cfg = building?.config;
+  const masked = getBuildingSousSolId(building) != null ? { ...cfg, nbSousSols: 0 } : cfg;
+  return niveauxForConfig(masked);
+}
+
+// ─── Config d'un SOUS-SOL COMMUN ──────────────────────────────
+// La typologie d'un sous-sol commun est APLATIE sur l'item (ss.nbNiveaux),
+// PAS rangée dans un sous-objet `config` (≠ buildings[].config). On reconstruit
+// la même forme que l'avancement : cf. AvancementChantier qui lit
+// `{ nbNiveaux: ss.nbNiveaux ?? 1 }` et la passe à getCategoriesForSousSol.
+export function sousSolConfig(ss) {
+  return { nbNiveaux: ss?.nbNiveaux ?? 1 };
+}
+
+// ─── Niveaux (= dalles) d'un SOUS-SOL COMMUN ───────────────────
+// Un sous-sol commun ne porte QUE des niveaux de sous-sol (ss1→ssN) :
+// aligné 1:1 sur avancementTasks.buildSousSolBetonTasks (poste `beton-dalle-ss*`),
+// pas de RDC / étages / combles. Ordre ascendant ss1→ssN (comme niveauxForConfig).
+export function niveauxForSousSol(cfg) {
+  const nb = Number(cfg?.nbNiveaux || 0);
+  const L = [];
+  for (let i = 1; i <= nb; i++) L.push({ niveau: `ss${i}`, posteAvancementKey: `beton-dalle-ss${i}` });
+  return L;
+}
+
 // ─── Lignes attendues, tous bâtiments confondus (génération) ────
 export function expectedPieuvres(chantier) {
   const rows = [];
   for (const b of resolveBuildings(chantier)) {
     const batiment = getBuildingLetter(b);             // LETTRE (GO L2)
-    for (const n of niveauxForConfig(b.config)) {
+    for (const n of buildingNiveaux(b)) {              // dalles SS privées masquées si rattaché
       rows.push({
         id: pieuvreId(chantier.num, batiment, n.niveau),
         chantierId: chantier.num,
         batiment,
         niveau: n.niveau,
         posteAvancementKey: n.posteAvancementKey,
+      });
+    }
+  }
+  // Sous-sols communs : unités autonomes, batiment = ss.id (≠ lettres de
+  // bâtiment → aucune collision d'ID `{chantierId}_{batiment}_{niveau}`).
+  for (const ss of getChantierSousSols(chantier)) {
+    for (const n of niveauxForSousSol(sousSolConfig(ss))) {
+      rows.push({
+        id: pieuvreId(chantier.num, ss.id, n.niveau),
+        chantierId: chantier.num,
+        batiment: ss.id,
+        niveau: n.niveau,
+        posteAvancementKey: n.posteAvancementKey,
+        isSousSol: true,
+        sousSolNom: ss.nom || "",
       });
     }
   }
