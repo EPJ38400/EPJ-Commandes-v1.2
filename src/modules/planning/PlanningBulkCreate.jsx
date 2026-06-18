@@ -15,7 +15,7 @@
 //  Réutilise les builders planningWrites (zéro duplication des champs).
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { addDoc, collection, doc, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useViewport } from "../../core/useViewport";
@@ -123,32 +123,66 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
     if (count > 20 && !window.confirm(`${count} tâches vont être créées. Confirmer ?`)) return;
     setSaving(true); setErr(null);
     try {
-      const writes = [];
       const res = hasRes ? (resources || []).find((r) => r.id === ressourceId) : null;
+
+      if (res) {
+        // Pré-scan AUTORITATIF (id déterministe, pas d'index) : préserver
+        // validation/SMS/créateur des créneaux existants + détecter les
+        // collisions INTER-chantiers (1 confirm agrégée, cohérent avec C).
+        const targets = [];
+        for (const d of workingDays) {
+          const dateIso = toISODate(d);
+          const dayIdx = d.getDay() - 1;
+          for (const periode of periodes) {
+            targets.push({ dateIso, dayIdx, periode, ref: doc(db, "planningCreneaux", creneauId(res.id, dateIso, periode)) });
+          }
+        }
+        const snaps = await Promise.all(targets.map((t) => getDoc(t.ref)));
+        const collisions = [];
+        snaps.forEach((snap, i) => {
+          targets[i].existing = snap.exists() ? snap.data() : null;
+          const ex = targets[i].existing;
+          if (ex?.chantierId && ex.chantierId !== chantier.num) collisions.push(targets[i]);
+        });
+        let skip = new Set();
+        if (collisions.length) {
+          const ok = window.confirm(
+            `${res.nom} est déjà affecté à un autre chantier sur ${collisions.length} créneau(x) de cette plage. Le déplacer ici ? (Annuler = ces créneaux restent inchangés.)`,
+          );
+          if (!ok) skip = new Set(collisions.map((t) => t.ref.path));
+        }
+        const writes = [];
+        for (const t of targets) {
+          if (skip.has(t.ref.path)) continue;
+          writes.push(setDoc(
+            t.ref,
+            affectedCreneauPayload({
+              res, date: t.dateIso, periode: t.periode, dayIdx: t.dayIdx,
+              chantierId: chantier.num, batiment: batiment || null, poste: poste || null,
+              tempsEstimeH: "", existing: t.existing, userId: user._id,
+            }),
+            { merge: true },
+          ));
+        }
+        if (writes.length === 0) { onClose(); return; }
+        await Promise.all(writes);
+        onClose();
+        return;
+      }
+
+      // Sans ressource → POOL (addDoc, jamais de collision)
+      const writes = [];
       for (const d of workingDays) {
         const dateIso = toISODate(d);
-        const dayIdx = d.getDay() - 1; // Lun=0 … Ven=4
         for (const periode of periodes) {
-          if (res) {
-            writes.push(setDoc(
-              doc(db, "planningCreneaux", creneauId(res.id, dateIso, periode)),
-              affectedCreneauPayload({
-                res, date: dateIso, periode, dayIdx,
-                chantierId: chantier.num, batiment: batiment || null, poste: poste || null,
-                tempsEstimeH: "", existing: null, userId: user._id,
+          for (const { bat, poste: pk } of combos) {
+            writes.push(addDoc(
+              collection(db, "planningCreneaux"),
+              poolCreneauPayload({
+                date: dateIso, periode, chantierId: chantier.num,
+                batiment: bat, poste: pk, tempsEstimeH: "", source: null, userId: user._id,
               }),
-              { merge: true },
             ));
-          } else {
-            for (const { bat, poste: pk } of combos) {
-              writes.push(addDoc(
-                collection(db, "planningCreneaux"),
-                poolCreneauPayload({
-                  date: dateIso, periode, chantierId: chantier.num,
-                  batiment: bat, poste: pk, tempsEstimeH: "", source: null, userId: user._id,
-                }),
-              ));
-            }
           }
         }
       }
