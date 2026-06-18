@@ -27,7 +27,7 @@ import { Button } from "../../core/components/Button";
 import { Badge } from "../../core/components/Badge";
 import { resolveBuildings, getBuildingLetter, getChantierSousSols } from "../avancement/avancementTasks";
 import {
-  expectedPieuvres, niveauxForConfig, niveauxForSousSol, sousSolConfig,
+  expectedPieuvres, buildingNiveaux, niveauxForSousSol, sousSolConfig,
   pieuvreId, niveauLabel, hasRealBuildings, LIEU_OPTIONS, STATUT_OPTIONS, STATUT_TONE,
 } from "./pieuvresModel";
 import { openPieuvresPdfWindow, loadLogoDataUri } from "./pieuvresPdf";
@@ -164,7 +164,7 @@ export function PieuvresTab({ chantier }) {
   const groups = useMemo(() => {
     const out = resolveBuildings(chantier).map((b) => {
       const lettre = getBuildingLetter(b);
-      const ordered = niveauxForConfig(b.config)
+      const ordered = buildingNiveaux(b)
         .map((n) => rowsById.get(pieuvreId(chantier.num, lettre, n.niveau)))
         .filter(Boolean);
       return { key: `bat-${lettre}`, title: `Bâtiment ${lettre}`, rows: ordered };

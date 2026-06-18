@@ -12,7 +12,7 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   resolveBuildings, getBuildingLetter, DEFAULT_BUILDING_CONFIG,
-  getChantierSousSols,
+  getChantierSousSols, getBuildingSousSolId,
 } from "../avancement/avancementTasks";
 
 // ─── Référentiels d'affichage ──────────────────────────────────
@@ -59,6 +59,19 @@ export function niveauxForConfig(cfg) {
   return L;
 }
 
+// ─── Niveaux (= dalles) d'un BÂTIMENT, avec masquage sous-sol commun ──
+// Si le bâtiment est rattaché à un sous-sol commun (config.sousSolId), ses
+// dalles de sous-sol PRIVÉES sont masquées (nbSousSols=0) : elles relèvent du
+// sous-sol commun (lui-même généré à part). Aligné 1:1 sur l'avancement
+// (getCategoriesForConfig : `genCfg.nbSousSols=0` si sousSolId). Réversible :
+// nbSousSols n'est jamais muté en base. À utiliser pour TOUTE génération/
+// regroupement par bâtiment (génération, grille, PDF) pour rester cohérent.
+export function buildingNiveaux(building) {
+  const cfg = building?.config;
+  const masked = getBuildingSousSolId(building) != null ? { ...cfg, nbSousSols: 0 } : cfg;
+  return niveauxForConfig(masked);
+}
+
 // ─── Config d'un SOUS-SOL COMMUN ──────────────────────────────
 // La typologie d'un sous-sol commun est APLATIE sur l'item (ss.nbNiveaux),
 // PAS rangée dans un sous-objet `config` (≠ buildings[].config). On reconstruit
@@ -84,7 +97,7 @@ export function expectedPieuvres(chantier) {
   const rows = [];
   for (const b of resolveBuildings(chantier)) {
     const batiment = getBuildingLetter(b);             // LETTRE (GO L2)
-    for (const n of niveauxForConfig(b.config)) {
+    for (const n of buildingNiveaux(b)) {              // dalles SS privées masquées si rattaché
       rows.push({
         id: pieuvreId(chantier.num, batiment, n.niveau),
         chantierId: chantier.num,

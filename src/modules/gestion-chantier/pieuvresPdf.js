@@ -17,7 +17,7 @@
 import { LOGO_HEADER } from "../../core/logo";
 import { resolveBuildings, getBuildingLetter, getChantierSousSols } from "../avancement/avancementTasks";
 import {
-  niveauxForConfig, niveauxForSousSol, sousSolConfig,
+  buildingNiveaux, niveauxForSousSol, sousSolConfig,
   pieuvreId, niveauLabel, LIEU_OPTIONS, STATUT_OPTIONS,
 } from "./pieuvresModel";
 
@@ -60,7 +60,7 @@ function groupRowsByBuilding(chantier, rows) {
   const out = [];
   for (const b of resolveBuildings(chantier)) {
     const lettre = getBuildingLetter(b);
-    const ordered = niveauxForConfig(b.config)
+    const ordered = buildingNiveaux(b)
       .map((n) => byId.get(pieuvreId(chantier.num, lettre, n.niveau)))
       .filter(Boolean);
     if (ordered.length) out.push({ titre: `Bâtiment ${lettre}`, rows: ordered });
