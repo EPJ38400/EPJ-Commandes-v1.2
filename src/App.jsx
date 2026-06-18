@@ -75,6 +75,15 @@ function Router() {
     } catch { return "home"; }
   });
 
+  // Cible optionnelle transmise par onOpenModule (ex. ouvrir directement une
+  // commande depuis la bannière "messages non lus"). Non persistée (état
+  // volatile) → pas de ré-ouverture au reload. Consommée one-shot par le module.
+  const [pendingOrderId, setPendingOrderId] = useState(null);
+  const openModule = (mod, opts) => {
+    setPendingOrderId(opts?.orderId || null);
+    setRoute(`module:${mod}`);
+  };
+
   useEffect(() => {
     try { localStorage.setItem(ROUTE_STORAGE_KEY, route); } catch {}
   }, [route]);
@@ -167,7 +176,7 @@ function Router() {
       <Suspense fallback={<RouteFallback/>}>
       {route === "home" && (
         <HomePage
-          onOpenModule={(mod) => setRoute(`module:${mod}`)}
+          onOpenModule={openModule}
           onOpenDashboard={openBestDashboard}
           onOpenCollectionDashboards={() => setRoute("dashboards")}
         />
@@ -178,7 +187,7 @@ function Router() {
       )}
 
       {route === "module:commandes" && (
-        <CommandesModule onExitModule={() => setRoute("home")}/>
+        <CommandesModule onExitModule={() => setRoute("home")} initialOrderId={pendingOrderId}/>
       )}
 
       {route === "module:avancement" && (

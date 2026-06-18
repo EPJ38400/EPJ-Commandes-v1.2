@@ -14,6 +14,6 @@
 
 import { CommandesInner } from "./CommandesInner";
 
-export function CommandesModule({ onExitModule }) {
-  return <CommandesInner onExitModule={onExitModule}/>;
+export function CommandesModule({ onExitModule, initialOrderId }) {
+  return <CommandesInner onExitModule={onExitModule} initialOrderId={initialOrderId}/>;
 }
