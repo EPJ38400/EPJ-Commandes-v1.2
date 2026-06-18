@@ -180,6 +180,19 @@ const PdfView = ({order, onClose}) => {
   );
 };
 
+// Enveloppe "message non lu" — SVG inline tracé en EPJ.blue (plus visible que
+// l'emoji ✉️ figé par la police). Affichage only, sans état.
+const UnreadMailIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+       stroke={EPJ.blue} strokeWidth="2.2" strokeLinecap="round"
+       strokeLinejoin="round"
+       style={{ marginLeft: space.xs, verticalAlign: "middle", flexShrink: 0 }}
+       aria-label="Nouveau message">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </svg>
+);
+
 // ═══ MODULE COMMANDES ═══
 export function CommandesInner({ onExitModule, initialOrderId }) {
   const { user } = useAuth();
@@ -2535,7 +2548,7 @@ export function CommandesInner({ onExitModule, initialOrderId }) {
     // Lignes enrichies pour <DataTable> (tri sur valeurs réelles)
     const histRows = myHistory.map((h,i)=>({ ...h, _key: h._id || String(i), _refs:(h.items||[]).length, _cible: h.type==='chantier' ? `[${h.numAffaire||''}] ${h.chantier||''}` : (h.salarie||'') }));
     const histCols = [
-      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}{hasUnreadMessages(h,myId)&&<span title="Nouveau message" style={{marginLeft:space.xs,fontSize:fontSize.sm}}>✉️</span>}</span>) },
+      { key:'num', header:'N°', render:(v,h)=>(<span style={{fontFamily:fontFamilies.mono,fontSize:fontSize.sm}}>{h.urgent?'⚠️ ':''}{v}{hasUnreadMessages(h,myId)&&<UnreadMailIcon/>}</span>) },
       { key:'date', header:'Date', sortable:false },
       { key:'user', header:'Demandeur' },
       { key:'_cible', header:'Chantier / Destinataire' },
@@ -2571,7 +2584,7 @@ export function CommandesInner({ onExitModule, initialOrderId }) {
           :myHistory.map((h,i)=>(
           <div key={h._id||i} className="epj-card" style={{marginBottom:space.sm,cursor:'pointer'}}>
             <div onClick={()=>{setSelectedOrder(h);setView('orderDetail')}} style={{display:'flex',justifyContent:'space-between'}}>
-              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}{hasUnreadMessages(h,myId)&&<span title="Nouveau message" style={{marginLeft:space.xs}}>✉️</span>}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
+              <div><div style={{fontSize:fontSize.md,fontWeight:fontWeight.medium,color:EPJ.dark,fontFamily:fontFamilies.mono}}>{h.num}{hasUnreadMessages(h,myId)&&<UnreadMailIcon/>}</div><div style={{fontSize:fontSize.xs,color:EPJ.gray}}>{h.date} • {h.user}</div><div style={{fontSize:fontSize.xs,color:EPJ.blueText,marginTop:2}}>{h.type==='chantier'?`🏗️ [${h.numAffaire||''}] ${h.chantier||''}`:`👷 ${h.salarie||''}`}</div></div>
               {(()=>{const s=getStatusDisplay(h);return(<div style={{textAlign:'right'}}><div style={{fontSize:fontSize.sm,fontWeight:fontWeight.medium,color:EPJ.dark,marginBottom:space.xs,fontVariantNumeric:'tabular-nums'}}>{(h.items||[]).length} réf.</div>{h.urgent&&<div style={{marginBottom:space.xs}}><Badge status="urgent" label="Urgent"/></div>}<Badge status={s.status} label={s.label||'—'} dot/></div>);})()}
             </div>
             {canDeleteThisOrder(h)&&<button onClick={async(e)=>{e.stopPropagation();await deleteOne(h);}} style={{marginTop:space.sm,width:'100%',background:EPJ.dangerBg,color:EPJ.redText,border:'none',borderRadius:radius.sm,padding:`${space.xs}px`,fontSize:fontSize.xs,cursor:'pointer',fontFamily:font}}>🗑️ Supprimer</button>}
