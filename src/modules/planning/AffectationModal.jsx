@@ -25,9 +25,10 @@ import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
-  slotIndex, slotToCell, expandRange,
+  slotIndex, slotToCell, expandRange, posteLabel,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
+import { creneauToICS, triggerAddToCalendar } from "./icsExport";
 import { GroupedPosteSelect } from "./GroupedPosteSelect";
 
 const PERIODE_OPTIONS = PERIODES.map((p) => ({ value: p, label: PERIODE_LABEL[p] || p }));
@@ -223,6 +224,22 @@ export function AffectationModal({
     }
   };
 
+  // ─── Export .ics « Ajouter à mon agenda » (PUR CLIENT, lecture seule) ───
+  // Visible sur une seule demi-journée (fromSlot === toSlot) avec un chantier.
+  // NON gaté par canWrite : un monteur doit pouvoir exporter son créneau.
+  const canExportIcs = !!chantierId && fromSlot === toSlot;
+  const addToAgenda = () => {
+    const { dateIso, periode } = slotMeta(fromSlot);
+    const c = (allChantiers || []).find((x) => x.num === chantierId) || null;
+    const label = posteLabel(chantierObj, batiment, poste, tasksConfig);
+    const resNom = (targetRes || initialRessource)?.nom || "";
+    const ics = creneauToICS({
+      chantierNom: c?.nom || chantierId, chantierAdresse: c?.adresse || "",
+      posteLabel: label, batiment, ressourceNom: resNom, dateIso, periode,
+    });
+    triggerAddToCalendar(ics, `EPJ_${dateIso}_${periode}.ics`);
+  };
+
   return (
     <div
       onClick={onClose}
@@ -302,6 +319,11 @@ export function AffectationModal({
           <Button variant="ghost" onClick={onClose}>
             {canWrite ? "Annuler" : "Fermer"}
           </Button>
+          {canExportIcs && (
+            <Button variant="secondary" onClick={addToAgenda}>
+              📅 Ajouter à mon agenda
+            </Button>
+          )}
           {canWrite && (editingPool || editingAffected) && (
             <Button variant="ghost" onClick={supprimer} disabled={saving}>
               Supprimer
