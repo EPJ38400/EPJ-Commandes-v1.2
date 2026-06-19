@@ -11,7 +11,9 @@
 //   • Colonne gauche : À suivre (réserves + commandes actionnables)
 //   • Colonne droite : Activité récente + répartition par chantier
 // ═══════════════════════════════════════════════════════════════
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
@@ -71,6 +73,33 @@ export function DashboardDirection({ onBack, onGoto }) {
   // Porte « Historique SMS » côté Direction : section locale (SmsHistoryPage
   // porte sa propre garde Admin||Direction). Évite de toucher au routage App.
   const [showSmsHistory, setShowSmsHistory] = useState(false);
+
+  // Interrupteur récap SMS automatique (config/settings.planningSmsEnabled).
+  // Visible Admin/Direction ; null = chargement.
+  const canToggleSms = (user?.roles || []).some((r) => ["Admin", "Direction"].includes(r));
+  const [smsAuto, setSmsAuto] = useState(null);
+  useEffect(() => {
+    if (!canToggleSms) return;
+    let alive = true;
+    getDoc(doc(db, "config", "settings"))
+      .then((snap) => { if (alive) setSmsAuto(snap.data()?.planningSmsEnabled === true); })
+      .catch((e) => { console.error("[SMS toggle] lecture config échouée :", e); if (alive) setSmsAuto(false); });
+    return () => { alive = false; };
+  }, [canToggleSms]);
+
+  const toggleSmsAuto = async () => {
+    const next = !smsAuto;
+    if (next && !window.confirm(
+      "Activer l'envoi AUTOMATIQUE des SMS planning aux monteurs (veille 15h30 + rappel lundi 7h) ?")) return;
+    try {
+      // N'écrire QUE ce champ (merge) — la règle Firestore (hasOnly) refuse tout autre champ.
+      await setDoc(doc(db, "config", "settings"), { planningSmsEnabled: next }, { merge: true });
+      setSmsAuto(next);
+    } catch (e) {
+      console.error("[SMS toggle] échec :", e);
+      window.alert("Action non autorisée ou échec réseau.");
+    }
+  };
 
   // ─── Calculs KPIs & listes ─────────────────────────────
   const stats = useMemo(() => {
@@ -483,6 +512,25 @@ export function DashboardDirection({ onBack, onGoto }) {
               <div className="dash-card-title">
                 <span style={{ color: EPJ.gray700 }}>🔧</span> Outils & suivi
               </div>
+
+              {/* Interrupteur récap SMS automatique (Admin/Direction) */}
+              {canToggleSms && (
+                <div
+                  className="mini-line"
+                  onClick={smsAuto === null ? undefined : toggleSmsAuto}
+                  style={{ cursor: smsAuto === null ? "default" : "pointer" }}
+                >
+                  <div style={{ width: 6, height: 36, borderRadius: 3, background: smsAuto ? EPJ.green : EPJ.gray300, flexShrink: 0 }}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray900 }}>📲 Récap SMS automatique</div>
+                    <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 1 }}>
+                      Veille 15h30 + rappel lundi 7h — aux monteurs
+                    </div>
+                  </div>
+                  <Switch on={smsAuto} />
+                </div>
+              )}
+
               <div className="mini-line" onClick={() => setShowSmsHistory(true)} style={{ borderBottom: "none" }}>
                 <div style={{ width: 6, height: 36, borderRadius: 3, background: EPJ.blue, flexShrink: 0 }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -653,6 +701,29 @@ function CommandeLine({ commande: cmd, users, onClick }) {
         }}>DÉPASSÉE</span>
       )}
     </div>
+  );
+}
+
+// Interrupteur visuel ON/OFF. `on === null` = chargement (état atténué).
+function Switch({ on }) {
+  const loading = on === null;
+  return (
+    <span
+      role="switch"
+      aria-checked={on === true}
+      style={{
+        width: 38, height: 22, borderRadius: 999, flexShrink: 0,
+        background: loading ? EPJ.gray200 : (on ? EPJ.green : EPJ.gray300),
+        position: "relative", transition: "background 0.15s",
+        opacity: loading ? 0.6 : 1,
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 2, left: on ? 18 : 2,
+        width: 18, height: 18, borderRadius: "50%", background: EPJ.white,
+        boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left 0.15s",
+      }}/>
+    </span>
   );
 }
 

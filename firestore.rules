@@ -250,6 +250,11 @@ service cloud.firestore {
     match /config/{id} {
       allow read: if isEmployee();
       allow write: if isAdmin();
+      // Direction : bascule UNIQUEMENT planningSmsEnabled sur config/settings.
+      allow update: if isDirection()
+        && id == "settings"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["planningSmsEnabled"])
+        && request.resource.data.planningSmsEnabled is bool;
     }
 
     // ─── config/counters ─────────────────────────────────────────
