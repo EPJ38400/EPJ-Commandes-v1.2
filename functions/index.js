@@ -245,3 +245,11 @@ export const purgeSmsQueue = onSchedule(
     console.log(`[purgeSmsQueue] ✓ ${total} docs supprimés`);
   }
 );
+
+// ─── Module Planning — récap SMS monteurs (cron) ──────────────
+// Cf. functions/planningSms.js
+// Enfile des SMS dans smsQueue (consommés par onSmsQueueCreate → Brevo).
+// planningSmsRecap : lun-ven 15h30 → planning du prochain jour ouvré.
+// planningSmsRappelLundi : lundi 7h00 → rappel du planning du jour.
+// MONTEURS UNIQUEMENT. Écrit smsQueue ; lit planningCreneaux/chantiers/utilisateurs.
+export { planningSmsRecap, planningSmsRappelLundi } from "./planningSms.js";
