@@ -49,8 +49,31 @@ function jjmm(iso) {
   return `${d}/${m}`;
 }
 
+// ─── Coût SMS : normalisation GSM-7 (~160 car/segment vs 70 en unicode) ──
+// Retire les accents et remplace tirets longs / apostrophe typographique.
+function gsmSafe(s) {
+  return String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // retire accents
+    .replace(/[—–]/g, "-").replace(/[’]/g, "'");
+}
+
+// Libellé poste lisible depuis une clé tâche ("beton-dalle-rdc" → "Beton dalle rdc").
+function prettifyPoste(key) {
+  if (!key) return "";
+  const s = String(key).replace(/[-_]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // ─── Cœur : construit le récap d'un jour et enfile 1 SMS par monteur ──
 async function buildAndQueue(targetDateISO, kind /* "recap" | "rappel" */) {
+  // Kill-switch (OFF par défaut) : tant que config/settings.planningSmsEnabled
+  // n'est pas true, le cron ne fait RIEN → merge sans risque.
+  const cfg = await db.collection("config").doc("settings").get();
+  if (cfg.data()?.planningSmsEnabled !== true) {
+    console.log("[planningSms] désactivé (config/settings.planningSmsEnabled != true)");
+    return { enfiles: 0, skippes: 0, disabled: true };
+  }
+
   const snap = await db.collection("planningCreneaux")
     .where("date", "==", targetDateISO).get();
 
@@ -102,16 +125,18 @@ async function buildAndQueue(targetDateISO, kind /* "recap" | "rappel" */) {
       const c = creneaux.find((x) => x.periode === periode);
       if (!c) continue;
       const nom = await chantierNom(c.chantierId);
-      // posteAvancementKey = libellé court du planning (clé tâche M3).
-      const poste = c.posteAvancementKey ? ` (${c.posteAvancementKey})` : "";
+      // c.posteLabel si présent (patch front), sinon clé tâche M3 rendue lisible.
+      const posteTxt = c.posteLabel || prettifyPoste(c.posteAvancementKey);
+      const poste = posteTxt ? ` (${posteTxt})` : "";
       lignes.push(`- ${PERIODE_LABEL[periode]} : ${nom}${poste}`);
     }
     if (lignes.length === 0) { skippes++; continue; }
 
     const prenom = u.prenom || "";
-    const message =
+    const message = gsmSafe(
       `${prefix}Bonjour ${prenom}, ton planning EPJ de ${dateLabel} :\n` +
-      `${lignes.join("\n")}\n— EPJ`;
+      `${lignes.join("\n")}\n— EPJ`,
+    );
 
     const docId = `planning_${ressourceId}_${targetDateISO}_${kind}`;
     await db.collection("smsQueue").doc(docId).set({
