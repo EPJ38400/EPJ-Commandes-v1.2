@@ -19,6 +19,7 @@ import { AdminCompany } from "./AdminCompany";
 import { AdminUserSignatures } from "./AdminUserSignatures";
 import { AdminSettings } from "./AdminSettings"; // v10.J
 import { AdminFournisseurs } from "./AdminFournisseurs";
+import { SmsHistoryPage } from "./SmsHistoryPage";
 
 export function AdminPage({ onExit }) {
   const [section, setSection] = useState(null);
@@ -54,6 +55,7 @@ export function AdminPage({ onExit }) {
   if (section === "signatures") return <AdminUserSignatures onBack={() => setSection(null)}/>;
   if (section === "settings") return <AdminSettings onBack={() => setSection(null)}/>; // v10.J
   if (section === "fournisseurs") return <AdminFournisseurs onBack={() => setSection(null)}/>;
+  if (section === "sms-history") return <SmsHistoryPage onBack={() => setSection(null)}/>;
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 24 }}>
@@ -124,6 +126,9 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="📱" accent={EPJ.green} title="Modèles SMS"
         subtitle="Textes de rappels/relances pour tous les modules"
         onClick={() => setSection("sms")}/>
+      <AdminSection icon="📨" accent={EPJ.blue} title="Historique SMS"
+        subtitle="Suivi des SMS envoyés/échoués (planning, commandes, outillage…)"
+        onClick={() => setSection("sms-history")}/>
 
       <GroupTitle>Paramètres généraux</GroupTitle>
       <AdminSection icon="⚙️" accent={EPJ.gray600} title="Paramètres & intégrations"

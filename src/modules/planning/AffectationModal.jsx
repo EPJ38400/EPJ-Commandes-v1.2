@@ -17,10 +17,14 @@
 //  ÉCRIT UNIQUEMENT dans planningCreneaux. Lecture seule si pas de droit.
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
-import { doc, collection, writeBatch, getDoc } from "firebase/firestore";
+import {
+  doc, collection, writeBatch, getDoc, getDocs, addDoc, query, where, serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useViewport } from "../../core/useViewport";
+import { useToast } from "../../core/components/Toast";
+import { normalizePhone } from "../../core/smsService";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import {
@@ -28,6 +32,7 @@ import {
   slotIndex, slotToCell, expandRange, posteLabel,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
+import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
 import { creneauToICS, triggerAddToCalendar } from "./icsExport";
 import { GroupedPosteSelect } from "./GroupedPosteSelect";
 
@@ -35,9 +40,10 @@ const PERIODE_OPTIONS = PERIODES.map((p) => ({ value: p, label: PERIODE_LABEL[p]
 
 export function AffectationModal({
   user, initialRessource, resources, weekCols, fromSlot, toSlot, prefill, poolTask,
-  getExisting, canWrite, fixedChantier, allChantiers, tasksConfig, onClose,
+  getExisting, canWrite, fixedChantier, allChantiers, tasksConfig, users, onClose,
 }) {
   const isPwa = useViewport() === "mobile";
+  const toast = useToast();
 
   const initFrom = slotToCell(fromSlot);
   const initTo = slotToCell(toSlot);
@@ -54,6 +60,7 @@ export function AffectationModal({
   const [poste, setPoste] = useState(prefill?.posteAvancementKey || poolTask?.posteAvancementKey || "");
   const [temps, setTemps] = useState(poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "");
   const [saving, setSaving] = useState(false);
+  const [smsBusy, setSmsBusy] = useState(false);
   const [err, setErr] = useState(null);
 
   // Contexte : édite-t-on une tâche déjà affectée / déjà au pool ?
@@ -112,17 +119,19 @@ export function AffectationModal({
   // ─── Payloads (builders partagés planningWrites — zéro duplication) ──
   const payloadAffected = (res, slot) => {
     const { dayIdx, periode, dateIso } = slotMeta(slot);
+    const lbl = posteLabel(chantierObj, batiment, poste, tasksConfig);
     return affectedCreneauPayload({
       res, date: dateIso, periode, dayIdx,
-      chantierId, batiment, poste, tempsEstimeH: temps,
+      chantierId, batiment, poste, posteLabel: lbl, tempsEstimeH: temps,
       existing: getExisting(res.id, dateIso, periode), userId: user._id,
     });
   };
 
   const payloadPool = (slot) => {
     const { periode, dateIso } = slotMeta(slot);
+    const lbl = posteLabel(chantierObj, batiment, poste, tasksConfig);
     return poolCreneauPayload({
-      date: dateIso, periode, chantierId, batiment, poste,
+      date: dateIso, periode, chantierId, batiment, poste, posteLabel: lbl,
       tempsEstimeH: temps, source: poolTask, userId: user._id,
     });
   };
@@ -240,6 +249,63 @@ export function AffectationModal({
     triggerAddToCalendar(ics, `EPJ_${dateIso}_${periode}.ics`);
   };
 
+  // ─── SMS planning du jour (envoi MANUEL, action du planificateur) ───
+  // Visible une seule demi-journée (fromSlot === toSlot) + ressource ciblée +
+  // droit d'écriture. NON gaté par planningSmsEnabled (geste explicite). Enfile
+  // dans smsQueue (consommé par onSmsQueueCreate) le récap des créneaux de CE
+  // monteur CE jour. Préfixe « MODIF - » si un récap auto a déjà été envoyé.
+  const canSendSms = canWrite && fromSlot === toSlot && !!(targetRes || initialRessource);
+  const sendPlanningSms = async () => {
+    if (!canSendSms || smsBusy) return;
+    const res = targetRes || initialRessource;
+    const { dateIso } = slotMeta(fromSlot);
+    const u = (users || []).find((x) => (x._id || x.id) === res.id);
+    const phone = normalizePhone(u?.telephone || u?.tel || "");
+    if (!phone) { toast("Pas de numéro pour " + res.nom); return; }
+    setSmsBusy(true);
+    try {
+      // Tous les créneaux affectés de ce monteur ce jour (index (ressourceId,date)).
+      const qs = await getDocs(query(
+        collection(db, "planningCreneaux"),
+        where("ressourceId", "==", res.id), where("date", "==", dateIso),
+      ));
+      const slots = qs.docs.map((d) => d.data());
+      const lignes = ["AM", "PM"].map((p) => {
+        const c = slots.find((s) => s.periode === p);
+        if (!c || !c.chantierId) return null;
+        const nom = (allChantiers || []).find((x) => x.num === c.chantierId)?.nom || c.chantierId || "";
+        const poste = c.posteLabel || prettifyPoste(c.posteAvancementKey);
+        return `- ${p === "AM" ? "Matin" : "Aprem"} : ${nom}${poste ? ` (${poste})` : ""}`;
+      }).filter(Boolean);
+      if (lignes.length === 0) { toast("Aucun créneau ce jour"); setSmsBusy(false); return; }
+
+      // Modif si un récap auto a déjà été enfilé pour (res, jour).
+      const recapSnap = await getDoc(doc(db, "smsQueue", `planning_${res.id}_${dateIso}_recap`));
+      const isModif = recapSnap.exists();
+      if (!window.confirm(`${isModif ? "Prévenir du changement" : "Envoyer le planning"} à ${res.nom} par SMS ?`)) {
+        setSmsBusy(false); return;
+      }
+      const dateLabel = `${dateIso.slice(8, 10)}/${dateIso.slice(5, 7)}`;
+      const message = buildPlanningMessage({
+        prenom: u?.prenom || "", dateLabel, lignes, prefix: isModif ? "MODIF - " : "",
+      });
+      await addDoc(collection(db, "smsQueue"), {
+        type: "PLANNING_MANUEL", recipientUserId: res.id,
+        recipientName: `${u?.prenom || ""} ${u?.nom || ""}`.trim(), recipientPhone: phone,
+        templateCode: "planning_jour", message,
+        variables: { prenom: u?.prenom || "", date: dateLabel },
+        context: { module: "planning", date: dateIso, kind: "manuel" },
+        status: "pending", createdAt: serverTimestamp(),
+      });
+      toast("SMS enfilé pour " + res.nom);
+      setSmsBusy(false);
+    } catch (e) {
+      console.error("[AffectationModal] envoi SMS planning échoué :", e);
+      toast("Échec de l'envoi du SMS");
+      setSmsBusy(false);
+    }
+  };
+
   return (
     <div
       onClick={onClose}
@@ -322,6 +388,11 @@ export function AffectationModal({
           {canExportIcs && (
             <Button variant="secondary" onClick={addToAgenda}>
               📅 Ajouter à mon agenda
+            </Button>
+          )}
+          {canSendSms && (
+            <Button variant="secondary" onClick={sendPlanningSms} loading={smsBusy}>
+              📲 Envoyer le planning (SMS)
             </Button>
           )}
           {canWrite && (editingPool || editingAffected) && (
