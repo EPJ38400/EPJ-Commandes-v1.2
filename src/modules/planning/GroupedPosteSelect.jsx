@@ -26,39 +26,51 @@ export function GroupedPosteSelect({
           {label}
         </label>
       )}
-      <select
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
-        style={{
-          width: "100%",
-          padding: `0 ${space.md}px`,
-          height: controlHeight,
-          background: disabled ? EPJ.gray50 : EPJ.white,
-          color: EPJ.gray900,
-          border: `1px solid ${focus ? EPJ.blue : EPJ.gray200}`,
-          borderRadius: radius.md,
-          fontSize: isPwa ? fontSize.base : fontSize.md,
-          fontFamily: font.body,
-          outline: "none",
-          boxShadow: focus ? shadow.focus : "none",
-          transition: "border-color .15s ease, box-shadow .15s ease",
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.6 : 1,
-          appearance: "none",
-        }}
-      >
-        <option value="">{emptyLabel}</option>
-        {categories.map((cat) => (
-          <optgroup key={cat.catId} label={cat.catLabel}>
-            {cat.postes.map((p) => (
-              <option key={p.key} value={p.key}>{p.label}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
+      <div style={{ position: "relative" }}>
+        <select
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          onFocus={() => setFocus(true)}
+          onBlur={() => setFocus(false)}
+          style={{
+            width: "100%",
+            padding: `0 ${space.xl}px 0 ${space.md}px`,
+            height: controlHeight,
+            background: disabled ? EPJ.gray50 : EPJ.white,
+            color: EPJ.gray900,
+            border: `1px solid ${focus ? EPJ.blue : EPJ.gray200}`,
+            borderRadius: radius.md,
+            fontSize: isPwa ? fontSize.base : fontSize.md,
+            fontFamily: font.body,
+            outline: "none",
+            boxShadow: focus ? shadow.focus : "none",
+            transition: "border-color .15s ease, box-shadow .15s ease",
+            cursor: disabled ? "not-allowed" : "pointer",
+            opacity: disabled ? 0.6 : 1,
+            appearance: "none",
+          }}
+        >
+          <option value="">{emptyLabel}</option>
+          {categories.map((cat) => (
+            <optgroup key={cat.catId} label={cat.catLabel}>
+              {cat.postes.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {/* Flèche du select (appearance:none la supprime) — purement décorative. */}
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute", right: space.md, top: "50%", transform: "translateY(-50%)",
+            pointerEvents: "none", color: EPJ.gray500, fontSize: fontSize.xs, lineHeight: 1,
+          }}
+        >
+          ▾
+        </span>
+      </div>
       {hint && (
         <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, fontFamily: font.body }}>{hint}</div>
       )}

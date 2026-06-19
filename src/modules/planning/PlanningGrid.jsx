@@ -420,6 +420,7 @@ export function PlanningGrid({ chantier = null }) {
           fixedChantier={isTab ? chantier : null}
           allChantiers={pickerChantiers}
           tasksConfig={tasksConfig}
+          users={users}
           onClose={() => setModal(null)}
         />
       )}

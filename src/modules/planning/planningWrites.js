@@ -16,7 +16,7 @@ import { demiJourneeHeures } from "./planningModel";
 // validation/SMS/créateur lors d'un merge). `dayIdx` 0..4 (Lun→Ven) pour la
 // durée par défaut (3,5 h le vendredi). `tempsEstimeH` "" / null → défaut.
 export function affectedCreneauPayload({
-  res, date, periode, dayIdx, chantierId, batiment, poste, tempsEstimeH, existing, userId,
+  res, date, periode, dayIdx, chantierId, batiment, poste, posteLabel, tempsEstimeH, existing, userId,
 }) {
   const hasChantier = !!chantierId;
   return {
@@ -25,6 +25,7 @@ export function affectedCreneauPayload({
     chantierId: chantierId || null,
     batiment: hasChantier ? (batiment || null) : null,
     posteAvancementKey: hasChantier ? (poste || null) : null,
+    posteLabel: hasChantier ? (posteLabel || null) : null,
     tempsEstimeH: hasChantier
       ? (tempsEstimeH !== "" && tempsEstimeH != null ? Number(tempsEstimeH) : demiJourneeHeures(dayIdx))
       : null,
@@ -40,7 +41,7 @@ export function affectedCreneauPayload({
 // Champs d'un créneau POOL « à affecter ». `source` = tâche pool existante
 // (préserve creePar/createdAt lors d'un merge), sinon création.
 export function poolCreneauPayload({
-  date, periode, chantierId, batiment, poste, tempsEstimeH, source, userId,
+  date, periode, chantierId, batiment, poste, posteLabel, tempsEstimeH, source, userId,
 }) {
   return {
     ressourceId: null,
@@ -48,6 +49,7 @@ export function poolCreneauPayload({
     chantierId: chantierId || null,
     batiment: chantierId ? (batiment || null) : null,
     posteAvancementKey: chantierId ? (poste || null) : null,
+    posteLabel: chantierId ? (posteLabel || null) : null,
     tempsEstimeH: tempsEstimeH !== "" && tempsEstimeH != null ? Number(tempsEstimeH) : null,
     tacheId: null,
     creePar: source?.creePar || userId,

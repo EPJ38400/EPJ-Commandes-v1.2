@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
+import { SmsHistoryPage } from "./admin/SmsHistoryPage";
 
 // ─── Formats ─────────────────────────────────────────────
 const fmtDate = (iso) => {
@@ -66,6 +67,10 @@ export function DashboardDirection({ onBack, onGoto }) {
 
   // v2.0.1 — Toggle "Afficher chantiers terminés" (masqués par défaut).
   const [showTermines, setShowTermines] = useState(false);
+
+  // Porte « Historique SMS » côté Direction : section locale (SmsHistoryPage
+  // porte sa propre garde Admin||Direction). Évite de toucher au routage App.
+  const [showSmsHistory, setShowSmsHistory] = useState(false);
 
   // ─── Calculs KPIs & listes ─────────────────────────────
   const stats = useMemo(() => {
@@ -216,6 +221,11 @@ export function DashboardDirection({ onBack, onGoto }) {
     });
     return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 5);
   }, [stats.reservesOuvertes]);
+
+  // Porte Historique SMS : on rend la page (auto-gardée) à la place du cockpit.
+  if (showSmsHistory) {
+    return <SmsHistoryPage onBack={() => setShowSmsHistory(false)} />;
+  }
 
   // ═══ Render ═══
   return (
@@ -467,6 +477,23 @@ export function DashboardDirection({ onBack, onGoto }) {
                 </div>
               </div>
             )}
+
+            {/* Outils & suivi — porte Historique SMS (Direction/Admin) */}
+            <div className="dash-card">
+              <div className="dash-card-title">
+                <span style={{ color: EPJ.gray700 }}>🔧</span> Outils & suivi
+              </div>
+              <div className="mini-line" onClick={() => setShowSmsHistory(true)} style={{ borderBottom: "none" }}>
+                <div style={{ width: 6, height: 36, borderRadius: 3, background: EPJ.blue, flexShrink: 0 }}/>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray900 }}>📨 Historique SMS</div>
+                  <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 1 }}>
+                    Suivi des SMS envoyés/échoués (planning, commandes, outillage…)
+                  </div>
+                </div>
+                <span style={{ color: EPJ.gray300, fontSize: 16 }}>→</span>
+              </div>
+            </div>
 
           </div>
         </div>

@@ -319,6 +319,7 @@ export function ChantierPlanningMonth({ chantier }) {
           fixedChantier={chantier}
           allChantiers={chantiers || []}
           tasksConfig={tasksConfig}
+          users={users}
           onClose={() => setModal(null)}
         />
       )}
