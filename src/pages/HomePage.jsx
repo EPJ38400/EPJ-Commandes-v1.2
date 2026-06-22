@@ -75,17 +75,6 @@ const PLANNING_TILE = {
   enabled: true,
 };
 
-// Tuile « Valider l'avancement » (L9) — file des tâches déclarées faites par
-// les monteurs, à valider par le conducteur / chef. Gatée avancement validate.
-const VALIDATION_TILE = {
-  id: "validationAvancement",
-  title: "Valider l'avancement",
-  subtitle: "Tâches déclarées par les monteurs",
-  icon: "✅",
-  accent: EPJ.green,
-  enabled: true,
-};
-
 const DASHBOARD_TILE = {
   id: "dashboard",
   title: "Dashboard",
@@ -123,15 +112,10 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     can(user, "_dashboards", "public", rolesConfig);
 
   const showPlanning = can(user, "rh.planning", "_access", rolesConfig);
-  // L9 — file de validation : visible si droit de valider l'avancement
-  // (Conducteur/Direction/Admin par défaut ; Chef chantier via rolesConfig).
-  const validateScope = can(user, "avancement", "validate", rolesConfig);
-  const showValidation = validateScope === "all" || validateScope === "own_chantiers";
 
   const allTiles = [
     ...visibleModules,
     ...(showPlanning ? [PLANNING_TILE] : []),
-    ...(showValidation ? [VALIDATION_TILE] : []),
     ...(showDashboard ? [DASHBOARD_TILE] : []),
     ...(canSeeDashboards(user) ? [COLLECTION_DASHBOARDS_TILE] : []),
   ];

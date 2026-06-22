@@ -11,7 +11,6 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { PlanningGrid } from "./PlanningGrid";
-import { MesTachesDuJour } from "./MesTachesDuJour";
 import { EmptyAccess } from "./PlanningTab";
 
 export function PlanningPage({ onExitModule }) {
@@ -27,9 +26,6 @@ export function PlanningPage({ onExitModule }) {
         subtitle="Affectation hebdomadaire des équipes"
         onBackToModuleHome={null}
       />
-      {/* L9 — vue « monteur » : ses tâches du jour + bouton « Tâche faite ».
-          Au-dessus de la grille hebdo (lecture seule pour lui). */}
-      {viewScope === "own_items" && <MesTachesDuJour />}
       {viewScope ? <PlanningGrid /> : <EmptyAccess />}
     </div>
   );

@@ -35,7 +35,6 @@ const CommandesModule    = named(() => import("./modules/commandes/CommandesModu
 const AvancementModule   = named(() => import("./modules/avancement/AvancementModule"), "AvancementModule");
 const GestionChantierModule = named(() => import("./modules/gestion-chantier/GestionChantierModule"), "GestionChantierModule");
 const PlanningPage       = named(() => import("./modules/planning/PlanningPage"), "PlanningPage");
-const ValidationAvancement = named(() => import("./modules/planning/ValidationAvancement"), "ValidationAvancement");
 const ParcMachinesModule = named(() => import("./modules/parc-machines/ParcMachinesModule"), "ParcMachinesModule");
 const ReservesModule     = named(() => import("./modules/reserves/ReservesModule"), "ReservesModule");
 const AdminPage          = named(() => import("./pages/admin/AdminPage"), "AdminPage");
@@ -133,7 +132,6 @@ function Router() {
     if (route === "module:avancement")     return "Avancement chantier";
     if (route === "module:gestionChantier") return "Gestion de chantier";
     if (route === "module:planning")       return "Planning";
-    if (route === "module:validationAvancement") return "Validation";
     if (route === "module:parc-machines")  return "Parc machines";
     if (route === "module:reserves")       return "Réserves & quitus";
     if (route === "dashboard:direction")   return "Dashboard Direction";
@@ -202,10 +200,6 @@ function Router() {
 
       {route === "module:planning" && (
         <PlanningPage onExitModule={() => setRoute("home")}/>
-      )}
-
-      {route === "module:validationAvancement" && (
-        <ValidationAvancement onExitModule={() => setRoute("home")}/>
       )}
 
       {route === "module:parc-machines" && (

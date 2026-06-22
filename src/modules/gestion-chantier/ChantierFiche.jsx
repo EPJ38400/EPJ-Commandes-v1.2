@@ -18,6 +18,7 @@ import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { PieuvresTab } from "./PieuvresTab";
 import { SuiviCommandesTab } from "./SuiviCommandesTab";
 import { PlanningTab } from "../planning/PlanningTab";
+import { ValidationAvancement } from "../planning/ValidationAvancement";
 
 // Onglets de la fiche — la clé = sous-clé de permission gestionChantier.<clé>
 const TABS = [
@@ -119,7 +120,12 @@ export function ChantierFiche({ chantier, onBack }) {
               <PlanningTab chantier={chantier} />
             </div>
           )}
-          {active && active.key !== "pieuvres" && active.key !== "commandes" && active.key !== "planning" && (
+          {active && active.key === "suivi" && (
+            <div role="tabpanel">
+              <ValidationAvancement chantier={chantier} />
+            </div>
+          )}
+          {active && active.key !== "pieuvres" && active.key !== "commandes" && active.key !== "planning" && active.key !== "suivi" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",
