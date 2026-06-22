@@ -17,6 +17,7 @@ import { db } from "../firebase";
 import { EPJ, font } from "../core/theme";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
+import { can } from "../core/permissions";
 import { SmsHistoryPage } from "./admin/SmsHistoryPage";
 
 // ─── Formats ─────────────────────────────────────────────
@@ -77,6 +78,10 @@ export function DashboardDirection({ onBack, onGoto }) {
   // Interrupteur récap SMS automatique (config/settings.planningSmsEnabled).
   // Visible Admin/Direction ; null = chargement.
   const canToggleSms = (user?.roles || []).some((r) => ["Admin", "Direction"].includes(r));
+
+  // L9 — accès à la file de validation de l'avancement (gaté validate).
+  const validateScope = can(user, "avancement", "validate", data.rolesConfig);
+  const canValidateAvancement = validateScope === "all" || validateScope === "own_chantiers";
   const [smsAuto, setSmsAuto] = useState(null);
   useEffect(() => {
     if (!canToggleSms) return;
@@ -528,6 +533,20 @@ export function DashboardDirection({ onBack, onGoto }) {
                     </div>
                   </div>
                   <Switch on={smsAuto} />
+                </div>
+              )}
+
+              {/* L9 — file de validation de l'avancement (tâches déclarées par les monteurs) */}
+              {canValidateAvancement && (
+                <div className="mini-line" onClick={() => onGoto && onGoto("module:validationAvancement")}>
+                  <div style={{ width: 6, height: 36, borderRadius: 3, background: EPJ.green, flexShrink: 0 }}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: EPJ.gray900 }}>✅ Valider l'avancement</div>
+                    <div style={{ fontSize: 10, color: EPJ.gray500, marginTop: 1 }}>
+                      Tâches déclarées faites par les monteurs, à valider
+                    </div>
+                  </div>
+                  <span style={{ color: EPJ.gray300, fontSize: 16 }}>→</span>
                 </div>
               )}
 

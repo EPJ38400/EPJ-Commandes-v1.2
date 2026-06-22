@@ -236,6 +236,23 @@ export function getPosteOptions(chantier, tasksConfig) {
   return units;
 }
 
+// ─── Jointure créneau → avancementProgress (L9) ────────────────
+// Le créneau stocke `batiment` = LETTRE pour un bâtiment (getBuildingLetter),
+// ou `ss.id` pour un sous-sol commun. avancementProgress est keyé par building.id
+// (≠ lettre pour un bâtiment réel) ou ss.id. Ce helper rend la BONNE clé
+// avancementProgress depuis la valeur `batiment` d'un créneau.
+//   • bâtiment : on matche la lettre → on renvoie b.id.
+//   • sous-sol : ss.id == batiment → on renvoie batiment tel quel.
+//   • fallback : la valeur brute (compat données / unité introuvable).
+export function progressUnitIdForCreneau(chantier, batiment) {
+  if (!chantier || !batiment) return batiment || null;
+  const b = resolveBuildings(chantier).find((x) => getBuildingLetter(x) === batiment);
+  if (b) return b.id;
+  const ss = getChantierSousSols(chantier).find((x) => x.id === batiment);
+  if (ss) return ss.id;
+  return batiment;
+}
+
 // Libellé complet "Cat — Tâche" d'un poste, pour une unité (lettre OU ss.id) donnée.
 export function posteLabel(chantier, batiment, posteKey, tasksConfig) {
   if (!posteKey) return "";
