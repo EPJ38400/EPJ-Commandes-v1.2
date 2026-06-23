@@ -26,7 +26,8 @@ const TABS = [
   { key: "commandes", label: "Suivi commandes",   icon: "📦" },
   { key: "planning",  label: "Planning",            icon: "📆" },
   { key: "financier", label: "Suivi financier",   icon: "💶" },
-  { key: "suivi",     label: "Suivi de chantier", icon: "📋" },
+  { key: "suivi",     label: "Validation des avancements", icon: "✅" },
+  { key: "gantt",     label: "Suivi de chantier", icon: "📋" },
   { key: "tma",       label: "TMA",               icon: "🔧" },
   { key: "demarches", label: "Démarches admin",   icon: "🗂️" },
 ];
