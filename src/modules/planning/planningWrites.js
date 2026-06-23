@@ -30,7 +30,15 @@ export function affectedCreneauPayload({
       ? (tempsEstimeH !== "" && tempsEstimeH != null ? Number(tempsEstimeH) : demiJourneeHeures(dayIdx))
       : null,
     tacheId: null,
+    // États de validation (L9) — préservés au merge lors d'une ré-affectation /
+    // édition (comme etatValidationMonteur). Strictement additif : aucun champ
+    // existant touché, défauts = état neutre "NON".
     etatValidationMonteur: existing?.etatValidationMonteur || "NON",
+    etatValidationMonteurAt: existing?.etatValidationMonteurAt ?? null,
+    etatValidationMonteurPar: existing?.etatValidationMonteurPar ?? null,
+    etatValidationConducteur: existing?.etatValidationConducteur || "NON",
+    etatValidationConducteurAt: existing?.etatValidationConducteurAt ?? null,
+    etatValidationConducteurPar: existing?.etatValidationConducteurPar ?? null,
     smsEnvoye: existing?.smsEnvoye ?? false,
     creePar: existing?.creePar || userId,
     modifiePar: userId,

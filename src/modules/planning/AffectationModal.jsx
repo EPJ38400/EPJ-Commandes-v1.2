@@ -18,7 +18,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
 import {
-  doc, collection, writeBatch, getDoc, getDocs, addDoc, query, where, serverTimestamp,
+  doc, collection, writeBatch, getDoc, getDocs, addDoc, updateDoc, query, where, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
@@ -61,6 +61,7 @@ export function AffectationModal({
   const [temps, setTemps] = useState(poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "");
   const [saving, setSaving] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
+  const [doneBusy, setDoneBusy] = useState(false);
   const [err, setErr] = useState(null);
 
   // Contexte : édite-t-on une tâche déjà affectée / déjà au pool ?
@@ -306,6 +307,50 @@ export function AffectationModal({
     }
   };
 
+  // ─── « ✅ Tâche faite » (L9) — confirmation MONTEUR de SON créneau ───
+  // Visible sur une seule demi-journée, si le créneau est une tâche concrète
+  // (chantier + bâtiment + poste), que l'utilisateur courant EST la ressource,
+  // et qu'il ne l'a pas déjà marquée. Écrit EXACTEMENT 3 champs (règle Monteur).
+  const slotInfo = slotMeta(fromSlot);
+  const myCreneau = (fromSlot === toSlot && initialRessource)
+    ? getExisting(initialRessource.id, slotInfo.dateIso, slotInfo.periode)
+    : null;
+  const isMyCreneau = !!initialRessource
+    && [user?._id, user?.id].filter(Boolean).includes(initialRessource.id);
+  const isTacheConcrete = !!(myCreneau?.chantierId && myCreneau?.batiment && myCreneau?.posteAvancementKey);
+  const valMonteur = myCreneau?.etatValidationMonteur;
+  const valConducteur = myCreneau?.etatValidationConducteur;
+  const canMarkDone = isMyCreneau && isTacheConcrete && valMonteur !== "FAIT";
+
+  const marquerFaite = async () => {
+    if (doneBusy || !canMarkDone) return;
+    setDoneBusy(true);
+    try {
+      await updateDoc(
+        doc(db, "planningCreneaux", creneauId(initialRessource.id, slotInfo.dateIso, slotInfo.periode)),
+        {
+          etatValidationMonteur: "FAIT",
+          etatValidationMonteurAt: serverTimestamp(),
+          etatValidationMonteurPar: user._id || user.id,
+        },
+      );
+      toast("✓ Tâche marquée faite");
+      onClose();
+    } catch (e) {
+      console.error("[AffectationModal] « tâche faite » échoué :", e);
+      toast("Action impossible");
+      setDoneBusy(false);
+    }
+  };
+
+  // Badge d'état de validation (affiché sur SON créneau concret).
+  const validationStatus = (isMyCreneau && isTacheConcrete)
+    ? (valConducteur === "VALIDE" ? { text: "✓ Validé par le conducteur", color: EPJ.green }
+      : valConducteur === "REFUSE" ? { text: "↩ Refusé — à reprendre", color: EPJ.redText }
+      : valMonteur === "FAIT" ? { text: "✅ Fait, en attente conducteur", color: EPJ.gray600 }
+      : null)
+    : null;
+
   return (
     <div
       onClick={onClose}
@@ -335,6 +380,14 @@ export function AffectationModal({
             {rangeSlots.length} demi-journée{rangeSlots.length > 1 ? "s" : ""}
             {fixedChantier && ` · Chantier ${fixedChantier.num}`}
           </div>
+          {validationStatus && (
+            <div style={{
+              marginTop: space.xs, fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+              color: validationStatus.color,
+            }}>
+              {validationStatus.text}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
@@ -393,6 +446,11 @@ export function AffectationModal({
           {canSendSms && (
             <Button variant="secondary" onClick={sendPlanningSms} loading={smsBusy}>
               📲 Envoyer le planning (SMS)
+            </Button>
+          )}
+          {canMarkDone && (
+            <Button variant="primary" onClick={marquerFaite} loading={doneBusy}>
+              ✅ Tâche faite
             </Button>
           )}
           {canWrite && (editingPool || editingAffected) && (

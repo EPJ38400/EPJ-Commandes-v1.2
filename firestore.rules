@@ -87,10 +87,12 @@ service cloud.firestore {
     // Référentiel central, partagé par tous les modules
     // Lecture : tous les employés
     // Création / modification : Admin / Direction / Conducteur / Assistante
+    //   + Chef chantier (L9 : il valide l'avancement de ses tâches planifiées
+    //   comme le conducteur — écriture bornée à avancementProgress côté client).
     // Suppression : Admin uniquement
     match /chantiers/{id} {
       allow read: if isEmployee();
-      allow create, update: if isAssistante();
+      allow create, update: if isAssistante() || role() == "Chef chantier";
       allow delete: if isAdmin();
     }
 
@@ -206,6 +208,13 @@ service cloud.firestore {
     match /planningCreneaux/{id} {
       allow read: if isEmployee();
       allow create, update, delete: if isAdmin() || isAssistante() || isConducteur() || role() == "Chef chantier";
+      // L9 — le Monteur flippe UNIQUEMENT sa confirmation (« Tâche faite »).
+      //   Bornée AUX CHAMPS de validation monteur (le client n'affiche que ses
+      //   créneaux). L'ownership stricte par uid viendra quand on stockera
+      //   ressourceUid sur le créneau (V1 : périmètre champs uniquement).
+      allow update: if role() == "Monteur"
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["etatValidationMonteur", "etatValidationMonteurAt", "etatValidationMonteurPar"]);
     }
 
     // ─── smsTemplates + smsQueue ──────────────────────────────────
