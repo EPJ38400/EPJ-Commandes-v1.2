@@ -8,6 +8,7 @@ import { AdminUsers } from "./AdminUsers";
 import { AdminChantiers } from "./AdminChantiers";
 import { AdminRights } from "./AdminRights";
 import { AdminRolesTypes } from "./AdminRolesTypes";
+import { AdminHomeVisibility } from "./AdminHomeVisibility";
 import { AdminTasksModel } from "./AdminTasksModel";
 import { AdminOutillage } from "./AdminOutillage";
 import { AdminCategoriesOutillage } from "./AdminCategoriesOutillage";
@@ -44,6 +45,7 @@ export function AdminPage({ onExit }) {
     );
   }
   if (section === "roles") return <AdminRolesTypes onBack={() => setSection(null)}/>;
+  if (section === "home-visibility") return <AdminHomeVisibility onBack={() => setSection(null)}/>;
   if (section === "tasks") return <AdminTasksModel onBack={() => setSection(null)}/>;
   if (section === "outillage") return <AdminOutillage onBack={() => setSection(null)}/>;
   if (section === "categories-outillage") return <AdminCategoriesOutillage onBack={() => setSection(null)}/>;
@@ -81,6 +83,9 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="🎭" accent={EPJ.catEtude} title="Rôles types"
         subtitle="Modifier les droits par défaut d'un rôle (impacte tous les utilisateurs)"
         onClick={() => setSection("roles")}/>
+      <AdminSection icon="🏠" accent={EPJ.blue} title="Visibilité accueil"
+        subtitle="Choisir les tuiles d'accueil et dashboards visibles par rôle"
+        onClick={() => setSection("home-visibility")}/>
 
       <GroupTitle>Chantiers & tâches</GroupTitle>
       <AdminSection icon="🏗" accent={EPJ.orange} title="Chantiers"

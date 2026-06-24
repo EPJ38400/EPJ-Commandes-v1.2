@@ -10,7 +10,7 @@ import { Badge } from "../core/components/Badge";
 import { useViewport } from "../core/useViewport";
 import { useAuth } from "../core/AuthContext";
 import { useData } from "../core/DataContext";
-import { can } from "../core/permissions";
+import { can, getEffectiveRolePerms } from "../core/permissions";
 import { canSeeDashboards } from "../core/dashboardsAccess";
 import {
   computeParcNotifications, computeAvancementNotifications,
@@ -119,6 +119,15 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     ...(showDashboard ? [DASHBOARD_TILE] : []),
     ...(canSeeDashboards(user) ? [COLLECTION_DASHBOARDS_TILE] : []),
   ];
+
+  // ─── Curation des tuiles d'accueil par rôle (additif, donnée pure) ───
+  //   rolesConfig/{role}._homeTiles[tileId] === false → tuile masquée à l'accueil.
+  //   Absent ou true = visible (défaut). N'enlève JAMAIS l'accès au module :
+  //   épure seulement la page d'accueil. Géré dans Admin → "Visibilité accueil".
+  const primaryRole = user?.role || user?.roles?.[0] || null;
+  const eff = primaryRole ? getEffectiveRolePerms(primaryRole, rolesConfig) : {};
+  const homeTiles = eff?._homeTiles || {};
+  const curatedTiles = allTiles.filter(t => homeTiles[t.id] !== false);
 
   // ─── Calcul des notifications ───
   const notifications = useMemo(() => {
@@ -420,13 +429,13 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
 
       {/* Grille de tuiles — PWA : 2 colonnes (inchangé) ; desktop : grille
           aérée auto-fill dans le cadre 1320 */}
-      {allTiles.length > 0 ? (
+      {curatedTiles.length > 0 ? (
         <div style={{
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(240px, 1fr))",
           gap: space.md,
         }}>
-          {allTiles.map((tile, i) => (
+          {curatedTiles.map((tile, i) => (
             <Tile
               key={tile.id}
               meta={tile}
@@ -437,7 +446,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
                 else if (tile.id === "collection-dashboards") onOpenCollectionDashboards();
                 else onOpenModule(tile.id);
               }}
-              isFullWidth={isMobile && allTiles.length % 2 === 1 && i === allTiles.length - 1}
+              isFullWidth={isMobile && curatedTiles.length % 2 === 1 && i === curatedTiles.length - 1}
             />
           ))}
         </div>
