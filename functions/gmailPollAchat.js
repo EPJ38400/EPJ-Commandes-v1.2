@@ -61,7 +61,7 @@ const EPJ_DOMAIN = "@epj-electricite.com";
 // rangés hors boîte de réception (archivés / classés). Le matching par numero
 // (commande existante dans commandesEsabora) + la logique sender-based restent
 // les seuls garde-fous d'exploitation.
-const SCOPE_QUERY = "has:attachment newer_than:30d";
+const SCOPE_QUERY = "has:attachment newer_than:30d in:anywhere";
 const PRIX_EPSILON = 0.01; // 1 centime
 const DEFAULT_ALERTE_JOURS = 2;
 const MAX_CANDIDATS = 8;
@@ -101,7 +101,9 @@ export const forceSyncAchat = onCall(
     if (role !== "Admin" && role !== "Direction") {
       throw new HttpsError("permission-denied", "Réservé à l'administration et à la direction.");
     }
-    const res = await runAchatSync("manuel");
+    // Bouton « Forcer la recherche des AR » = vrai levier manuel : full resync
+    // paginé (ignore l'historyId) + réévaluation des no_match de la fenêtre.
+    const res = await runAchatSync("manuel", { forceFullResync: true });
     const missing = await markMissingAR();
     return { ok: true, ...res, arMarquesManquants: missing };
   },
@@ -110,7 +112,7 @@ export const forceSyncAchat = onCall(
 // ═══════════════════════════════════════════════════════════════
 //  Orchestration du cycle via gmailCore
 // ═══════════════════════════════════════════════════════════════
-async function runAchatSync(trigger) {
+async function runAchatSync(trigger, { forceFullResync = false } = {}) {
   const configRef = db.collection(COL_CONFIG).doc(CONFIG_DOC);
 
   // Auto-bootstrap : crée la config si absente (1er run → resync complet).
@@ -139,6 +141,10 @@ async function runAchatSync(trigger) {
     resyncQuery: SCOPE_QUERY,
     inboxQuery: SCOPE_QUERY,
     maxResync: 200,
+    // achat@ : on capte les mails classés hors INBOX (libellés, archivés…).
+    // sav@ conserve le défaut requireInbox:true → comportement inchangé.
+    requireInbox: false,
+    forceFullResync,
     extraConfigFields: (counts) => ({
       derniereSyncCounts: counts,
     }),
@@ -148,12 +154,21 @@ async function runAchatSync(trigger) {
 // ═══════════════════════════════════════════════════════════════
 //  Handler par mail (séquence anti-coût)
 // ═══════════════════════════════════════════════════════════════
-async function achatHandler({ gmail, message }) {
+async function achatHandler({ gmail, message, fullResync = false }) {
   const gmailId = message.id;
   try {
-    // 1. Dédup-AVANT-get (aucun I/O coûteux si déjà traité)
+    // 1. Dédup-AVANT-get (aucun I/O coûteux si déjà traité). EXCEPTION : un
+    // no_match de moins de 30 j est RÉÉVALUÉ lors d'un full resync (le PDF est
+    // désormais toujours scanné → un AR raté se rattache à la relecture).
     const cacheSnap = await db.collection(COL_CACHE).doc(gmailId).get();
-    if (cacheSnap.exists) return "deja_traite";
+    const cached = cacheSnap.exists ? (cacheSnap.data() || {}) : null;
+    if (cached) {
+      const noMatchReevaluable = fullResync
+        && cached.status === "no_match"
+        && isWithin30Days(cached.createdAt);
+      if (!noMatchReevaluable) return "deja_traite";
+      console.log(`[gmailPollAchat] ${gmailId} no_match réévalué (full resync, < 30 j)`);
+    }
 
     // 2. messages.get + parsing
     const full = await gmail.users.messages.get({ userId: "me", id: gmailId, format: "full" });
@@ -175,19 +190,21 @@ async function achatHandler({ gmail, message }) {
       return "ignore_self_epj";
     }
 
-    // 3. Détection numero GRATUITE : sujet+corps d'abord, puis texte PDF
-    let candidats = extractNumeroCandidates(`${parsed.subject} ${parsed.text}`);
-    let pdfPart = null;
+    // 3. Détection numero GRATUITE : on cherche le n° PARTOUT (sujet + corps +
+    // texte PDF), TOUJOURS, pour TOUS les fournisseurs. Le vrai n° Esabora peut
+    // être caché dans le PDF même si le corps contient un faux 6-chiffres (ex.
+    // code interne Sonepar 030409). On lit donc le PDF dès qu'il existe et on
+    // fusionne les candidats des deux sources (union dédup, 235xxx prioritaires).
+    const candidatsTexte = extractNumeroCandidates(`${parsed.subject} ${parsed.text}`);
+    let pdfPart = findFirstPdfPart(msg.payload);
     let pdfBuffer = null;
     let pdfTexte = null; // null = PDF jamais lu ; "" ou texte = lu
-    if (!candidats.length) {
-      pdfPart = findFirstPdfPart(msg.payload);
-      if (pdfPart) {
-        pdfBuffer = await fetchAttachmentBuffer(gmail, gmailId, pdfPart.body.attachmentId);
-        pdfTexte = await safePdfText(pdfBuffer);
-        candidats = extractNumeroCandidates(pdfTexte);
-      }
+    if (pdfPart) {
+      pdfBuffer = await fetchAttachmentBuffer(gmail, gmailId, pdfPart.body.attachmentId);
+      pdfTexte = await safePdfText(pdfBuffer);
     }
+    const candidatsPdf = pdfTexte != null ? extractNumeroCandidates(pdfTexte) : [];
+    let candidats = mergeNumeroCandidates(candidatsTexte, candidatsPdf);
 
     // 4a. Aucun numero détecté.
     if (!candidats.length) {
@@ -224,11 +241,14 @@ async function achatHandler({ gmail, message }) {
       // Tout autre expéditeur : invariant EPJ = la commande est TOUJOURS créée
       // (webhook Zapier) avant l'AR fournisseur. Donc si aucune commande ne
       // matche, ce mail n'a rien à voir → cache terminal, lu une seule fois.
+      // createdAt PRÉSERVÉ s'il existait déjà (réévaluation) → la fenêtre 30 j
+      // s'ancre sur le 1er traitement et finit par expirer (pas de boucle).
       await db.collection(COL_CACHE).doc(gmailId).set({
         gmailId, status: "no_match", sujet: parsed.subject,
         fromEmail: parsed.fromEmail || null,
         candidats: candidats.slice(0, MAX_CANDIDATS),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: cached?.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       return "ignore_no_match";
     }
@@ -509,6 +529,22 @@ function extractNumeroCandidates(text) {
   for (const m of s.matchAll(/\b(2\d{5})\b/g)) out.add(m[1]);
   for (const m of s.matchAll(/\b(\d{6})\b/g)) out.add(m[1]);
   return [...out];
+}
+
+// Fusionne les candidats sujet/corps + PDF : union dédupliquée, en gardant les
+// 235xxx (2\d{5}) prioritaires sur les 6-chiffres génériques → le gate teste
+// d'abord les vrais n° Esabora même si un faux code interne précède dans le corps.
+function mergeNumeroCandidates(a, b) {
+  const union = [...new Set([...(a || []), ...(b || [])])];
+  const estEsabora = (c) => /^2\d{5}$/.test(c);
+  return [...union.filter(estEsabora), ...union.filter((c) => !estEsabora(c))];
+}
+
+// no_match réévaluable : vrai tant que l'entrée a moins de 30 jours.
+function isWithin30Days(ts) {
+  const d = tsToDate(ts);
+  if (!d) return false;
+  return (Date.now() - d.getTime()) < 30 * 24 * 60 * 60 * 1000;
 }
 
 function findFirstPdfPart(payload) {
