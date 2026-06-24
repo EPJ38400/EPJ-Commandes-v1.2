@@ -73,6 +73,14 @@ export async function runGmailSync({
   inboxQuery = DEFAULT_INBOX_QUERY,
   maxResync = DEFAULT_MAX_RESYNC,
   extraConfigFields = null,
+  // requireInbox : si true (défaut), le chemin History API ne retient que les
+  // messages portant le label INBOX (comportement sav@ historique, INCHANGÉ).
+  // achat@ passe false pour capter aussi les mails classés hors INBOX.
+  requireInbox = true,
+  // forceFullResync : si true, ignore l'historyId courant et déclenche un
+  // resync complet paginé (bouton « Forcer » côté achat@). Défaut false →
+  // poll programmé strictement incrémental.
+  forceFullResync = false,
 }) {
   console.log(`[${logPrefix}] démarrage (trigger=${trigger})`);
 
@@ -92,8 +100,12 @@ export async function runGmailSync({
   const collected = new Map();
   let fullResync = false;
 
-  // a) History API incrémentale
-  if (config.dernierHistoryId) {
+  // a) History API incrémentale — court-circuitée si on force un resync complet
+  //    (bouton « Forcer » : ignore l'historyId courant → resync paginé large).
+  if (forceFullResync) {
+    fullResync = true;
+    console.log(`[${logPrefix}] forceFullResync demandé → resync complet (historyId ignoré)`);
+  } else if (config.dernierHistoryId) {
     try {
       let pageToken;
       do {
@@ -105,7 +117,7 @@ export async function runGmailSync({
         });
         const fromHistory = (history.data.history || [])
           .flatMap(h => (h.messagesAdded || []).map(ma => ma.message))
-          .filter(m => m.labelIds?.includes("INBOX"));
+          .filter(m => (requireInbox ? m.labelIds?.includes("INBOX") : true));
         for (const m of fromHistory) collected.set(m.id, m);
         pageToken = history.data.nextPageToken;
       } while (pageToken);
@@ -164,7 +176,7 @@ export async function runGmailSync({
   let nbErreurs = 0;
   for (const message of messages) {
     try {
-      const result = await handler({ gmail, message });
+      const result = await handler({ gmail, message, fullResync });
       const label = result == null ? "ignore" : String(result);
       counts[label] = (counts[label] || 0) + 1;
       if (label === "deja_traite") nbDejaTraites++;
