@@ -276,14 +276,22 @@ const DIVERS_HIDDEN_WITH_SOUSSOL = new Set([
 // buildingId = "A" / "B" / "C"... (pour cibler l'override)
 // hasSousSolCommun = le chantier a ≥1 sous-sol commun → masque certaines tâches
 //   divers côté bâtiment (AFFICHAGE SEUL, cf. DIVERS_HIDDEN_WITH_SOUSSOL)
-export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false) {
+// excludeEtude = l'étude/TMA est une UNITÉ CHANTIER (cf. getCategoriesForEtude) :
+//   les vues d'avancement PAR BÂTIMENT passent true pour ne pas l'afficher/compter
+//   côté bâtiment. Défaut false → les appelants qui énumèrent toute la taxonomie
+//   (ex. picker du planning) conservent la catégorie "etude" inchangée.
+export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false, excludeEtude = false) {
   // Bâtiment rattaché à un sous-sol commun : ses tâches de sous-sol privées sont
   // MASQUÉES (nbSousSols forcé à 0 pour la génération uniquement). nbSousSols n'est
   // jamais muté en base, donc l'opération est réversible au détachement.
   const genCfg = getSousSolIdFromConfig(cfg) != null ? { ...cfg, nbSousSols: 0 } : cfg;
 
   // 1. FACTORY (génère les tâches dynamiques selon cat.generated)
-  let cats = FACTORY_CATEGORIES.map(cat => {
+  //    L'étude/TMA est exclue côté bâtiment (unité chantier) quand demandé.
+  const factory = excludeEtude
+    ? FACTORY_CATEGORIES.filter(cat => cat.id !== "etude")
+    : FACTORY_CATEGORIES;
+  let cats = factory.map(cat => {
     const build = cat.generated ? GENERATED_BUILDERS[cat.generated] : null;
     return build ? { ...cat, tasks: build(genCfg) } : cat;
   });
@@ -313,6 +321,20 @@ export function getCategoriesForSousSol(cfg, tasksConfig, chantierOverride, ssId
   let cats = buildSousSolCategories(cfg);
   cats = mergeWithGlobalModel(cats, tasksConfig);
   cats = mergeWithChantierOverride(cats, chantierOverride, ssId);
+  return cats;
+}
+
+// ─── Catégorie ÉTUDE / TMA — unité de suivi CHANTIER (une seule par chantier) ──
+// L'étude et la TMA se font pour tout le chantier, pas par bâtiment : l'étude
+// devient une "unité" autonome (comme un sous-sol commun), keyée sur "etude"
+// dans avancementProgress / avancementTasksOverride. Elle porte UNIQUEMENT la
+// catégorie factory "etude" (etude-1..4), + fusion modèle global + override
+// chantier — même mécanique que le reste. Les bâtiments l'excluent
+// (getCategoriesForConfig(..., excludeEtude=true)).
+export function getCategoriesForEtude(tasksConfig, chantierOverride) {
+  let cats = FACTORY_CATEGORIES.filter(cat => cat.id === "etude");
+  cats = mergeWithGlobalModel(cats, tasksConfig);
+  cats = mergeWithChantierOverride(cats, chantierOverride, "etude");
   return cats;
 }
 
@@ -351,9 +373,17 @@ function overallFromCats(cats, progressData) {
   return count > 0 ? Math.round(sum / count) : 0;
 }
 
-export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false) {
+export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false, excludeEtude = false) {
   return overallFromCats(
-    getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun),
+    getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun, excludeEtude),
+    progressData,
+  );
+}
+
+// % de l'unité ÉTUDE / TMA (une par chantier), keyée "etude" dans avancementProgress.
+export function overallProgressEtude(progressData, tasksConfig, chantierOverride) {
+  return overallFromCats(
+    getCategoriesForEtude(tasksConfig, chantierOverride),
     progressData,
   );
 }

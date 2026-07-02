@@ -23,8 +23,8 @@ import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
 import { Field } from "../../core/components/Field";
 import {
-  getCategoriesForConfig, getCategoriesForSousSol, categoryProgress,
-  overallProgress, overallProgressSousSol,
+  getCategoriesForConfig, getCategoriesForSousSol, getCategoriesForEtude, categoryProgress,
+  overallProgress, overallProgressSousSol, overallProgressEtude,
   DEFAULT_BUILDING_CONFIG, generateTaskId, generateSessionId,
   totalHoursForTask, totalHoursForBuilding,
   resolveBuildings, getChantierSousSols, getBuildingLetter, getBuildingSousSolId,
@@ -70,6 +70,15 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
   const sousSols = useMemo(() => getChantierSousSols(chantier), [chantier.sousSolsCommuns]);
 
   const units = useMemo(() => ([
+    // Étude / TMA = unité CHANTIER unique, EN PREMIER (phase 1 du chantier).
+    // Progress / heures keyés "etude" (mécanique existante par activeUnit.id).
+    {
+      kind: "etude",
+      id: "etude",
+      tabLabel: "📋 Étude / TMA",
+      headerLabel: "Étude / TMA — Chantier",
+      config: null,
+    },
     ...buildings.map(b => ({
       kind: "batiment",
       id: b.id,
@@ -101,9 +110,11 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
   const hasSousSolCommun = sousSols.length > 0;
 
   const categories = useMemo(
-    () => activeUnit.kind === "soussol"
+    () => activeUnit.kind === "etude"
+      ? getCategoriesForEtude(tasksConfig, chantier.avancementTasksOverride)
+      : activeUnit.kind === "soussol"
       ? getCategoriesForSousSol(activeUnit.config, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
-      : getCategoriesForConfig(activeUnit.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun),
+      : getCategoriesForConfig(activeUnit.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun, true),
     [activeUnit, tasksConfig, chantier.avancementTasksOverride, hasSousSolCommun]
   );
 
@@ -182,9 +193,11 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
       const snapshot = {};
       // Fige chaque unité : bâtiments + sous-sols communs
       for (const u of units) {
-        const cats = u.kind === "soussol"
+        const cats = u.kind === "etude"
+          ? getCategoriesForEtude(tasksConfig, chantier.avancementTasksOverride)
+          : u.kind === "soussol"
           ? getCategoriesForSousSol(u.config, tasksConfig, chantier.avancementTasksOverride, u.id)
-          : getCategoriesForConfig(u.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, u.id);
+          : getCategoriesForConfig(u.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, u.id, false, true);
         const catsMap = {};
         cats.forEach(c => { catsMap[c.id] = { tasks: c.tasks }; });
 
@@ -288,9 +301,11 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     } catch (e) { toast("❌ " + e.message); }
   };
 
-  const globalPct = activeUnit.kind === "soussol"
+  const globalPct = activeUnit.kind === "etude"
+    ? overallProgressEtude(localProgress, tasksConfig, chantier.avancementTasksOverride)
+    : activeUnit.kind === "soussol"
     ? overallProgressSousSol(activeUnit.config, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
-    : overallProgress(activeUnit.config || DEFAULT_BUILDING_CONFIG, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun);
+    : overallProgress(activeUnit.config || DEFAULT_BUILDING_CONFIG, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun, true);
   const barColor = globalPct === 100 ? EPJ.green : globalPct >= 60 ? EPJ.blue : globalPct >= 30 ? EPJ.orange : EPJ.gray500;
 
   const totalHours = useMemo(
@@ -390,7 +405,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
             marginTop: space.sm, fontSize: fontSize.xs, color: EPJ.gray500,
             display: "flex", alignItems: "center", gap: space.xs + 2,
           }}>
-            ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)} h</b> cumulées sur {activeUnit.kind === "soussol" ? "ce sous-sol" : "ce bâtiment"}
+            ⏱ <b style={{ color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>{totalHours.toFixed(1)} h</b> cumulées sur {activeUnit.kind === "soussol" ? "ce sous-sol" : activeUnit.kind === "etude" ? "l'étude / TMA" : "ce bâtiment"}
           </div>
         )}
       </div>

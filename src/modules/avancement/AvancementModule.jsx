@@ -19,7 +19,7 @@ import { StatCard } from "../../core/components/StatCard";
 import { DataTable } from "../../core/components/DataTable";
 import { AvancementChantier } from "./AvancementChantier";
 import {
-  overallProgress, overallProgressSousSol, DEFAULT_BUILDING_CONFIG,
+  overallProgress, overallProgressSousSol, overallProgressEtude, DEFAULT_BUILDING_CONFIG,
   resolveBuildings, getChantierSousSols,
 } from "./avancementTasks";
 import {
@@ -60,11 +60,17 @@ export function AvancementModule({ onExitModule }) {
     const hasSousSolCommun = sousSols.length > 0;
     let totalProgress = 0;
     let count = 0;
+    // Étude / TMA = unité CHANTIER unique, comptée UNE fois (même pondération
+    // qu'une unité). Les bâtiments l'excluent (excludeEtude=true ci-dessous).
+    totalProgress += overallProgressEtude(
+      ch.avancementProgress?.etude || {}, tasksConfig, ch.avancementTasksOverride,
+    );
+    count++;
     buildings.forEach(b => {
       const prog = ch.avancementProgress?.[b.id] || {};
       totalProgress += overallProgress(
         b.config || DEFAULT_BUILDING_CONFIG, prog,
-        tasksConfig, ch.avancementTasksOverride, b.id, hasSousSolCommun,
+        tasksConfig, ch.avancementTasksOverride, b.id, hasSousSolCommun, true,
       );
       count++;
     });
