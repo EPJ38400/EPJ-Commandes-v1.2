@@ -23,6 +23,7 @@ const FIXED_LOG_TASKS = [
   { id: "log-4", label: "Prise balcon" },
   { id: "log-5", label: "Tableau" },
   { id: "log-6", label: "Porte + trappe de tableau" },
+  { id: "log-10", label: "Pose des sèche-serviette" },
   { id: "log-7", label: "Plaque de finition" },
   { id: "log-8", label: "Essai + Ampoule" },
   { id: "log-9", label: "Contrôle qualité" },
@@ -36,7 +37,12 @@ const FIXED_CF_TASKS = [
   { id: "cf-6", label: "Tirage des fibres lgt + DTIO" },
   { id: "cf-7", label: "Pose Mâts + antennes" },
   { id: "cf-8", label: "Combiné Interphone" },
+  { id: "cf-10", label: "Platine Interphone" },
   { id: "cf-9", label: "Programmation + essai interphone" },
+];
+// Liste FIXE de la catégorie "placo" (générée par niveau) — pattern FIXED_LOG_TASKS.
+const FIXED_PLACO_TASKS = [
+  { id: "pla-1", label: "Pose BAC D'encastrement" },
 ];
 
 // ─── 1. FACTORY (modèle d'usine, jamais perdu) ──────────────────
@@ -62,19 +68,21 @@ export const FACTORY_CATEGORIES = [
   {
     id: "divers", num: 3, label: "AVANCEMENT DIVERS", color: EPJ.orange,
     generated: false,
+    // Ordre = ordre d'AFFICHAGE. Les ids sont STABLES (avancement keyé dessus).
     tasks: [
       { id: "divers-1",  label: "Installation de chantier" },
-      { id: "divers-2",  label: "Équipement sous-sol (Lustrerie / bloc secours)" },
+      { id: "divers-2",  label: "Équipement sous-sol lustrerie" },
+      { id: "divers-14", label: "Équipement sous-sol bloc secours" },
       { id: "divers-3",  label: "Equipement box ECL + PC" },
       { id: "divers-4",  label: "Chemin de câble" },
       { id: "divers-5",  label: "Préparation des gaines techniques" },
       { id: "divers-6",  label: "Préparation avant doublage" },
       { id: "divers-7",  label: "Amorce colonne" },
+      { id: "divers-12", label: "Amorce colonne IRVE" },
       { id: "divers-8",  label: "Cheminement colonne IRVE" },
       { id: "divers-9",  label: "Tronçon colonne IRVE" },
       { id: "divers-10", label: "Colonne IRVE (SPCM)" },
       { id: "divers-11", label: "Equipement box IRVE" },
-      { id: "divers-12", label: "Amorce colonne IRVE" },
       { id: "divers-13", label: "Pose coffret de Façade" },
     ],
   },
@@ -92,17 +100,15 @@ export const FACTORY_CATEGORIES = [
     id: "communs", num: 6, label: "ÉQUIPEMENT DES COMMUNS", color: EPJ.blue,
     generated: false,
     tasks: [
-      { id: "com-1",  label: "Colonne Montante Enedis" },
+      { id: "com-1",  label: "Colonne Montante" },
       { id: "com-2",  label: "Colonne de terre" },
       { id: "com-3",  label: "Colonne service généraux" },
       { id: "com-4",  label: "Appareillage" },
       { id: "com-5",  label: "Pose DB + Platine" },
       { id: "com-6",  label: "Armoire des services généraux" },
-      { id: "com-7",  label: "Interphone" },
       { id: "com-8",  label: "Lustrerie coursive" },
       { id: "com-9",  label: "Lustrerie escalier" },
       { id: "com-10", label: "Lustrerie extérieur" },
-      { id: "com-11", label: "Contrôle qualité" },
     ],
   },
   {
@@ -179,7 +185,7 @@ function buildFloorTasks(cfg, idPrefix, labelPrefix) {
 // Les catégories mixtes concatènent [tâches par étage] + [liste fixe d'usine].
 const GENERATED_BUILDERS = {
   beton: buildBetonTasks,
-  placo: buildPlacoTasks,
+  placo: (cfg) => [...buildPlacoTasks(cfg), ...FIXED_PLACO_TASKS],
   logements: (cfg) => [...buildFloorTasks(cfg, "appareillage", "Appareillage"), ...FIXED_LOG_TASKS],
   "courant-faible": (cfg) => [...buildFloorTasks(cfg, "cf-rj45", "Appareillage RJ45"), ...FIXED_CF_TASKS],
 };
@@ -208,6 +214,11 @@ export const SOUSSOL_EQUIP_TASKS = [
   { id: "ssequip-4", label: "Équipement box / garage" },
   { id: "ssequip-5", label: "Détection / commande" },
   { id: "ssequip-6", label: "Essai + Contrôle qualité" },
+  { id: "ssequip-7",  label: "Amorce colonne IRVE" },
+  { id: "ssequip-8",  label: "Cheminement colonne IRVE" },
+  { id: "ssequip-9",  label: "Tronçon colonne IRVE" },
+  { id: "ssequip-10", label: "Colonne IRVE (SPCM)" },
+  { id: "ssequip-11", label: "Equipement box IRVE" },
 ];
 
 // Catégories d'un sous-sol commun : béton (généré) + équipement (éditable).
@@ -248,12 +259,24 @@ function mergeWithChantierOverride(categories, chantierOverride, buildingId) {
   });
 }
 
+// ─── Masquage conditionnel DIVERS (sous-sol commun) ────────────
+// Quand le chantier a ≥1 sous-sol commun, ces tâches divers sont couvertes par
+// l'unité "sous-sol commun" : elles ne sont PAS affichées (ni comptées dans le %)
+// dans les catégories PAR BÂTIMENT. AFFICHAGE SEUL — aucune écriture Firestore ;
+// les saisies déjà faites restent en base (ids conservés).
+const DIVERS_HIDDEN_WITH_SOUSSOL = new Set([
+  "divers-2", "divers-14", "divers-3", "divers-4",
+  "divers-8", "divers-9", "divers-10", "divers-11", "divers-12",
+]);
+
 // ─── Retourne toutes les catégories pour un chantier/bâtiment ──
 // cfg = typologie du bâtiment (sous-sols, étages, combles)
 // tasksConfig = modèle global depuis Firestore
 // chantierOverride = chantier.avancementTasksOverride
 // buildingId = "A" / "B" / "C"... (pour cibler l'override)
-export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId) {
+// hasSousSolCommun = le chantier a ≥1 sous-sol commun → masque certaines tâches
+//   divers côté bâtiment (AFFICHAGE SEUL, cf. DIVERS_HIDDEN_WITH_SOUSSOL)
+export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false) {
   // Bâtiment rattaché à un sous-sol commun : ses tâches de sous-sol privées sont
   // MASQUÉES (nbSousSols forcé à 0 pour la génération uniquement). nbSousSols n'est
   // jamais muté en base, donc l'opération est réversible au détachement.
@@ -270,6 +293,16 @@ export function getCategoriesForConfig(cfg, tasksConfig, chantierOverride, build
 
   // 3. Applique l'override chantier
   cats = mergeWithChantierOverride(cats, chantierOverride, buildingId);
+
+  // 4. Masquage conditionnel (AFFICHAGE SEUL) : sous-sol commun présent →
+  //    on retire les tâches divers couvertes par le sous-sol.
+  if (hasSousSolCommun) {
+    cats = cats.map(cat =>
+      cat.id === "divers"
+        ? { ...cat, tasks: cat.tasks.filter(t => !DIVERS_HIDDEN_WITH_SOUSSOL.has(t.id)) }
+        : cat
+    );
+  }
 
   return cats;
 }
@@ -318,9 +351,9 @@ function overallFromCats(cats, progressData) {
   return count > 0 ? Math.round(sum / count) : 0;
 }
 
-export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId) {
+export function overallProgress(cfg, progressData, tasksConfig, chantierOverride, buildingId, hasSousSolCommun = false) {
   return overallFromCats(
-    getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId),
+    getCategoriesForConfig(cfg, tasksConfig, chantierOverride, buildingId, hasSousSolCommun),
     progressData,
   );
 }
