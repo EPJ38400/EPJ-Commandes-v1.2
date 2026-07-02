@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   resolveBuildings, getBuildingLetter, getCategoriesForConfig,
-  getCategoriesForSousSol, getChantierSousSols,
+  getCategoriesForSousSol, getCategoriesForEtude, getChantierSousSols,
 } from "../avancement/avancementTasks";
 
 // ─── Constantes ────────────────────────────────────────────────
@@ -218,12 +218,22 @@ function buildUnit({ unite, label, type, cats }) {
 export function getPosteOptions(chantier, tasksConfig) {
   if (!chantier) return [];
   const override = chantier.avancementTasksOverride;
+  const hasSousSolCommun = getChantierSousSols(chantier).length > 0;
   const units = [];
+  // Étude / TMA = unité CHANTIER unique (cf. avancement), EN PREMIER. Le créneau
+  // stocke batiment = "etude" ; progressUnitIdForCreneau renvoie "etude" (fallback)
+  // → validation écrit avancementProgress.etude.
+  units.push(buildUnit({
+    unite: "etude", label: "Étude / TMA", type: "ETUDE",
+    cats: getCategoriesForEtude(tasksConfig, override),
+  }));
   for (const b of resolveBuildings(chantier)) {
     const lettre = getBuildingLetter(b);
     units.push(buildUnit({
       unite: lettre, label: `Bâtiment ${lettre}`, type: "BAT",
-      cats: getCategoriesForConfig(b.config, tasksConfig, override, b.id),
+      // Cohérence avancement : l'étude est portée par l'unité "etude" (exclusion
+      // côté bâtiment) et le masquage divers du sous-sol commun s'applique.
+      cats: getCategoriesForConfig(b.config, tasksConfig, override, b.id, hasSousSolCommun, true),
     }));
   }
   // ⚠️ resolveBuildings n'énumère PAS les sous-sols communs → on les ajoute.
