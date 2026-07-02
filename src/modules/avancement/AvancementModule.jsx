@@ -57,13 +57,14 @@ export function AvancementModule({ onExitModule }) {
   const rows = useMemo(() => visibleChantiers.map(ch => {
     const buildings = resolveBuildings(ch);
     const sousSols = getChantierSousSols(ch);
+    const hasSousSolCommun = sousSols.length > 0;
     let totalProgress = 0;
     let count = 0;
     buildings.forEach(b => {
       const prog = ch.avancementProgress?.[b.id] || {};
       totalProgress += overallProgress(
         b.config || DEFAULT_BUILDING_CONFIG, prog,
-        tasksConfig, ch.avancementTasksOverride, b.id,
+        tasksConfig, ch.avancementTasksOverride, b.id, hasSousSolCommun,
       );
       count++;
     });

@@ -97,11 +97,14 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
     if (!units.some(u => u.id === activeUnitId)) setActiveUnitId(units[0]?.id);
   }, [units, activeUnitId]);
 
+  // Masquage conditionnel DIVERS côté bâtiment (AFFICHAGE SEUL) si sous-sol commun.
+  const hasSousSolCommun = sousSols.length > 0;
+
   const categories = useMemo(
     () => activeUnit.kind === "soussol"
       ? getCategoriesForSousSol(activeUnit.config, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
-      : getCategoriesForConfig(activeUnit.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, activeUnit.id),
-    [activeUnit, tasksConfig, chantier.avancementTasksOverride]
+      : getCategoriesForConfig(activeUnit.config || DEFAULT_BUILDING_CONFIG, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun),
+    [activeUnit, tasksConfig, chantier.avancementTasksOverride, hasSousSolCommun]
   );
 
   // ─── Progression & sessions d'heures (toujours éditable, le mois courant) ───
@@ -287,7 +290,7 @@ export function AvancementChantier({ chantier, onBack, canEdit, allUsers }) {
 
   const globalPct = activeUnit.kind === "soussol"
     ? overallProgressSousSol(activeUnit.config, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id)
-    : overallProgress(activeUnit.config || DEFAULT_BUILDING_CONFIG, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id);
+    : overallProgress(activeUnit.config || DEFAULT_BUILDING_CONFIG, localProgress, tasksConfig, chantier.avancementTasksOverride, activeUnit.id, hasSousSolCommun);
   const barColor = globalPct === 100 ? EPJ.green : globalPct >= 60 ? EPJ.blue : globalPct >= 30 ? EPJ.orange : EPJ.gray500;
 
   const totalHours = useMemo(
