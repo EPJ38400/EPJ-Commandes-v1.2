@@ -112,6 +112,9 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     can(user, "_dashboards", "public", rolesConfig);
 
   const showPlanning = can(user, "rh.planning", "_access", rolesConfig);
+  // Accès au module Parc machines : conditionne aussi la bannière "outils en retard"
+  // (sinon un monteur sans accès Parc verrait la bannière et pourrait ouvrir le module).
+  const canParc = can(user, "parc-machines", "_access", rolesConfig);
 
   const allTiles = [
     ...visibleModules,
@@ -315,7 +318,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
       </div>
 
       {/* Bannière rappel outils en retard */}
-      {(notifications["parc-machines"]?.count || 0) > 0 && (
+      {canParc && (notifications["parc-machines"]?.count || 0) > 0 && (
         <Banner
           tone="danger"
           icon="⏰"
