@@ -15,15 +15,18 @@
 
 Ce qui tourne = **Commandes (M1)** — désormais avec un **dashboard achat complet
 en prod** (suivi AR fournisseurs, résync, réclamations déterministes, référentiel
-fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers)** + serveur
-MCP. Développé mais peu adopté = Réserves (M4, 1 réserve) + Parc machines (M2).
+fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers ; taxonomie 2026-07 +
+Étude/TMA au niveau chantier)** + serveur MCP. Développé mais peu adopté = Réserves
+(M4, 1 réserve) + Parc machines (M2, désormais **déclaration de panne + suivi SAV** —
+collection `outillageInterventions`).
 **Gestion de chantier (M5) en prod** (nav chantier-first + permissions par onglet ;
 **8 onglets, 4 livrés** = Pieuvres, Suivi commandes, Planning, Validation des avancements
 L9 ; 4 coquilles « à venir » = financier, gantt, tma, démarches). **Planning ressources
 (L8) en prod** — socle partagé M5/RH : page dédiée + onglet chantier, taxonomie postes M3,
 tâche libre hors avancement, SMS récap (cron + manuel), export ICS, validation L9.
-Rôle **Achat** ajouté en factory (`permissions.js`). Spec seulement = Chiffrage, cockpits,
-archi N2, mode admin, migration v11, **module RH** (clés `rh.*` posées, pas de code).
+Rôle **Achat** ajouté en factory (`permissions.js`) — **gère désormais l'intégralité du
+parc machines**. Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11,
+**module RH** (clés `rh.*` posées, pas de code).
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
 - **Cible métier** : **EPJ Électricité Générale**, PME du bâtiment.
@@ -67,6 +70,11 @@ archi N2, mode admin, migration v11, **module RH** (clés `rh.*` posées, pas de
   les déploie automatiquement. Déploiement manuel `firebase deploy --only firestore:rules
   --project ap-epj` = filet de secours possible **avec GO** (ex. règle déjà mergée mais
   CI non redéclenché).
+- **⚠️ CORS configuré sur le bucket Storage `ap-epj.firebasestorage.app`** (2026-07 ;
+  origin `"*"`, method `GET`) — **requis pour html2canvas** (quitus : feuille en-tête,
+  signature technicien, photos avant/après). Sans CORS, les `<img crossorigin="anonymous">`
+  Storage sortent **blanches** du PDF. Config via gcloud/Cloud Shell
+  (`gcloud storage buckets update … --cors-file`).
 
 ### Authentification Gmail [V]
 - `sav@` : OAuth, aspiration + envoi.
@@ -161,7 +169,7 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | # | Module | Code [C] | Usage réel [V] |
 |---|---|---|---|
 | M1 | Commandes | EN PROD + **dashboard achat complet** | 40 commandes — usage réel |
-| M2 | Parc machines | Développé (schémas v8) | attente photos, peu de données |
+| M2 | Parc machines | Développé (schémas v8) + **panne & suivi SAV (2026-07)** | panne + suivi SAV livré (2026-07) ; attente photos |
 | M3 | Avancement | EN PROD, dev récent intense | 21 chantiers — usage réel |
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
 | M5 | Gestion de chantier | **EN PROD** — 8 onglets, 4 livrés (Pieuvres, Suivi commandes, Planning, Validation avancements L9) ; 4 coquilles (financier, gantt, tma, démarches) | nouveau — usage débutant |
@@ -242,6 +250,46 @@ Plage Du→Au (multi-demi-journées), `writeBatch` atomique.
 - Picker postes **groupé par catégorie** (`GroupedPosteSelect.jsx`) ; création « bulk »
   mensuelle (`PlanningBulkCreate.jsx`, `ChantierPlanningMonth.jsx`, `PlanningGrid.jsx`).
 
+### M2 Parc machines — déclaration de panne + suivi SAV (2026-07) [C]
+
+Collection racine `outillageInterventions` (panne autonome **hors flux retour** + suivi
+léger). Composants `ParcDeclarerPanne.jsx`, `ParcInterventionsTab.jsx` (onglet « Pannes &
+SAV »), logique pure `outillageInterventions.js`. Statuts
+`signalee→en_reparation→reparee|reformee` + notes + dates ; réutilise le catalogue
+`outillagePannes`. Effets sur l'outil (`setDoc merge:true`) : panne bloquante →
+`hors_service`, sinon `maintenance` ; `reparee` → `disponible` (sauf autre intervention
+ouverte) ; `reformee` → `hors_service`. **Flux retour existant (`outillageSorties`)
+inchangé.**
+
+### M3 Avancement — taxonomie 2026-07 + Étude/TMA au niveau chantier [C]
+
+**Taxonomie** (`avancementTasks.js`, ids **NEUFS**, aucun ancien id renuméroté) :
+`log-10` « Pose des sèche-serviette », `cf-10` « Platine Interphone », `divers-14`
+« Équipement sous-sol bloc secours » (+ relabel `divers-2` « …lustrerie »), `pla-1`
+« Pose BAC D'encastrement » (`FIXED_PLACO_TASKS`), `ssequip-7..11` IRVE ; retrait factory
+`com-7` (Interphone) + `com-11` (Contrôle qualité), relabel `com-1` « Colonne Montante ».
+**Masquage conditionnel `hasSousSolCommun`** (défaut `false`) → `getCategoriesForConfig`
+masque 9 tâches divers **PAR BÂTIMENT** quand ≥1 sous-sol commun (affichage + %).
+**Étude/TMA** : catégorie `etude` sortie des catégories par bâtiment → **UNITÉ UNIQUE au
+niveau chantier** (clé `etude` dans `avancementProgress`), via `getCategoriesForEtude` +
+flag `excludeEtude` ; le planning `getPosteOptions` expose l'unité « Étude / TMA » ;
+jointure L9 `progressUnitIdForCreneau` écrit sous `etude` (fallback). Migration des saisies
+existantes (bâtiment le plus avancé → clé `etude`) faite via MCP.
+
+### Autres fixes prod 2026-07 [C]
+
+- **Quitus** : feuille en-tête via asset repo (`src/modules/reserves/assets/papier-entete.jpg`)
+  + fallback `config/company.papierEnteteDataUri` (généré à l'upload dans `AdminCompany`)
+  → en-tête présent dans le PDF ; signature technicien + photos avant/après OK grâce au
+  **CORS bucket** (cf. §1).
+- **Esabora** : adresse de livraison suit `order.livraison` (`'Dépôt'` → adresse dépôt EPJ
+  depuis `config/company` ; `'Chantier'` → adresse chantier) (`esaboraUtils.js`).
+- **Messages commandes** : helper partagé `src/modules/commandes/orderMessages.js`
+  (`hasUnreadMessages`) ; enveloppe bleue par ligne d'historique + ouverture directe du fil
+  depuis la bannière accueil (prop `initialOrderId`).
+- **HomePage** : bannière « outil en retard » gardée par `canParc` (accès parc-machines)
+  → plus visible par les monteurs.
+
 ### M1 Commandes — dashboard achat (EN PROD depuis 2026-06-07) [V][C]
 
 **Pipeline backend (étapes 1-3, prod)** : `esaboraWebhook` (Zapier) crée
@@ -304,11 +352,19 @@ Dashboard direction : `src/pages/DashboardDirection.jsx`. Dashboard achat :
 Rôles (`ROLES` dans `permissions.js`) : **Admin** (total + écrans admin) ·
 **Direction** (total sauf delete) · **Conducteur travaux** (scoped `own_chantiers`) ·
 **Assistante** (large, pas validate/delete) · **Achat** (pilotage achats : commandes
-plein, parc/avancement/réserves lecture, gestionChantier onglets pieuvres/commandes/
-financier, `_admin:true` ; factory depuis juin 2026, l'override `rolesConfig/Achat`
-reste prioritaire par clé — à ne pas confondre avec le flag user `directAchat`) ·
-**Chef chantier** (`own_chantiers`, crée/édite) · **Monteur** (ses items) ·
-**Artisan** (très restreint).
+plein, avancement/réserves lecture, **parc machines plein — gère l'intégralité**,
+gestionChantier onglets pieuvres/commandes/financier, `_admin:true` ; factory depuis
+juin 2026, l'override `rolesConfig/Achat` reste prioritaire par clé — à ne pas confondre
+avec le flag user `directAchat`) · **Chef chantier** (`own_chantiers`, crée/édite) ·
+**Monteur** (ses items) · **Artisan** (très restreint).
+
+**Achat & parc machines (2026-07)** : le rôle **gère l'intégralité du parc** — outils
+`create/update/delete`, catalogues `outillageCategories`/`outillagePannes`, suppression
+`outillageSorties`/`outillageInterventions`. Côté rules via le helper **`isAchat()`**
+(`outils.update` + catalogues parc l'acceptent désormais) ; côté front via **`parcUtils.js`**
+(`canSortirOutil`/`canGererCatalogue`/`canImportExportOutils` incluent `"achat"`).
+⚠️ **Rappel token** : le claim `role="Achat"` doit être **frais** → logout/login après
+pose du rôle (sinon rules en `permission-denied`).
 
 **Modèle 3 couches** : (1) **FACTORY** `DEFAULT_PERMISSIONS` (code, jamais perdu) ;
 (2) **OVERRIDE DE RÔLE** Firestore `rolesConfig/{role}` ; (3) **OVERRIDE
@@ -358,13 +414,13 @@ Logique fine non documentée ici : lecture du code `functions/` requise.
 
 ---
 
-## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) [C]
+## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) + `outillageInterventions` (Parc SAV, 2026-07) [C]
 
 ```
 achatEcartsPrix · avancementValidations · catalogue · chantiers · commandes ·
 commandesEsabora · config · esabora_import · fournisseurs · fournisseursContacts ·
 gmailAchatExtractions · gmailConfig · gmailConfigAchat ·
-outillageCategories · outillagePannes · outillageSorties · outils · pieuvres ·
+outillageCategories · outillageInterventions · outillagePannes · outillageSorties · outils · pieuvres ·
 planningCreneaux · reserveMails · reserveMailsAClasser · reserves · reservesCategories ·
 reservesEmetteurs · rolesConfig · smsQueue · smsTemplates · utilisateurs ·
 mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
@@ -385,6 +441,14 @@ taxonomie M3, nul si pas de chantier ou tâche libre), `posteLabel` (poste OU te
 (`etatValidationMonteur`/`etatValidationConducteur` + `*At`/`*Par`), `smsEnvoye`,
 `creePar`/`modifiePar`/`createdAt`/`updatedAt`. **Écrit uniquement par le module Planning ;
 jamais d'écriture `chantiers`.**
+
+`outillageInterventions/{id}` (M2 Parc SAV, 2026-07) : `outilId`, `outilRef`, `outilNom`,
+`panneIds[]`, `descriptionLibre`, `statut` (signalee|en_reparation|reparee|reformee),
+`dateSignalement`, `dateReparation`, `notes`, `declareePar`/`declareeParNom`,
+`createdAt`/`updatedAt`. Effets miroir sur `outils` (`setDoc merge:true`). Rules :
+`match /outillageInterventions/{id}` (read/create/update **employee**, delete **admin|achat**) ;
+`outils.update` + catalogues parc (`outillageCategories`/`outillagePannes`) acceptent
+désormais **`isAchat()`**.
 
 ### Cluster achat / Esabora
 - `commandesEsabora/{numero}` — id = n° Esabora 6 chiffres. Champs : `codeFournisseur`,
@@ -547,6 +611,11 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Planning — validation L9 (monteur/conducteur) | `src/modules/planning/ValidationAvancement.jsx` |
 | Planning — crons SMS récap | `functions/planningSms.js` |
 | M5 fiche chantier (onglets) | `src/modules/gestion-chantier/ChantierFiche.jsx` |
+| Non-lu messages commandes (helper) | `src/modules/commandes/orderMessages.js` (`hasUnreadMessages`) |
+| Parc — panne & suivi SAV | `ParcDeclarerPanne.jsx` · `ParcInterventionsTab.jsx` · `outillageInterventions.js` |
+| Parc — droits (Achat inclus) | `src/modules/parc-machines/parcUtils.js` |
+| Avancement — unité Étude/TMA + taxonomie | `getCategoriesForEtude` / `getCategoriesForConfig` (`avancement/avancementTasks.js`) |
+| Planning — exposition unité Étude/TMA | `getPosteOptions` (`planning/planningModel.js`) |
 
 ---
 
@@ -720,4 +789,7 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 Mise à jour doc 2026-07-03 [C] : Planning ressources (L8) + M5 (8 onglets, 4 livrés) +
 `planningCreneaux` + crons `planningSms` documentés depuis le code — **pas** de nouvel
 audit live Firestore (volumes `planningCreneaux`/usage réel à re-vérifier au prochain audit).
+Mise à jour 2026-07-03 : parc panne/SAV, Achat gère le parc, taxonomie M3, Étude/TMA
+chantier, CORS quitus, adresse Esabora, messages commandes, bannière monteur — documentés
+depuis le code [C].
 Maintenir à jour quand l'archi évolue.*
