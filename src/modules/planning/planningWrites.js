@@ -25,8 +25,8 @@ export function affectedCreneauPayload({
     chantierId: chantierId || null,
     batiment: hasChantier ? (batiment || null) : null,
     posteAvancementKey: hasChantier ? (poste || null) : null,
-    posteLabel: hasChantier ? (posteLabel || null) : null,
-    tempsEstimeH: hasChantier
+    posteLabel: posteLabel || null,
+    tempsEstimeH: (hasChantier || posteLabel)
       ? (tempsEstimeH !== "" && tempsEstimeH != null ? Number(tempsEstimeH) : demiJourneeHeures(dayIdx))
       : null,
     tacheId: null,
@@ -57,7 +57,7 @@ export function poolCreneauPayload({
     chantierId: chantierId || null,
     batiment: chantierId ? (batiment || null) : null,
     posteAvancementKey: chantierId ? (poste || null) : null,
-    posteLabel: chantierId ? (posteLabel || null) : null,
+    posteLabel: posteLabel || null,
     tempsEstimeH: tempsEstimeH !== "" && tempsEstimeH != null ? Number(tempsEstimeH) : null,
     tacheId: null,
     creePar: source?.creePar || userId,
