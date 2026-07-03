@@ -58,6 +58,10 @@ export function AffectationModal({
   );
   const [batiment, setBatiment] = useState(prefill?.batiment || poolTask?.batiment || "");
   const [poste, setPoste] = useState(prefill?.posteAvancementKey || poolTask?.posteAvancementKey || "");
+  const [tacheLibre, setTacheLibre] = useState(
+    (!prefill?.posteAvancementKey && prefill?.posteLabel) ? prefill.posteLabel
+    : (!poolTask?.posteAvancementKey && poolTask?.posteLabel) ? poolTask.posteLabel : ""
+  );
   const [temps, setTemps] = useState(poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "");
   const [saving, setSaving] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
@@ -120,7 +124,9 @@ export function AffectationModal({
   // ─── Payloads (builders partagés planningWrites — zéro duplication) ──
   const payloadAffected = (res, slot) => {
     const { dayIdx, periode, dateIso } = slotMeta(slot);
-    const lbl = posteLabel(chantierObj, batiment, poste, tasksConfig);
+    const lbl = poste
+      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
+      : (tacheLibre.trim() || null);
     return affectedCreneauPayload({
       res, date: dateIso, periode, dayIdx,
       chantierId, batiment, poste, posteLabel: lbl, tempsEstimeH: temps,
@@ -130,7 +136,9 @@ export function AffectationModal({
 
   const payloadPool = (slot) => {
     const { periode, dateIso } = slotMeta(slot);
-    const lbl = posteLabel(chantierObj, batiment, poste, tasksConfig);
+    const lbl = poste
+      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
+      : (tacheLibre.trim() || null);
     return poolCreneauPayload({
       date: dateIso, periode, chantierId, batiment, poste, posteLabel: lbl,
       tempsEstimeH: temps, source: poolTask, userId: user._id,
@@ -241,7 +249,9 @@ export function AffectationModal({
   const addToAgenda = () => {
     const { dateIso, periode } = slotMeta(fromSlot);
     const c = (allChantiers || []).find((x) => x.num === chantierId) || null;
-    const label = posteLabel(chantierObj, batiment, poste, tasksConfig);
+    const label = poste
+      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
+      : (tacheLibre.trim() || null);
     const resNom = (targetRes || initialRessource)?.nom || "";
     const ics = creneauToICS({
       chantierNom: c?.nom || chantierId, chantierAdresse: c?.adresse || "",
@@ -420,6 +430,10 @@ export function AffectationModal({
                 disabled={!canWrite || !batiment}
                 hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
                 onChange={(e) => setPoste(e.target.value)} />
+              <Field label="Tâche libre (hors avancement)" value={tacheLibre}
+                disabled={!canWrite}
+                onChange={(e) => setTacheLibre(e.target.value)}
+                hint="Laisse le poste vide : cette tâche va au planning avec son temps, mais ne compte pas dans l'avancement." />
               <Field type="number" label="Temps estimé / demi-journée (h)" value={temps}
                 disabled={!canWrite} placeholder="défaut : 4 h (3,5 h le vendredi)"
                 hint="Laisser vide = durée de la demi-journée pour chaque créneau."
