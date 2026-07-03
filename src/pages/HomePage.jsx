@@ -75,6 +75,17 @@ const PLANNING_TILE = {
   enabled: true,
 };
 
+// Tuile Ressources humaines (RH-1) — page indépendante (route module:rh),
+// gatée par le droit rh (module RH). Onglets internes gatés par sous-clé.
+const RH_TILE = {
+  id: "rh",
+  title: "Ressources humaines",
+  subtitle: "Congés & absences",
+  icon: "👥",
+  accent: EPJ.catCourantFaible,
+  enabled: true,
+};
+
 const DASHBOARD_TILE = {
   id: "dashboard",
   title: "Dashboard",
@@ -112,6 +123,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
     can(user, "_dashboards", "public", rolesConfig);
 
   const showPlanning = can(user, "rh.planning", "_access", rolesConfig);
+  const showRH = can(user, "rh", "_access", rolesConfig);
   // Accès au module Parc machines : conditionne aussi la bannière "outils en retard"
   // (sinon un monteur sans accès Parc verrait la bannière et pourrait ouvrir le module).
   const canParc = can(user, "parc-machines", "_access", rolesConfig);
@@ -119,6 +131,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
   const allTiles = [
     ...visibleModules,
     ...(showPlanning ? [PLANNING_TILE] : []),
+    ...(showRH ? [RH_TILE] : []),
     ...(showDashboard ? [DASHBOARD_TILE] : []),
     ...(canSeeDashboards(user) ? [COLLECTION_DASHBOARDS_TILE] : []),
   ];
