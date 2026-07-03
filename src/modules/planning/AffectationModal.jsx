@@ -430,16 +430,17 @@ export function AffectationModal({
                 disabled={!canWrite || !batiment}
                 hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
                 onChange={(e) => setPoste(e.target.value)} />
-              <Field label="Tâche libre (hors avancement)" value={tacheLibre}
-                disabled={!canWrite}
-                onChange={(e) => setTacheLibre(e.target.value)}
-                hint="Laisse le poste vide : cette tâche va au planning avec son temps, mais ne compte pas dans l'avancement." />
               <Field type="number" label="Temps estimé / demi-journée (h)" value={temps}
                 disabled={!canWrite} placeholder="défaut : 4 h (3,5 h le vendredi)"
                 hint="Laisser vide = durée de la demi-journée pour chaque créneau."
                 onChange={(e) => setTemps(e.target.value)} />
             </>
           )}
+
+          <Field label="Tâche libre (hors avancement)" value={tacheLibre}
+            disabled={!canWrite}
+            onChange={(e) => setTacheLibre(e.target.value)}
+            hint="Sans poste : va au planning avec son temps, hors avancement. Chantier facultatif." />
         </div>
 
         {err && (
