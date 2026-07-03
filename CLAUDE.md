@@ -17,11 +17,13 @@ Ce qui tourne = **Commandes (M1)** — désormais avec un **dashboard achat comp
 en prod** (suivi AR fournisseurs, résync, réclamations déterministes, référentiel
 fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers)** + serveur
 MCP. Développé mais peu adopté = Réserves (M4, 1 réserve) + Parc machines (M2).
-**Gestion de chantier (M5) : L1 + onglet Pieuvres (L2) en prod** (nav chantier-first +
-permissions par onglet ; **onglet Pieuvres livré** = collection `pieuvres`, génération
-idempotente + édition ; 6 autres onglets = coquilles « à venir »). Rôle **Achat** ajouté
-en factory (`permissions.js`). Spec seulement = Chiffrage, cockpits, archi N2, mode admin,
-migration v11.
+**Gestion de chantier (M5) en prod** (nav chantier-first + permissions par onglet ;
+**8 onglets, 4 livrés** = Pieuvres, Suivi commandes, Planning, Validation des avancements
+L9 ; 4 coquilles « à venir » = financier, gantt, tma, démarches). **Planning ressources
+(L8) en prod** — socle partagé M5/RH : page dédiée + onglet chantier, taxonomie postes M3,
+tâche libre hors avancement, SMS récap (cron + manuel), export ICS, validation L9.
+Rôle **Achat** ajouté en factory (`permissions.js`). Spec seulement = Chiffrage, cockpits,
+archi N2, mode admin, migration v11, **module RH** (clés `rh.*` posées, pas de code).
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
 - **Cible métier** : **EPJ Électricité Générale**, PME du bâtiment.
@@ -126,6 +128,7 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 │   ├── gmailPollAchat.js           ← étape 3 : achat@ → AR + price-watch + dateLivraisonMin/Max
 │   ├── prepareAchatReclamation.js  ← réclamation/relance fournisseur (gabarit déterministe, 2 modes)
 │   ├── clotureEcartAchat.js        ← clôture d'un écart (ACCORDE|REFUSE|ABANDONNE)
+│   ├── planningSms.js              ← crons récap SMS planning (recap 15h30 + rappel lundi 7h)
 │   ├── lib/gmailCore.js            ← cœur Gmail réutilisable (étape 2, boîte-agnostique)
 │   └── package.json
 │
@@ -145,8 +148,10 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
     └── modules/
         ├── commandes/              ← M1 (CommandesInner.jsx, AchatDashboard.jsx, EsaboraHistory.jsx, …)
         ├── parc-machines/          ← M2
-        ├── avancement/             ← M3
-        └── reserves/               ← M4 (Brique Mail)
+        ├── avancement/             ← M3 (avancementTasks.js = TAXONOMIE postes, réutilisée par Planning)
+        ├── reserves/               ← M4 (Brique Mail)
+        ├── gestion-chantier/       ← M5 (ChantierFiche onglets, PieuvresTab, SuiviCommandesTab, pieuvresModel/Pdf)
+        └── planning/               ← Planning ressources L8 (socle M5/RH) — voir §4
 ```
 
 ---
@@ -159,7 +164,8 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | M2 | Parc machines | Développé (schémas v8) | attente photos, peu de données |
 | M3 | Avancement | EN PROD, dev récent intense | 21 chantiers — usage réel |
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
-| M5 | Gestion de chantier | **L1 + onglet Pieuvres (L2) EN PROD** (nav + permissions onglets ; Pieuvres = collection `pieuvres`, gén. idempotente + édition ; 6 onglets restants vides) | nouveau — pas encore d'usage |
+| M5 | Gestion de chantier | **EN PROD** — 8 onglets, 4 livrés (Pieuvres, Suivi commandes, Planning, Validation avancements L9) ; 4 coquilles (financier, gantt, tma, démarches) | nouveau — usage débutant |
+| L8 | Planning ressources | **EN PROD** — socle transversal (`src/modules/planning/`), branché en M5 (onglet) + page dédiée `module:planning` | nouveau |
 
 Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
 
@@ -170,11 +176,14 @@ Renommage du stub `suivi-esabora` (« Suivi chantier ») → module `gestionChan
 chantiers filtrée `own_chantiers` pour le Conducteur (helper testant `conducteurId`
 + `affectations.conducteurId` + tableaux d'affectation, calibre Avancement) avec
 toggle « Tout voir » ; Admin/Direction = tous ; ouvrir un chantier → **fiche à
-onglets**. 7 onglets, chacun = **clé de permission** `gestionChantier.<onglet>`
-(pieuvres, commandes, financier, suivi, gantt, tma, demarches) ; visibilité gatée
-par `can()`. Assistante ne voit que financier + demarches ; Chef/Monteur/Artisan
-fermés par défaut (Chef ouvrable via `permissionsOverride`). **Lecture seule de
-`chantiers`** (jamais d'écriture). Structure module classique
+onglets**. **8 onglets**, chacun = **clé de permission** `gestionChantier.<onglet>`
+(pieuvres, commandes, planning, financier, suivi, gantt, tma, demarches) ; visibilité
+gatée par `can()`. **4 livrés** : Pieuvres (L2), Suivi commandes (`SuiviCommandesTab`),
+Planning (`PlanningTab`, cf. §4 Planning), Validation des avancements (clé `suivi` →
+`ValidationAvancement`, L9). **4 coquilles « à venir »** : financier, gantt, tma, demarches.
+Assistante ne voit que financier + demarches ; Chef/Monteur/Artisan fermés par défaut
+(Chef ouvrable via `permissionsOverride`). **Lecture seule de `chantiers`** (jamais
+d'écriture). Structure module classique
 (`src/modules/gestion-chantier/`, calibre `avancement/`), pas de split N2.
 Fichiers : `GestionChantierModule.jsx` (landing), `ChantierFiche.jsx` (onglets) ;
 branché dans `App.jsx` (route `module:gestionChantier`) + tuile `HomePage.jsx`.
@@ -192,9 +201,46 @@ doc (`merge:true`), gardée par `can(user,"gestionChantier","edit")`. Rule
 `match /pieuvres/{id}` (read employee / create-update employee / delete conducteur,
 calque `reserves`). **Toujours lecture seule de `chantiers`.**
 
-**Reste à développer** : les 6 autres onglets (commandes, financier, suivi, gantt,
-tma, demarches) + lots L3→L15 de la spec `Spec_M5_GestionChantier_et_RH_V1.md` + le
-**module RH** séparé.
+**Reste à développer** : les 4 onglets coquilles (financier, gantt, tma, demarches) +
+lots restants de la spec `Spec_M5_GestionChantier_et_RH_V1.md` + le **module RH** séparé
+(clés `rh.planning/conges/frais/analyse` posées dans `permissions.js` ; seul `rh.planning`
+est matérialisé via la tuile Planning partagée — pas de dossier `src/modules/rh/`).
+
+### Planning ressources (L8) — socle M5/RH (EN PROD) [C]
+
+Module transversal `src/modules/planning/` (logique pure `planningModel.js` — **aucune
+dépendance Firestore**, réutilise la **taxonomie postes M3** de `avancement/avancementTasks.js`,
+libellés jamais réinventés). **Deux points d'entrée** : page dédiée (route `module:planning`
+dans `App.jsx`, tuile HomePage gatée `rh.planning`) **et** onglet chantier
+(`gestionChantier.planning` → `PlanningTab`). Écrit **UNIQUEMENT** `planningCreneaux`
+(jamais `chantiers`).
+
+**Modèle V3 bidirectionnel** (`AffectationModal.jsx` + `planningWrites.js`) : un créneau
+est **AFFECTÉ** (`ressourceId` non nul, id déterministe `{ressourceId}_{date}_{periode}`)
+ou **POOL « à affecter »** (`ressourceId` null, doc auto-id → plusieurs tâches/slot).
+Le sélecteur Ressource pilote créer/affecter/libérer/supprimer ; anti-collision
+inter-chantiers par `getDoc` autoritatif + `window.confirm` (jamais d'écrasement silencieux).
+Plage Du→Au (multi-demi-journées), `writeBatch` atomique.
+
+- **Tâche libre (hors avancement)** (PR #38, 2026-07-03) : champ texte toujours visible ;
+  poste vide + texte → `posteAvancementKey:null`, `posteLabel:<texte>`, temps saisi/défaut,
+  chantier **facultatif** → part au planning, **ignorée par L9**. Builders relâchés
+  (`posteLabel`/`tempsEstimeH` dégâtés de `hasChantier`, `batiment`/`posteAvancementKey`
+  restent gâtés).
+- **Validation L9** (`ValidationAvancement.jsx`, onglet chantier clé `suivi`) : le Monteur
+  confirme « Tâche faite » (`etatValidationMonteur`), le Conducteur valide/refuse
+  (`etatValidationConducteur`). Rule bornée : le Monteur ne peut flipper QUE ses 3 champs
+  `etatValidationMonteur*`.
+- **SMS récap** : cron (`functions/planningSms.js` — `planningSmsRecap` lun-ven 15h30 →
+  planning du prochain jour ouvré ; `planningSmsRappelLundi` lundi 7h → rappel du jour),
+  **MONTEURS uniquement**, idempotent (id déterministe `smsQueue`), **kill-switch**
+  `config/settings.planningSmsEnabled` (OFF par défaut, toggle Dashboard Direction).
+  + **SMS manuel** depuis `AffectationModal` (geste explicite, non gaté par le kill-switch,
+  préfixe « MODIF - » si un récap auto a déjà été enfilé).
+- **Export ICS** (`icsExport.js`) : bouton « Ajouter à mon agenda » sur un créneau (pur
+  client, lecture seule, **non gaté** `canWrite` — un monteur exporte son créneau).
+- Picker postes **groupé par catégorie** (`GroupedPosteSelect.jsx`) ; création « bulk »
+  mensuelle (`PlanningBulkCreate.jsx`, `ChantierPlanningMonth.jsx`, `PlanningGrid.jsx`).
 
 ### M1 Commandes — dashboard achat (EN PROD depuis 2026-06-07) [V][C]
 
@@ -295,6 +341,15 @@ Cluster achat / Esabora (déployées) :
 `lib/gmailCore.js` = cœur réutilisable (buildGmailClient, runGmailSync, parse,
 downloadAttachments, callClaudeJson) — module lib, pas exporté.
 
+Cluster Planning (déployées, `planningSms.js`, exportées via `index.js`) :
+| Fonction | Rôle |
+|----------|------|
+| `planningSmsRecap` (onSchedule lun-ven 15h30) | récap SMS aux **monteurs** du prochain jour ouvré → `smsQueue` (idempotent) |
+| `planningSmsRappelLundi` (onSchedule lundi 7h) | rappel du planning du jour |
+
+Kill-switch commun : `config/settings.planningSmsEnabled` (OFF par défaut). Lit
+`planningCreneaux`/`chantiers`/`utilisateurs`, écrit **uniquement** `smsQueue`.
+
 **Secrets (Secret Manager)** : `BREVO_API_KEY`, `GMAIL_CLIENT_ID`,
 `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` (sav), `GMAIL_ACHAT_REFRESH_TOKEN`
 (achat, scope `gmail.modify` v3), `ANTHROPIC_API_KEY`, `ESABORA_WEBHOOK_TOKEN`.
@@ -303,14 +358,14 @@ Logique fine non documentée ici : lecture du code `functions/` requise.
 
 ---
 
-## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2, juin 2026)
+## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) [C]
 
 ```
 achatEcartsPrix · avancementValidations · catalogue · chantiers · commandes ·
 commandesEsabora · config · esabora_import · fournisseurs · fournisseursContacts ·
 gmailAchatExtractions · gmailConfig · gmailConfigAchat ·
 outillageCategories · outillagePannes · outillageSorties · outils · pieuvres ·
-reserveMails · reserveMailsAClasser · reserves · reservesCategories ·
+planningCreneaux · reserveMails · reserveMailsAClasser · reserves · reservesCategories ·
 reservesEmetteurs · rolesConfig · smsQueue · smsTemplates · utilisateurs ·
 mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
 ```
@@ -320,6 +375,16 @@ mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
 `dateLivraison` (Timestamp|null), `lieuLivraison` (CHANTIER|BUREAU), `statut`
 (A_DEMANDER|DEMANDEE|PLANS_RECUS|LIVREE), `commandeId`, `remarques`, `createdAt`/`updatedAt`.
 Généré idempotemment depuis `buildings[].config` ; aucune écriture dans `chantiers`.
+
+`planningCreneaux/{id}` (Planning L8) — **AFFECTÉ** : id déterministe
+`{ressourceId}_{date}_{periode}` ; **POOL** : id auto (`ressourceId:null`). Champs :
+`ressourceId`/`ressourceNom`/`ressourceType`, `date` (ISO), `periode` (AM|PM), `chantierId`
+(nullable), `batiment` (lettre, nul si pas de chantier), `posteAvancementKey` (jointure
+taxonomie M3, nul si pas de chantier ou tâche libre), `posteLabel` (poste OU texte libre),
+`tempsEstimeH` (défaut demi-journée : 4 h / 3,5 h vendredi), `tacheId`, états L9
+(`etatValidationMonteur`/`etatValidationConducteur` + `*At`/`*Par`), `smsEnvoye`,
+`creePar`/`modifiePar`/`createdAt`/`updatedAt`. **Écrit uniquement par le module Planning ;
+jamais d'écriture `chantiers`.**
 
 ### Cluster achat / Esabora
 - `commandesEsabora/{numero}` — id = n° Esabora 6 chiffres. Champs : `codeFournisseur`,
@@ -412,6 +477,9 @@ Un GO oral ou implicite ne suffit pas.
   `arAcquitte/arAcquitPar/arAcquitLe/arStatut`, réservées à `isAssistante()`
   (Admin/Direction/Conducteur/Assistante). Aucune création/suppression client.
 - `fournisseurs/{code}` : lecture employés, écriture `isDirection()`.
+- `planningCreneaux/{id}` : read tout employé ; create/update/delete uniformes
+  **Admin/Assistante/Conducteur/Chef chantier** ; update **Monteur** borné aux 3 champs
+  `etatValidationMonteur*` (L9). Le gating fin `own_chantiers`/`own_items` est côté client.
 - L'app tourne avec des **données réelles** (40 commandes, 21 chantiers d'avancement,
   réserves) : perte de commandes/réserves **inacceptable**, perte d'avancement
   rattrapable mais à éviter. Toute modif `firestore.rules`/`storage.rules`/`DataContext.jsx`
@@ -473,6 +541,12 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Dashboard achat (front) | `src/modules/commandes/AchatDashboard.jsx` |
 | Historique commandes Esabora (front) | `src/modules/commandes/EsaboraHistory.jsx` |
 | Admin contacts fournisseurs | `src/pages/admin/AdminFournisseurs.jsx` |
+| Planning — logique pure (semaine, ID créneau, postes) | `src/modules/planning/planningModel.js` |
+| Planning — payloads créneau (source unique) | `src/modules/planning/planningWrites.js` |
+| Planning — surface d'écriture (affecter/pool/libérer) | `src/modules/planning/AffectationModal.jsx` |
+| Planning — validation L9 (monteur/conducteur) | `src/modules/planning/ValidationAvancement.jsx` |
+| Planning — crons SMS récap | `functions/planningSms.js` |
+| M5 fiche chantier (onglets) | `src/modules/gestion-chantier/ChantierFiche.jsx` |
 
 ---
 
@@ -643,4 +717,7 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 ---
 
 *Dernier audit live : 2026-06-07 (MCP Firestore `ap-epj` + GitHub + Vercel).
+Mise à jour doc 2026-07-03 [C] : Planning ressources (L8) + M5 (8 onglets, 4 livrés) +
+`planningCreneaux` + crons `planningSms` documentés depuis le code — **pas** de nouvel
+audit live Firestore (volumes `planningCreneaux`/usage réel à re-vérifier au prochain audit).
 Maintenir à jour quand l'archi évolue.*
