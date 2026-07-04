@@ -29,6 +29,9 @@ import {
   creneauId, terrainResources, resourcesForConductor, chantierColorIndex, posteLabel,
   isMyChantier, rowSegments, weeklyTotalHours, slotToCell, slotIndex, isPool, poolTasksAt,
 } from "./planningModel";
+// Overlay congés (RH-2b) — helper pur ; congesModel dépend déjà de planningModel
+// → pas de cycle. Lecture seule de `conges` (rule read employee en prod).
+import { congeCoversSlot } from "../rh/congesModel";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
 const PALETTE = [
@@ -93,11 +96,38 @@ export function PlanningGrid({ chantier = null }) {
 
   const retry = () => { setError(null); setLoadedSnap(false); setReloadKey((k) => k + 1); };
 
+  // ─── Overlay congés (RH-2b) — lecture live, lecture SEULE de `conges` ───
+  const [conges, setConges] = useState([]);
+  useEffect(() => {
+    const q = query(collection(db, "conges"), where("statut", "==", "ACTIF"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => setConges(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => { console.error("[PlanningGrid] lecture conges échouée :", err); setConges([]); },
+    );
+    return unsub;
+  }, [reloadKey]);
+
   const creneauMap = useMemo(() => {
     const m = new Map();
     rows.forEach((r) => m.set(r.id, r));
     return m;
   }, [rows]);
+
+  // Congés de la semaine affichée, indexés par ressource (filtre client).
+  const congesByRes = useMemo(() => {
+    const wkStart = cols[0]?.iso, wkEnd = cols[cols.length - 1]?.iso;
+    const m = new Map();
+    conges
+      .filter((c) => c.du && c.au && wkStart && wkEnd && c.du <= wkEnd && c.au >= wkStart)
+      .forEach((c) => { const a = m.get(c.ressourceId) || []; a.push(c); m.set(c.ressourceId, a); });
+    return m;
+  }, [conges, cols]);
+  const slotEnConge = (resId, s) => {
+    const { dayIdx, periode } = slotToCell(s);
+    const iso = cols[dayIdx]?.iso;
+    return (congesByRes.get(resId) || []).some((c) => congeCoversSlot(c, iso, periode));
+  };
 
   // date ISO → index de colonne (jour) de la semaine courante.
   const dateToDayIdx = useMemo(() => {
@@ -336,6 +366,15 @@ export function PlanningGrid({ chantier = null }) {
                     {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
                   </div>
 
+                  {/* Couche 0 : fond « Absent » (congés, hachures ; type masqué — confidentialité) */}
+                  {Array.from({ length: NB_SLOTS }).map((_, s) => slotEnConge(r.id, s) ? (
+                    <div key={`cg${s}`} title="Absent"
+                      style={{
+                        gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, zIndex: 0,
+                        background: `repeating-linear-gradient(45deg, ${EPJ.gray100}, ${EPJ.gray100} 6px, ${EPJ.gray200} 6px, ${EPJ.gray200} 12px)`,
+                      }} />
+                  ) : null)}
+
                   {/* Couche 1 : barres (visuel ; les clics traversent vers la couche 2) */}
                   {bars.map((seg) => {
                     const color = PALETTE[chantierColorIndex(seg.chantierId)];
@@ -375,7 +414,11 @@ export function PlanningGrid({ chantier = null }) {
                     return (
                       <div
                         key={`c${s}`}
-                        onClick={clickable ? () => openSlot(r, s) : undefined}
+                        onClick={clickable ? () => {
+                          if (slotEnConge(r.id, s) && !isCovered &&
+                              !window.confirm(`${r.nom} est absent ce créneau. Affecter quand même ?`)) return;
+                          openSlot(r, s);
+                        } : undefined}
                         style={{
                           gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, zIndex: 1,
                           borderLeft: isCovered ? "none" : `1px solid ${EPJ.gray100}`,
@@ -383,7 +426,7 @@ export function PlanningGrid({ chantier = null }) {
                           cursor: clickable ? "pointer" : "default",
                         }}
                       >
-                        {!isCovered && canWrite && <span style={{ color: EPJ.gray300, fontSize: 14 }}>+</span>}
+                        {!isCovered && canWrite && !slotEnConge(r.id, s) && <span style={{ color: EPJ.gray300, fontSize: 14 }}>+</span>}
                       </div>
                     );
                   })}
