@@ -26,6 +26,11 @@ export const CONGE_TYPE_LABEL = {
   AUTRE: "Autre",
 };
 
+// Abrégés courts pour l'affichage en cellule étroite (overlay planning).
+export const CONGE_TYPE_SHORT = {
+  CP: "CP", RTT: "RTT", MALADIE: "Mal.", SANS_SOLDE: "SS", AUTRE: "Abs.",
+};
+
 // Couleur métier par type → tokens EPJ (core/theme). Source unique.
 export const CONGE_TYPE_COLOR = {
   CP: EPJ.blue,
