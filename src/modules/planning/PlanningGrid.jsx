@@ -32,6 +32,7 @@ import {
 // Overlay congés (RH-2b) — helper pur ; congesModel dépend déjà de planningModel
 // → pas de cycle. Lecture seule de `conges` (rule read employee en prod).
 import { congeCoversSlot, CONGE_TYPE_SHORT, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR } from "../rh/congesModel";
+import { PlanningAgendaMobile } from "./PlanningAgendaMobile";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
 const PALETTE = [
@@ -284,6 +285,14 @@ export function PlanningGrid({ chantier = null }) {
         <EmptyBox icon="⏳" text="Chargement du planning…" />
       ) : resources.length === 0 ? (
         <EmptyBox icon="👷" text="Aucune ressource à afficher." />
+      ) : isPwa ? (
+        <PlanningAgendaMobile
+          cols={cols} resources={resources} creneauMap={creneauMap}
+          canWrite={canWrite} openSlot={openSlot}
+          slotEnConge={slotEnConge} congeAtSlot={congeAtSlot}
+          chantierColor={(id) => PALETTE[chantierColorIndex(id)]}
+          chantierById={chantierById} tasksConfig={tasksConfig}
+        />
       ) : (
         <div style={{ overflowX: "auto", border: `1px solid ${EPJ.gray200}`, borderRadius: radius.lg, background: EPJ.white }}>
           <div style={{ minWidth: INNER_MIN_W }}>
