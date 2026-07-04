@@ -31,7 +31,7 @@ import {
 } from "./planningModel";
 // Overlay congés (RH-2b) — helper pur ; congesModel dépend déjà de planningModel
 // → pas de cycle. Lecture seule de `conges` (rule read employee en prod).
-import { congeCoversSlot } from "../rh/congesModel";
+import { congeCoversSlot, CONGE_TYPE_SHORT, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR } from "../rh/congesModel";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
 const PALETTE = [
@@ -123,11 +123,12 @@ export function PlanningGrid({ chantier = null }) {
       .forEach((c) => { const a = m.get(c.ressourceId) || []; a.push(c); m.set(c.ressourceId, a); });
     return m;
   }, [conges, cols]);
-  const slotEnConge = (resId, s) => {
+  const congeAtSlot = (resId, s) => {
     const { dayIdx, periode } = slotToCell(s);
     const iso = cols[dayIdx]?.iso;
-    return (congesByRes.get(resId) || []).some((c) => congeCoversSlot(c, iso, periode));
+    return (congesByRes.get(resId) || []).find((c) => congeCoversSlot(c, iso, periode)) || null;
   };
+  const slotEnConge = (resId, s) => !!congeAtSlot(resId, s);
 
   // date ISO → index de colonne (jour) de la semaine courante.
   const dateToDayIdx = useMemo(() => {
@@ -366,14 +367,28 @@ export function PlanningGrid({ chantier = null }) {
                     {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
                   </div>
 
-                  {/* Couche 0 : fond « Absent » (congés, hachures ; type masqué — confidentialité) */}
-                  {Array.from({ length: NB_SLOTS }).map((_, s) => slotEnConge(r.id, s) ? (
-                    <div key={`cg${s}`} title="Absent"
-                      style={{
-                        gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, zIndex: 0,
-                        background: `repeating-linear-gradient(45deg, ${EPJ.gray100}, ${EPJ.gray100} 6px, ${EPJ.gray200} 6px, ${EPJ.gray200} 12px)`,
-                      }} />
-                  ) : null)}
+                  {/* Couche 0 : bandeau rayé/grisé + cause de l'absence (abrégé, title complet) */}
+                  {Array.from({ length: NB_SLOTS }).map((_, s) => {
+                    const cg = congeAtSlot(r.id, s);
+                    if (!cg) return null;
+                    return (
+                      <div key={`cg${s}`} title={CONGE_TYPE_LABEL[cg.type] || "Absent"}
+                        style={{
+                          gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, zIndex: 0,
+                          background: `repeating-linear-gradient(45deg, ${EPJ.gray100}, ${EPJ.gray100} 6px, ${EPJ.gray200} 6px, ${EPJ.gray200} 12px)`,
+                          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+                        }}>
+                        <span style={{
+                          fontSize: 9, fontWeight: fontWeight.semibold, lineHeight: 1.2,
+                          color: CONGE_TYPE_COLOR[cg.type] || EPJ.gray600,
+                          background: EPJ.white, padding: "0 2px", borderRadius: 2,
+                          maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {CONGE_TYPE_SHORT[cg.type] || "Abs"}
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {/* Couche 1 : barres (visuel ; les clics traversent vers la couche 2) */}
                   {bars.map((seg) => {
