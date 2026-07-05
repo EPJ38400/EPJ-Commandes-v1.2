@@ -1,12 +1,19 @@
 // ═══════════════════════════════════════════════════════════════
-//  CongeModal — surface d'écriture d'un congé / absence (RH-2a)
+//  CongeModal — surface d'écriture d'un congé / absence (RH-2a → RH-2c)
 //
-//  Création ou édition d'un congé (collection racine `conges`).
+//  Deux modes, déduits de can(user,"rh.conges","validate") :
+//   • GESTIONNAIRE (validate === "all" : Direction/Assistante) → saisie
+//     directe : ressource libre, type AVEC maladie, création statut
+//     "VALIDEE" (validationN2 auto). Ex. arrêt maladie.
+//   • DEMANDEUR (tous les autres) → demande d'absence : ressource
+//     VERROUILLÉE sur soi, type SANS maladie, création statut "DEMANDE"
+//     (sauteN1 = conducteur → part direct en attente N2).
+//
 //  Calque visuel de ../planning/AffectationModal (scrim + carte blanche,
 //  primitives DS Field/Button). ÉCRIT UNIQUEMENT dans `conges` :
-//   • création  → addDoc (statut "ACTIF") ;
-//   • édition   → setDoc merge (mise à jour des champs) ;
-//   • annulation → update statut "ANNULE" (JAMAIS de delete).
+//   • création  → addDoc ;
+//   • édition   → setDoc merge (champs éditables, statut/validations intacts) ;
+//   • annulation → update statut "ANNULEE" (JAMAIS de delete).
 // ═══════════════════════════════════════════════════════════════
 import { useState, useMemo } from "react";
 import {
@@ -15,20 +22,29 @@ import {
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useViewport } from "../../core/useViewport";
+import { useData } from "../../core/DataContext";
+import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { terrainResources } from "../planning/planningModel";
 import { CONGE_TYPES, CONGE_TYPE_LABEL } from "./congesModel";
 
-const TYPE_OPTIONS = CONGE_TYPES.map((t) => ({ value: t, label: CONGE_TYPE_LABEL[t] || t }));
 const DEMI_OPTIONS = [
   { value: "AM", label: "Matin" },
   { value: "PM", label: "Après-midi" },
 ];
 
+const userLabel = (u) => `${u?.prenom || ""} ${u?.nom || ""}`.trim();
+
 export function CongeModal({ user, users, conge, onClose }) {
   const isPwa = useViewport() === "mobile";
   const isEdit = !!conge;
+  const { rolesConfig } = useData();
+
+  // ─── Mode (RH-2c) ───
+  const validateScope = can(user, "rh.conges", "validate", rolesConfig);
+  const gestionnaire = validateScope === "all";        // Direction/Assistante : saisie directe + maladie
+  const isConducteur = validateScope === "own_chantiers"; // N1 → sa demande saute N1
 
   const resources = useMemo(() => terrainResources(users), [users]);
   const ressourceOptions = [
@@ -36,7 +52,20 @@ export function CongeModal({ user, users, conge, onClose }) {
     ...resources.map((r) => ({ value: r.id, label: r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom })),
   ];
 
-  const [ressourceId, setRessourceId] = useState(conge?.ressourceId || "");
+  // Types proposés : gestionnaire = tous ; demandeur = sans MALADIE. En édition,
+  // on ré-ajoute le type courant s'il sort du jeu (ex. maladie saisie par un tiers).
+  const typeOptions = useMemo(() => {
+    const base = gestionnaire ? CONGE_TYPES : CONGE_TYPES.filter((t) => t !== "MALADIE");
+    const vals = (isEdit && conge?.type && !base.includes(conge.type)) ? [...base, conge.type] : base;
+    return vals.map((t) => ({ value: t, label: CONGE_TYPE_LABEL[t] || t }));
+  }, [gestionnaire, isEdit, conge]);
+
+  const selfId = user?._id || user?.id || "";
+
+  // Ressource : libre en gestionnaire, verrouillée sur soi en demandeur.
+  const [ressourceId, setRessourceId] = useState(
+    conge?.ressourceId || (gestionnaire ? "" : selfId),
+  );
   const [type, setType] = useState(conge?.type || "CP");
   const [du, setDu] = useState(conge?.du || "");
   const [au, setAu] = useState(conge?.au || "");
@@ -46,6 +75,9 @@ export function CongeModal({ user, users, conge, onClose }) {
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [err, setErr] = useState(null);
+
+  // Nom de la ressource verrouillée (demandeur) : celui du user connecté.
+  const selfNom = userLabel(user) || selfId;
 
   // Validation : ressource + bornes présentes, au >= du.
   const validationError = (() => {
@@ -61,26 +93,50 @@ export function CongeModal({ user, users, conge, onClose }) {
     setSaving(true); setErr(null);
     try {
       const res = resources.find((r) => r.id === ressourceId) || null;
-      const payload = {
+      const ressourceNom = res?.nom || (ressourceId === selfId ? selfNom : ressourceId);
+      const ressourceType = res?.type || "SALARIE";
+      // Champs métier communs (jamais statut/validations ici).
+      const champs = {
         ressourceId,
-        ressourceNom: res?.nom || ressourceId,
-        ressourceType: res?.type || "SALARIE",
+        ressourceNom,
+        ressourceType,
         type,
         du,
         au,
         demiJourneeDebut: demiDebut,
         demiJourneeFin: demiFin,
         motif: motif.trim() || null,
-        statut: "ACTIF",
         updatedAt: serverTimestamp(),
       };
       if (isEdit) {
-        await setDoc(doc(db, "conges", conge.id), payload, { merge: true });
+        // Édition : on ne touche PAS au statut ni au circuit de validation.
+        await setDoc(doc(db, "conges", conge.id), champs, { merge: true });
       } else {
+        // Création : le statut dépend du mode (RH-2c).
+        const workflow = gestionnaire
+          ? {
+              // Saisie directe (ex. maladie) → validée définitivement.
+              statut: "VALIDEE",
+              sauteN1: false,
+              validationN1: null,
+              validationN2: {
+                par: selfId, parNom: selfNom, decision: "OK", date: serverTimestamp(),
+              },
+            }
+          : {
+              // Demande d'absence → circuit de validation.
+              statut: "DEMANDE",
+              sauteN1: isConducteur, // conducteur : part direct en attente N2
+              validationN1: null,
+              validationN2: null,
+            };
         await addDoc(collection(db, "conges"), {
-          ...payload,
-          creePar: user._id || user.id || null,
-          creeParNom: `${user.prenom || ""} ${user.nom || ""}`.trim(),
+          ...champs,
+          ...workflow,
+          demandeParId: selfId,
+          demandeParNom: selfNom,
+          creePar: selfId,
+          creeParNom: selfNom,
           createdAt: serverTimestamp(),
         });
       }
@@ -92,14 +148,16 @@ export function CongeModal({ user, users, conge, onClose }) {
     }
   };
 
-  // Annuler ce congé (jamais de suppression) → statut "ANNULE".
+  // Annuler ce congé (jamais de suppression) → statut "ANNULEE".
+  // Autorisé tant que le congé n'est pas définitivement validé (sauf gestionnaire).
+  const peutAnnuler = isEdit && (gestionnaire || conge?.statut !== "VALIDEE");
   const annuler = async () => {
-    if (saving || cancelling || !isEdit) return;
+    if (saving || cancelling || !peutAnnuler) return;
     if (!window.confirm("Annuler ce congé ? Il ne sera plus affiché dans le planning des absences.")) return;
     setCancelling(true); setErr(null);
     try {
       await updateDoc(doc(db, "conges", conge.id), {
-        statut: "ANNULE",
+        statut: "ANNULEE",
         updatedAt: serverTimestamp(),
       });
       onClose();
@@ -109,6 +167,10 @@ export function CongeModal({ user, users, conge, onClose }) {
       setCancelling(false);
     }
   };
+
+  const titre = isEdit
+    ? "Modifier le congé"
+    : gestionnaire ? "Nouveau congé" : "Demander une absence";
 
   return (
     <div
@@ -133,18 +195,22 @@ export function CongeModal({ user, users, conge, onClose }) {
             fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
             color: EPJ.gray900, letterSpacing: "-0.01em",
           }}>
-            {isEdit ? "Modifier le congé" : "Nouveau congé"}
+            {titre}
           </div>
           <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
-            Congés & absences des équipes
+            {gestionnaire ? "Congés & absences des équipes" : "Votre demande sera soumise à validation"}
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
-          <Field as="select" label="Ressource" value={ressourceId} options={ressourceOptions}
-            onChange={(e) => setRessourceId(e.target.value)} />
+          {gestionnaire ? (
+            <Field as="select" label="Ressource" value={ressourceId} options={ressourceOptions}
+              onChange={(e) => setRessourceId(e.target.value)} />
+          ) : (
+            <Field label="Ressource" value={selfNom} disabled />
+          )}
 
-          <Field as="select" label="Type d'absence" value={type} options={TYPE_OPTIONS}
+          <Field as="select" label="Type d'absence" value={type} options={typeOptions}
             onChange={(e) => setType(e.target.value)} />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
@@ -167,14 +233,14 @@ export function CongeModal({ user, users, conge, onClose }) {
         )}
 
         <div style={{ display: "flex", gap: space.sm, marginTop: space.lg, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <Button variant="ghost" onClick={onClose}>Annuler</Button>
-          {isEdit && (
+          <Button variant="ghost" onClick={onClose}>Fermer</Button>
+          {peutAnnuler && (
             <Button variant="danger" onClick={annuler} loading={cancelling} disabled={saving}>
               Annuler ce congé
             </Button>
           )}
           <Button variant="primary" onClick={save} loading={saving} disabled={cancelling}>
-            {isEdit ? "Enregistrer" : "Créer le congé"}
+            {isEdit ? "Enregistrer" : gestionnaire ? "Créer le congé" : "Envoyer la demande"}
           </Button>
         </div>
       </div>

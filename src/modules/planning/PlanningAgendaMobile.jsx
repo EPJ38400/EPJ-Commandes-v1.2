@@ -12,7 +12,7 @@
 import { EPJ, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { Button } from "../../core/components/Button";
 import { creneauId, slotIndex, PERIODES, PERIODE_LABEL, posteLabel } from "./planningModel";
-import { CONGE_TYPE_LABEL, CONGE_TYPE_COLOR } from "../rh/congesModel";
+import { CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, isFerme } from "../rh/congesModel";
 
 export function PlanningAgendaMobile({
   cols, resources, creneauMap, canWrite, openSlot,
@@ -73,8 +73,11 @@ export function PlanningAgendaMobile({
                         minHeight: 44, padding: `${space.xs}px ${space.md}px`,
                         borderTop: `1px solid ${EPJ.gray100}`,
                         cursor: clickable ? "pointer" : "default",
+                        // Ferme = hachures pâles (historique) ; en attente = très pâles.
                         background: (!assigned && cg)
-                          ? `repeating-linear-gradient(45deg, ${EPJ.gray50}, ${EPJ.gray50} 6px, ${EPJ.gray100} 6px, ${EPJ.gray100} 12px)`
+                          ? (isFerme(cg)
+                              ? `repeating-linear-gradient(45deg, ${EPJ.gray50}, ${EPJ.gray50} 6px, ${EPJ.gray100} 6px, ${EPJ.gray100} 12px)`
+                              : `repeating-linear-gradient(45deg, ${EPJ.white}, ${EPJ.white} 6px, ${EPJ.gray50} 6px, ${EPJ.gray50} 12px)`)
                           : "transparent",
                       }}
                     >
@@ -100,13 +103,23 @@ export function PlanningAgendaMobile({
                           </div>
                         </div>
                       ) : cg ? (
-                        <span style={{
-                          flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.medium,
-                          color: CONGE_TYPE_COLOR[cg.type] || EPJ.gray600,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        }}>
-                          Absent · {CONGE_TYPE_LABEL[cg.type] || "Absent"}
-                        </span>
+                        isFerme(cg) ? (
+                          <span style={{
+                            flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+                            color: CONGE_TYPE_COLOR[cg.type] || EPJ.gray600,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            Absent · {CONGE_TYPE_LABEL[cg.type] || "Absent"}
+                          </span>
+                        ) : (
+                          <span title="Demande en attente" style={{
+                            flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.medium,
+                            color: EPJ.gray400, fontStyle: "italic",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            En attente
+                          </span>
+                        )
                       ) : (
                         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
                           <span style={{ color: EPJ.gray300, fontSize: fontSize.sm }}>—</span>
