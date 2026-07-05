@@ -2,14 +2,12 @@
 //  FraisPage — onglet « Notes de frais » du module RH (RH-Frais-1)
 //
 //  Référentiel du barème « petits déplacements » FBTP, versionné par année
-//  (collection referentielFraisBTP/{annee}). Deux publics, déduits de
-//  can(user,"rh.frais", …) :
-//   • GESTIONNAIRE (view/create = all → Direction/Assistante/Admin) :
-//     sélecteur d'année, saisie éditable (repas, transport/trajet/seuils
-//     par zone, dateEffet, source), « Nouvelle année » (pré-remplie depuis
-//     l'année précédente ou BAREME_2026), « Injecter le barème 2026 ».
-//   • LECTURE (autres) : tableau du barème le plus récent, non éditable —
-//     référence consultable pour vérifier ses indemnités.
+//  (collection referentielFraisBTP/{annee}). Écran RÉSERVÉ AU GESTIONNAIRE :
+//  seuls Admin/Direction/Assistante atteignent l'onglet (gate rh.frais._access),
+//  donc tous ceux qui l'ouvrent éditent. Sélecteur d'année, saisie éditable
+//  (repas, transport/trajet/seuils par zone, dateEffet, source), « Nouvelle
+//  année » (pré-remplie depuis l'année précédente ou BAREME_2026), « Injecter
+//  le barème 2026 ».
 //
 //  Lecture live onSnapshot(referentielFraisBTP), tri par année desc. ÉCRIT
 //  referentielFraisBTP/{annee} (setDoc merge) — aucune autre collection.
@@ -23,15 +21,10 @@ import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
-import { DataTable } from "../../core/components/DataTable";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { EmptyAccess } from "../planning/PlanningTab";
 import { FRAIS_ZONES, FRAIS_ZONE_KM, BAREME_2026 } from "./fraisModel";
-
-// Format € FR (2 décimales).
-const fmtEur = (n) =>
-  `${(Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 // Objet zones { "1a":"", … } vide (pour seed de brouillon).
 const emptyZones = () => Object.fromEntries(FRAIS_ZONES.map((z) => [z, ""]));
@@ -58,9 +51,6 @@ export function FraisPage() {
   const { rolesConfig } = useData();
 
   const accessScope = can(user, "rh.frais", "_access", rolesConfig);
-  const viewScope = can(user, "rh.frais", "view", rolesConfig);
-  const createScope = can(user, "rh.frais", "create", rolesConfig);
-  const gestionnaire = viewScope === "all" || createScope === "all";
   const selfId = user?._id || user?.id || "";
 
   const [baremes, setBaremes] = useState([]); // docs triés année desc
@@ -104,12 +94,11 @@ export function FraisPage() {
     [baremes, anneeCourante],
   );
 
-  // Seed du brouillon d'édition quand l'année courante change (gestionnaire).
+  // Seed du brouillon d'édition quand l'année courante change.
   useEffect(() => {
-    if (!gestionnaire) return;
     setDraft(baremeCourant ? seedDraft(baremeCourant) : null);
     setSaved(false);
-  }, [gestionnaire, baremeCourant]);
+  }, [baremeCourant]);
 
   // ─── Écriture d'un barème (setDoc merge par année) ───
   const writeBareme = async (annee, payload, { isNew } = {}) => {
@@ -211,20 +200,7 @@ export function FraisPage() {
   if (!loaded) return <EmptyBox icon="⏳" text="Chargement du référentiel…" />;
 
   // ─────────────────────────────────────────────────────────────
-  //  Vue LECTURE (non gestionnaire) — barème le plus récent
-  // ─────────────────────────────────────────────────────────────
-  if (!gestionnaire) {
-    if (!baremeCourant) return <EmptyBox icon="🧾" text="Aucun barème n'a encore été saisi." />;
-    return (
-      <div>
-        <BaremeHeader bareme={baremeCourant} />
-        <ReaderTable bareme={baremeCourant} />
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  //  Vue GESTIONNAIRE — sélecteur d'année + saisie éditable
+  //  Saisie GESTIONNAIRE — sélecteur d'année + tableau éditable
   // ─────────────────────────────────────────────────────────────
   const anneeOptions = anneesDispo.map((a) => ({ value: String(a), label: String(a) }));
 
@@ -271,54 +247,6 @@ export function FraisPage() {
       )}
     </div>
   );
-}
-
-// ─────────────────────────────────────────────────────────────
-//  En-tête barème (repas / date d'effet / source) — commun.
-// ─────────────────────────────────────────────────────────────
-function BaremeHeader({ bareme }) {
-  const dateEffet = bareme.dateEffet
-    ? bareme.dateEffet.split("-").reverse().join("/")
-    : "—";
-  return (
-    <div style={{
-      display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: space.lg,
-      background: EPJ.infoBg, border: `1px solid ${EPJ.blue}33`, borderRadius: radius.lg,
-      padding: `${space.sm}px ${space.md}px`, marginBottom: space.md,
-    }}>
-      <span style={{ display: "flex", alignItems: "baseline", gap: space.xs }}>
-        <span style={{ fontSize: 20 }}>🧾</span>
-        <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
-          Barème {bareme.annee}
-        </span>
-      </span>
-      <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>
-        Repas : <strong>{fmtEur(bareme.repas)}</strong>
-      </span>
-      <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>Effet : {dateEffet}</span>
-      {bareme.source && <span style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>Source : {bareme.source}</span>}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Tableau LECTURE (DataTable) — 1 ligne / zone.
-// ─────────────────────────────────────────────────────────────
-function ReaderTable({ bareme }) {
-  const rows = FRAIS_ZONES.map((z) => ({
-    id: z,
-    zone: z,
-    seuil: bareme.seuilsKm?.[z] ?? FRAIS_ZONE_KM[z],
-    transport: Number(bareme.transport?.[z]) || 0,
-    trajet: Number(bareme.trajet?.[z]) || 0,
-  }));
-  const columns = [
-    { key: "zone", header: "Zone", sortable: false },
-    { key: "seuil", header: "≤ km", numeric: true, sortable: false, render: (v) => `${v} km` },
-    { key: "transport", header: "Transport", numeric: true, sortable: false, render: (v) => fmtEur(v) },
-    { key: "trajet", header: "Trajet", numeric: true, sortable: false, render: (v) => fmtEur(v) },
-  ];
-  return <DataTable columns={columns} rows={rows} keyField="id" sortable={false} />;
 }
 
 // ─────────────────────────────────────────────────────────────
