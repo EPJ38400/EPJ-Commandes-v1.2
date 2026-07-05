@@ -15,6 +15,31 @@
 import { EPJ } from "../../core/theme";
 import { PERIODES, fromISO, toISODate, addDays } from "../planning/planningModel";
 
+// ─── Workflow de validation (RH-2c) ────────────────────────────
+// DEMANDE → VALIDEE_N1 → VALIDEE (+ REFUSEE, ANNULEE).
+//   • DEMANDE     : demande d'absence en attente de validation N1 (conducteur).
+//   • VALIDEE_N1  : validée N1, en attente de validation N2 (direction/assistante).
+//   • VALIDEE     : validée définitivement (ferme le créneau au planning).
+//   • REFUSEE     : refusée par N1 ou N2 (n'apparaît plus au planning).
+//   • ANNULEE     : annulée par le demandeur (jamais de delete).
+// Maladie / saisie gestionnaire → VALIDEE direct (pas de circuit N1/N2).
+export const CONGE_STATUTS = ["DEMANDE", "VALIDEE_N1", "VALIDEE", "REFUSEE", "ANNULEE"];
+
+export const CONGE_STATUT_LABEL = {
+  DEMANDE: "En attente N1",
+  VALIDEE_N1: "En attente N2",
+  VALIDEE: "Validé",
+  REFUSEE: "Refusé",
+  ANNULEE: "Annulé",
+};
+
+// Ferme = validé définitivement (grisé PLEIN au planning).
+export const isFerme = (c) => c?.statut === "VALIDEE";
+// En attente = demande non encore validée (hachures PÂLES « en attente »).
+export const isEnAttente = (c) => c?.statut === "DEMANDE" || c?.statut === "VALIDEE_N1";
+// Visible au planning = ferme OU en attente (exclut REFUSEE / ANNULEE).
+export const isVisiblePlanning = (c) => isFerme(c) || isEnAttente(c);
+
 // ─── Types de congé ────────────────────────────────────────────
 export const CONGE_TYPES = ["CP", "RTT", "MALADIE", "SANS_SOLDE", "AUTRE"];
 
