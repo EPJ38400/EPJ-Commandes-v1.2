@@ -202,8 +202,31 @@ service cloud.firestore {
     // PAS de delete client : l'annulation d'un congé passe par un update
     // statut = "ANNULE" (V1 sans workflow de validation).
     match /conges/{id} {
+      // Gestionnaire congés = saisie directe (VALIDEE) + maladie : Direction/Assistante/Admin.
+      function isGestionnaireConges() {
+        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
+      }
       allow read: if isEmployee();
-      allow create, update: if isEmployee();
+
+      // Création : un gestionnaire peut poser n'importe quel statut (VALIDEE direct /
+      // maladie) ; tout autre employé ne peut créer qu'une DEMANDE (pas d'auto-validation).
+      allow create: if isEmployee()
+        && (isGestionnaireConges() || request.resource.data.statut == "DEMANDE");
+
+      // Mise à jour — les transitions de VALIDATION sont réservées aux bons rôles :
+      //  • → VALIDEE_N1 : N1 = conducteur (isConducteur inclut Direction/Admin)
+      //  • → VALIDEE    : N2 = gestionnaire (Direction/Assistante/Admin)
+      //  • → REFUSEE    : un validateur N1 OU N2
+      //  • statut inchangé (édition) ou → ANNULEE : tout employé (gating fin côté client)
+      allow update: if isEmployee() && (
+           request.resource.data.statut == resource.data.statut
+        || (request.resource.data.statut == "VALIDEE_N1" && isConducteur())
+        || (request.resource.data.statut == "VALIDEE"    && isGestionnaireConges())
+        || (request.resource.data.statut == "REFUSEE"    && (isConducteur() || isGestionnaireConges()))
+        || request.resource.data.statut == "ANNULEE"
+      );
+
+      // Pas de delete (annulation = update statut "ANNULEE").
     }
 
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
