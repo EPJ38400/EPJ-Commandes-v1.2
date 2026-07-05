@@ -19,7 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useMemo } from "react";
 import {
-  collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp,
+  collection, query, where, onSnapshot, doc, updateDoc, setDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
@@ -29,13 +29,22 @@ import { useViewport } from "../../core/useViewport";
 import { can } from "../../core/permissions";
 import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
+import { Field } from "../../core/components/Field";
 import { EmptyAccess } from "../planning/PlanningTab";
-import { toISODate, fromISO, terrainResources, resourcesForConductor } from "../planning/planningModel";
+import { toISODate, fromISO, salarieResources, resourcesForConductor } from "../planning/planningModel";
 import { CongeModal } from "./CongeModal";
 import {
   CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
-  congeCoversSlot, isFerme,
+  congeCoversSlot, isFerme, soldeCongesCP, joursOuvrablesDecomptes,
 } from "./congesModel";
+
+// Format jours FR (décimale virgule) : 7.5 → "7,5".
+const fmtJ = (n) => (Number(n) || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+// Adapte un doc rhSoldes vers les args de soldeCongesCP.
+const soldeArgs = (s) => ({
+  soldeInitial: Number(s?.congesSoldeInitial) || 0,
+  ajustement: Number(s?.congesAjustement) || 0,
+});
 
 const MONTH_LABELS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -91,6 +100,34 @@ export function CongesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [modal, setModal] = useState(null); // { conge } (conge null = création)
   const [actingId, setActingId] = useState(null);
+  const [soldesMap, setSoldesMap] = useState({}); // rhSoldes indexés par ressourceId
+  const [showSoldes, setShowSoldes] = useState(false); // panneau « Soldes CP » (gestionnaire)
+
+  // ─── Lecture rhSoldes (RH-3a) — ciblée selon la vue ───
+  //   • salarié (own_items) → uniquement SON doc ;
+  //   • gestionnaire (all)  → toute la collection (panneau + calculs) ;
+  //   • conducteur (own_chantiers) → non requis (pas de compteur CP).
+  useEffect(() => {
+    if (viewScope === "own_items") {
+      if (!selfId) return;
+      const unsub = onSnapshot(
+        doc(db, "rhSoldes", selfId),
+        (d) => setSoldesMap(d.exists() ? { [selfId]: d.data() } : {}),
+        () => setSoldesMap({}),
+      );
+      return unsub;
+    }
+    if (viewScope === "all") {
+      const unsub = onSnapshot(
+        collection(db, "rhSoldes"),
+        (snap) => { const m = {}; snap.forEach((d) => { m[d.id] = d.data(); }); setSoldesMap(m); },
+        () => setSoldesMap({}),
+      );
+      return unsub;
+    }
+    setSoldesMap({});
+    return undefined;
+  }, [viewScope, selfId]);
 
   // ─── Lecture live (statuts vivants du workflow) ───
   useEffect(() => {
@@ -107,8 +144,9 @@ export function CongesPage() {
 
   // ─── Périmètre de ressources (grille + scope conducteur) ───
   const resources = useMemo(() => {
-    if (viewScope === "own_chantiers") return resourcesForConductor(users, chantiers, user);
-    return terrainResources(users);
+    if (viewScope === "own_chantiers")
+      return resourcesForConductor(users, chantiers, user).filter((r) => r.type !== "ARTISAN");
+    return salarieResources(users);
   }, [viewScope, users, chantiers, user]);
 
   // IDs de ressources visibles par le conducteur (filtrage client own_chantiers).
@@ -214,8 +252,24 @@ export function CongesPage() {
   // ─────────────────────────────────────────────────────────────
   if (viewScope === "own_items") {
     const mesConges = scopedConges.slice().sort((a, b) => (a.du > b.du ? -1 : a.du < b.du ? 1 : 0));
+    const monSolde = soldeCongesCP(soldeArgs(soldesMap[selfId]), scopedConges.filter((c) => c.statut === "VALIDEE"));
     return (
       <div>
+        {/* Bandeau compteur Congés payés (RH-3a) */}
+        <div style={{
+          display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: space.sm,
+          background: EPJ.infoBg, border: `1px solid ${EPJ.blue}33`, borderRadius: radius.lg,
+          padding: `${space.sm}px ${space.md}px`, marginBottom: space.md,
+        }}>
+          <span style={{ fontSize: 22 }}>🌴</span>
+          <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+            Congés payés — {fmtJ(monSolde.solde)} j restants
+          </span>
+          <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>
+            (acquis {fmtJ(monSolde.acquis)} j · pris {fmtJ(monSolde.pris)} j depuis le 1er mai)
+          </span>
+        </div>
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
           <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>Mes demandes d'absence</div>
           <Button variant="primary" size="sm" onClick={() => setModal({ conge: null })}>+ Demander une absence</Button>
@@ -240,6 +294,11 @@ export function CongesPage() {
                 <Badge tone={STATUT_TONE[c.statut] || "neutral"} label={CONGE_STATUT_LABEL[c.statut] || c.statut} />
                 <Badge tone={TYPE_TONE[c.type] || "neutral"} label={CONGE_TYPE_LABEL[c.type] || c.type} />
                 <span style={{ fontSize: fontSize.sm, color: EPJ.gray600, fontVariantNumeric: "tabular-nums" }}>{fmtRange(c)}</span>
+                {c.type === "CP" && (
+                  <span style={{ fontSize: fontSize.xs, color: EPJ.gray500, fontVariantNumeric: "tabular-nums" }}>
+                    · {fmtJ(joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin))} j ouvrables
+                  </span>
+                )}
                 {c.motif && (
                   <span style={{ fontSize: fontSize.xs, color: EPJ.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {c.motif}</span>
                 )}
@@ -277,7 +336,10 @@ export function CongesPage() {
           <Button variant="ghost" size="sm" onClick={thisMonth}>Ce mois</Button>
         </div>
         {gestionnaire ? (
-          <Button variant="primary" size="sm" onClick={() => setModal({ conge: null })}>+ Nouveau congé</Button>
+          <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap" }}>
+            <Button variant="secondary" size="sm" onClick={() => setShowSoldes(true)}>🌴 Soldes CP</Button>
+            <Button variant="primary" size="sm" onClick={() => setModal({ conge: null })}>+ Nouveau congé</Button>
+          </div>
         ) : (
           <Button variant="primary" size="sm" onClick={() => setModal({ conge: null })}>+ Demander une absence</Button>
         )}
@@ -376,7 +438,6 @@ export function CongesPage() {
                     <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {r.nom}
                     </span>
-                    {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
                   </div>
                   {days.map((iso) => {
                     const dow = fromISO(iso).getDay();
@@ -453,6 +514,159 @@ export function CongesPage() {
           onClose={() => setModal(null)}
         />
       )}
+
+      {showSoldes && (
+        <SoldesPanel
+          user={user}
+          resources={salarieResources(users)}
+          soldesMap={soldesMap}
+          congesValidees={conges.filter((c) => c.statut === "VALIDEE")}
+          onClose={() => setShowSoldes(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SoldesPanel — saisie des soldes CP par ressource (gestionnaire)
+//  Écrit rhSoldes/{ressourceId} (setDoc merge). acquis/pris/solde calculés
+//  en lecture (soldeCongesCP), les congés VALIDEE étant regroupés par ressource.
+// ─────────────────────────────────────────────────────────────
+function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
+  const isPwa = useViewport() === "mobile";
+  const selfId = user?._id || user?.id || "";
+
+  // Draft éditable (chaînes) seedé depuis rhSoldes.
+  const [draft, setDraft] = useState(() => {
+    const d = {};
+    resources.forEach((r) => {
+      const s = soldesMap[r.id] || {};
+      d[r.id] = {
+        initial: s.congesSoldeInitial != null ? String(s.congesSoldeInitial) : "",
+        ajust: s.congesAjustement != null ? String(s.congesAjustement) : "",
+      };
+    });
+    return d;
+  });
+  const [savingId, setSavingId] = useState(null);
+  const [savedId, setSavedId] = useState(null);
+
+  // Congés VALIDEE regroupés par ressource (pour le calcul « pris »).
+  const congesByRes = useMemo(() => {
+    const m = new Map();
+    (congesValidees || []).forEach((c) => {
+      const a = m.get(c.ressourceId) || [];
+      a.push(c);
+      m.set(c.ressourceId, a);
+    });
+    return m;
+  }, [congesValidees]);
+
+  const setField = (id, key, val) =>
+    setDraft((prev) => ({ ...prev, [id]: { ...prev[id], [key]: val } }));
+
+  const saveRow = async (r) => {
+    if (savingId) return;
+    setSavingId(r.id); setSavedId(null);
+    try {
+      await setDoc(doc(db, "rhSoldes", r.id), {
+        congesSoldeInitial: Number(draft[r.id]?.initial) || 0,
+        congesAjustement: Number(draft[r.id]?.ajust) || 0,
+        updatedBy: selfId,
+        updatedByNom: `${user?.prenom || ""} ${user?.nom || ""}`.trim() || selfId,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setSavedId(r.id);
+    } catch (e) {
+      console.error("[SoldesPanel] enregistrement solde échoué :", e);
+      window.alert("Échec de l'enregistrement du solde. Vérifiez votre connexion et réessayez.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: EPJ.scrim, zIndex: 1000,
+        display: "flex", alignItems: isPwa ? "flex-end" : "center", justifyContent: "center",
+        padding: isPwa ? 0 : space.lg,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: EPJ.white, borderRadius: isPwa ? `${radius.xl}px ${radius.xl}px 0 0` : radius.xl,
+          padding: space.lg, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto",
+          boxShadow: "0 20px 50px rgba(0,0,0,.2)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
+          <div>
+            <div style={{ fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular, color: EPJ.gray900, letterSpacing: "-0.01em" }}>
+              Soldes Congés payés
+            </div>
+            <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
+              Acquis & pris calculés depuis le 1er mai. Solde = initial + acquis + ajustement − pris.
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>Fermer</Button>
+        </div>
+
+        {resources.length === 0 ? (
+          <EmptyBox icon="👷" text="Aucune ressource à afficher." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
+            {resources.map((r) => {
+              const s = soldeCongesCP(
+                { soldeInitial: Number(draft[r.id]?.initial) || 0, ajustement: Number(draft[r.id]?.ajust) || 0 },
+                congesByRes.get(r.id) || [],
+              );
+              const busy = savingId === r.id;
+              return (
+                <div key={r.id} style={{
+                  display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: space.sm,
+                  background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
+                  padding: `${space.sm}px ${space.md}px`,
+                }}>
+                  <div style={{ minWidth: 140, flex: "1 1 140px" }}>
+                    <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.nom}
+                    </div>
+                  </div>
+                  <Field type="number" label="Initial (j)" dense width={92}
+                    value={draft[r.id]?.initial ?? ""} onChange={(e) => setField(r.id, "initial", e.target.value)} />
+                  <Field type="number" label="Ajust. (j)" dense width={92}
+                    value={draft[r.id]?.ajust ?? ""} onChange={(e) => setField(r.id, "ajust", e.target.value)} />
+                  <ReadStat label="Acquis" value={`${fmtJ(s.acquis)} j`} />
+                  <ReadStat label="Pris" value={`${fmtJ(s.pris)} j`} />
+                  <ReadStat label="Solde" value={`${fmtJ(s.solde)} j`} strong />
+                  <Button variant={savedId === r.id ? "secondary" : "primary"} size="sm" onClick={() => saveRow(r)} loading={busy}>
+                    {savedId === r.id ? "✓ Enregistré" : "Enregistrer"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReadStat({ label, value, strong }) {
+  return (
+    <div style={{ minWidth: 62 }}>
+      <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700, marginBottom: space.xs + 2 }}>{label}</div>
+      <div style={{
+        fontSize: fontSize.sm, fontVariantNumeric: "tabular-nums",
+        fontWeight: strong ? fontWeight.semibold : fontWeight.regular,
+        color: strong ? EPJ.gray900 : EPJ.gray600, padding: "6px 0",
+      }}>
+        {value}
+      </div>
     </div>
   );
 }
