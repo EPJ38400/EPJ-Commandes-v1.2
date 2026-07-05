@@ -3,7 +3,9 @@
 //  - Tuiles avec badges de notification (retards outils, avancement)
 //  - Bannière rappel avancement le 20+ du mois
 // ═══════════════════════════════════════════════════════════════
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../core/theme";
 import { Banner } from "../core/components/Banner";
 import { Badge } from "../core/components/Badge";
@@ -19,6 +21,8 @@ import {
 // v10.J — bannière "commandes en retard" basée sur la date pertinente
 import { isOrderLate } from "../modules/commandes/orderDates";
 import { hasUnreadMessages } from "../modules/commandes/orderMessages";
+// RH-badge — file de validation congés (N1 conducteur / N2 direction)
+import { resourcesForConductor } from "../modules/planning/planningModel";
 
 // 5 modules métier
 const MODULES_META = [
@@ -109,7 +113,7 @@ const COLLECTION_DASHBOARDS_TILE = {
 export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashboards }) {
   const { user } = useAuth();
   const isMobile = useViewport() === "mobile";
-  const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes, featureFlags = {} } = useData();
+  const { rolesConfig, outillageSorties, avancementValidations, chantiers, reserves, commandes, users, featureFlags = {} } = useData();
   if (!user) return null;
 
   const visibleModules = MODULES_META.filter(m => {
@@ -144,6 +148,21 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
   const eff = primaryRole ? getEffectiveRolePerms(primaryRole, rolesConfig) : {};
   const homeTiles = eff?._homeTiles || {};
   const curatedTiles = allTiles.filter(t => homeTiles[t.id] !== false);
+
+  // ─── Congés à valider (RH-badge) — listener CIBLÉ : n'ouvre rien pour un
+  //     non-validateur. Lecture SEULE de `conges`, filtrage N1/N2 côté client. ───
+  const validerScope = can(user, "rh.conges", "validate", rolesConfig);
+  const [congesEnCours, setCongesEnCours] = useState([]);
+  useEffect(() => {
+    if (!validerScope) { setCongesEnCours([]); return; }
+    const q = query(collection(db, "conges"), where("statut", "in", ["DEMANDE", "VALIDEE_N1"]));
+    const unsub = onSnapshot(
+      q,
+      (snap) => setCongesEnCours(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      () => setCongesEnCours([]),
+    );
+    return unsub;
+  }, [validerScope]);
 
   // ─── Calcul des notifications ───
   const notifications = useMemo(() => {
@@ -274,8 +293,22 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
         )
       : [];
 
+    // RH-badge — nombre de demandes de congés à valider PAR CE user
+    let rhAValider = 0;
+    if (validerScope === "own_chantiers") {           // Conducteur = N1
+      const ids = new Set(resourcesForConductor(users, chantiers, user).map((r) => r.id));
+      rhAValider = congesEnCours.filter(
+        (c) => c.statut === "DEMANDE" && !c.sauteN1 && ids.has(c.ressourceId),
+      ).length;
+    } else if (validerScope === "all") {              // Direction/Assistante = N2
+      rhAValider = congesEnCours.filter(
+        (c) => c.statut === "VALIDEE_N1" || (c.statut === "DEMANDE" && c.sauteN1),
+      ).length;
+    }
+
     return {
       "parc-machines": computeParcNotifications(outillageSorties),
+      "rh": rhAValider > 0 ? { count: rhAValider } : null,
       "avancement": computeAvancementNotifications({
         avancementValidations, chantiers, user,
       }),
@@ -308,7 +341,7 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
         ? { count: commandesNouveauxMessages.length }
         : null,
     };
-  }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig, featureFlags]);
+  }, [outillageSorties, avancementValidations, chantiers, user, reserves, commandes, rolesConfig, featureFlags, congesEnCours, users, validerScope]);
 
   const showRappelAvancement = isRappelAvancementActif()
     && (notifications.avancement?.count || 0) > 0;
@@ -440,6 +473,17 @@ export function HomePage({ onOpenModule, onOpenDashboard, onOpenCollectionDashbo
           title={`Avancement de ${currentMonthLabel()} à remplir`}
           text={`${notifications.avancement.label} — tape ici pour accéder au module.`}
           onClick={() => onOpenModule("avancement")}
+        />
+      )}
+
+      {/* RH-badge — Bannière "congés à valider" (conducteur N1 / direction N2) */}
+      {(notifications.rh?.count || 0) > 0 && (
+        <Banner
+          tone="info"
+          icon="🌴"
+          title={`${notifications.rh.count} demande${notifications.rh.count > 1 ? "s" : ""} de congés à valider`}
+          text="Tape ici pour ouvrir la file de validation."
+          onClick={() => onOpenModule("rh")}
         />
       )}
 
