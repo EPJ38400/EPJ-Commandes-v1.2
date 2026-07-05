@@ -31,7 +31,7 @@ import {
 } from "./planningModel";
 // Overlay congés (RH-2b) — helper pur ; congesModel dépend déjà de planningModel
 // → pas de cycle. Lecture seule de `conges` (rule read employee en prod).
-import { congeCoversSlot, CONGE_TYPE_SHORT, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR } from "../rh/congesModel";
+import { congeCoversSlot, CONGE_TYPE_SHORT, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, isFerme } from "../rh/congesModel";
 import { PlanningAgendaMobile } from "./PlanningAgendaMobile";
 
 // Palette de pastille (tokens EPJ) — taille alignée sur planningModel (8).
@@ -100,7 +100,7 @@ export function PlanningGrid({ chantier = null }) {
   // ─── Overlay congés (RH-2b) — lecture live, lecture SEULE de `conges` ───
   const [conges, setConges] = useState([]);
   useEffect(() => {
-    const q = query(collection(db, "conges"), where("statut", "==", "ACTIF"));
+    const q = query(collection(db, "conges"), where("statut", "in", ["VALIDEE", "DEMANDE", "VALIDEE_N1"]));
     const unsub = onSnapshot(
       q,
       (snap) => setConges(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
@@ -376,24 +376,29 @@ export function PlanningGrid({ chantier = null }) {
                     {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
                   </div>
 
-                  {/* Couche 0 : bandeau rayé/grisé + cause de l'absence (abrégé, title complet) */}
+                  {/* Couche 0 : bandeau d'absence. Ferme (VALIDEE) = hachures grises
+                      pleines + cause abrégée (rendu historique) ; en attente
+                      (DEMANDE/VALIDEE_N1) = hachures TRÈS PÂLES + « en attente ». */}
                   {Array.from({ length: NB_SLOTS }).map((_, s) => {
                     const cg = congeAtSlot(r.id, s);
                     if (!cg) return null;
+                    const ferme = isFerme(cg);
                     return (
-                      <div key={`cg${s}`} title={CONGE_TYPE_LABEL[cg.type] || "Absent"}
+                      <div key={`cg${s}`} title={ferme ? (CONGE_TYPE_LABEL[cg.type] || "Absent") : "Demande en attente"}
                         style={{
                           gridColumn: `${2 + s} / ${2 + s + 1}`, gridRow: 1, zIndex: 0,
-                          background: `repeating-linear-gradient(45deg, ${EPJ.gray100}, ${EPJ.gray100} 6px, ${EPJ.gray200} 6px, ${EPJ.gray200} 12px)`,
+                          background: ferme
+                            ? `repeating-linear-gradient(45deg, ${EPJ.gray100}, ${EPJ.gray100} 6px, ${EPJ.gray200} 6px, ${EPJ.gray200} 12px)`
+                            : `repeating-linear-gradient(45deg, ${EPJ.gray50}, ${EPJ.gray50} 6px, ${EPJ.gray100} 6px, ${EPJ.gray100} 12px)`,
                           display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
                         }}>
                         <span style={{
                           fontSize: 9, fontWeight: fontWeight.semibold, lineHeight: 1.2,
-                          color: CONGE_TYPE_COLOR[cg.type] || EPJ.gray600,
+                          color: ferme ? (CONGE_TYPE_COLOR[cg.type] || EPJ.gray600) : EPJ.gray400,
                           background: EPJ.white, padding: "0 2px", borderRadius: 2,
                           maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         }}>
-                          {CONGE_TYPE_SHORT[cg.type] || "Abs"}
+                          {ferme ? (CONGE_TYPE_SHORT[cg.type] || "Abs") : "en attente"}
                         </span>
                       </div>
                     );
