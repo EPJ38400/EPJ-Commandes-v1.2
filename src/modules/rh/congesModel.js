@@ -165,9 +165,22 @@ export const RCR_MIN_JOUR = 420; // 7 h
 export const RCR_MIN_DEMI = 210; // 3 h 30
 
 // Minutes de récup décomptées pour une absence [du..au] (bornes de demi-journée).
-// Journée pleine = 420 ; une demi = 210 ; 2 jours pleins = 840.
+// La récup se décompte en jours OUVRÉS (lun-ven), en temps travaillé réel :
+// PAS de samedi rattaché (règle propre aux CP). Journée = 420 ; demi = 210.
 export function minutesRCRDecomptees(du, au, demiDebut = "AM", demiFin = "PM") {
-  return Math.round(joursOuvrablesDecomptes(du, au, demiDebut, demiFin) * RCR_MIN_JOUR);
+  if (!du || !au || au < du) return 0;
+  let jours = 0;
+  let d = fromISO(du);
+  const end = fromISO(au);
+  while (d <= end) {
+    const dow = d.getDay();                 // 0=dim … 6=sam
+    if (dow >= 1 && dow <= 5) jours += 1;    // lun-ven : récup = temps travaillé réel
+    d = addDays(d, 1);
+  }
+  // PAS de samedi rattaché (règle propre aux CP, pas à la récup).
+  if (demiDebut === "PM") jours -= 0.5;
+  if (demiFin === "AM") jours -= 0.5;
+  return Math.round(Math.max(0, jours) * RCR_MIN_JOUR);
 }
 
 // 1er janvier de l'année civile de référence (remise à zéro du compteur RCR).
