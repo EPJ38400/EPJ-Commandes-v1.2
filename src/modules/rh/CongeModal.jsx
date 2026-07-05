@@ -27,7 +27,7 @@ import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { salarieResources } from "../planning/planningModel";
-import { CONGE_TYPES, CONGE_TYPE_LABEL } from "./congesModel";
+import { CONGE_TYPES, CONGE_TYPE_LABEL, minutesRCRDecomptees, formatMinutes } from "./congesModel";
 
 const DEMI_OPTIONS = [
   { value: "AM", label: "Matin" },
@@ -221,6 +221,15 @@ export function CongeModal({ user, users, conge, onClose }) {
             <Field as="select" label="Demi-journée" value={demiFin} options={DEMI_OPTIONS}
               onChange={(e) => setDemiFin(e.target.value)} />
           </div>
+
+          {/* Décompte RÉCUP en heures (dérivé de du/au + demi-journées, pas de saisie libre). */}
+          {type === "RECUP" && du && au && au >= du && (
+            <div style={{ fontSize: fontSize.sm, color: EPJ.gray700, fontWeight: fontWeight.medium }}>
+              Récupération décomptée : <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                {formatMinutes(minutesRCRDecomptees(du, au, demiDebut, demiFin))}
+              </span>
+            </div>
+          )}
 
           <Field as="textarea" label="Motif (optionnel)" value={motif} rows={2}
             placeholder="Précision libre…" onChange={(e) => setMotif(e.target.value)} />
