@@ -26,7 +26,7 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
-import { terrainResources } from "../planning/planningModel";
+import { salarieResources } from "../planning/planningModel";
 import { CONGE_TYPES, CONGE_TYPE_LABEL } from "./congesModel";
 
 const DEMI_OPTIONS = [
@@ -46,10 +46,10 @@ export function CongeModal({ user, users, conge, onClose }) {
   const gestionnaire = validateScope === "all";        // Direction/Assistante : saisie directe + maladie
   const isConducteur = validateScope === "own_chantiers"; // N1 → sa demande saute N1
 
-  const resources = useMemo(() => terrainResources(users), [users]);
+  const resources = useMemo(() => salarieResources(users), [users]);
   const ressourceOptions = [
     { value: "", label: "— Choisir une ressource —" },
-    ...resources.map((r) => ({ value: r.id, label: r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom })),
+    ...resources.map((r) => ({ value: r.id, label: r.nom })),
   ];
 
   // Types proposés : gestionnaire = tous ; demandeur = sans MALADIE. En édition,

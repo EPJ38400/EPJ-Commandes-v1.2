@@ -31,7 +31,7 @@ import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
 import { Field } from "../../core/components/Field";
 import { EmptyAccess } from "../planning/PlanningTab";
-import { toISODate, fromISO, terrainResources, resourcesForConductor } from "../planning/planningModel";
+import { toISODate, fromISO, salarieResources, resourcesForConductor } from "../planning/planningModel";
 import { CongeModal } from "./CongeModal";
 import {
   CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
@@ -144,8 +144,9 @@ export function CongesPage() {
 
   // ─── Périmètre de ressources (grille + scope conducteur) ───
   const resources = useMemo(() => {
-    if (viewScope === "own_chantiers") return resourcesForConductor(users, chantiers, user);
-    return terrainResources(users);
+    if (viewScope === "own_chantiers")
+      return resourcesForConductor(users, chantiers, user).filter((r) => r.type !== "ARTISAN");
+    return salarieResources(users);
   }, [viewScope, users, chantiers, user]);
 
   // IDs de ressources visibles par le conducteur (filtrage client own_chantiers).
@@ -437,7 +438,6 @@ export function CongesPage() {
                     <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {r.nom}
                     </span>
-                    {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
                   </div>
                   {days.map((iso) => {
                     const dow = fromISO(iso).getDay();
@@ -518,7 +518,7 @@ export function CongesPage() {
       {showSoldes && (
         <SoldesPanel
           user={user}
-          resources={terrainResources(users)}
+          resources={salarieResources(users)}
           soldesMap={soldesMap}
           congesValidees={conges.filter((c) => c.statut === "VALIDEE")}
           onClose={() => setShowSoldes(false)}
@@ -633,7 +633,7 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
                 }}>
                   <div style={{ minWidth: 140, flex: "1 1 140px" }}>
                     <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.nom}{r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}> (art.)</span>}
+                      {r.nom}
                     </div>
                   </div>
                   <Field type="number" label="Initial (j)" dense width={92}
