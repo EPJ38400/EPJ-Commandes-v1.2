@@ -3,7 +3,7 @@
 //
 //  Shell à onglets (calque ChantierFiche + GestionChantierModule) :
 //   • Congés / absences (rh.conges) → CongesPage (LIVRÉ, RH-2a) ;
-//   • Notes de frais (rh.frais)     → « Bientôt » ;
+//   • Notes de frais (rh.frais)     → FraisPage (LIVRÉ, RH-Frais-1) ;
 //   • Analyse (rh.analyse)          → « Bientôt ».
 //
 //  ⚠️ AUCUN onglet Planning : le Planning ressources (L8) reste la tuile
@@ -20,13 +20,14 @@ import { ModuleSubHeader } from "../../core/components/ModuleSubHeader";
 import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
 import { CongesPage } from "./CongesPage";
+import { FraisPage } from "./FraisPage";
 
 const ACCENT = EPJ.catCourantFaible;
 
 // Onglets — la clé = sous-clé de permission rh.<clé>.
 const TABS = [
   { key: "rh.conges",  label: "Congés / absences", icon: "🌴", live: true },
-  { key: "rh.frais",   label: "Notes de frais",    icon: "🧾", live: false },
+  { key: "rh.frais",   label: "Notes de frais",    icon: "🧾", live: true },
   { key: "rh.analyse", label: "Analyse",           icon: "📈", live: false },
 ];
 
@@ -107,7 +108,10 @@ export function RHModule({ onExitModule }) {
           {active && active.key === "rh.conges" && (
             <div role="tabpanel"><CongesPage /></div>
           )}
-          {active && active.key !== "rh.conges" && (
+          {active && active.key === "rh.frais" && (
+            <div role="tabpanel"><FraisPage /></div>
+          )}
+          {active && active.key !== "rh.conges" && active.key !== "rh.frais" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",
