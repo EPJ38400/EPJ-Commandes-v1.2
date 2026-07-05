@@ -96,3 +96,59 @@ export function congeDaysList(conge) {
   }
   return out;
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  Compteur Congés payés — décompte BTP en jours OUVRABLES (RH-3a)
+//
+//  Convention BTP bâtiment : on décompte lundi→samedi (le dimanche est
+//  seul exclu) et le « samedi rattaché » — une absence qui finit un
+//  vendredi consomme aussi le samedi suivant. La période d'acquisition
+//  court du 1er mai au 30 avril (2,5 j ouvrables acquis par mois).
+// ═══════════════════════════════════════════════════════════════
+
+// Nombre de jours OUVRABLES décomptés pour une absence [du..au] (bornes
+// de demi-journée). Dimanche exclu ; samedi rattaché si `au` = vendredi.
+export function joursOuvrablesDecomptes(du, au, demiDebut = "AM", demiFin = "PM") {
+  if (!du || !au) return 0;
+  if (au < du) return 0;
+  let n = 0;
+  let d = fromISO(du);
+  const end = fromISO(au);
+  while (d <= end) {
+    const dow = d.getDay();            // 0=dim … 6=sam
+    if (dow !== 0) n += 1;             // lun-sam comptent, dim non
+    d = addDays(d, 1);
+  }
+  if (fromISO(au).getDay() === 5) n += 1;   // au = vendredi → samedi rattaché
+  if (demiDebut === "PM") n -= 0.5;
+  if (demiFin === "AM") n -= 0.5;
+  return Math.max(0, n);
+}
+
+// 1er mai de la période d'acquisition courante :
+//   mois >= mai (index 4) → 1er mai année courante ; sinon année précédente.
+export function debutPeriodeMai(dateRef = new Date()) {
+  const y = dateRef.getMonth() >= 4 ? dateRef.getFullYear() : dateRef.getFullYear() - 1;
+  return new Date(y, 4, 1); // 1er mai (mois index 4)
+}
+
+// Jours de CP acquis depuis le 1er mai courant : 2,5 × mois entamés (mois
+// courant inclus). Ex. juillet → mai,juin,juillet = 3 mois → 7,5 j.
+export function joursAcquisCP(dateRef = new Date()) {
+  const start = debutPeriodeMai(dateRef);
+  const mois = (dateRef.getFullYear() - start.getFullYear()) * 12
+    + (dateRef.getMonth() - start.getMonth()) + 1;
+  return 2.5 * Math.max(0, mois);
+}
+
+// Solde CP d'un salarié : acquis (période courante) + soldeInitial + ajustement
+// − pris. `congesUser` = congés VALIDEE de ce salarié ; on ne compte comme
+// « pris » que les CP dont `du` >= 1er mai courant (remise à zéro annuelle).
+export function soldeCongesCP({ soldeInitial = 0, ajustement = 0 } = {}, congesUser = [], dateRef = new Date()) {
+  const debutISO = toISODate(debutPeriodeMai(dateRef));
+  const acquis = joursAcquisCP(dateRef);
+  const pris = (congesUser || [])
+    .filter((c) => c.type === "CP" && c.du && c.du >= debutISO)
+    .reduce((s, c) => s + joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin), 0);
+  return { acquis, pris, solde: soldeInitial + acquis + ajustement - pris };
+}
