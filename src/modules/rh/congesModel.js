@@ -41,11 +41,11 @@ export const isEnAttente = (c) => c?.statut === "DEMANDE" || c?.statut === "VALI
 export const isVisiblePlanning = (c) => isFerme(c) || isEnAttente(c);
 
 // ─── Types de congé ────────────────────────────────────────────
-export const CONGE_TYPES = ["CP", "RTT", "MALADIE", "SANS_SOLDE", "AUTRE"];
+export const CONGE_TYPES = ["CP", "RECUP", "MALADIE", "SANS_SOLDE", "AUTRE"];
 
 export const CONGE_TYPE_LABEL = {
   CP: "Congés payés",
-  RTT: "RTT",
+  RECUP: "Récupération",
   MALADIE: "Maladie",
   SANS_SOLDE: "Sans solde",
   AUTRE: "Autre",
@@ -53,13 +53,13 @@ export const CONGE_TYPE_LABEL = {
 
 // Abrégés courts pour l'affichage en cellule étroite (overlay planning).
 export const CONGE_TYPE_SHORT = {
-  CP: "CP", RTT: "RTT", MALADIE: "Mal.", SANS_SOLDE: "SS", AUTRE: "Abs.",
+  CP: "CP", RECUP: "Récup", MALADIE: "Mal.", SANS_SOLDE: "SS", AUTRE: "Abs.",
 };
 
 // Couleur métier par type → tokens EPJ (core/theme). Source unique.
 export const CONGE_TYPE_COLOR = {
   CP: EPJ.blue,
-  RTT: EPJ.green,
+  RECUP: EPJ.green,
   MALADIE: EPJ.red,
   SANS_SOLDE: EPJ.gray600,
   AUTRE: EPJ.orange,
@@ -151,4 +151,62 @@ export function soldeCongesCP({ soldeInitial = 0, ajustement = 0 } = {}, congesU
     .filter((c) => c.type === "CP" && c.du && c.du >= debutISO)
     .reduce((s, c) => s + joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin), 0);
   return { acquis, pris, solde: soldeInitial + acquis + ajustement - pris };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Compteur RCR / Récupération — décompte en MINUTES (RH-3b)
+//
+//  Une journée ouvrable de récup = 7 h (420 min), une demi-journée = 3 h 30
+//  (210 min). Le décompte réutilise la logique BTP de joursOuvrablesDecomptes
+//  (dimanche exclu, samedi rattaché) : minutes = jours ouvrables × 420. Le
+//  compteur est ANNUEL CIVIL (remise à zéro le 1er janvier, art. 4.3).
+// ═══════════════════════════════════════════════════════════════
+export const RCR_MIN_JOUR = 420; // 7 h
+export const RCR_MIN_DEMI = 210; // 3 h 30
+
+// Minutes de récup décomptées pour une absence [du..au] (bornes de demi-journée).
+// La récup se décompte en jours OUVRÉS (lun-ven), en temps travaillé réel :
+// PAS de samedi rattaché (règle propre aux CP). Journée = 420 ; demi = 210.
+export function minutesRCRDecomptees(du, au, demiDebut = "AM", demiFin = "PM") {
+  if (!du || !au || au < du) return 0;
+  let jours = 0;
+  let d = fromISO(du);
+  const end = fromISO(au);
+  while (d <= end) {
+    const dow = d.getDay();                 // 0=dim … 6=sam
+    if (dow >= 1 && dow <= 5) jours += 1;    // lun-ven : récup = temps travaillé réel
+    d = addDays(d, 1);
+  }
+  // PAS de samedi rattaché (règle propre aux CP, pas à la récup).
+  if (demiDebut === "PM") jours -= 0.5;
+  if (demiFin === "AM") jours -= 0.5;
+  return Math.round(Math.max(0, jours) * RCR_MIN_JOUR);
+}
+
+// 1er janvier de l'année civile de référence (remise à zéro du compteur RCR).
+export function debutAnneeCivile(dateRef = new Date()) {
+  return new Date(dateRef.getFullYear(), 0, 1);
+}
+
+// Solde RCR d'un salarié (en minutes). `rcrSoldeMinutes` = crédit saisi par le
+// gestionnaire ; `pris` = Σ minutes des RECUP VALIDEE de l'année civile courante.
+// Solde négatif possible (sur-consommation).
+export function soldeRCR({ rcrSoldeMinutes = 0 } = {}, congesUser = [], dateRef = new Date()) {
+  const debutISO = toISODate(debutAnneeCivile(dateRef));
+  const pris = (congesUser || [])
+    .filter((c) => c.type === "RECUP" && c.statut === "VALIDEE" && c.du && c.du >= debutISO)
+    .reduce((s, c) => s + minutesRCRDecomptees(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin), 0);
+  const saisi = Number(rcrSoldeMinutes) || 0;
+  return { saisi, pris, solde: saisi - pris };
+}
+
+// Formate des minutes en "Xh MM" (ex. 210 → "3h30", 60 → "1h00"). Gère le signe
+// négatif (solde sur-consommé) : -90 → "-1h30".
+export function formatMinutes(min) {
+  const m = Math.round(Number(min) || 0);
+  const sign = m < 0 ? "-" : "";
+  const abs = Math.abs(m);
+  const h = Math.floor(abs / 60);
+  const mm = abs % 60;
+  return `${sign}${h}h${String(mm).padStart(2, "0")}`;
 }

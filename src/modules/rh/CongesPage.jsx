@@ -28,6 +28,7 @@ import { useData } from "../../core/DataContext";
 import { useViewport } from "../../core/useViewport";
 import { can } from "../../core/permissions";
 import { Badge } from "../../core/components/Badge";
+import { Banner } from "../../core/components/Banner";
 import { Button } from "../../core/components/Button";
 import { Field } from "../../core/components/Field";
 import { EmptyAccess } from "../planning/PlanningTab";
@@ -36,6 +37,7 @@ import { CongeModal } from "./CongeModal";
 import {
   CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
   congeCoversSlot, isFerme, soldeCongesCP, joursOuvrablesDecomptes,
+  soldeRCR, minutesRCRDecomptees, formatMinutes,
 } from "./congesModel";
 
 // Format jours FR (décimale virgule) : 7.5 → "7,5".
@@ -45,6 +47,10 @@ const soldeArgs = (s) => ({
   soldeInitial: Number(s?.congesSoldeInitial) || 0,
   ajustement: Number(s?.congesAjustement) || 0,
 });
+// Args du solde RCR (minutes) depuis un doc rhSoldes.
+const rcrArgs = (s) => ({ rcrSoldeMinutes: Number(s?.rcrSoldeMinutes) || 0 });
+// Plafond d'alerte RCR : 7 j = 2940 min (art. plafond récup).
+const RCR_PLAFOND_MIN = 2940;
 
 const MONTH_LABELS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -54,7 +60,7 @@ const WEEKDAY_LETTER = ["D", "L", "M", "M", "J", "V", "S"];
 
 // Type → tone Badge (aligné sur CONGE_TYPE_COLOR).
 const TYPE_TONE = {
-  CP: "info", RTT: "success", MALADIE: "danger", SANS_SOLDE: "neutral", AUTRE: "warning",
+  CP: "info", RECUP: "success", MALADIE: "danger", SANS_SOLDE: "neutral", AUTRE: "warning",
 };
 // Statut → tone Badge.
 const STATUT_TONE = {
@@ -252,23 +258,58 @@ export function CongesPage() {
   // ─────────────────────────────────────────────────────────────
   if (viewScope === "own_items") {
     const mesConges = scopedConges.slice().sort((a, b) => (a.du > b.du ? -1 : a.du < b.du ? 1 : 0));
-    const monSolde = soldeCongesCP(soldeArgs(soldesMap[selfId]), scopedConges.filter((c) => c.statut === "VALIDEE"));
+    const mesValidees = scopedConges.filter((c) => c.statut === "VALIDEE");
+    const monSolde = soldeCongesCP(soldeArgs(soldesMap[selfId]), mesValidees);
+    const monRCR = soldeRCR(rcrArgs(soldesMap[selfId]), mesValidees);
+    // Alertes plafonds (non bloquantes) : solde RCR > 7 j, ou prise RECUP > 5 j.
+    const rcrDepassePlafond = monRCR.solde > RCR_PLAFOND_MIN;
+    const rcrLonguePrise = mesValidees.some(
+      (c) => c.type === "RECUP" && joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin) > 5,
+    );
     return (
       <div>
-        {/* Bandeau compteur Congés payés (RH-3a) */}
+        {/* Bandeau compteurs Congés payés + Récupération (RH-3a / RH-3b) */}
         <div style={{
-          display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: space.sm,
+          display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: space.md,
           background: EPJ.infoBg, border: `1px solid ${EPJ.blue}33`, borderRadius: radius.lg,
           padding: `${space.sm}px ${space.md}px`, marginBottom: space.md,
         }}>
-          <span style={{ fontSize: 22 }}>🌴</span>
-          <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
-            Congés payés — {fmtJ(monSolde.solde)} j restants
+          <span style={{ display: "flex", alignItems: "baseline", gap: space.xs, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 22 }}>🌴</span>
+            <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+              Congés payés — {fmtJ(monSolde.solde)} j restants
+            </span>
+            <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>
+              (acquis {fmtJ(monSolde.acquis)} j · pris {fmtJ(monSolde.pris)} j depuis le 1er mai)
+            </span>
           </span>
-          <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>
-            (acquis {fmtJ(monSolde.acquis)} j · pris {fmtJ(monSolde.pris)} j depuis le 1er mai)
+          <span style={{ display: "flex", alignItems: "baseline", gap: space.xs, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 18 }}>⏱️</span>
+            <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+              Récup — {formatMinutes(monRCR.solde)}
+            </span>
+            <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>
+              (crédit {formatMinutes(monRCR.saisi)} · pris {formatMinutes(monRCR.pris)} cette année)
+            </span>
           </span>
         </div>
+
+        {rcrDepassePlafond && (
+          <Banner
+            tone="warning"
+            icon="⏱️"
+            title={`Récup au-delà du plafond (${formatMinutes(monRCR.solde)})`}
+            text="Le solde de récupération dépasse 7 jours (49 h). Pense à le solder."
+          />
+        )}
+        {rcrLonguePrise && (
+          <Banner
+            tone="info"
+            icon="ℹ️"
+            title="Récup longue"
+            text="Une récupération couvre plus de 5 jours consécutifs."
+          />
+        )}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
           <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>Mes demandes d'absence</div>
@@ -297,6 +338,11 @@ export function CongesPage() {
                 {c.type === "CP" && (
                   <span style={{ fontSize: fontSize.xs, color: EPJ.gray500, fontVariantNumeric: "tabular-nums" }}>
                     · {fmtJ(joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin))} j ouvrables
+                  </span>
+                )}
+                {c.type === "RECUP" && (
+                  <span style={{ fontSize: fontSize.xs, color: EPJ.gray500, fontVariantNumeric: "tabular-nums" }}>
+                    · {formatMinutes(minutesRCRDecomptees(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin))}
                   </span>
                 )}
                 {c.motif && (
@@ -537,14 +583,18 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
   const isPwa = useViewport() === "mobile";
   const selfId = user?._id || user?.id || "";
 
-  // Draft éditable (chaînes) seedé depuis rhSoldes.
+  // Draft éditable (chaînes) seedé depuis rhSoldes. Le crédit RCR est saisi en
+  // h + min (mini-picker) mais stocké en MINUTES dans rhSoldes.rcrSoldeMinutes.
   const [draft, setDraft] = useState(() => {
     const d = {};
     resources.forEach((r) => {
       const s = soldesMap[r.id] || {};
+      const rcrMin = Number(s.rcrSoldeMinutes) || 0;
       d[r.id] = {
         initial: s.congesSoldeInitial != null ? String(s.congesSoldeInitial) : "",
         ajust: s.congesAjustement != null ? String(s.congesAjustement) : "",
+        rcrH: rcrMin ? String(Math.floor(rcrMin / 60)) : "",
+        rcrM: rcrMin ? String(rcrMin % 60) : "",
       };
     });
     return d;
@@ -570,9 +620,11 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
     if (savingId) return;
     setSavingId(r.id); setSavedId(null);
     try {
+      const rcrMinutes = (Number(draft[r.id]?.rcrH) || 0) * 60 + (Number(draft[r.id]?.rcrM) || 0);
       await setDoc(doc(db, "rhSoldes", r.id), {
         congesSoldeInitial: Number(draft[r.id]?.initial) || 0,
         congesAjustement: Number(draft[r.id]?.ajust) || 0,
+        rcrSoldeMinutes: rcrMinutes,
         updatedBy: selfId,
         updatedByNom: `${user?.prenom || ""} ${user?.nom || ""}`.trim() || selfId,
         updatedAt: serverTimestamp(),
@@ -606,10 +658,10 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
           <div>
             <div style={{ fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular, color: EPJ.gray900, letterSpacing: "-0.01em" }}>
-              Soldes Congés payés
+              Soldes Congés payés & Récupération
             </div>
             <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
-              Acquis & pris calculés depuis le 1er mai. Solde = initial + acquis + ajustement − pris.
+              CP : solde = initial + acquis + ajustement − pris (depuis le 1er mai). RCR : crédit − pris (année civile).
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>Fermer</Button>
@@ -624,6 +676,8 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
                 { soldeInitial: Number(draft[r.id]?.initial) || 0, ajustement: Number(draft[r.id]?.ajust) || 0 },
                 congesByRes.get(r.id) || [],
               );
+              const rcrMinutes = (Number(draft[r.id]?.rcrH) || 0) * 60 + (Number(draft[r.id]?.rcrM) || 0);
+              const rcr = soldeRCR({ rcrSoldeMinutes: rcrMinutes }, congesByRes.get(r.id) || []);
               const busy = savingId === r.id;
               return (
                 <div key={r.id} style={{
@@ -636,13 +690,19 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
                       {r.nom}
                     </div>
                   </div>
-                  <Field type="number" label="Initial (j)" dense width={92}
+                  <Field type="number" label="Initial (j)" dense width={80}
                     value={draft[r.id]?.initial ?? ""} onChange={(e) => setField(r.id, "initial", e.target.value)} />
-                  <Field type="number" label="Ajust. (j)" dense width={92}
+                  <Field type="number" label="Ajust. (j)" dense width={80}
                     value={draft[r.id]?.ajust ?? ""} onChange={(e) => setField(r.id, "ajust", e.target.value)} />
                   <ReadStat label="Acquis" value={`${fmtJ(s.acquis)} j`} />
                   <ReadStat label="Pris" value={`${fmtJ(s.pris)} j`} />
-                  <ReadStat label="Solde" value={`${fmtJ(s.solde)} j`} strong />
+                  <ReadStat label="Solde CP" value={`${fmtJ(s.solde)} j`} strong />
+                  {/* Crédit RCR : mini-picker h + min (stocké en minutes). */}
+                  <Field type="number" label="RCR (h)" dense width={70}
+                    value={draft[r.id]?.rcrH ?? ""} onChange={(e) => setField(r.id, "rcrH", e.target.value)} />
+                  <Field type="number" label="min" dense width={64}
+                    value={draft[r.id]?.rcrM ?? ""} onChange={(e) => setField(r.id, "rcrM", e.target.value)} />
+                  <ReadStat label="Solde RCR" value={formatMinutes(rcr.solde)} strong />
                   <Button variant={savedId === r.id ? "secondary" : "primary"} size="sm" onClick={() => saveRow(r)} loading={busy}>
                     {savedId === r.id ? "✓ Enregistré" : "Enregistrer"}
                   </Button>
