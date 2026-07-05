@@ -24,9 +24,14 @@ collection `outillageInterventions`).
 L9 ; 4 coquilles « à venir » = financier, gantt, tma, démarches). **Planning ressources
 (L8) en prod** — socle partagé M5/RH : page dédiée + onglet chantier, taxonomie postes M3,
 tâche libre hors avancement, SMS récap (cron + manuel), export ICS, validation L9.
+**Module RH (séparé) : tuile + onglet Congés en prod** (collection `conges`,
+validation ACTIF|ANNULE, PAS de workflow N1/N2 en V1) ; **Planning ressources L8
+en prod** (collection `planningCreneaux`) avec **overlay congés** (demi-journées
+grisées + cause) et **vue agenda mobile** (isPwa).
 Rôle **Achat** ajouté en factory (`permissions.js`) — **gère désormais l'intégralité du
-parc machines**. Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11,
-**module RH** (clés `rh.*` posées, pas de code).
+parc machines**. Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
+**Module RH** : tuile + onglet Congés livrés (voir §4) ; onglets Frais/Analyse encore
+« Bientôt », workflow de validation des congés (N1/N2) non développé.
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
 - **Cible métier** : **EPJ Électricité Générale**, PME du bâtiment.
@@ -174,6 +179,7 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
 | M5 | Gestion de chantier | **EN PROD** — 8 onglets, 4 livrés (Pieuvres, Suivi commandes, Planning, Validation avancements L9) ; 4 coquilles (financier, gantt, tma, démarches) | nouveau — usage débutant |
 | L8 | Planning ressources | **EN PROD** — socle transversal (`src/modules/planning/`), branché en M5 (onglet) + page dédiée `module:planning` | nouveau |
+| RH | Ressources humaines (module séparé) | **Tuile + onglet Congés (RH-2a) EN PROD** ; overlay congés + agenda mobile sur le Planning L8 (RH-2b/2d) | nouveau |
 
 Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
 
@@ -249,6 +255,37 @@ Plage Du→Au (multi-demi-journées), `writeBatch` atomique.
   client, lecture seule, **non gaté** `canWrite` — un monteur exporte son créneau).
 - Picker postes **groupé par catégorie** (`GroupedPosteSelect.jsx`) ; création « bulk »
   mensuelle (`PlanningBulkCreate.jsx`, `ChantierPlanningMonth.jsx`, `PlanningGrid.jsx`).
+
+### Module RH — Congés + overlay planning + agenda mobile (EN PROD) [C]
+
+Module **séparé** `src/modules/rh/`, distinct du Planning ressources L8 (décrit
+ci-dessus — tuile standalone `module:planning` gatée `rh.planning`, grille hebdo
+ressources × jours × AM/PM, écrit `planningCreneaux`, id
+`creneauId = {ressourceId}_{date}_{periode}`, copie S-1, scopes
+`own_items`/`own_chantiers`/`all` ; fichiers `PlanningPage`/`PlanningGrid`/`planningModel`).
+
+- **Tuile + shell RH** (RH-2a) : tuile HomePage gatée `rh` (`_access`) → route
+  `module:rh` → `RHModule.jsx` (accent `catCourantFaible`). Onglets gatés par sous-clé
+  `can(user, "rh.<clé>", "_access")` : **Congés / absences** (vivant), **Notes de frais**
+  et **Analyse** = coquilles « Bientôt ». **AUCUN onglet Planning** (le Planning reste
+  la tuile standalone L8).
+- **Onglet Congés** (`CongesPage.jsx` / `CongeModal.jsx` / `congesModel.js`) : gate
+  `rh.conges` — en V1 **Admin/Direction/Assistante** (factory `view:all`, pas de branche
+  conducteur). Lecture live `where statut=="ACTIF"` (égalité simple, **pas d'index
+  composite**), filtrage mois client. Vue **mensuelle** « qui est absent quand »
+  (lignes = ressources terrain, colonnes = jours, demi-cellules AM/PM colorées par type)
+  + liste éditable + saisie. Annulation = **update `statut:"ANNULE"`** (jamais de delete).
+- **Overlay congés sur le Planning** (RH-2b/bis) : `PlanningGrid` lit `conges`
+  (**lecture seule**, `where statut=="ACTIF"`, filtre semaine client) et grise les
+  demi-journées absentes (hachures) **+ écrit la CAUSE abrégée** (CP/RTT/Mal./SS/Abs.,
+  `title` = libellé complet, teinte `CONGE_TYPE_COLOR`). Garde-fou `window.confirm`
+  avant d'affecter un slot en congé vide ; le « + » incitatif est masqué sur ces slots.
+- **Agenda mobile** (RH-2d) : sous `isPwa`, `PlanningGrid` bifurque vers
+  `PlanningAgendaMobile.jsx` (liste verticale ressource → jours → demi-journées, cibles
+  tactiles ≥ 44 px, réutilise `openSlot`, **aucune écriture propre**). Desktop = grille
+  inchangée à l'octet ; seule la zone grille bifurque, la barre d'outils reste commune.
+- **Roadmap RH** : Frais/Analyse à développer ; workflow de validation des congés
+  (monteur → N1 → N2) prévu en lot ultérieur (RH-2c), non développé.
 
 ### M2 Parc machines — déclaration de panne + suivi SAV (2026-07) [C]
 
@@ -414,11 +451,11 @@ Logique fine non documentée ici : lecture du code `functions/` requise.
 
 ---
 
-## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) + `outillageInterventions` (Parc SAV, 2026-07) [C]
+## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) + `outillageInterventions` (Parc SAV, 2026-07) + `conges` (Module RH, 2026-07) [C]
 
 ```
 achatEcartsPrix · avancementValidations · catalogue · chantiers · commandes ·
-commandesEsabora · config · esabora_import · fournisseurs · fournisseursContacts ·
+commandesEsabora · conges · config · esabora_import · fournisseurs · fournisseursContacts ·
 gmailAchatExtractions · gmailConfig · gmailConfigAchat ·
 outillageCategories · outillageInterventions · outillagePannes · outillageSorties · outils · pieuvres ·
 planningCreneaux · reserveMails · reserveMailsAClasser · reserves · reservesCategories ·
@@ -441,6 +478,13 @@ taxonomie M3, nul si pas de chantier ou tâche libre), `posteLabel` (poste OU te
 (`etatValidationMonteur`/`etatValidationConducteur` + `*At`/`*Par`), `smsEnvoye`,
 `creePar`/`modifiePar`/`createdAt`/`updatedAt`. **Écrit uniquement par le module Planning ;
 jamais d'écriture `chantiers`.**
+
+`conges/{autoId}` (Module RH — onglet Congés, RH-2a) : `ressourceId` (= id user, aligné
+`planningCreneaux`), `ressourceNom`/`ressourceType` (SALARIE|ARTISAN), `type`
+(CP|RTT|MALADIE|SANS_SOLDE|AUTRE), `du`/`au` (ISO, inclus), `demiJourneeDebut`/`demiJourneeFin`
+(AM|PM), `motif` (nullable), `statut` (ACTIF|ANNULE), `creePar`/`creeParNom`,
+`createdAt`/`updatedAt`. Lu par l'onglet Congés (vue mensuelle) ET par `PlanningGrid`
+(overlay, **lecture seule**). Annulation = update `statut:"ANNULE"` (jamais de delete).
 
 `outillageInterventions/{id}` (M2 Parc SAV, 2026-07) : `outilId`, `outilRef`, `outilNom`,
 `panneIds[]`, `descriptionLibre`, `statut` (signalee|en_reparation|reparee|reformee),
@@ -544,6 +588,12 @@ Un GO oral ou implicite ne suffit pas.
 - `planningCreneaux/{id}` : read tout employé ; create/update/delete uniformes
   **Admin/Assistante/Conducteur/Chef chantier** ; update **Monteur** borné aux 3 champs
   `etatValidationMonteur*` (L9). Le gating fin `own_chantiers`/`own_items` est côté client.
+  Écrit par le Planning ressources (L8) ; l'overlay congés et l'agenda mobile sont en
+  **lecture seule** de `conges`, aucune écriture ajoutée.
+- `conges/{id}` : rule `match /conges/{id}` = read + create/update tout **employé
+  authentifié** (calque `pieuvres`), **PAS de delete client** (annulation = update
+  `statut:"ANNULE"`). Le gating fin `rh.conges` (Admin/Direction/Assistante en V1) est
+  assuré côté client par `can()`.
 - L'app tourne avec des **données réelles** (40 commandes, 21 chantiers d'avancement,
   réserves) : perte de commandes/réserves **inacceptable**, perte d'avancement
   rattrapable mais à éviter. Toute modif `firestore.rules`/`storage.rules`/`DataContext.jsx`
@@ -792,4 +842,8 @@ audit live Firestore (volumes `planningCreneaux`/usage réel à re-vérifier au 
 Mise à jour 2026-07-03 : parc panne/SAV, Achat gère le parc, taxonomie M3, Étude/TMA
 chantier, CORS quitus, adresse Esabora, messages commandes, bannière monteur — documentés
 depuis le code [C].
+Mise à jour 2026-07-05 [C] : Module RH (tuile `rh` + onglet Congés RH-2a, collection
+`conges` ACTIF|ANNULE) + overlay congés sur le Planning L8 (RH-2b/bis, grisé + cause) +
+vue agenda mobile (RH-2d, `PlanningAgendaMobile`) documentés depuis le code — **pas** de
+nouvel audit live Firestore (volumes `conges` à vérifier au prochain audit).
 Maintenir à jour quand l'archi évolue.*
