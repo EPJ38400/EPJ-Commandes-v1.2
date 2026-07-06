@@ -338,7 +338,7 @@ export function PlanningGrid({ chantier = null }) {
                       {tasks.map((t) => {
                         const label = t.posteAvancementKey
                           ? posteLabel(chantier, t.batiment, t.posteAvancementKey, tasksConfig)
-                          : (t.batiment ? `Bât. ${t.batiment}` : "À affecter");
+                          : (t.posteLabel || (t.batiment ? `Bât. ${t.batiment}` : "À affecter"));
                         return (
                           <div
                             key={t.id}
@@ -410,7 +410,7 @@ export function PlanningGrid({ chantier = null }) {
                     const nom = chantierById.get(seg.chantierId)?.nom || seg.chantierId;
                     const poste = seg.posteAvancementKey
                       ? posteLabel(chantierById.get(seg.chantierId), seg.batiment, seg.posteAvancementKey, tasksConfig)
-                      : (seg.batiment ? `Bât. ${seg.batiment}` : "");
+                      : (seg.posteLabel || (seg.batiment ? `Bât. ${seg.batiment}` : ""));
                     return (
                       <div
                         key={`b${seg.start}`}
