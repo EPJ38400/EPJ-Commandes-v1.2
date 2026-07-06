@@ -60,7 +60,7 @@ export function PlanningAgendaMobile({
                   const poste = assigned
                     ? (cr.posteAvancementKey
                         ? posteLabel(ch, cr.batiment, cr.posteAvancementKey, tasksConfig)
-                        : (cr.batiment ? `Bât. ${cr.batiment}` : ""))
+                        : (cr.posteLabel || (cr.batiment ? `Bât. ${cr.batiment}` : "")))
                     : "";
                   const clickable = canWrite || !!cr;
 
