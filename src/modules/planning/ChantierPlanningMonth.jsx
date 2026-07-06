@@ -267,7 +267,7 @@ export function ChantierPlanningMonth({ chantier }) {
                         const pool = isPool(t);
                         const poste = t.posteAvancementKey
                           ? posteLabel(chantier, t.batiment, t.posteAvancementKey, tasksConfig)
-                          : (t.batiment ? `Bât. ${t.batiment}` : "Tâche");
+                          : (t.posteLabel || (t.batiment ? `Bât. ${t.batiment}` : "Tâche"));
                         const who = pool ? "à affecter" : (t.ressourceNom || t.ressourceId);
                         return (
                           <div
