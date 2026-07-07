@@ -31,7 +31,7 @@ import { PlanningBulkCreate } from "./PlanningBulkCreate";
 import {
   PERIODES, WEEK_DAY_LABELS, startOfWeek, addDays, toISODate,
   creneauId, slotIndex, terrainResources, resourcesForConductor,
-  chantierColorIndex, posteLabel, isPool,
+  chantierColorIndex, posteLabel, isPool, getCreneauTaches,
 } from "./planningModel";
 
 // Palette de pastille (alignée PlanningGrid — taille 8 = chantierColorIndex).
@@ -264,11 +264,18 @@ export function ChantierPlanningMonth({ chantier }) {
                         {day.dayNum}
                       </div>
                       {tasks.map((t) => {
+                        const taches = getCreneauTaches(t);
+                        if (!taches.length) return null;               // 0 tâche → rien
                         const pool = isPool(t);
-                        const poste = t.posteAvancementKey
-                          ? posteLabel(chantier, t.batiment, t.posteAvancementKey, tasksConfig)
-                          : (t.posteLabel || (t.batiment ? `Bât. ${t.batiment}` : "Tâche"));
                         const who = pool ? "à affecter" : (t.ressourceNom || t.ressourceId);
+                        // >1 tâche → pastille RÉSUMÉ (clic → détail, comme la grille L2).
+                        // 1 tâche → pastille identique à aujourd'hui (poste/label de la tâche).
+                        const t0 = taches[0];
+                        const poste = taches.length > 1
+                          ? `${taches.length} tâches`
+                          : (t0.posteAvancementKey
+                              ? posteLabel(chantier, t0.batiment, t0.posteAvancementKey, tasksConfig)
+                              : (t0.posteLabel || (t0.batiment ? `Bât. ${t0.batiment}` : "Tâche")));
                         return (
                           <div
                             key={t.id}
