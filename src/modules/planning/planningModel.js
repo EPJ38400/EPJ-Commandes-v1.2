@@ -291,14 +291,48 @@ export function expandRange(fromSlot, toSlot) {
 export function demiJourneeHeures(dayIdx) {
   return dayIdx === 4 ? 3.5 : 4;
 }
+
+// ─── Multi-tâches (lot 1) : socle taches[] + compat lecture legacy ──
+export function makeTacheId() {
+  return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Normalise un créneau vers un tableau de tâches. Legacy (doc plat) → 1 tâche.
+export function getCreneauTaches(cr) {
+  if (!cr) return [];
+  if (Array.isArray(cr.taches) && cr.taches.length) return cr.taches;
+  const hasTask = cr.chantierId || cr.posteAvancementKey || cr.posteLabel;
+  if (!hasTask) return [];
+  return [{
+    id: "t0",
+    chantierId: cr.chantierId || null,
+    batiment: cr.batiment || null,
+    posteAvancementKey: cr.posteAvancementKey || null,
+    posteLabel: cr.posteLabel || null,
+    tempsEstimeH: cr.tempsEstimeH ?? null,
+    etatValidationMonteur: cr.etatValidationMonteur || "NON",
+    etatValidationMonteurAt: cr.etatValidationMonteurAt || null,
+    etatValidationMonteurPar: cr.etatValidationMonteurPar || null,
+    etatValidationConducteur: cr.etatValidationConducteur || "NON",
+    etatValidationConducteurAt: cr.etatValidationConducteurAt || null,
+    etatValidationConducteurPar: cr.etatValidationConducteurPar || null,
+  }];
+}
+
+// Total heures d'un créneau (somme des tâches, défaut demi-journée).
+export function creneauTotalHours(cr, dayIdx) {
+  const taches = getCreneauTaches(cr);
+  if (!taches.length) return 0;
+  return taches.reduce((s, t) =>
+    s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
+}
+
 export function weeklyTotalHours(resourceId, weekCols, creneauMap) {
   let total = 0;
   for (let dayIdx = 0; dayIdx < weekCols.length; dayIdx++) {
     for (const p of PERIODES) {
       const cr = creneauMap.get(creneauId(resourceId, weekCols[dayIdx].iso, p));
-      if (cr?.chantierId) {
-        total += cr.tempsEstimeH != null ? Number(cr.tempsEstimeH) : demiJourneeHeures(dayIdx);
-      }
+      if (cr) total += creneauTotalHours(cr, dayIdx);
     }
   }
   return total;
