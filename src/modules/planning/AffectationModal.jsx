@@ -29,7 +29,7 @@ import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
-  slotIndex, slotToCell, expandRange, posteLabel,
+  slotIndex, slotToCell, expandRange, posteLabel, getCreneauTaches,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
 import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
@@ -284,13 +284,16 @@ export function AffectationModal({
         where("ressourceId", "==", res.id), where("date", "==", dateIso),
       ));
       const slots = qs.docs.map((d) => d.data());
-      const lignes = ["AM", "PM"].map((p) => {
+      const lignes = ["AM", "PM"].flatMap((p) => {
         const c = slots.find((s) => s.periode === p);
-        if (!c || !c.chantierId) return null;
-        const nom = (allChantiers || []).find((x) => x.num === c.chantierId)?.nom || c.chantierId || "";
-        const poste = c.posteLabel || prettifyPoste(c.posteAvancementKey);
-        return `- ${p === "AM" ? "Matin" : "Aprem"} : ${nom}${poste ? ` (${poste})` : ""}`;
-      }).filter(Boolean);
+        return getCreneauTaches(c).map((t) => {
+          const nom = t.chantierId ? ((allChantiers || []).find((x) => x.num === t.chantierId)?.nom || t.chantierId) : "";
+          const poste = t.posteLabel || prettifyPoste(t.posteAvancementKey);
+          const main = nom || poste || "";
+          const extra = nom ? poste : "";
+          return `- ${p === "AM" ? "Matin" : "Aprem"} : ${main}${extra ? ` (${extra})` : ""}`;
+        });
+      });
       if (lignes.length === 0) { toast("Aucun créneau ce jour"); setSmsBusy(false); return; }
 
       // Modif si un récap auto a déjà été enfilé pour (res, jour).

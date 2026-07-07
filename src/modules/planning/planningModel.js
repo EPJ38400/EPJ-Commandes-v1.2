@@ -339,9 +339,10 @@ export function weeklyTotalHours(resourceId, weekCols, creneauMap) {
 }
 
 // ─── Regroupement créneaux → barres (rendu) ────────────────────
-// Fusionne les slots contigus de même chantier + bâtiment + poste.
-function barKey(cr) {
-  return `${cr.chantierId}|${cr.batiment || ""}|${cr.posteAvancementKey || ""}`;
+// Fusionne les slots contigus de même tâche (chantier + bâtiment + poste/label).
+// Multi-tâches → segment résumé, jamais fusionné.
+function tacheBarKey(t) {
+  return `${t.chantierId || ""}|${t.batiment || ""}|${t.posteAvancementKey || t.posteLabel || ""}`;
 }
 export function rowSegments(resourceId, weekCols, creneauMap) {
   const nbSlots = weekCols.length * 2;
@@ -354,21 +355,37 @@ export function rowSegments(resourceId, weekCols, creneauMap) {
   let i = 0;
   while (i < nbSlots) {
     const cr = slots[i];
-    if (!cr?.chantierId) { segments.push({ kind: "empty", start: i, end: i }); i++; continue; }
-    const key = barKey(cr);
+    const taches = getCreneauTaches(cr);
+    // 0 tâche → slot vide.
+    if (!taches.length) { segments.push({ kind: "empty", start: i, end: i }); i++; continue; }
+    const { dayIdx } = slotToCell(i);
+    // >1 tâche → segment résumé (un seul slot, jamais fusionné).
+    if (taches.length > 1) {
+      segments.push({
+        kind: "bar", multi: true, start: i, end: i, count: taches.length,
+        hours: creneauTotalHours(cr, dayIdx), chantierId: taches[0].chantierId || null, taches,
+      });
+      i++; continue;
+    }
+    // 1 tâche → fusion des slots contigus de même clé (mono-tâche uniquement).
+    const t0 = taches[0];
+    const key = tacheBarKey(t0);
     let j = i, hours = 0;
     const creneaux = [];
-    while (j < nbSlots && slots[j]?.chantierId && barKey(slots[j]) === key) {
+    while (j < nbSlots) {
+      const jt = getCreneauTaches(slots[j]);
+      if (jt.length !== 1 || tacheBarKey(jt[0]) !== key) break;
       creneaux.push(slots[j]);
-      const { dayIdx } = slotToCell(j);
-      hours += slots[j].tempsEstimeH != null ? Number(slots[j].tempsEstimeH) : demiJourneeHeures(dayIdx);
+      const { dayIdx: jd } = slotToCell(j);
+      hours += creneauTotalHours(slots[j], jd);
       j++;
     }
     segments.push({
       kind: "bar", start: i, end: j - 1,
-      chantierId: cr.chantierId, batiment: cr.batiment || null,
-      posteAvancementKey: cr.posteAvancementKey || null,
-      hours, creneaux,
+      chantierId: t0.chantierId || null, batiment: t0.batiment || null,
+      posteAvancementKey: t0.posteAvancementKey || null,
+      posteLabel: t0.posteLabel || null,
+      hours, creneaux, taches: [t0],
     });
     i = j;
   }
