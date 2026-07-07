@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { EPJ, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { Button } from "../../core/components/Button";
-import { creneauId, slotIndex, PERIODES, PERIODE_LABEL, posteLabel } from "./planningModel";
+import { creneauId, slotIndex, PERIODES, PERIODE_LABEL, posteLabel, getCreneauTaches } from "./planningModel";
 import { CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, isFerme } from "../rh/congesModel";
 
 export function PlanningAgendaMobile({
@@ -50,59 +50,80 @@ export function PlanningAgendaMobile({
                   {c.dayLabel} <span style={{ color: EPJ.gray400 }}>{c.dateLabel}</span>
                 </div>
 
-                {PERIODES.map((periode) => {
+                {PERIODES.flatMap((periode) => {
                   const s = slotIndex(dayIdx, periode);
                   const cr = creneauMap.get(creneauId(r.id, c.iso, periode)) || null;
                   const cg = congeAtSlot(r.id, s);
-                  const assigned = !!cr?.chantierId;
-                  const ch = assigned ? chantierById.get(cr.chantierId) : null;
-                  const chNom = ch?.nom || cr?.chantierId || "";
-                  const poste = assigned
-                    ? (cr.posteAvancementKey
-                        ? posteLabel(ch, cr.batiment, cr.posteAvancementKey, tasksConfig)
-                        : (cr.posteLabel || (cr.batiment ? `Bât. ${cr.batiment}` : "")))
-                    : "";
+                  const taches = getCreneauTaches(cr);
                   const clickable = canWrite || !!cr;
 
-                  return (
+                  const rowStyle = (background) => ({
+                    display: "flex", alignItems: "center", gap: space.sm,
+                    minHeight: 44, padding: `${space.xs}px ${space.md}px`,
+                    borderTop: `1px solid ${EPJ.gray100}`,
+                    cursor: clickable ? "pointer" : "default",
+                    background,
+                  });
+                  const periodLabel = (
+                    <span style={{
+                      flexShrink: 0, width: 74, fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+                      color: EPJ.gray500,
+                    }}>
+                      {PERIODE_LABEL[periode]}
+                    </span>
+                  );
+
+                  // Une LIGNE par tâche (agenda = liste ; legacy 1 tâche → 1 ligne identique).
+                  if (taches.length) {
+                    return taches.map((t, ti) => {
+                      const ch = t.chantierId ? chantierById.get(t.chantierId) : null;
+                      const chNom = t.chantierId ? (ch?.nom || t.chantierId) : "";
+                      const poste = t.posteAvancementKey
+                        ? posteLabel(ch, t.batiment, t.posteAvancementKey, tasksConfig)
+                        : (t.posteLabel || (t.batiment ? `Bât. ${t.batiment}` : ""));
+                      // Tâche libre sans chantier : pastille neutre, libellé = poste/label.
+                      const main = chNom || poste || "Tâche";
+                      const secondary = chNom ? poste : "";
+                      const dotColor = t.chantierId ? chantierColor(t.chantierId) : EPJ.gray400;
+                      return (
+                        <div
+                          key={`${periode}-${t.id || ti}`}
+                          onClick={clickable ? () => handleClick(r, s, cr) : undefined}
+                          style={rowStyle("transparent")}
+                        >
+                          {periodLabel}
+                          <div style={{ display: "flex", alignItems: "center", gap: space.xs, minWidth: 0, flex: 1 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {main}
+                              </div>
+                              {secondary && (
+                                <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {secondary}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  }
+
+                  // 0 tâche → congé (hachures) ou slot vide (bouton Affecter).
+                  const background = cg
+                    ? (isFerme(cg)
+                        ? `repeating-linear-gradient(45deg, ${EPJ.gray50}, ${EPJ.gray50} 6px, ${EPJ.gray100} 6px, ${EPJ.gray100} 12px)`
+                        : `repeating-linear-gradient(45deg, ${EPJ.white}, ${EPJ.white} 6px, ${EPJ.gray50} 6px, ${EPJ.gray50} 12px)`)
+                    : "transparent";
+                  return [(
                     <div
                       key={periode}
                       onClick={clickable ? () => handleClick(r, s, cr) : undefined}
-                      style={{
-                        display: "flex", alignItems: "center", gap: space.sm,
-                        minHeight: 44, padding: `${space.xs}px ${space.md}px`,
-                        borderTop: `1px solid ${EPJ.gray100}`,
-                        cursor: clickable ? "pointer" : "default",
-                        // Ferme = hachures pâles (historique) ; en attente = très pâles.
-                        background: (!assigned && cg)
-                          ? (isFerme(cg)
-                              ? `repeating-linear-gradient(45deg, ${EPJ.gray50}, ${EPJ.gray50} 6px, ${EPJ.gray100} 6px, ${EPJ.gray100} 12px)`
-                              : `repeating-linear-gradient(45deg, ${EPJ.white}, ${EPJ.white} 6px, ${EPJ.gray50} 6px, ${EPJ.gray50} 12px)`)
-                          : "transparent",
-                      }}
+                      style={rowStyle(background)}
                     >
-                      <span style={{
-                        flexShrink: 0, width: 74, fontSize: fontSize.xs, fontWeight: fontWeight.medium,
-                        color: EPJ.gray500,
-                      }}>
-                        {PERIODE_LABEL[periode]}
-                      </span>
-
-                      {assigned ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: space.xs, minWidth: 0, flex: 1 }}>
-                          <span style={{ width: 10, height: 10, borderRadius: "50%", background: chantierColor(cr.chantierId), flexShrink: 0 }} />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {chNom}
-                            </div>
-                            {poste && (
-                              <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {poste}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : cg ? (
+                      {periodLabel}
+                      {cg ? (
                         isFerme(cg) ? (
                           <span style={{
                             flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.medium,
@@ -127,7 +148,7 @@ export function PlanningAgendaMobile({
                         </div>
                       )}
                     </div>
-                  );
+                  )];
                 })}
               </div>
             ))}
