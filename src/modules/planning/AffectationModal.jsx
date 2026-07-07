@@ -62,7 +62,10 @@ export function AffectationModal({
     (!prefill?.posteAvancementKey && prefill?.posteLabel) ? prefill.posteLabel
     : (!poolTask?.posteAvancementKey && poolTask?.posteLabel) ? poolTask.posteLabel : ""
   );
-  const [temps, setTemps] = useState(poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "");
+  const [temps, setTemps] = useState(
+    prefill?.tempsEstimeH != null ? String(prefill.tempsEstimeH)
+    : (poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "")
+  );
   const [saving, setSaving] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
   const [doneBusy, setDoneBusy] = useState(false);
