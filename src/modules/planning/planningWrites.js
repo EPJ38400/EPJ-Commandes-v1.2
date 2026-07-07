@@ -61,6 +61,11 @@ export function affectedCreneauPayload({ res, date, periode, dayIdx, taches, exi
     etatValidationConducteur: existing?.etatValidationConducteur || "NON",
     etatValidationConducteurAt: existing?.etatValidationConducteurAt ?? null,
     etatValidationConducteurPar: existing?.etatValidationConducteurPar ?? null,
+    // Validation L9 PAR TÂCHE (lot 4) — maps { [tacheId]: {etat,at,par} }
+    // préservées au merge (comme les champs plats). Additif : jamais écrasées.
+    validationMonteur: existing?.validationMonteur || {},
+    validationConducteur: existing?.validationConducteur || {},
+    aValiderConducteur: existing?.aValiderConducteur ?? false,
     smsEnvoye: existing?.smsEnvoye ?? false,
     creePar: existing?.creePar || userId,
     modifiePar: userId,
@@ -84,6 +89,10 @@ export function poolCreneauPayload({ date, periode, dayIdx, taches, source, user
     posteLabel: primary?.posteLabel || null,
     tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx)) : null,
     tacheId: null,
+    // Maps de validation L9 par tâche préservées au merge (additif, cf. affecté).
+    validationMonteur: source?.validationMonteur || {},
+    validationConducteur: source?.validationConducteur || {},
+    aValiderConducteur: source?.aValiderConducteur ?? false,
     creePar: source?.creePar || userId,
     modifiePar: userId,
     createdAt: source?.createdAt || serverTimestamp(),

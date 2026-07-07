@@ -34,6 +34,19 @@ function creneauTotalHours(cr, dayIdx) {
     s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
 }
 
+function tacheValMonteur(cr, tacheId) {
+  const m = cr?.validationMonteur?.[tacheId];
+  if (m?.etat) return m.etat;
+  if (tacheId === "t0" && cr?.etatValidationMonteur) return cr.etatValidationMonteur;
+  return "NON";
+}
+function tacheValConducteur(cr, tacheId) {
+  const c = cr?.validationConducteur?.[tacheId];
+  if (c?.etat) return c.etat;
+  if (tacheId === "t0" && cr?.etatValidationConducteur) return cr.etatValidationConducteur;
+  return "NON";
+}
+
 function slotToCell(idx) {
   return { dayIdx: Math.floor(idx / 2), periode: idx % 2 === 0 ? "AM" : "PM" };
 }
@@ -186,6 +199,21 @@ const mapOf = (entries) => new Map(entries.map(([slot, cr]) => {
     "tâche libre sans chantier → 1 barre (plus empty)",
   );
 }
+
+console.log("tacheValMonteur / tacheValConducteur");
+// map présente → lit la map
+eq(tacheValMonteur({ validationMonteur: { t5: { etat: "FAIT" } } }, "t5"), "FAIT", "map monteur présente → FAIT");
+eq(tacheValConducteur({ validationConducteur: { t5: { etat: "VALIDE" } } }, "t5"), "VALIDE", "map conducteur présente → VALIDE");
+// repli legacy t0 → champ plat de tête
+eq(tacheValMonteur({ etatValidationMonteur: "FAIT" }, "t0"), "FAIT", "repli legacy t0 monteur → FAIT");
+eq(tacheValConducteur({ etatValidationConducteur: "REFUSE" }, "t0"), "REFUSE", "repli legacy t0 conducteur → REFUSE");
+// map prioritaire sur le plat pour t0
+eq(tacheValMonteur({ etatValidationMonteur: "NON", validationMonteur: { t0: { etat: "FAIT" } } }, "t0"), "FAIT", "map t0 prioritaire sur plat");
+// pas de repli plat pour un id != t0
+eq(tacheValMonteur({ etatValidationMonteur: "FAIT" }, "t3"), "NON", "id != t0 sans map → NON (pas de repli plat)");
+// défaut NON
+eq(tacheValMonteur(null, "t0"), "NON", "cr null → NON");
+eq(tacheValConducteur({}, "t9"), "NON", "aucune donnée → NON");
 
 console.log("\n────────────────────────────────────────");
 console.log(`Tests planningModel : ${ok} OK, ${ko} KO`);
