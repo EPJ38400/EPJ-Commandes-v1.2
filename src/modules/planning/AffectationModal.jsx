@@ -30,6 +30,7 @@ import { Button } from "../../core/components/Button";
 import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
   slotIndex, slotToCell, expandRange, posteLabel, getCreneauTaches,
+  makeTacheId, demiJourneeHeures,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
 import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
@@ -53,19 +54,28 @@ export function AffectationModal({
   const [toDay, setToDay] = useState(String(initTo.dayIdx));
   const [toPer, setToPer] = useState(initTo.periode);
 
-  const [chantierId, setChantierId] = useState(
-    prefill?.chantierId || poolTask?.chantierId || (fixedChantier?.num || ""),
-  );
-  const [batiment, setBatiment] = useState(prefill?.batiment || poolTask?.batiment || "");
-  const [poste, setPoste] = useState(prefill?.posteAvancementKey || poolTask?.posteAvancementKey || "");
-  const [tacheLibre, setTacheLibre] = useState(
-    (!prefill?.posteAvancementKey && prefill?.posteLabel) ? prefill.posteLabel
-    : (!poolTask?.posteAvancementKey && poolTask?.posteLabel) ? poolTask.posteLabel : ""
-  );
-  const [temps, setTemps] = useState(
-    prefill?.tempsEstimeH != null ? String(prefill.tempsEstimeH)
-    : (poolTask?.tempsEstimeH != null ? String(poolTask.tempsEstimeH) : "")
-  );
+  // ─── Lignes de tâches (L3 multi-tâches) ───
+  // Une ligne de formulaire = { id, chantierId, batiment, poste, tacheLibre, temps }.
+  // Init : depuis les tâches du créneau édité (getCreneauTaches, compat legacy /
+  // pool), sinon 1 ligne vide (chantier pré-rempli si fixedChantier).
+  const emptyLine = () => ({
+    id: makeTacheId(), chantierId: fixedChantier?.num || "", batiment: "", poste: "", tacheLibre: "", temps: "",
+  });
+  const [taches, setTaches] = useState(() => {
+    const src = poolTask || prefill;
+    const existing = src ? getCreneauTaches(src) : [];
+    if (existing.length) {
+      return existing.map((t) => ({
+        id: t.id || makeTacheId(),
+        chantierId: t.chantierId || (fixedChantier?.num || ""),
+        batiment: t.batiment || "",
+        poste: t.posteAvancementKey || "",
+        tacheLibre: (!t.posteAvancementKey && t.posteLabel) ? t.posteLabel : "",
+        temps: t.tempsEstimeH != null ? String(t.tempsEstimeH) : "",
+      }));
+    }
+    return [emptyLine()];
+  });
   const [saving, setSaving] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
   const [doneBusy, setDoneBusy] = useState(false);
@@ -75,19 +85,13 @@ export function AffectationModal({
   const editingAffected = !!initialRessource && !!prefill;
   const editingPool = !!poolTask;
 
-  const chantierObj = useMemo(() => {
+  // Objet chantier d'une ligne (fixedChantier prioritaire).
+  const chantierObjOf = (line) => {
     if (fixedChantier) return fixedChantier;
-    return (allChantiers || []).find((c) => c.num === chantierId) || null;
-  }, [fixedChantier, allChantiers, chantierId]);
-
-  const units = useMemo(
-    () => (chantierObj ? getPosteOptions(chantierObj, tasksConfig) : []),
-    [chantierObj, tasksConfig],
-  );
-  const currentUnit = useMemo(
-    () => units.find((u) => u.unite === batiment) || null,
-    [units, batiment],
-  );
+    return (allChantiers || []).find((c) => c.num === line.chantierId) || null;
+  };
+  // Tâche primaire = 1re avec chantier, sinon 1re ligne (miroir/compat).
+  const primaryLine = taches.find((l) => l.chantierId) || taches[0] || null;
 
   const dayOptions = weekCols.map((c, idx) => ({ value: String(idx), label: `${c.dayLabel} ${c.dateLabel}` }));
   const ressourceOptions = [
@@ -98,13 +102,13 @@ export function AffectationModal({
     { value: "", label: "— Disponible (aucun chantier) —" },
     ...(allChantiers || []).map((c) => ({ value: c.num, label: `${c.num}${c.nom ? " · " + c.nom : ""}` })),
   ];
-  const batimentOptions = [
-    { value: "", label: "— Aucun —" },
-    ...units.map((u) => ({ value: u.unite, label: u.label })),
-  ];
 
-  const onChantierChange = (v) => { setChantierId(v); setBatiment(""); setPoste(""); };
-  const onBatimentChange = (v) => { setBatiment(v); setPoste(""); };
+  // ─── Mutations de lignes ───
+  const updateLine = (id, patch) => setTaches((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const onLineChantier = (id, v) => updateLine(id, { chantierId: v, batiment: "", poste: "" });
+  const onLineBatiment = (id, v) => updateLine(id, { batiment: v, poste: "" });
+  const addLine = () => setTaches((ls) => [...ls, emptyLine()]);
+  const removeLine = (id) => setTaches((ls) => (ls.length > 1 ? ls.filter((l) => l.id !== id) : ls));
 
   // Ressource cible courante (null = pool « à affecter »).
   const targetRes = useMemo(
@@ -124,27 +128,49 @@ export function AffectationModal({
     return { dayIdx, periode, dateIso: weekCols[dayIdx].iso };
   };
 
+  // Lignes de formulaire → tableau `taches` pour les builders (posteLabel calculé
+  // comme aujourd'hui : poste → libellé taxonomie, sinon texte libre).
+  const linesToTaches = () => taches.map((l) => {
+    const lbl = l.poste
+      ? posteLabel(chantierObjOf(l), l.batiment, l.poste, tasksConfig)
+      : (l.tacheLibre.trim() || null);
+    return {
+      id: l.id,
+      chantierId: l.chantierId || null,
+      batiment: l.batiment || null,
+      posteAvancementKey: l.poste || null,
+      posteLabel: lbl,
+      tempsEstimeH: l.temps,
+    };
+  });
+
+  // ─── Contrôle capacité : somme des temps ≤ demi-journée ───
+  // Un temps vide vaut la capacité de la demi-journée (tâche « pleine »).
+  const capacite = rangeSlots.length
+    ? Math.min(...rangeSlots.map((s) => demiJourneeHeures(slotToCell(s).dayIdx)))
+    : demiJourneeHeures(0);
+  const sommeTemps = taches.reduce((s, l) => {
+    const rempli = !!(l.chantierId || l.poste || l.tacheLibre.trim());
+    if (!rempli) return s;
+    const v = (l.temps !== "" && l.temps != null) ? Number(l.temps) : capacite;
+    return s + (Number.isFinite(v) ? v : 0);
+  }, 0);
+  const overCapacity = sommeTemps > capacite + 1e-9;
+
   // ─── Payloads (builders partagés planningWrites — zéro duplication) ──
   const payloadAffected = (res, slot) => {
     const { dayIdx, periode, dateIso } = slotMeta(slot);
-    const lbl = poste
-      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
-      : (tacheLibre.trim() || null);
     return affectedCreneauPayload({
-      res, date: dateIso, periode, dayIdx,
-      chantierId, batiment, poste, posteLabel: lbl, tempsEstimeH: temps,
+      res, date: dateIso, periode, dayIdx, taches: linesToTaches(),
       existing: getExisting(res.id, dateIso, periode), userId: user._id,
     });
   };
 
   const payloadPool = (slot) => {
-    const { periode, dateIso } = slotMeta(slot);
-    const lbl = poste
-      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
-      : (tacheLibre.trim() || null);
+    const { dayIdx, periode, dateIso } = slotMeta(slot);
     return poolCreneauPayload({
-      date: dateIso, periode, chantierId, batiment, poste, posteLabel: lbl,
-      tempsEstimeH: temps, source: poolTask, userId: user._id,
+      date: dateIso, periode, dayIdx, taches: linesToTaches(),
+      source: poolTask, userId: user._id,
     });
   };
 
@@ -172,7 +198,7 @@ export function AffectationModal({
           const snap = await getDoc(ref);
           if (snap.exists()) {
             const ex = snap.data();
-            if (ex.chantierId && ex.chantierId !== chantierId) {
+            if (ex.chantierId && ex.chantierId !== (primaryLine?.chantierId || null)) {
               const autre = (allChantiers || []).find((c) => c.num === ex.chantierId)?.nom || ex.chantierId;
               const ok = window.confirm(
                 `${target.nom} est déjà affecté au chantier ${autre} ce créneau (${dateIso} ${periode}). Le déplacer ici ?`,
@@ -247,18 +273,19 @@ export function AffectationModal({
 
   // ─── Export .ics « Ajouter à mon agenda » (PUR CLIENT, lecture seule) ───
   // Visible sur une seule demi-journée (fromSlot === toSlot) avec un chantier.
-  // NON gaté par canWrite : un monteur doit pouvoir exporter son créneau.
-  const canExportIcs = !!chantierId && fromSlot === toSlot;
+  // Basé sur la tâche primaire. NON gaté par canWrite (un monteur exporte son créneau).
+  const canExportIcs = !!primaryLine?.chantierId && fromSlot === toSlot;
   const addToAgenda = () => {
     const { dateIso, periode } = slotMeta(fromSlot);
-    const c = (allChantiers || []).find((x) => x.num === chantierId) || null;
-    const label = poste
-      ? posteLabel(chantierObj, batiment, poste, tasksConfig)
-      : (tacheLibre.trim() || null);
+    const pid = primaryLine?.chantierId || null;
+    const c = (allChantiers || []).find((x) => x.num === pid) || null;
+    const label = primaryLine?.poste
+      ? posteLabel(chantierObjOf(primaryLine), primaryLine.batiment, primaryLine.poste, tasksConfig)
+      : (primaryLine?.tacheLibre.trim() || null);
     const resNom = (targetRes || initialRessource)?.nom || "";
     const ics = creneauToICS({
-      chantierNom: c?.nom || chantierId, chantierAdresse: c?.adresse || "",
-      posteLabel: label, batiment, ressourceNom: resNom, dateIso, periode,
+      chantierNom: c?.nom || pid, chantierAdresse: c?.adresse || "",
+      posteLabel: label, batiment: primaryLine?.batiment || "", ressourceNom: resNom, dateIso, periode,
     });
     triggerAddToCalendar(ics, `EPJ_${dateIso}_${periode}.ics`);
   };
@@ -423,30 +450,69 @@ export function AffectationModal({
               disabled={!canWrite} onChange={(e) => setToPer(e.target.value)} />
           </div>
 
-          {!fixedChantier && (
-            <Field as="select" label="Chantier" value={chantierId} options={chantierOptions}
-              disabled={!canWrite} onChange={(e) => onChantierChange(e.target.value)} />
-          )}
-          {chantierId && (
-            <>
-              <Field as="select" label="Bâtiment / unité" value={batiment} options={batimentOptions}
-                disabled={!canWrite} onChange={(e) => onBatimentChange(e.target.value)} />
-              <GroupedPosteSelect label="Poste (optionnel)" value={poste}
-                categories={currentUnit?.categories || []}
-                disabled={!canWrite || !batiment}
-                hint={!batiment ? "Choisissez d'abord un bâtiment." : undefined}
-                onChange={(e) => setPoste(e.target.value)} />
-              <Field type="number" label="Temps estimé / demi-journée (h)" value={temps}
-                disabled={!canWrite} placeholder="défaut : 4 h (3,5 h le vendredi)"
-                hint="Laisser vide = durée de la demi-journée pour chaque créneau."
-                onChange={(e) => setTemps(e.target.value)} />
-            </>
-          )}
+          {/* Lignes de tâches (une même liste s'applique à chaque demi-journée de la plage) */}
+          {taches.map((line, li) => {
+            const objLine = chantierObjOf(line);
+            const unitsLine = objLine ? getPosteOptions(objLine, tasksConfig) : [];
+            const unitLine = unitsLine.find((u) => u.unite === line.batiment) || null;
+            const batOpts = [{ value: "", label: "— Aucun —" }, ...unitsLine.map((u) => ({ value: u.unite, label: u.label }))];
+            return (
+              <div key={line.id} style={{
+                border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md, padding: space.md,
+                display: "flex", flexDirection: "column", gap: space.sm, background: EPJ.gray50,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: EPJ.gray600 }}>
+                    Tâche {li + 1}
+                  </span>
+                  {canWrite && taches.length > 1 && (
+                    <Button variant="ghost" size="sm" onClick={() => removeLine(line.id)}>Retirer</Button>
+                  )}
+                </div>
 
-          <Field label="Tâche libre (hors avancement)" value={tacheLibre}
-            disabled={!canWrite}
-            onChange={(e) => setTacheLibre(e.target.value)}
-            hint="Sans poste : va au planning avec son temps, hors avancement. Chantier facultatif." />
+                {!fixedChantier && (
+                  <Field as="select" label="Chantier" value={line.chantierId} options={chantierOptions}
+                    disabled={!canWrite} onChange={(e) => onLineChantier(line.id, e.target.value)} />
+                )}
+                {line.chantierId && (
+                  <>
+                    <Field as="select" label="Bâtiment / unité" value={line.batiment} options={batOpts}
+                      disabled={!canWrite} onChange={(e) => onLineBatiment(line.id, e.target.value)} />
+                    <GroupedPosteSelect label="Poste (optionnel)" value={line.poste}
+                      categories={unitLine?.categories || []}
+                      disabled={!canWrite || !line.batiment}
+                      hint={!line.batiment ? "Choisissez d'abord un bâtiment." : undefined}
+                      onChange={(e) => updateLine(line.id, { poste: e.target.value })} />
+                  </>
+                )}
+                <Field type="number" label="Temps estimé / demi-journée (h)" value={line.temps}
+                  disabled={!canWrite} placeholder="défaut : 4 h (3,5 h le vendredi)"
+                  hint="Laisser vide = durée de la demi-journée pour chaque créneau."
+                  onChange={(e) => updateLine(line.id, { temps: e.target.value })} />
+                <Field label="Tâche libre (hors avancement)" value={line.tacheLibre}
+                  disabled={!canWrite}
+                  onChange={(e) => updateLine(line.id, { tacheLibre: e.target.value })}
+                  hint="Sans poste : va au planning avec son temps, hors avancement. Chantier facultatif." />
+              </div>
+            );
+          })}
+
+          {canWrite && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm, flexWrap: "wrap" }}>
+              <Button variant="secondary" size="sm" onClick={addLine}>+ Ajouter une tâche</Button>
+              <span style={{
+                fontSize: fontSize.xs, fontWeight: fontWeight.medium,
+                color: overCapacity ? EPJ.redText : EPJ.gray500, fontVariantNumeric: "tabular-nums",
+              }}>
+                Total {sommeTemps} h / {capacite} h par demi-journée
+              </span>
+            </div>
+          )}
+          {overCapacity && (
+            <div style={{ fontSize: fontSize.sm, color: EPJ.redText }}>
+              La somme des temps dépasse la capacité d'une demi-journée ({capacite} h). Réduisez les temps ou retirez une tâche.
+            </div>
+          )}
         </div>
 
         {err && (
@@ -485,7 +551,7 @@ export function AffectationModal({
             </Button>
           )}
           {canWrite && (
-            <Button variant="primary" onClick={() => runSave()} loading={saving}>
+            <Button variant="primary" onClick={() => runSave()} loading={saving} disabled={overCapacity}>
               {targetRes ? "Affecter" : "Enregistrer"}
             </Button>
           )}

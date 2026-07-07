@@ -197,7 +197,11 @@ export function ChantierPlanningMonth({ chantier }) {
       setModal({
         weekCols: dayCols(task.date, weekdayIdx),
         resource: res, fromSlot: slot, toSlot: slot,
-        prefill: { chantierId: task.chantierId, batiment: task.batiment, posteAvancementKey: task.posteAvancementKey },
+        prefill: {
+          chantierId: task.chantierId, batiment: task.batiment, posteAvancementKey: task.posteAvancementKey,
+          posteLabel: task.posteLabel, tempsEstimeH: task.tempsEstimeH,
+          taches: task.taches || null,   // multi-tâches (L3)
+        },
         poolTask: null,
       });
     }

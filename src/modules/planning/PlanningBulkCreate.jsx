@@ -161,9 +161,13 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
             t.ref,
             affectedCreneauPayload({
               res, date: t.dateIso, periode: t.periode, dayIdx: t.dayIdx,
-              chantierId: chantier.num, batiment: batiment || null, poste: poste || null,
-              posteLabel: posteLabel(chantier, batiment, poste, tasksConfig),
-              tempsEstimeH: "", existing: t.existing, userId: user._id,
+              taches: [{
+                chantierId: chantier.num, batiment: batiment || null,
+                posteAvancementKey: poste || null,
+                posteLabel: posteLabel(chantier, batiment, poste, tasksConfig),
+                tempsEstimeH: "",
+              }],
+              existing: t.existing, userId: user._id,
             }),
             { merge: true },
           ));
@@ -178,14 +182,19 @@ export function PlanningBulkCreate({ chantier, resources, tasksConfig, initialDa
       const writes = [];
       for (const d of workingDays) {
         const dateIso = toISODate(d);
+        const dayIdx = d.getDay() - 1;
         for (const periode of periodes) {
           for (const { bat, poste: pk } of combos) {
             writes.push(addDoc(
               collection(db, "planningCreneaux"),
               poolCreneauPayload({
-                date: dateIso, periode, chantierId: chantier.num,
-                batiment: bat, poste: pk, posteLabel: posteLabel(chantier, bat, pk, tasksConfig),
-                tempsEstimeH: "", source: null, userId: user._id,
+                date: dateIso, periode, dayIdx,
+                taches: [{
+                  chantierId: chantier.num, batiment: bat,
+                  posteAvancementKey: pk, posteLabel: posteLabel(chantier, bat, pk, tasksConfig),
+                  tempsEstimeH: "",
+                }],
+                source: null, userId: user._id,
               }),
             ));
           }
