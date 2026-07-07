@@ -145,13 +145,6 @@ export function terrainResources(users) {
     .sort((a, b) => a.nom.localeCompare(b.nom));
 }
 
-// Ressources concernées par les congés/absences = salariés EPJ, hors
-// artisans (sous-traitants, non gérés en congés payés). Additif : ne modifie
-// pas terrainResources (toujours utilisé par le Planning).
-export function salarieResources(users) {
-  return terrainResources(users).filter((r) => r.type !== "ARTISAN");
-}
-
 // Ce chantier est-il « à moi » ? (calque GestionChantierModule.isMyChantier)
 export function isMyChantier(user, c) {
   if (!user || !c) return false;
