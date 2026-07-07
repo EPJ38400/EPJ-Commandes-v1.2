@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "audit:tokens": "node scripts/audit-tokens.mjs",
-    "test:unit": "node src/modules/commandes/catalogImporter.test.js && node src/modules/commandes/orderEdit.test.js && node src/core/smsService.test.js && node src/modules/commandes/orderDates.test.js && node src/modules/commandes/orderReceive.test.js && node src/modules/parc-machines/outillageRappel.test.js && node src/modules/commandes/esaboraUtils.test.js && node src/modules/parc-machines/outilsImporter.test.js && node src/modules/parc-machines/outillageInterventions.test.js && node src/modules/reserves/reservesRappel.test.js && node src/modules/planning/planningModel.test.js"
+    "test:unit": "node src/modules/commandes/catalogImporter.test.js && node src/modules/commandes/orderEdit.test.js && node src/core/smsService.test.js && node src/modules/commandes/orderDates.test.js && node src/modules/commandes/orderReceive.test.js && node src/modules/parc-machines/outillageRappel.test.js && node src/modules/commandes/esaboraUtils.test.js && node src/modules/parc-machines/outilsImporter.test.js && node src/modules/parc-machines/outillageInterventions.test.js && node src/modules/reserves/reservesRappel.test.js && node src/modules/planning/planningModel.test.js && node src/modules/planning/planningWrites.test.js"
   },
   "dependencies": {
     "firebase": "^10.12.0",

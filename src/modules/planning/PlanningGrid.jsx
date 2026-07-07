@@ -228,6 +228,7 @@ export function PlanningGrid({ chantier = null }) {
             posteAvancementKey: existing.posteAvancementKey,
             posteLabel: existing.posteLabel,
             tempsEstimeH: existing.tempsEstimeH,
+            taches: existing.taches || null,   // multi-tâches (L3) — reconstruit toutes les lignes
           }
         : null,
       poolTask: null,
