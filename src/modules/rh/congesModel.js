@@ -86,10 +86,9 @@ export function congeCoversSlot(conge, dateIso, periode) {
 // ═══════════════════════════════════════════════════════════════
 //  Périmètre des congés (RH-3c) — salariés EPJ éligibles aux congés
 //
-//  Distinct de salarieResources (Planning) : ce périmètre inclut aussi
-//  Achat (Thomas SILVESTRE) et Assistante (Audrey LAMENDOLA), qui ne sont
-//  pas des rôles « terrain » mais ont bien des congés. Exclut Direction /
-//  Admin / Artisan. Tri par NOM DE FAMILLE.
+//  Périmètre plus large que les seuls rôles « terrain » : inclut aussi
+//  Achat (Thomas SILVESTRE) et Assistante (Audrey LAMENDOLA), qui ont bien
+//  des congés. Exclut Direction / Admin / Artisan. Tri par NOM DE FAMILLE.
 // ═══════════════════════════════════════════════════════════════
 export const SALARIE_CONGES_ROLES =
   ["Conducteur travaux", "Chef chantier", "Monteur", "Assistante", "Achat"];
