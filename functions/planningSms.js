@@ -64,6 +64,19 @@ function prettifyPoste(key) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Normalise un créneau vers un tableau de tâches (compat legacy doc plat).
+// Miroir de getCreneauTaches (src/modules/planning/planningModel.js).
+function creneauTaches(cr) {
+  if (!cr) return [];
+  if (Array.isArray(cr.taches) && cr.taches.length) return cr.taches;
+  if (!cr.chantierId && !cr.posteAvancementKey && !cr.posteLabel) return [];
+  return [{
+    chantierId: cr.chantierId || null,
+    posteAvancementKey: cr.posteAvancementKey || null,
+    posteLabel: cr.posteLabel || null,
+  }];
+}
+
 // ─── Cœur : construit le récap d'un jour et enfile 1 SMS par monteur ──
 async function buildAndQueue(targetDateISO, kind /* "recap" | "rappel" */) {
   // Kill-switch (OFF par défaut) : tant que config/settings.planningSmsEnabled
@@ -119,16 +132,18 @@ async function buildAndQueue(targetDateISO, kind /* "recap" | "rappel" */) {
     const telephone = u.telephone || u.tel || "";
     if (!telephone) { skippes++; continue; }
 
-    // Une ligne par demi-journée présente (Matin puis Aprem).
+    // Une ligne par TÂCHE (Matin puis Aprem ; legacy 1 tâche → 1 ligne identique).
     const lignes = [];
     for (const periode of ["AM", "PM"]) {
       const c = creneaux.find((x) => x.periode === periode);
-      if (!c) continue;
-      const nom = await chantierNom(c.chantierId);
-      // c.posteLabel si présent (patch front), sinon clé tâche M3 rendue lisible.
-      const posteTxt = c.posteLabel || prettifyPoste(c.posteAvancementKey);
-      const poste = posteTxt ? ` (${posteTxt})` : "";
-      lignes.push(`- ${PERIODE_LABEL[periode]} : ${nom}${poste}`);
+      for (const t of creneauTaches(c)) {
+        const nom = t.chantierId ? await chantierNom(t.chantierId) : "";
+        // t.posteLabel si présent (texte libre/patch front), sinon clé tâche M3 lisible.
+        const posteTxt = t.posteLabel || prettifyPoste(t.posteAvancementKey);
+        const main = nom || posteTxt || "";
+        const extra = nom && posteTxt ? ` (${posteTxt})` : "";
+        lignes.push(`- ${PERIODE_LABEL[periode]} : ${main}${extra}`);
+      }
     }
     if (lignes.length === 0) { skippes++; continue; }
 

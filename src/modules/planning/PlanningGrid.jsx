@@ -412,11 +412,40 @@ export function PlanningGrid({ chantier = null }) {
 
                   {/* Couche 1 : barres (visuel ; les clics traversent vers la couche 2) */}
                   {bars.map((seg) => {
-                    const color = PALETTE[chantierColorIndex(seg.chantierId)];
-                    const nom = chantierById.get(seg.chantierId)?.nom || seg.chantierId;
+                    const color = seg.chantierId ? PALETTE[chantierColorIndex(seg.chantierId)] : EPJ.gray600;
+                    // Segment résumé (plusieurs tâches sur la même demi-journée).
+                    if (seg.multi) {
+                      const label = `${seg.count} tâches · ${seg.hours} h`;
+                      return (
+                        <div
+                          key={`b${seg.start}`}
+                          style={{
+                            gridColumn: `${2 + seg.start} / ${2 + seg.end + 1}`, gridRow: 1,
+                            padding: 3, display: "flex", alignItems: "center", pointerEvents: "none", minWidth: 0,
+                          }}
+                        >
+                          <div
+                            title={label}
+                            style={{
+                              width: "100%", borderRadius: radius.sm, background: color, color: EPJ.white,
+                              padding: "4px 7px", overflow: "hidden", lineHeight: 1.15,
+                            }}
+                          >
+                            <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                              {label}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    // Mono-tâche. Nom de chantier seulement si la tâche en a un.
+                    const nom = seg.chantierId ? (chantierById.get(seg.chantierId)?.nom || seg.chantierId) : null;
                     const poste = seg.posteAvancementKey
                       ? posteLabel(chantierById.get(seg.chantierId), seg.batiment, seg.posteAvancementKey, tasksConfig)
                       : (seg.posteLabel || (seg.batiment ? `Bât. ${seg.batiment}` : ""));
+                    // Titre principal : nom chantier si présent, sinon le poste (tâche libre).
+                    const primary = nom || poste || "";
+                    const secondary = nom ? poste : "";
                     return (
                       <div
                         key={`b${seg.start}`}
@@ -427,16 +456,16 @@ export function PlanningGrid({ chantier = null }) {
                         }}
                       >
                         <div
-                          title={`${nom}${poste ? " · " + poste : ""} · ${seg.hours} h`}
+                          title={`${primary}${secondary ? " · " + secondary : ""} · ${seg.hours} h`}
                           style={{
                             width: "100%", borderRadius: radius.sm, background: color, color: EPJ.white,
                             padding: "4px 7px", overflow: "hidden", lineHeight: 1.15,
                           }}
                         >
                           <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {nom} <span style={{ opacity: 0.85, fontWeight: fontWeight.regular, fontVariantNumeric: "tabular-nums" }}>· {seg.hours} h</span>
+                            {primary} <span style={{ opacity: 0.85, fontWeight: fontWeight.regular, fontVariantNumeric: "tabular-nums" }}>· {seg.hours} h</span>
                           </div>
-                          {poste && <div style={{ fontSize: 11, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{poste}</div>}
+                          {secondary && <div style={{ fontSize: 11, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{secondary}</div>}
                         </div>
                       </div>
                     );

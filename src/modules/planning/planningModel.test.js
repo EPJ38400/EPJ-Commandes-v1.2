@@ -34,6 +34,60 @@ function creneauTotalHours(cr, dayIdx) {
     s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
 }
 
+function slotToCell(idx) {
+  return { dayIdx: Math.floor(idx / 2), periode: idx % 2 === 0 ? "AM" : "PM" };
+}
+function creneauId(ressourceId, date, periode) {
+  return `${ressourceId}_${date}_${periode}`;
+}
+function tacheBarKey(t) {
+  return `${t.chantierId || ""}|${t.batiment || ""}|${t.posteAvancementKey || t.posteLabel || ""}`;
+}
+function rowSegments(resourceId, weekCols, creneauMap) {
+  const nbSlots = weekCols.length * 2;
+  const slots = [];
+  for (let i = 0; i < nbSlots; i++) {
+    const { dayIdx, periode } = slotToCell(i);
+    slots.push(creneauMap.get(creneauId(resourceId, weekCols[dayIdx].iso, periode)) || null);
+  }
+  const segments = [];
+  let i = 0;
+  while (i < nbSlots) {
+    const cr = slots[i];
+    const taches = getCreneauTaches(cr);
+    if (!taches.length) { segments.push({ kind: "empty", start: i, end: i }); i++; continue; }
+    const { dayIdx } = slotToCell(i);
+    if (taches.length > 1) {
+      segments.push({
+        kind: "bar", multi: true, start: i, end: i, count: taches.length,
+        hours: creneauTotalHours(cr, dayIdx), chantierId: taches[0].chantierId || null, taches,
+      });
+      i++; continue;
+    }
+    const t0 = taches[0];
+    const key = tacheBarKey(t0);
+    let j = i, hours = 0;
+    const creneaux = [];
+    while (j < nbSlots) {
+      const jt = getCreneauTaches(slots[j]);
+      if (jt.length !== 1 || tacheBarKey(jt[0]) !== key) break;
+      creneaux.push(slots[j]);
+      const { dayIdx: jd } = slotToCell(j);
+      hours += creneauTotalHours(slots[j], jd);
+      j++;
+    }
+    segments.push({
+      kind: "bar", start: i, end: j - 1,
+      chantierId: t0.chantierId || null, batiment: t0.batiment || null,
+      posteAvancementKey: t0.posteAvancementKey || null,
+      posteLabel: t0.posteLabel || null,
+      hours, creneaux, taches: [t0],
+    });
+    i = j;
+  }
+  return segments;
+}
+
 let ok = 0, ko = 0;
 function eq(got, want, msg) {
   const g = JSON.stringify(got), w = JSON.stringify(want);
@@ -80,6 +134,58 @@ eq(creneauTotalHours({ taches: [
 ] }, 4), 5.5, "multi-tâches fallback vendredi → 2 + 3,5");
 // slot vide → 0
 eq(creneauTotalHours({}, 0), 0, "slot vide → 0");
+
+console.log("rowSegments");
+const WEEK = ["2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10"]
+  .map((iso) => ({ iso }));
+const mapOf = (entries) => new Map(entries.map(([slot, cr]) => {
+  const { dayIdx, periode } = slotToCell(slot);
+  return [creneauId("r1", WEEK[dayIdx].iso, periode), cr];
+}));
+
+// (a) mono-tâche legacy sur 2 slots contigus même clé → 1 barre fusionnée, comme avant.
+{
+  const segs = rowSegments("r1", WEEK, mapOf([
+    [0, { chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", tempsEstimeH: 4 }],
+    [1, { chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", tempsEstimeH: 4 }],
+  ]));
+  const bar = segs.find((s) => s.kind === "bar");
+  eq(
+    { start: bar.start, end: bar.end, chantierId: bar.chantierId, poste: bar.posteAvancementKey, hours: bar.hours, multi: !!bar.multi, nbTaches: bar.taches.length },
+    { start: 0, end: 1, chantierId: "251234", poste: "log-1", hours: 8, multi: false, nbTaches: 1 },
+    "mono-tâche legacy contiguë → 1 barre fusionnée (identique à avant)",
+  );
+  eq(segs.filter((s) => s.kind === "empty").length, 8, "reste des slots → 8 empties");
+}
+
+// (b) taches[] à 2 sur un slot → 1 segment multi count=2, jamais fusionné.
+{
+  const segs = rowSegments("r1", WEEK, mapOf([
+    [0, { chantierId: "251234", taches: [
+      { id: "a", chantierId: "251234", tempsEstimeH: 2 },
+      { id: "b", chantierId: "999999", tempsEstimeH: 1.5 },
+    ] }],
+  ]));
+  const bar = segs.find((s) => s.kind === "bar");
+  eq(
+    { multi: !!bar.multi, count: bar.count, start: bar.start, end: bar.end, hours: bar.hours, chantierId: bar.chantierId },
+    { multi: true, count: 2, start: 0, end: 0, hours: 3.5, chantierId: "251234" },
+    "taches[] à 2 → segment multi count=2 (non fusionné)",
+  );
+}
+
+// (c) tâche libre SANS chantier → 1 barre (plus "empty"), chantierId null.
+{
+  const segs = rowSegments("r1", WEEK, mapOf([
+    [0, { chantierId: null, posteAvancementKey: null, posteLabel: "Formation SST" }],
+  ]));
+  const first = segs[0];
+  eq(
+    { kind: first.kind, chantierId: first.chantierId, posteLabel: first.posteLabel },
+    { kind: "bar", chantierId: null, posteLabel: "Formation SST" },
+    "tâche libre sans chantier → 1 barre (plus empty)",
+  );
+}
 
 console.log("\n────────────────────────────────────────");
 console.log(`Tests planningModel : ${ok} OK, ${ko} KO`);
