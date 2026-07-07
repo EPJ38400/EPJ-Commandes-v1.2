@@ -218,11 +218,17 @@ export function PlanningGrid({ chantier = null }) {
     const { dayIdx, periode } = slotToCell(slot);
     const iso = cols[dayIdx].iso;
     const existing = creneauMap.get(creneauId(resource.id, iso, periode)) || null;
-    if (!canWrite && !existing?.chantierId) return;
+    if (!canWrite && !existing) return;
     setModal({
       resource, fromSlot: slot, toSlot: slot,
-      prefill: existing?.chantierId
-        ? { chantierId: existing.chantierId, batiment: existing.batiment, posteAvancementKey: existing.posteAvancementKey }
+      prefill: existing
+        ? {
+            chantierId: existing.chantierId,
+            batiment: existing.batiment,
+            posteAvancementKey: existing.posteAvancementKey,
+            posteLabel: existing.posteLabel,
+            tempsEstimeH: existing.tempsEstimeH,
+          }
         : null,
       poolTask: null,
     });
