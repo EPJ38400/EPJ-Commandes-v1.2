@@ -32,12 +32,12 @@ import { Banner } from "../../core/components/Banner";
 import { Button } from "../../core/components/Button";
 import { Field } from "../../core/components/Field";
 import { EmptyAccess } from "../planning/PlanningTab";
-import { toISODate, fromISO, salarieResources, resourcesForConductor } from "../planning/planningModel";
+import { toISODate, fromISO, resourcesForConductor } from "../planning/planningModel";
 import { CongeModal } from "./CongeModal";
 import {
   CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
   congeCoversSlot, isFerme, soldeCongesCP, joursOuvrablesDecomptes,
-  soldeRCR, minutesRCRDecomptees, formatMinutes,
+  soldeRCR, minutesRCRDecomptees, formatMinutes, salariesConges,
 } from "./congesModel";
 
 // Format jours FR (décimale virgule) : 7.5 → "7,5".
@@ -152,7 +152,7 @@ export function CongesPage() {
   const resources = useMemo(() => {
     if (viewScope === "own_chantiers")
       return resourcesForConductor(users, chantiers, user).filter((r) => r.type !== "ARTISAN");
-    return salarieResources(users);
+    return salariesConges(users);
   }, [viewScope, users, chantiers, user]);
 
   // IDs de ressources visibles par le conducteur (filtrage client own_chantiers).
@@ -276,11 +276,11 @@ export function CongesPage() {
         }}>
           <span style={{ display: "flex", alignItems: "baseline", gap: space.xs, flexWrap: "wrap" }}>
             <span style={{ fontSize: 22 }}>🌴</span>
-            <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
-              Congés payés — {fmtJ(monSolde.solde)} j restants
-            </span>
             <span style={{ fontSize: fontSize.xs, color: EPJ.gray600 }}>
-              (acquis {fmtJ(monSolde.acquis)} j · pris {fmtJ(monSolde.pris)} j depuis le 1er mai)
+              Acquis N-1 : {fmtJ(monSolde.acquisN1)} j · Acquis N (en cours) : {fmtJ(monSolde.acquisN)} j · Pris : {fmtJ(monSolde.pris)} j ·
+            </span>
+            <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+              Disponible : {fmtJ(monSolde.disponible)} j
             </span>
           </span>
           <span style={{ display: "flex", alignItems: "baseline", gap: space.xs, flexWrap: "wrap" }}>
@@ -564,7 +564,7 @@ export function CongesPage() {
       {showSoldes && (
         <SoldesPanel
           user={user}
-          resources={salarieResources(users)}
+          resources={salariesConges(users)}
           soldesMap={soldesMap}
           congesValidees={conges.filter((c) => c.statut === "VALIDEE")}
           onClose={() => setShowSoldes(false)}
@@ -661,7 +661,7 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
               Soldes Congés payés & Récupération
             </div>
             <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
-              CP : solde = initial + acquis + ajustement − pris (depuis le 1er mai). RCR : crédit − pris (année civile).
+              CP : Acquis N-1 = initial + ajustement · Disponible = Acquis N-1 − pris (l'acquis N en cours n'entre pas dans le disponible). RCR : crédit − pris (année civile).
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>Fermer</Button>
@@ -694,9 +694,10 @@ function SoldesPanel({ user, resources, soldesMap, congesValidees, onClose }) {
                     value={draft[r.id]?.initial ?? ""} onChange={(e) => setField(r.id, "initial", e.target.value)} />
                   <Field type="number" label="Ajust. (j)" dense width={80}
                     value={draft[r.id]?.ajust ?? ""} onChange={(e) => setField(r.id, "ajust", e.target.value)} />
-                  <ReadStat label="Acquis" value={`${fmtJ(s.acquis)} j`} />
+                  <ReadStat label="Acquis N-1" value={`${fmtJ(s.acquisN1)} j`} />
+                  <ReadStat label="Acquis N" value={`${fmtJ(s.acquisN)} j`} />
                   <ReadStat label="Pris" value={`${fmtJ(s.pris)} j`} />
-                  <ReadStat label="Solde CP" value={`${fmtJ(s.solde)} j`} strong />
+                  <ReadStat label="Disponible" value={`${fmtJ(s.disponible)} j`} strong />
                   {/* Crédit RCR : mini-picker h + min (stocké en minutes). */}
                   <Field type="number" label="RCR (h)" dense width={70}
                     value={draft[r.id]?.rcrH ?? ""} onChange={(e) => setField(r.id, "rcrH", e.target.value)} />

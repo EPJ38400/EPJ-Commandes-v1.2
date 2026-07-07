@@ -26,8 +26,10 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
-import { salarieResources } from "../planning/planningModel";
-import { CONGE_TYPES, CONGE_TYPE_LABEL, minutesRCRDecomptees, formatMinutes } from "./congesModel";
+import { CONGE_TYPES, CONGE_TYPE_LABEL, minutesRCRDecomptees, formatMinutes, joursOuvrablesDecomptes, salariesConges } from "./congesModel";
+
+// Format jours FR (décimale virgule) : 7.5 → "7,5".
+const fmtJ = (n) => (Number(n) || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
 const DEMI_OPTIONS = [
   { value: "AM", label: "Matin" },
@@ -46,7 +48,7 @@ export function CongeModal({ user, users, conge, onClose }) {
   const gestionnaire = validateScope === "all";        // Direction/Assistante : saisie directe + maladie
   const isConducteur = validateScope === "own_chantiers"; // N1 → sa demande saute N1
 
-  const resources = useMemo(() => salarieResources(users), [users]);
+  const resources = useMemo(() => salariesConges(users), [users]);
   const ressourceOptions = [
     { value: "", label: "— Choisir une ressource —" },
     ...resources.map((r) => ({ value: r.id, label: r.nom })),
@@ -222,11 +224,15 @@ export function CongeModal({ user, users, conge, onClose }) {
               onChange={(e) => setDemiFin(e.target.value)} />
           </div>
 
-          {/* Décompte RÉCUP en heures (dérivé de du/au + demi-journées, pas de saisie libre). */}
-          {type === "RECUP" && du && au && au >= du && (
+          {/* Case « nombre de jours » (RH-3c) — décompte live en lecture, dérivé de
+              du/au + demi-journées : CP → jours ouvrables ; RÉCUP → heures. */}
+          {du && au && au >= du && (type === "CP" || type === "RECUP") && (
             <div style={{ fontSize: fontSize.sm, color: EPJ.gray700, fontWeight: fontWeight.medium }}>
-              Récupération décomptée : <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {formatMinutes(minutesRCRDecomptees(du, au, demiDebut, demiFin))}
+              {type === "CP" ? "Décompté : " : "Récupération décomptée : "}
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                {type === "CP"
+                  ? `${fmtJ(joursOuvrablesDecomptes(du, au, demiDebut, demiFin))} j ouvrables`
+                  : formatMinutes(minutesRCRDecomptees(du, au, demiDebut, demiFin))}
               </span>
             </div>
           )}

@@ -83,6 +83,32 @@ export function congeCoversSlot(conge, dateIso, periode) {
   return true;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Périmètre des congés (RH-3c) — salariés EPJ éligibles aux congés
+//
+//  Distinct de salarieResources (Planning) : ce périmètre inclut aussi
+//  Achat (Thomas SILVESTRE) et Assistante (Audrey LAMENDOLA), qui ne sont
+//  pas des rôles « terrain » mais ont bien des congés. Exclut Direction /
+//  Admin / Artisan. Tri par NOM DE FAMILLE.
+// ═══════════════════════════════════════════════════════════════
+export const SALARIE_CONGES_ROLES =
+  ["Conducteur travaux", "Chef chantier", "Monteur", "Assistante", "Achat"];
+
+export function salariesConges(users) {
+  return (users || [])
+    .filter((u) => {
+      const roles = u.roles || [];
+      if (roles.includes("Direction") || roles.includes("Admin") || roles.includes("Artisan")) return false;
+      return roles.some((r) => SALARIE_CONGES_ROLES.includes(r));
+    })
+    .map((u) => ({
+      id: u._id || u.id,
+      nom: `${u.prenom || ""} ${u.nom || ""}`.trim() || (u._id || u.id),
+      _nomFamille: u.nom || "",
+    }))
+    .sort((a, b) => (a._nomFamille).localeCompare(b._nomFamille, "fr", { sensitivity: "base" }));
+}
+
 // ─── Liste des jours ISO couverts (du..au inclus) ──────────────
 // Renvoie [] si bornes absentes ou plage inversée (au < du).
 export function congeDaysList(conge) {
@@ -141,16 +167,19 @@ export function joursAcquisCP(dateRef = new Date()) {
   return 2.5 * Math.max(0, mois);
 }
 
-// Solde CP d'un salarié : acquis (période courante) + soldeInitial + ajustement
-// − pris. `congesUser` = congés VALIDEE de ce salarié ; on ne compte comme
-// « pris » que les CP dont `du` >= 1er mai courant (remise à zéro annuelle).
+// Solde CP d'un salarié (RH-3c) : on distingue l'acquis N-1 (report disponible =
+// soldeInitial + ajustement) de l'acquis N (période courante, en cours d'acquisition,
+// 2,5 j/mois depuis le 1er mai). `congesUser` = congés VALIDEE de ce salarié ; on ne
+// compte comme « pris » que les CP dont `du` >= 1er mai courant (remise à zéro annuelle).
+// ⚠️ Règle PJ : l'acquis N n'entre PAS dans le disponible (disponible = acquisN1 − pris).
 export function soldeCongesCP({ soldeInitial = 0, ajustement = 0 } = {}, congesUser = [], dateRef = new Date()) {
   const debutISO = toISODate(debutPeriodeMai(dateRef));
-  const acquis = joursAcquisCP(dateRef);
+  const acquisN1 = (soldeInitial || 0) + (ajustement || 0);  // report N-1 disponible
+  const acquisN = joursAcquisCP(dateRef);                     // en cours (2,5/mois depuis 1er mai)
   const pris = (congesUser || [])
     .filter((c) => c.type === "CP" && c.du && c.du >= debutISO)
     .reduce((s, c) => s + joursOuvrablesDecomptes(c.du, c.au, c.demiJourneeDebut, c.demiJourneeFin), 0);
-  return { acquis, pris, solde: soldeInitial + acquis + ajustement - pris };
+  return { acquisN1, acquisN, pris, disponible: acquisN1 - pris };
 }
 
 // ═══════════════════════════════════════════════════════════════
