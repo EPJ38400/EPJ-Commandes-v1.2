@@ -87,6 +87,14 @@
         { "fieldPath": "ressourceId", "order": "ASCENDING" },
         { "fieldPath": "date",        "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "planningCreneaux",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chantierId",         "order": "ASCENDING" },
+        { "fieldPath": "aValiderConducteur", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

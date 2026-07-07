@@ -30,7 +30,7 @@ import { Button } from "../../core/components/Button";
 import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
   slotIndex, slotToCell, expandRange, posteLabel, getCreneauTaches,
-  makeTacheId, demiJourneeHeures,
+  makeTacheId, demiJourneeHeures, tacheValMonteur, tacheValConducteur,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
 import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
@@ -350,31 +350,37 @@ export function AffectationModal({
     }
   };
 
-  // ─── « ✅ Tâche faite » (L9) — confirmation MONTEUR de SON créneau ───
-  // Visible sur une seule demi-journée, si le créneau est une tâche concrète
-  // (chantier + bâtiment + poste), que l'utilisateur courant EST la ressource,
-  // et qu'il ne l'a pas déjà marquée. Écrit EXACTEMENT 3 champs (règle Monteur).
+  // ─── « ✅ Tâche faite » (L9) — confirmation MONTEUR, PAR TÂCHE (lot 4) ───
+  // Visible sur une seule demi-journée, sur chaque tâche concrète (poste) du
+  // créneau PERSISTÉ dont l'utilisateur courant EST la ressource. Écrit
+  // EXACTEMENT 2 clés (validationMonteur.<id> + aValiderConducteur) → conforme
+  // à la règle Monteur élargie à la map. Compat legacy via tacheValMonteur.
   const slotInfo = slotMeta(fromSlot);
   const myCreneau = (fromSlot === toSlot && initialRessource)
     ? getExisting(initialRessource.id, slotInfo.dateIso, slotInfo.periode)
     : null;
   const isMyCreneau = !!initialRessource
     && [user?._id, user?.id].filter(Boolean).includes(initialRessource.id);
-  const isTacheConcrete = !!(myCreneau?.chantierId && myCreneau?.batiment && myCreneau?.posteAvancementKey);
-  const valMonteur = myCreneau?.etatValidationMonteur;
-  const valConducteur = myCreneau?.etatValidationConducteur;
-  const canMarkDone = isMyCreneau && isTacheConcrete && valMonteur !== "FAIT";
+  // Ids des tâches réellement persistées (une action L9 ne cible qu'elles).
+  const persistedTacheIds = useMemo(
+    () => new Set(getCreneauTaches(myCreneau).map((t) => t.id)),
+    [myCreneau],
+  );
+  // Une ligne est « validable faite » : mon créneau + tâche concrète (poste) +
+  // persistée + pas déjà FAIT.
+  const canMarkLine = (line) =>
+    isMyCreneau && !!myCreneau && !!line.poste && persistedTacheIds.has(line.id)
+    && tacheValMonteur(myCreneau, line.id) !== "FAIT";
 
-  const marquerFaite = async () => {
-    if (doneBusy || !canMarkDone) return;
+  const marquerFaiteLine = async (line) => {
+    if (doneBusy || !canMarkLine(line)) return;
     setDoneBusy(true);
     try {
       await updateDoc(
         doc(db, "planningCreneaux", creneauId(initialRessource.id, slotInfo.dateIso, slotInfo.periode)),
         {
-          etatValidationMonteur: "FAIT",
-          etatValidationMonteurAt: serverTimestamp(),
-          etatValidationMonteurPar: user._id || user.id,
+          [`validationMonteur.${line.id}`]: { etat: "FAIT", at: serverTimestamp(), par: user._id || user.id },
+          aValiderConducteur: true,
         },
       );
       toast("✓ Tâche marquée faite");
@@ -386,13 +392,16 @@ export function AffectationModal({
     }
   };
 
-  // Badge d'état de validation (affiché sur SON créneau concret).
-  const validationStatus = (isMyCreneau && isTacheConcrete)
-    ? (valConducteur === "VALIDE" ? { text: "✓ Validé par le conducteur", color: EPJ.green }
-      : valConducteur === "REFUSE" ? { text: "↩ Refusé — à reprendre", color: EPJ.redText }
-      : valMonteur === "FAIT" ? { text: "✅ Fait, en attente conducteur", color: EPJ.gray600 }
-      : null)
-    : null;
+  // Statut de validation d'une ligne (badge par tâche).
+  const lineValidationStatus = (line) => {
+    if (!isMyCreneau || !myCreneau || !line.poste || !persistedTacheIds.has(line.id)) return null;
+    const vc = tacheValConducteur(myCreneau, line.id);
+    const vm = tacheValMonteur(myCreneau, line.id);
+    if (vc === "VALIDE") return { text: "✓ Validé par le conducteur", color: EPJ.green };
+    if (vc === "REFUSE") return { text: "↩ Refusé — à reprendre", color: EPJ.redText };
+    if (vm === "FAIT") return { text: "✅ Fait, en attente conducteur", color: EPJ.gray600 };
+    return null;
+  };
 
   return (
     <div
@@ -423,14 +432,6 @@ export function AffectationModal({
             {rangeSlots.length} demi-journée{rangeSlots.length > 1 ? "s" : ""}
             {fixedChantier && ` · Chantier ${fixedChantier.num}`}
           </div>
-          {validationStatus && (
-            <div style={{
-              marginTop: space.xs, fontSize: fontSize.xs, fontWeight: fontWeight.medium,
-              color: validationStatus.color,
-            }}>
-              {validationStatus.text}
-            </div>
-          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
@@ -456,6 +457,7 @@ export function AffectationModal({
             const unitsLine = objLine ? getPosteOptions(objLine, tasksConfig) : [];
             const unitLine = unitsLine.find((u) => u.unite === line.batiment) || null;
             const batOpts = [{ value: "", label: "— Aucun —" }, ...unitsLine.map((u) => ({ value: u.unite, label: u.label }))];
+            const lineStatus = lineValidationStatus(line);
             return (
               <div key={line.id} style={{
                 border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md, padding: space.md,
@@ -493,6 +495,20 @@ export function AffectationModal({
                   disabled={!canWrite}
                   onChange={(e) => updateLine(line.id, { tacheLibre: e.target.value })}
                   hint="Sans poste : va au planning avec son temps, hors avancement. Chantier facultatif." />
+
+                {/* L9 — validation MONTEUR de CETTE tâche (statut + bouton « Tâche faite ») */}
+                {lineStatus && (
+                  <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: lineStatus.color }}>
+                    {lineStatus.text}
+                  </div>
+                )}
+                {canMarkLine(line) && (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button variant="primary" size="sm" onClick={() => marquerFaiteLine(line)} loading={doneBusy}>
+                      ✅ Tâche faite
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -533,11 +549,6 @@ export function AffectationModal({
           {canSendSms && (
             <Button variant="secondary" onClick={sendPlanningSms} loading={smsBusy}>
               📲 Envoyer le planning (SMS)
-            </Button>
-          )}
-          {canMarkDone && (
-            <Button variant="primary" onClick={marquerFaite} loading={doneBusy}>
-              ✅ Tâche faite
             </Button>
           )}
           {canWrite && (editingPool || editingAffected) && (

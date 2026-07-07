@@ -23,7 +23,10 @@ import { useData } from "../../core/DataContext";
 import { can } from "../../core/permissions";
 import { Button } from "../../core/components/Button";
 import { useToast } from "../../core/components/Toast";
-import { progressUnitIdForCreneau, posteLabel } from "./planningModel";
+import {
+  progressUnitIdForCreneau, posteLabel,
+  getCreneauTaches, tacheValMonteur, tacheValConducteur,
+} from "./planningModel";
 import { prettifyPoste } from "./planningSmsBody";
 
 export function ValidationAvancement({ chantier }) {
@@ -36,53 +39,98 @@ export function ValidationAvancement({ chantier }) {
   const validateScope = can(user, "avancement", "validate", rolesConfig);
   const canValidate = validateScope === "all" || validateScope === "own_chantiers";
 
-  const [rows, setRows] = useState([]);
-  const [loaded, setLoaded] = useState(false);
+  const [rowsLegacy, setRowsLegacy] = useState([]);
+  const [rowsFlag, setRowsFlag] = useState([]);
+  const [loadedA, setLoadedA] = useState(false);
+  const [loadedB, setLoadedB] = useState(false);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const loaded = loadedA && loadedB;
 
-  // Créneaux FAIT de CE chantier (deux égalités → zig-zag join sur index
-  // simples, pas d'index composite — calque sendPlanningSms).
+  // UNION de deux requêtes (pas de migration des anciens créneaux) :
+  //  (a) legacy : etatValidationMonteur == "FAIT" (champ plat mono-tâche) ;
+  //  (b) multi  : aValiderConducteur == true (map par tâche, lot 4).
+  // Déduplication par id côté client.
   useEffect(() => {
     if (!chantierId) return undefined;
-    setLoaded(false); setError(false);
-    const q = query(
+    setLoadedA(false); setError(false);
+    const qa = query(
       collection(db, "planningCreneaux"),
       where("chantierId", "==", chantierId),
       where("etatValidationMonteur", "==", "FAIT"),
     );
     const unsub = onSnapshot(
-      q,
-      (snap) => { setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoaded(true); },
-      (err) => { console.error("[ValidationAvancement] lecture échouée :", err); setError(true); setLoaded(true); },
+      qa,
+      (snap) => { setRowsLegacy(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoadedA(true); },
+      (err) => { console.error("[ValidationAvancement] lecture (a) échouée :", err); setError(true); setLoadedA(true); },
     );
     return unsub;
   }, [chantierId]);
 
-  // File = FAIT + pas encore VALIDÉ + tâche concrète (bât + poste).
-  const file = useMemo(() => {
-    return (rows || [])
-      .filter((cr) => cr.etatValidationConducteur !== "VALIDE")
-      .filter((cr) => cr.batiment && cr.posteAvancementKey)
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.periode < b.periode ? -1 : 1));
-  }, [rows]);
+  useEffect(() => {
+    if (!chantierId) return undefined;
+    setLoadedB(false);
+    const qb = query(
+      collection(db, "planningCreneaux"),
+      where("chantierId", "==", chantierId),
+      where("aValiderConducteur", "==", true),
+    );
+    const unsub = onSnapshot(
+      qb,
+      (snap) => { setRowsFlag(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoadedB(true); },
+      (err) => { console.error("[ValidationAvancement] lecture (b) échouée :", err); setError(true); setLoadedB(true); },
+    );
+    return unsub;
+  }, [chantierId]);
 
-  const confirmer = async (cr) => {
+  // Créneaux dédupliqués par id (union a ∪ b).
+  const creneaux = useMemo(() => {
+    const m = new Map();
+    [...rowsLegacy, ...rowsFlag].forEach((cr) => m.set(cr.id, cr));
+    return [...m.values()];
+  }, [rowsLegacy, rowsFlag]);
+
+  // File PAR TÂCHE : une ligne par tâche concrète (poste) FAIT non VALIDÉE.
+  const file = useMemo(() => {
+    const out = [];
+    for (const cr of creneaux) {
+      for (const t of getCreneauTaches(cr)) {
+        if (!t.posteAvancementKey) continue;
+        if (tacheValMonteur(cr, t.id) !== "FAIT") continue;
+        if (tacheValConducteur(cr, t.id) === "VALIDE") continue;
+        out.push({ cr, tache: t });
+      }
+    }
+    return out.sort((x, y) => {
+      const a = x.cr, b = y.cr;
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : a.periode < b.periode ? -1 : 1;
+    });
+  }, [creneaux]);
+
+  // Recalcul du flag : reste-t-il une tâche FAIT non VALIDÉE après cette action ?
+  // (la tâche `t` prend l'état `newEtat` côté conducteur).
+  const recalcFlag = (cr, tId, newEtat) =>
+    getCreneauTaches(cr).some((x) => {
+      const vm = x.id === tId ? "FAIT" : tacheValMonteur(cr, x.id);
+      const vc = x.id === tId ? newEtat : tacheValConducteur(cr, x.id);
+      return x.posteAvancementKey && vm === "FAIT" && vc !== "VALIDE";
+    });
+
+  const confirmer = async ({ cr, tache }) => {
     if (busyId || !canValidate) return;
-    const unitId = progressUnitIdForCreneau(chantier, cr.batiment);
-    setBusyId(cr.id);
+    const unitId = progressUnitIdForCreneau(chantier, tache.batiment);
+    setBusyId(cr.id + "__" + tache.id);
     try {
       // Écriture BORNÉE : deep-merge additif → la case [unité][tâche] passe à 100.
-      // 100 = max → aucune régression possible (pas de garde nécessaire).
+      // 100 = max → aucune régression possible (pattern trio INCHANGÉ).
       await setDoc(
         doc(db, "chantiers", chantier.num),
-        { avancementProgress: { [unitId]: { [cr.posteAvancementKey]: 100 } } },
+        { avancementProgress: { [unitId]: { [tache.posteAvancementKey]: 100 } } },
         { merge: true },
       );
       await updateDoc(doc(db, "planningCreneaux", cr.id), {
-        etatValidationConducteur: "VALIDE",
-        etatValidationConducteurAt: serverTimestamp(),
-        etatValidationConducteurPar: uid,
+        [`validationConducteur.${tache.id}`]: { etat: "VALIDE", at: serverTimestamp(), par: uid },
+        aValiderConducteur: recalcFlag(cr, tache.id, "VALIDE"),
       });
       toast("✓ Avancement confirmé (100 %)");
     } catch (e) {
@@ -93,15 +141,14 @@ export function ValidationAvancement({ chantier }) {
     }
   };
 
-  const refuser = async (cr) => {
+  const refuser = async ({ cr, tache }) => {
     if (busyId || !canValidate) return;
     if (!window.confirm("Refuser cette tâche ? Le monteur devra la reprendre. L'avancement n'est pas modifié.")) return;
-    setBusyId(cr.id);
+    setBusyId(cr.id + "__" + tache.id);
     try {
       await updateDoc(doc(db, "planningCreneaux", cr.id), {
-        etatValidationConducteur: "REFUSE",
-        etatValidationConducteurAt: serverTimestamp(),
-        etatValidationConducteurPar: uid,
+        [`validationConducteur.${tache.id}`]: { etat: "REFUSE", at: serverTimestamp(), par: uid },
+        aValiderConducteur: recalcFlag(cr, tache.id, "REFUSE"),
       });
       toast("↩ Tâche refusée");
     } catch (e) {
@@ -118,20 +165,21 @@ export function ValidationAvancement({ chantier }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-      {file.map((cr) => {
-        const tache = cr.posteLabel
-          || posteLabel(chantier, cr.batiment, cr.posteAvancementKey, tasksConfig)
-          || prettifyPoste(cr.posteAvancementKey);
-        const refuse = cr.etatValidationConducteur === "REFUSE";
+      {file.map(({ cr, tache }) => {
+        const label = tache.posteLabel
+          || posteLabel(chantier, tache.batiment, tache.posteAvancementKey, tasksConfig)
+          || prettifyPoste(tache.posteAvancementKey);
+        const refuse = tacheValConducteur(cr, tache.id) === "REFUSE";
+        const rowId = cr.id + "__" + tache.id;
         return (
-          <div key={cr.id} style={{
+          <div key={rowId} style={{
             background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
             borderRadius: radius.lg, padding: space.md,
             display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.md,
           }}>
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
-                Bât. {cr.batiment} <span style={{ color: EPJ.gray400, fontWeight: fontWeight.regular }}>· {tache}</span>
+                Bât. {tache.batiment} <span style={{ color: EPJ.gray400, fontWeight: fontWeight.regular }}>· {label}</span>
               </div>
               <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
                 {cr.ressourceNom || cr.ressourceId || "—"} · {cr.date} {cr.periode === "AM" ? "matin" : "aprem"}
@@ -140,10 +188,10 @@ export function ValidationAvancement({ chantier }) {
             </div>
             {canValidate && (
               <div style={{ display: "flex", alignItems: "center", gap: space.sm, flexShrink: 0 }}>
-                <Button variant="ghost" size="sm" onClick={() => refuser(cr)} disabled={busyId === cr.id}>
+                <Button variant="ghost" size="sm" onClick={() => refuser({ cr, tache })} disabled={busyId === rowId}>
                   Refuser
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => confirmer(cr)} loading={busyId === cr.id}>
+                <Button variant="primary" size="sm" onClick={() => confirmer({ cr, tache })} loading={busyId === rowId}>
                   Confirmer
                 </Button>
               </div>

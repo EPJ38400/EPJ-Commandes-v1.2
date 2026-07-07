@@ -327,6 +327,23 @@ export function creneauTotalHours(cr, dayIdx) {
     s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
 }
 
+// ─── Validation L9 PAR TÂCHE (lot 4) — compat legacy mono-tâche ──
+// État de validation MONTEUR d'une tâche : map validationMonteur[tacheId] si
+// présente, sinon repli sur le champ plat de tête pour l'ancienne tâche "t0".
+export function tacheValMonteur(cr, tacheId) {
+  const m = cr?.validationMonteur?.[tacheId];
+  if (m?.etat) return m.etat;
+  // Repli legacy : ancien créneau mono-tâche (tacheId "t0") → champ plat de tête.
+  if (tacheId === "t0" && cr?.etatValidationMonteur) return cr.etatValidationMonteur;
+  return "NON";
+}
+export function tacheValConducteur(cr, tacheId) {
+  const c = cr?.validationConducteur?.[tacheId];
+  if (c?.etat) return c.etat;
+  if (tacheId === "t0" && cr?.etatValidationConducteur) return cr.etatValidationConducteur;
+  return "NON";
+}
+
 export function weeklyTotalHours(resourceId, weekCols, creneauMap) {
   let total = 0;
   for (let dayIdx = 0; dayIdx < weekCols.length; dayIdx++) {

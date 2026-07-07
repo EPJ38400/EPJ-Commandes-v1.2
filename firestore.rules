@@ -268,13 +268,15 @@ service cloud.firestore {
     match /planningCreneaux/{id} {
       allow read: if isEmployee();
       allow create, update, delete: if isAdmin() || isAssistante() || isConducteur() || role() == "Chef chantier";
-      // L9 — le Monteur flippe UNIQUEMENT sa confirmation (« Tâche faite »).
-      //   Bornée AUX CHAMPS de validation monteur (le client n'affiche que ses
-      //   créneaux). L'ownership stricte par uid viendra quand on stockera
-      //   ressourceUid sur le créneau (V1 : périmètre champs uniquement).
+      // L9 — le Monteur flippe UNIQUEMENT sa confirmation (« Tâche faite »),
+      //   désormais PAR TÂCHE (map validationMonteur.<tacheId>) + le flag
+      //   aValiderConducteur. Bornée à ces 2 clés de tête → il ne peut PAS
+      //   modifier taches[]/chantier/poste/temps ni la validation conducteur.
+      //   Le client n'affiche que ses créneaux ; l'ownership stricte par uid
+      //   viendra avec ressourceUid (V1 : périmètre champs uniquement).
       allow update: if role() == "Monteur"
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(["etatValidationMonteur", "etatValidationMonteurAt", "etatValidationMonteurPar"]);
+             .hasOnly(["validationMonteur", "aValiderConducteur"]);
     }
 
     // ─── smsTemplates + smsQueue ──────────────────────────────────
