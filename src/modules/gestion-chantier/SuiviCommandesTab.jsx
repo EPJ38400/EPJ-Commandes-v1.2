@@ -66,8 +66,9 @@ export function SuiviCommandesTab({ chantier }) {
 
   // Affichage : commandes app + commandes Esabora-directes, tri par date desc.
   const allRows = useMemo(
-    () => [...appRows, ...esaboraDirects]
-      .sort((a, b) => String(b._dateSort || b.date || "").localeCompare(String(a._dateSort || a.date || ""))),
+    () => [...appRows, ...esaboraDirects].sort((a, b) =>
+      String(b._dateSort || b.createdAt || b.date || "")
+        .localeCompare(String(a._dateSort || a.createdAt || a.date || ""))),
     [appRows, esaboraDirects],
   );
 
