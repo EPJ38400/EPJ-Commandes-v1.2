@@ -33,3 +33,12 @@ export function buildPlanningMessage({ prenom, dateLabel, lignes, prefix }) {
     `${lignes.join("\n")}\n- EPJ`,
   );
 }
+
+// Corps d'un SMS planning de la SEMAINE (envoi manuel depuis la grille).
+// Même moule que le jour (GSM-7, signature « - EPJ »).
+export function buildWeekPlanningMessage({ prenom, weekLabel, lignes, prefix }) {
+  return gsmSafe(
+    `${prefix || ""}Bonjour ${prenom}, ton planning EPJ de la ${weekLabel} :\n` +
+    `${lignes.join("\n")}\n- EPJ`,
+  );
+}

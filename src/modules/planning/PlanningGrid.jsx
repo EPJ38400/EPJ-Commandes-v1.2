@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
-  collection, query, where, onSnapshot, getDocs, doc, setDoc, serverTimestamp,
+  collection, query, where, onSnapshot, getDocs, doc, setDoc, addDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
@@ -23,12 +23,16 @@ import { useData } from "../../core/DataContext";
 import { useViewport } from "../../core/useViewport";
 import { can } from "../../core/permissions";
 import { Button } from "../../core/components/Button";
+import { useToast } from "../../core/components/Toast";
+import { normalizePhone } from "../../core/smsService";
 import { AffectationModal } from "./AffectationModal";
 import {
   PERIODES, NB_WEEK_DAYS, weekColumns, weekRange, weekLabel, startOfWeek, addDays, fromISO, toISODate,
   creneauId, terrainResources, resourcesForConductor, chantierColorIndex, posteLabel,
   isMyChantier, rowSegments, weeklyTotalHours, slotToCell, slotIndex, isPool, poolTasksAt,
+  getCreneauTaches,
 } from "./planningModel";
+import { prettifyPoste, buildWeekPlanningMessage } from "./planningSmsBody";
 // Overlay congés (RH-2b) — helper pur ; congesModel dépend déjà de planningModel
 // → pas de cycle. Lecture seule de `conges` (rule read employee en prod).
 import { congeCoversSlot, CONGE_TYPE_SHORT, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, isFerme } from "../rh/congesModel";
@@ -51,6 +55,7 @@ export function PlanningGrid({ chantier = null }) {
   const { user } = useAuth();
   const { users, chantiers, rolesConfig, tasksConfig, loaded } = useData();
   const isPwa = useViewport() === "mobile";
+  const toast = useToast();
 
   const isTab = !!chantier;
   const chantierId = chantier?.num || null;
@@ -250,6 +255,51 @@ export function PlanningGrid({ chantier = null }) {
     setModal({ resource: null, fromSlot: slot, toSlot: slot, prefill: null, poolTask: task });
   };
 
+  // ─── SMS planning de la SEMAINE (envoi manuel, calque le bouton jour) ───
+  // Enfile 1 SMS dans smsQueue (consommé par onSmsQueueCreate) récapitulant
+  // TOUS les créneaux de la semaine affichée pour CETTE ressource, groupés par
+  // jour, 1 ligne par tâche (même format que le bouton jour d'AffectationModal).
+  const sendWeekSms = async (r) => {
+    if (!canWrite) return;
+    const u = (users || []).find((x) => x.id === r.id) || {};
+    const phone = normalizePhone(u.telephone || u.tel || "");
+    if (!phone) { toast("Pas de numéro pour " + (r.nom || r.id)); return; }
+    const chById = new Map((chantiers || []).map((c) => [c.num, c]));   // clé = num (comme le jour)
+    const lignes = [];
+    cols.forEach((col) => {
+      const dayLines = ["AM", "PM"].flatMap((p) => {
+        const c = creneauMap.get(creneauId(r.id, col.iso, p));
+        return getCreneauTaches(c).map((t) => {
+          const nom = t.chantierId ? (chById.get(t.chantierId)?.nom || t.chantierId) : "";
+          const poste = t.posteLabel || prettifyPoste(t.posteAvancementKey);
+          const main = nom || poste || "";
+          const extra = nom ? poste : "";
+          return `- ${p === "AM" ? "Matin" : "Aprem"} : ${main}${extra ? ` (${extra})` : ""}`;
+        });
+      });
+      if (dayLines.length) { lignes.push(`${col.dayLabel} ${col.dateLabel} :`); lignes.push(...dayLines); }
+    });
+    if (lignes.length === 0) { toast("Aucun créneau cette semaine"); return; }
+    const weekMsgLabel = `semaine du ${cols[0].dateLabel}`;
+    const message = buildWeekPlanningMessage({ prenom: u.prenom || "", weekLabel: weekMsgLabel, lignes, prefix: "" });
+    try {
+      await addDoc(collection(db, "smsQueue"), {
+        type: "PLANNING_SEMAINE_MANUEL",
+        recipientUserId: r.id,
+        recipientPhone: phone,           // champ lu par onSmsQueueCreate (PAS "phone")
+        recipientName: u.prenom || r.nom || "",
+        templateCode: "planning_semaine",   // métadonnée/log seulement
+        message,
+        variables: { prenom: u.prenom || "", semaine: cols[0].dateLabel },
+        createdAt: serverTimestamp(),
+      });
+      toast("SMS semaine envoyé à " + (u.prenom || r.nom));
+    } catch (e) {
+      console.error("[PlanningGrid] SMS semaine échoué :", e);
+      toast("Échec de l'envoi du SMS");
+    }
+  };
+
   // ─── États ───
   if (!viewScope) {
     return <EmptyBox icon="🔒" text="Le planning ne vous est pas accessible." />;
@@ -381,6 +431,14 @@ export function PlanningGrid({ chantier = null }) {
                       {r.nom}
                     </span>
                     {r.type === "ARTISAN" && <span style={{ fontSize: 10, color: EPJ.gray400 }}>(art.)</span>}
+                    {canWrite && (
+                      <span style={{ marginLeft: "auto", flexShrink: 0 }}>
+                        <Button variant="ghost" size="sm" onClick={() => sendWeekSms(r)}
+                          title="Envoyer le planning de la semaine par SMS">
+                          ✉
+                        </Button>
+                      </span>
+                    )}
                   </div>
 
                   {/* Couche 0 : bandeau d'absence. Ferme (VALIDEE) = hachures grises
