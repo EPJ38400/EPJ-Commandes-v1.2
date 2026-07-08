@@ -2,8 +2,9 @@
 // Reproduction locale des helpers (mêmes règles que planningModel.js, sans la
 // chaîne d'imports browser d'avancementTasks/theme, pour rester runnable en `node`).
 
-function demiJourneeHeures(dayIdx) {
-  return dayIdx === 4 ? 3.5 : 4;
+function demiJourneeHeures(dayIdx, periode) {
+  if (dayIdx === 4) return periode === "PM" ? 3 : 4;   // Ven : 4h matin + 3h aprem
+  return 4;
 }
 
 function getCreneauTaches(cr) {
@@ -31,7 +32,7 @@ function creneauTotalHours(cr, dayIdx) {
   const taches = getCreneauTaches(cr);
   if (!taches.length) return 0;
   return taches.reduce((s, t) =>
-    s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
+    s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx, cr?.periode)), 0);
 }
 
 function tacheValMonteur(cr, tacheId) {
@@ -132,19 +133,21 @@ eq(getCreneauTaches({ ressourceId: null }), [], "slot vide → []");
 eq(getCreneauTaches(null), [], "null → []");
 
 console.log("creneauTotalHours");
-// legacy sans temps → demiJourneeHeures(dayIdx)
+// legacy sans temps → demiJourneeHeures(dayIdx, periode)
 eq(creneauTotalHours({ chantierId: "251234" }, 0), 4, "legacy sans temps lundi → 4");
-eq(creneauTotalHours({ chantierId: "251234" }, 4), 3.5, "legacy sans temps vendredi → 3,5");
+// Vendredi : matin 4h, aprem 3h (7h/jour).
+eq(creneauTotalHours({ chantierId: "251234", periode: "AM" }, 4), 4, "legacy sans temps vendredi matin → 4");
+eq(creneauTotalHours({ chantierId: "251234", periode: "PM" }, 4), 3, "legacy sans temps vendredi aprem → 3");
 // legacy avec temps explicite → ce temps
 eq(creneauTotalHours({ chantierId: "251234", tempsEstimeH: 2 }, 0), 2, "legacy temps explicite → 2");
 // multi-tâches → somme
 eq(creneauTotalHours({ taches: [
   { id: "a", tempsEstimeH: 2 }, { id: "b", tempsEstimeH: 1.5 },
 ] }, 0), 3.5, "multi-tâches somme temps → 3,5");
-// multi-tâches, une sans temps → fallback demi-journée
-eq(creneauTotalHours({ taches: [
+// multi-tâches, une sans temps → fallback demi-journée (vendredi aprem = 3h)
+eq(creneauTotalHours({ periode: "PM", taches: [
   { id: "a", tempsEstimeH: 2 }, { id: "b" },
-] }, 4), 5.5, "multi-tâches fallback vendredi → 2 + 3,5");
+] }, 4), 5, "multi-tâches fallback vendredi aprem → 2 + 3");
 // slot vide → 0
 eq(creneauTotalHours({}, 0), 0, "slot vide → 0");
 

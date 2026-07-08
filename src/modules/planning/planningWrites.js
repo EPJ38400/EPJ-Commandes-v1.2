@@ -35,7 +35,7 @@ function primaryTache(clean) {
 
 // Champs d'un créneau AFFECTÉ. `existing` = doc actuel (préserve états de
 // validation/SMS/créateur lors d'un merge). `dayIdx` 0..4 (Lun→Ven) pour la
-// durée par défaut (3,5 h le vendredi). `taches` = tableau de lignes de tâches.
+// durée par défaut (vendredi : 4 h matin, 3 h aprem). `taches` = tableau de lignes.
 // Le doc porte `taches[]` + un MIROIR primaire (chantierId/… plats) pour la
 // compat : requête mois (where chantierId), L9 primaire, lecteurs plats.
 export function affectedCreneauPayload({ res, date, periode, dayIdx, taches, existing, userId }) {
@@ -49,7 +49,7 @@ export function affectedCreneauPayload({ res, date, periode, dayIdx, taches, exi
     batiment: primary?.batiment || null,
     posteAvancementKey: primary?.posteAvancementKey || null,
     posteLabel: primary?.posteLabel || null,
-    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx)) : null,
+    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx, periode)) : null,
     tacheId: null,
     // États de validation (L9) — préservés au merge lors d'une ré-affectation /
     // édition (comme etatValidationMonteur). Strictement additif : aucun champ
@@ -87,7 +87,7 @@ export function poolCreneauPayload({ date, periode, dayIdx, taches, source, user
     batiment: primary?.batiment || null,
     posteAvancementKey: primary?.posteAvancementKey || null,
     posteLabel: primary?.posteLabel || null,
-    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx)) : null,
+    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx, periode)) : null,
     tacheId: null,
     // Maps de validation L9 par tâche préservées au merge (additif, cf. affecté).
     validationMonteur: source?.validationMonteur || {},
