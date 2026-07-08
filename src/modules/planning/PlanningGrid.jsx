@@ -264,7 +264,7 @@ export function PlanningGrid({ chantier = null }) {
     const u = (users || []).find((x) => x.id === r.id) || {};
     const phone = normalizePhone(u.telephone || u.tel || "");
     if (!phone) { toast("Pas de numéro pour " + (r.nom || r.id)); return; }
-    const chById = new Map((chantiers || []).map((c) => [c.num || c.id, c]));
+    const chById = new Map((chantiers || []).map((c) => [c.num, c]));   // clé = num (comme le jour)
     const lignes = [];
     cols.forEach((col) => {
       const dayLines = ["AM", "PM"].flatMap((p) => {
@@ -272,8 +272,9 @@ export function PlanningGrid({ chantier = null }) {
         return getCreneauTaches(c).map((t) => {
           const nom = t.chantierId ? (chById.get(t.chantierId)?.nom || t.chantierId) : "";
           const poste = t.posteLabel || prettifyPoste(t.posteAvancementKey);
-          const h = t.tempsEstimeH != null ? ` (${t.tempsEstimeH}h)` : "";
-          return `  ${nom ? nom + " - " : ""}${poste}${h}`;
+          const main = nom || poste || "";
+          const extra = nom ? poste : "";
+          return `- ${p === "AM" ? "Matin" : "Aprem"} : ${main}${extra ? ` (${extra})` : ""}`;
         });
       });
       if (dayLines.length) { lignes.push(`${col.dayLabel} ${col.dateLabel} :`); lignes.push(...dayLines); }
