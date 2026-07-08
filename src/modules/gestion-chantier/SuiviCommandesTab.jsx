@@ -24,12 +24,6 @@ import { useData } from "../../core/DataContext";
 import { useViewport } from "../../core/useViewport";
 import { Badge } from "../../core/components/Badge";
 
-// "JJ/MM/AAAA" → timestamp (ms). Invalide/vide → 0 (rejeté en bas du tri).
-function parseFrDate(s) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((s || "").trim());
-  return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0;
-}
-
 // État de synchro Esabora → libellé doux lecture seule.
 function esaboraLabel(status) {
   if (status === "synced") return "synchronisée";
@@ -61,14 +55,21 @@ export function SuiviCommandesTab({ chantier }) {
   const [openId, setOpenId] = useState(null);
   // Cartes de dates AR par référence, indexées par lien vers la commande app.
   const [arDates, setArDates] = useState({ byId: {}, byNum: {} });
+  // Commandes passées DIRECTEMENT dans Esabora (hors app) pour ce chantier.
+  const [esaboraDirects, setEsaboraDirects] = useState([]);
 
-  // Filtre + tri sur une COPIE (Array.prototype.filter renvoie déjà un
-  // nouveau tableau → sort() ne mute pas useData().commandes).
-  const rows = useMemo(() => {
-    return (commandes || [])
-      .filter((c) => c.chantierNum === chantier.num)
-      .sort((a, b) => parseFrDate(b.date) - parseFrDate(a.date));
-  }, [commandes, chantier.num]);
+  // Commandes de l'app rattachées à ce chantier (filtre sur une COPIE).
+  const appRows = useMemo(
+    () => (commandes || []).filter((c) => c.chantierNum === chantier.num),
+    [commandes, chantier.num],
+  );
+
+  // Affichage : commandes app + commandes Esabora-directes, tri par date desc.
+  const allRows = useMemo(
+    () => [...appRows, ...esaboraDirects]
+      .sort((a, b) => String(b._dateSort || b.date || "").localeCompare(String(a._dateSort || a.date || ""))),
+    [appRows, esaboraDirects],
+  );
 
   // Lecture seule one-shot de commandesEsabora (scopé chantier) → map de dates.
   // Pas de listener permanent : ces dates servent uniquement à remplir la
@@ -81,25 +82,47 @@ export function SuiviCommandesTab({ chantier }) {
         if (!alive) return;
         const byId = {};
         const byNum = {};
+        const directs = [];
         snap.forEach((d) => {
           const e = d.data();
           const lc = e.lignesCommande;
           const la = e.lignesAR;
-          // Anti-date-fausse : on n'apparie QUE si les deux listes existent
-          // et ont strictement la même longueur (correspondance positionnelle).
-          if (!Array.isArray(la) || !Array.isArray(lc) || la.length !== lc.length) return;
-          const entries = {};
-          for (let i = 0; i < lc.length; i++) {
-            const ref = lc[i]?.reference;
-            if (ref == null) continue;
-            entries[ref] = la[i]?.dateLivraisonPrevue || null;
+          // (a) Commandes LIÉES à l'app → alimentent la map de dates AR.
+          //     Anti-date-fausse : on n'apparie QUE si les deux listes existent
+          //     et ont strictement la même longueur (correspondance positionnelle).
+          if (Array.isArray(la) && Array.isArray(lc) && la.length === lc.length) {
+            const entries = {};
+            for (let i = 0; i < lc.length; i++) {
+              const ref = lc[i]?.reference;
+              if (ref == null) continue;
+              entries[ref] = la[i]?.dateLivraisonPrevue || null;
+            }
+            // Une commande app peut être scindée en plusieurs docs Esabora (par
+            // fournisseur) partageant le même appCommandeId → on fusionne.
+            if (e.appCommandeId) byId[e.appCommandeId] = { ...(byId[e.appCommandeId] || {}), ...entries };
+            if (e.appCommandeNum) byNum[e.appCommandeNum] = { ...(byNum[e.appCommandeNum] || {}), ...entries };
           }
-          // Une commande app peut être scindée en plusieurs docs Esabora (par
-          // fournisseur) partageant le même appCommandeId → on fusionne.
-          if (e.appCommandeId) byId[e.appCommandeId] = { ...(byId[e.appCommandeId] || {}), ...entries };
-          if (e.appCommandeNum) byNum[e.appCommandeNum] = { ...(byNum[e.appCommandeNum] || {}), ...entries };
+          // (b) Commandes passées DIRECTEMENT dans Esabora (aucun lien app) →
+          //     mappées au format d'affichage (dates AR portées par le doc).
+          if (!e.appCommandeId && !e.appCommandeNum) {
+            directs.push({
+              id: e.numero,
+              num: e.numero,
+              statut: e.etat || "Commandée",
+              date: e.dateCommande ? new Date(e.dateCommande).toLocaleDateString("fr-FR") : "—",
+              _dateSort: e.dateCommande || "",
+              items: (e.lignesCommande || []).map((l) => ({
+                r: l.reference, n: l.designation, qty: l.quantite, u: l.unite,
+              })),
+              source: "esabora",
+              _refDates: Object.fromEntries(
+                (e.lignesAR || []).map((l) => [l.reference, l.dateLivraisonPrevue || null]),
+              ),
+            });
+          }
         });
         setArDates({ byId, byNum });
+        setEsaboraDirects(directs);
       })
       .catch((err) => {
         // Pas de blocage : sans dates AR, la colonne affiche « — ».
@@ -108,7 +131,7 @@ export function SuiviCommandesTab({ chantier }) {
     return () => { alive = false; };
   }, [chantier.num]);
 
-  if (rows.length === 0) {
+  if (allRows.length === 0) {
     return (
       <div style={{
         background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
@@ -125,14 +148,14 @@ export function SuiviCommandesTab({ chantier }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginBottom: space.xs }}>
-        {rows.length} commande{rows.length > 1 ? "s" : ""}
+        {allRows.length} commande{allRows.length > 1 ? "s" : ""}
       </div>
-      {rows.map((o) => (
+      {allRows.map((o) => (
         <CommandeRow
           key={o.id || o.num}
           order={o}
           isPwa={isPwa}
-          refDates={arDates.byId[o.id] || arDates.byNum[o.num] || null}
+          refDates={o.source === "esabora" ? (o._refDates || null) : (arDates.byId[o.id] || arDates.byNum[o.num] || null)}
           open={openId === (o.id || o.num)}
           onToggle={() => setOpenId((k) => (k === (o.id || o.num) ? null : (o.id || o.num)))}
         />
@@ -172,6 +195,7 @@ function CommandeRow({ order, isPwa, refDates, open, onToggle }) {
               {order.num || "—"}
             </span>
             <Badge status={order.statut} />
+            {order.source === "esabora" && <Badge tone="neutral" label="Esabora" />}
             {order.createdBySplit === true && (
               <Badge tone="neutral" label={`scindée — ${order.parentOrderNum || "?"}`} />
             )}
