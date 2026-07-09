@@ -13,7 +13,7 @@ export function creneauToICS({ chantierNom, chantierAdresse, posteLabel,
   const d = new Date(dateIso + "T00:00:00");
   const isFri = d.getDay() === 5;
   const startH = periode === "AM" ? 8 : 13;
-  const durMin = (isFri ? 3.5 : 4) * 60;            // 4 h, 3,5 h le vendredi
+  const durMin = (isFri ? (periode === "PM" ? 3 : 4) : 4) * 60;   // Ven : 4h matin, 3h aprem
   const pad = (n) => String(n).padStart(2, "0");
   const ymd = dateIso.replace(/-/g, "");
   const startMin = startH * 60;

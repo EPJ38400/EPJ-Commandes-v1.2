@@ -147,7 +147,7 @@ export function AffectationModal({
   // ─── Contrôle capacité : somme des temps ≤ demi-journée ───
   // Un temps vide vaut la capacité de la demi-journée (tâche « pleine »).
   const capacite = rangeSlots.length
-    ? Math.min(...rangeSlots.map((s) => demiJourneeHeures(slotToCell(s).dayIdx)))
+    ? Math.min(...rangeSlots.map((s) => demiJourneeHeures(slotToCell(s).dayIdx, slotToCell(s).periode)))
     : demiJourneeHeures(0);
   const sommeTemps = taches.reduce((s, l) => {
     const rempli = !!(l.chantierId || l.poste || l.tacheLibre.trim());
@@ -488,7 +488,7 @@ export function AffectationModal({
                   </>
                 )}
                 <Field type="number" label="Temps estimé / demi-journée (h)" value={line.temps}
-                  disabled={!canWrite} placeholder="défaut : 4 h (3,5 h le vendredi)"
+                  disabled={!canWrite} placeholder="défaut : 4 h (vendredi : 4 h matin, 3 h aprem)"
                   hint="Laisser vide = durée de la demi-journée pour chaque créneau."
                   onChange={(e) => updateLine(line.id, { temps: e.target.value })} />
                 <Field label="Tâche libre (hors avancement)" value={line.tacheLibre}

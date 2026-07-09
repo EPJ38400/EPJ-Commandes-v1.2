@@ -2,7 +2,10 @@
 // Reproduction locale du cœur des builders (cleanTaches + primaryTache + miroir
 // primaire), sans les dépendances Firestore/browser (serverTimestamp, planningModel).
 
-function demiJourneeHeures(dayIdx) { return dayIdx === 4 ? 3.5 : 4; }
+function demiJourneeHeures(dayIdx, periode) {
+  if (dayIdx === 4) return periode === "PM" ? 3 : 4;   // Ven : 4h matin + 3h aprem
+  return 4;
+}
 let seq = 0;
 function makeTacheId() { return "gen" + (++seq); }
 
@@ -19,7 +22,7 @@ function cleanTaches(taches) {
 function primaryTache(clean) { return clean.find((t) => t.chantierId) || clean[0] || null; }
 
 // Cœur commun du doc écrit (affecté ET pool) : taches[] + miroir primaire.
-function docCore(taches, dayIdx) {
+function docCore(taches, dayIdx, periode) {
   const clean = cleanTaches(taches);
   const primary = primaryTache(clean);
   return {
@@ -28,7 +31,7 @@ function docCore(taches, dayIdx) {
     batiment: primary?.batiment || null,
     posteAvancementKey: primary?.posteAvancementKey || null,
     posteLabel: primary?.posteLabel || null,
-    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx)) : null,
+    tempsEstimeH: primary ? (primary.tempsEstimeH ?? demiJourneeHeures(dayIdx, periode)) : null,
   };
 }
 
@@ -50,11 +53,15 @@ console.log("planningWrites — docCore");
   }, "1 tâche → taches[1] + miroir = cette tâche");
 }
 
-// (1bis) 1 tâche sans temps → miroir tempsEstimeH = défaut demi-journée (vendredi 3,5).
+// (1bis) 1 tâche sans temps → miroir tempsEstimeH = défaut demi-journée
+// (vendredi : matin 4h, aprem 3h).
 {
-  const d = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 4);
-  eq({ tache: d.taches[0].tempsEstimeH, miroir: d.tempsEstimeH }, { tache: null, miroir: 3.5 },
-    "1 tâche sans temps → tâche null, miroir = 3,5 (vendredi)");
+  const am = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 4, "AM");
+  eq({ tache: am.taches[0].tempsEstimeH, miroir: am.tempsEstimeH }, { tache: null, miroir: 4 },
+    "1 tâche sans temps → tâche null, miroir = 4 (vendredi matin)");
+  const pm = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 4, "PM");
+  eq({ tache: pm.taches[0].tempsEstimeH, miroir: pm.tempsEstimeH }, { tache: null, miroir: 3 },
+    "1 tâche sans temps → tâche null, miroir = 3 (vendredi aprem)");
 }
 
 // (2) 2 tâches (2 chantiers) → taches len 2, primary = 1re avec chantier, miroir = primary.

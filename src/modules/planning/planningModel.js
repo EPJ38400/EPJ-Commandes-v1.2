@@ -287,9 +287,11 @@ export function expandRange(fromSlot, toSlot) {
 }
 
 // ─── Heures ────────────────────────────────────────────────────
-// Demi-journée : 4 h (Lun–Jeu) ; 3,5 h (Ven, dayIdx 4). Jour = 8 h / 7 h Ven.
-export function demiJourneeHeures(dayIdx) {
-  return dayIdx === 4 ? 3.5 : 4;
+// Demi-journée : 4 h (Lun–Jeu, matin/aprem). Vendredi (dayIdx 4) = 4 h matin
+// + 3 h aprem → journée 7 h. Jour Lun–Jeu = 8 h.
+export function demiJourneeHeures(dayIdx, periode) {
+  if (dayIdx === 4) return periode === "PM" ? 3 : 4;   // Ven : 4h matin + 3h aprem = 7h
+  return 4;
 }
 
 // ─── Multi-tâches (lot 1) : socle taches[] + compat lecture legacy ──
@@ -324,7 +326,7 @@ export function creneauTotalHours(cr, dayIdx) {
   const taches = getCreneauTaches(cr);
   if (!taches.length) return 0;
   return taches.reduce((s, t) =>
-    s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx)), 0);
+    s + (t.tempsEstimeH != null ? Number(t.tempsEstimeH) : demiJourneeHeures(dayIdx, cr?.periode)), 0);
 }
 
 // ─── Validation L9 PAR TÂCHE (lot 4) — compat legacy mono-tâche ──
