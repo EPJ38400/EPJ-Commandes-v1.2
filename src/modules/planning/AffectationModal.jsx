@@ -53,6 +53,8 @@ export function AffectationModal({
   const [fromPer, setFromPer] = useState(initFrom.periode);
   const [toDay, setToDay] = useState(String(initTo.dayIdx));
   const [toPer, setToPer] = useState(initTo.periode);
+  // Co-affectation : ressources SUPPLÉMENTAIRES (ids) recevant les MÊMES tâches.
+  const [autresRessources, setAutresRessources] = useState([]);
 
   // ─── Lignes de tâches (L3 multi-tâches) ───
   // Une ligne de formulaire = { id, chantierId, batiment, poste, tacheLibre, temps }.
@@ -213,10 +215,37 @@ export function AffectationModal({
             batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
           }
         }
-        if (wrote === 0) { setSaving(false); onClose(); return; }
+        // ── Co-affectation : MÊMES tâches sur les ressources supplémentaires ──
+        // Slot par slot, un créneau déjà occupé (cache creneauMap via getExisting)
+        // n'est PAS touché → on l'ignore. Réutilise EXACTEMENT payloadAffected
+        // (mêmes taches[]). On exclut la cible principale et l'ancienne ressource
+        // libérée (déjà gérées par la boucle primaire → pas de double write).
+        const handled = new Set([target.id]);
+        if (initialRessource && initialRessource.id !== target.id) handled.add(initialRessource.id);
+        const extras = autresRessources.filter((id) => id && !handled.has(id));
+        const skipped = new Set();
+        const coAffectes = new Set();
+        for (const id of extras) {
+          const res = (resources || []).find((r) => r.id === id);
+          if (!res) continue;
+          for (const s of rangeSlots) {
+            const { dateIso, periode } = slotMeta(s);
+            if (getExisting(id, dateIso, periode)) { skipped.add(id); continue; }
+            batch.set(doc(db, "planningCreneaux", creneauId(id, dateIso, periode)), payloadAffected(res, s), { merge: true });
+            coAffectes.add(id);
+          }
+        }
+        if (wrote === 0 && coAffectes.size === 0) { setSaving(false); onClose(); return; }
         // Source pool → on retire la tâche du pool (elle devient affectée).
         if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
         await batch.commit();
+        if (extras.length) {
+          const n = 1 + coAffectes.size;
+          let msg = `Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`;
+          const nSkip = [...skipped].filter((id) => !coAffectes.has(id)).length;
+          if (nSkip) msg += ` · ${nSkip} ignorée${nSkip > 1 ? "s" : ""}, créneau déjà occupé`;
+          toast(msg);
+        }
         onClose();
       } catch (e) {
         console.error("[AffectationModal] affectation échouée :", e);
@@ -438,6 +467,28 @@ export function AffectationModal({
           {/* Ressource : « À affecter » ou une personne (pilote affecter/libérer) */}
           <Field as="select" label="Ressource" value={ressourceId} options={ressourceOptions}
             disabled={!canWrite} onChange={(e) => setRessourceId(e.target.value)} />
+
+          {/* Co-affectation : affecter LES MÊMES tâches à d'autres ressources.
+              Exclut la ressource principale et « À affecter » (pool). Chips =
+              multi-select tactile. Visible seulement quand une ressource est ciblée. */}
+          {canWrite && targetRes && (
+            <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
+              <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700 }}>
+                Affecter aussi à (optionnel)
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
+                {(resources || []).filter((r) => r.id !== ressourceId).map((r) => {
+                  const on = autresRessources.includes(r.id);
+                  return (
+                    <Button key={r.id} variant={on ? "primary" : "secondary"} size="sm"
+                      onClick={() => setAutresRessources((xs) => (on ? xs.filter((x) => x !== r.id) : [...xs, r.id]))}>
+                      {r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Plage Du → Au */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
