@@ -216,24 +216,23 @@ export function AffectationModal({
           }
         }
         // ── Co-affectation : MÊMES tâches sur les ressources supplémentaires ──
-        // Slot par slot, un créneau déjà occupé (cache creneauMap via getExisting)
-        // n'est PAS touché → on l'ignore. Réutilise EXACTEMENT payloadAffected
-        // (mêmes taches[]). On exclut la cible principale et l'ancienne ressource
-        // libérée (déjà gérées par la boucle primaire → pas de double write).
+        // Slot par slot, ÉCRASE inconditionnellement (pas de saut, pas de
+        // confirmation). Réutilise EXACTEMENT payloadAffected (mêmes taches[]).
+        // Seul garde-fou : anti-double-write dans le batch — on exclut la cible
+        // principale et l'ancienne ressource libérée (déjà écrites/supprimées
+        // par la boucle primaire), sinon Firestore rejette 2 writes du même doc.
         const handled = new Set([target.id]);
         if (initialRessource && initialRessource.id !== target.id) handled.add(initialRessource.id);
         const extras = autresRessources.filter((id) => id && !handled.has(id));
-        const skipped = new Set();
         const coAffectes = new Set();
         for (const id of extras) {
           const res = (resources || []).find((r) => r.id === id);
           if (!res) continue;
           for (const s of rangeSlots) {
             const { dateIso, periode } = slotMeta(s);
-            if (getExisting(id, dateIso, periode)) { skipped.add(id); continue; }
             batch.set(doc(db, "planningCreneaux", creneauId(id, dateIso, periode)), payloadAffected(res, s), { merge: true });
-            coAffectes.add(id);
           }
+          coAffectes.add(id);
         }
         if (wrote === 0 && coAffectes.size === 0) { setSaving(false); onClose(); return; }
         // Source pool → on retire la tâche du pool (elle devient affectée).
@@ -241,10 +240,7 @@ export function AffectationModal({
         await batch.commit();
         if (extras.length) {
           const n = 1 + coAffectes.size;
-          let msg = `Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`;
-          const nSkip = [...skipped].filter((id) => !coAffectes.has(id)).length;
-          if (nSkip) msg += ` · ${nSkip} ignorée${nSkip > 1 ? "s" : ""}, créneau déjà occupé`;
-          toast(msg);
+          toast(`Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`);
         }
         onClose();
       } catch (e) {
