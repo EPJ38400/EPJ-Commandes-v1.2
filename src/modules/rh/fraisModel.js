@@ -48,19 +48,33 @@ export const BAREME_2026 = {
   source: "FBTP Isère QS 11/2026",
 };
 
-// Indemnités d'UNE journée pour une zone donnée.
-//   { transport, trajet, repas, total }
+// Composition de l'indemnité d'UNE journée pour une distance routière (km),
+// au-delà de la zone 5 comprise (> 50 km n'est plus « grand déplacement » :
+// on empile des tranches de 50 km au tarif zone « 5 » + un reliquat < 50 km
+// mappé sur sa zone).
+//   • nb50 = nombre de tranches pleines de 50 km (chacune au tarif zone "5").
+//   • reliquat = km restants (< 50), mappés sur zonePourKm (borne haute
+//     inclusive : 20 → "2").
 //   • repas = false → salarié logé / non éligible au panier (repas = 0).
-//   • zone invalide / barème absent → tout à 0 (jamais NaN).
-export function indemnitesJour(bareme, zone, { repas = true } = {}) {
-  const b = bareme || {};
-  const transport = Number(b.transport?.[zone]) || 0;
-  const trajet = Number(b.trajet?.[zone]) || 0;
-  const repasVal = repas ? Number(b.repas) || 0 : 0;
-  return {
-    transport,
-    trajet,
-    repas: repasVal,
-    total: transport + trajet + repasVal,
-  };
+//   • km invalide / barème absent → null.
+// ⚠️ Copie serveur en phase : functions/lib/fraisZones.js.
+export function composerIndemnite(km, bareme, { repas = true } = {}) {
+  if (km == null || km < 0 || !bareme) return null;
+  const nb50 = Math.floor(km / 50);
+  const reliquat = Math.round((km - nb50 * 50) * 10) / 10;   // < 50
+  let transport = nb50 * (bareme.transport?.["5"] || 0);
+  let trajet    = nb50 * (bareme.trajet?.["5"] || 0);
+  let zoneReliquat = null;
+  if (reliquat > 0) {
+    zoneReliquat = zonePourKm(reliquat);        // borne haute inclusive : 20 -> "2"
+    if (zoneReliquat) {
+      transport += bareme.transport?.[zoneReliquat] || 0;
+      trajet    += bareme.trajet?.[zoneReliquat]    || 0;
+    }
+  }
+  const repasVal = repas ? (bareme.repas || 0) : 0;
+  const r2 = (x) => Math.round(x * 100) / 100;
+  return { nb50, reliquat, zoneReliquat,
+    transport: r2(transport), trajet: r2(trajet), repas: r2(repasVal),
+    total: r2(transport + trajet + repasVal) };
 }
