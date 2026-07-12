@@ -145,11 +145,6 @@ export function terrainResources(users) {
     .sort((a, b) => a.nom.localeCompare(b.nom));
 }
 
-// Ressources salariées hors artisans — utilisé par FraisPage (adresses frais).
-export function salarieResources(users) {
-  return terrainResources(users).filter((r) => r.type !== "ARTISAN");
-}
-
 // Ce chantier est-il « à moi » ? (calque GestionChantierModule.isMyChantier)
 export function isMyChantier(user, c) {
   if (!user || !c) return false;
