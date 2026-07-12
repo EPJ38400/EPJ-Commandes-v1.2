@@ -53,6 +53,8 @@ export function AffectationModal({
   const [fromPer, setFromPer] = useState(initFrom.periode);
   const [toDay, setToDay] = useState(String(initTo.dayIdx));
   const [toPer, setToPer] = useState(initTo.periode);
+  // Co-affectation : ressources SUPPLÉMENTAIRES (ids) recevant les MÊMES tâches.
+  const [autresRessources, setAutresRessources] = useState([]);
 
   // ─── Lignes de tâches (L3 multi-tâches) ───
   // Une ligne de formulaire = { id, chantierId, batiment, poste, tacheLibre, temps }.
@@ -213,10 +215,32 @@ export function AffectationModal({
             batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
           }
         }
-        if (wrote === 0) { setSaving(false); onClose(); return; }
+        // ── Co-affectation : MÊMES tâches sur les ressources supplémentaires ──
+        // Slot par slot, ÉCRASE inconditionnellement (pas de test d'occupation,
+        // pas de confirmation). Réutilise EXACTEMENT payloadAffected (mêmes
+        // taches[]). Seul garde-fou : anti-double-write dans le batch — on exclut
+        // la cible principale et l'ancienne ressource libérée (déjà écrites /
+        // supprimées par la boucle primaire), sinon Firestore rejette 2 writes
+        // du même doc.
+        const handled = new Set([target.id]);
+        if (initialRessource && initialRessource.id !== target.id) handled.add(initialRessource.id);
+        const extras = autresRessources.filter((id) => id && !handled.has(id));
+        for (const id of extras) {
+          const res = (resources || []).find((r) => r.id === id);
+          if (!res) continue;
+          for (const s of rangeSlots) {
+            const { dateIso, periode } = slotMeta(s);
+            batch.set(doc(db, "planningCreneaux", creneauId(id, dateIso, periode)), payloadAffected(res, s), { merge: true });
+          }
+        }
+        if (wrote === 0 && extras.length === 0) { setSaving(false); onClose(); return; }
         // Source pool → on retire la tâche du pool (elle devient affectée).
         if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
         await batch.commit();
+        if (extras.length) {
+          const n = 1 + extras.length;
+          toast(`Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`);
+        }
         onClose();
       } catch (e) {
         console.error("[AffectationModal] affectation échouée :", e);
@@ -366,10 +390,10 @@ export function AffectationModal({
     () => new Set(getCreneauTaches(myCreneau).map((t) => t.id)),
     [myCreneau],
   );
-  // Une ligne est « validable faite » : mon créneau + tâche concrète (poste) +
-  // persistée + pas déjà FAIT.
+  // Une ligne est « validable faite » : mon créneau + tâche persistée + pas déjà
+  // FAIT. Les tâches libres (sans poste) sont AUSSI validables.
   const canMarkLine = (line) =>
-    isMyCreneau && !!myCreneau && !!line.poste && persistedTacheIds.has(line.id)
+    isMyCreneau && !!myCreneau && persistedTacheIds.has(line.id)
     && tacheValMonteur(myCreneau, line.id) !== "FAIT";
 
   const marquerFaiteLine = async (line) => {
@@ -394,7 +418,7 @@ export function AffectationModal({
 
   // Statut de validation d'une ligne (badge par tâche).
   const lineValidationStatus = (line) => {
-    if (!isMyCreneau || !myCreneau || !line.poste || !persistedTacheIds.has(line.id)) return null;
+    if (!isMyCreneau || !myCreneau || !persistedTacheIds.has(line.id)) return null;
     const vc = tacheValConducteur(myCreneau, line.id);
     const vm = tacheValMonteur(myCreneau, line.id);
     if (vc === "VALIDE") return { text: "✓ Validé par le conducteur", color: EPJ.green };
@@ -438,6 +462,29 @@ export function AffectationModal({
           {/* Ressource : « À affecter » ou une personne (pilote affecter/libérer) */}
           <Field as="select" label="Ressource" value={ressourceId} options={ressourceOptions}
             disabled={!canWrite} onChange={(e) => setRessourceId(e.target.value)} />
+
+          {/* Co-affectation : affecter LES MÊMES tâches à d'autres ressources.
+              Exclut la ressource principale et « À affecter » (pool). Chips =
+              multi-select tactile. Visible dès qu'une ressource est ciblée
+              (création ET réédition). */}
+          {canWrite && targetRes && (
+            <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
+              <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700 }}>
+                Affecter aussi à (optionnel)
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
+                {(resources || []).filter((r) => r.id !== ressourceId).map((r) => {
+                  const on = autresRessources.includes(r.id);
+                  return (
+                    <Button key={r.id} variant={on ? "primary" : "secondary"} size="sm"
+                      onClick={() => setAutresRessources((xs) => (on ? xs.filter((x) => x !== r.id) : [...xs, r.id]))}>
+                      {r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Plage Du → Au */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
