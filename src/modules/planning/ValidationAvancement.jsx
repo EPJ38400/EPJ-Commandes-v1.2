@@ -90,12 +90,12 @@ export function ValidationAvancement({ chantier }) {
     return [...m.values()];
   }, [rowsLegacy, rowsFlag]);
 
-  // File PAR TÂCHE : une ligne par tâche concrète (poste) FAIT non VALIDÉE.
+  // File PAR TÂCHE : une ligne par tâche FAIT non VALIDÉE. Les tâches libres
+  // (sans poste) sont AUSSI validables (elles ne touchent pas l'avancement).
   const file = useMemo(() => {
     const out = [];
     for (const cr of creneaux) {
       for (const t of getCreneauTaches(cr)) {
-        if (!t.posteAvancementKey) continue;
         if (tacheValMonteur(cr, t.id) !== "FAIT") continue;
         if (tacheValConducteur(cr, t.id) === "VALIDE") continue;
         out.push({ cr, tache: t });
@@ -113,7 +113,7 @@ export function ValidationAvancement({ chantier }) {
     getCreneauTaches(cr).some((x) => {
       const vm = x.id === tId ? "FAIT" : tacheValMonteur(cr, x.id);
       const vc = x.id === tId ? newEtat : tacheValConducteur(cr, x.id);
-      return x.posteAvancementKey && vm === "FAIT" && vc !== "VALIDE";
+      return vm === "FAIT" && vc !== "VALIDE";
     });
 
   const confirmer = async ({ cr, tache }) => {
@@ -121,13 +121,17 @@ export function ValidationAvancement({ chantier }) {
     const unitId = progressUnitIdForCreneau(chantier, tache.batiment);
     setBusyId(cr.id + "__" + tache.id);
     try {
+      // Écriture avancement UNIQUEMENT pour une tâche avec poste (une tâche libre
+      // n'a pas de case d'avancement → on valide sans toucher chantiers).
       // Écriture BORNÉE : deep-merge additif → la case [unité][tâche] passe à 100.
       // 100 = max → aucune régression possible (pattern trio INCHANGÉ).
-      await setDoc(
-        doc(db, "chantiers", chantier.num),
-        { avancementProgress: { [unitId]: { [tache.posteAvancementKey]: 100 } } },
-        { merge: true },
-      );
+      if (tache.posteAvancementKey) {
+        await setDoc(
+          doc(db, "chantiers", chantier.num),
+          { avancementProgress: { [unitId]: { [tache.posteAvancementKey]: 100 } } },
+          { merge: true },
+        );
+      }
       await updateDoc(doc(db, "planningCreneaux", cr.id), {
         [`validationConducteur.${tache.id}`]: { etat: "VALIDE", at: serverTimestamp(), par: uid },
         aValiderConducteur: recalcFlag(cr, tache.id, "VALIDE"),
@@ -166,9 +170,9 @@ export function ValidationAvancement({ chantier }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       {file.map(({ cr, tache }) => {
-        const label = tache.posteLabel
-          || posteLabel(chantier, tache.batiment, tache.posteAvancementKey, tasksConfig)
-          || prettifyPoste(tache.posteAvancementKey);
+        const label = tache.posteAvancementKey
+          ? (posteLabel(chantier, tache.batiment, tache.posteAvancementKey, tasksConfig) || prettifyPoste(tache.posteAvancementKey))
+          : (tache.posteLabel || "Tâche diverse");
         const refuse = tacheValConducteur(cr, tache.id) === "REFUSE";
         const rowId = cr.id + "__" + tache.id;
         return (
