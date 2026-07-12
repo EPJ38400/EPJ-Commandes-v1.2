@@ -256,6 +256,14 @@ service cloud.firestore {
       // Pas de delete (on garde l'historique).
     }
 
+    // ─── fraisDistances/{id} — cache distance routière (RH-Frais-2b) ──
+    // docId = `${salarieId}__${chantierId}__${origineType}`. Écrit UNIQUEMENT
+    // par la Cloud Function computeDistanceFrais (Admin SDK). Lecture employé.
+    match /fraisDistances/{id} {
+      allow read: if isEmployee();
+      allow write: if false;   // Admin SDK only (Cloud Function)
+    }
+
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.

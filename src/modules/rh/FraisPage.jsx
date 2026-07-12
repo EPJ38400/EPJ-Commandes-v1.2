@@ -12,7 +12,11 @@
 //  Adresses salariés & dépôt EPJ (RH-Frais-2a-bis) : la saisie a migré hors de
 //  cet écran — adresseDomicile + pointDepartFrais sont sur la fiche utilisateur
 //  (AdminUsers → adminUpdateUser) ; l'adresse du dépôt est sur les réglages
-//  société (config/company). Ici : UNIQUEMENT le barème FBTP.
+//  société (config/company).
+//
+//  Test moteur distance (RH-Frais-2b) : sous le barème, un outil de test appelle
+//  la Cloud Function computeDistanceFrais (distance routière Google mise en
+//  cache fraisDistances + indemnité FBTP recomposée). AUCUNE clé côté front.
 //
 //  Lecture live onSnapshot(referentielFraisBTP), tri par année desc.
 //  ÉCRIT referentielFraisBTP/{annee} (setDoc merge) uniquement.
@@ -21,7 +25,8 @@ import { useState, useEffect, useMemo } from "react";
 import {
   collection, doc, onSnapshot, setDoc, getDoc, serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../../firebase";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { app, db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -29,7 +34,10 @@ import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { EmptyAccess } from "../planning/PlanningTab";
+import { salariesConges } from "./congesModel";
 import { FRAIS_ZONES, FRAIS_ZONE_KM, BAREME_2026 } from "./fraisModel";
+
+const fnComputeDistanceFrais = httpsCallable(getFunctions(app, "europe-west1"), "computeDistanceFrais");
 
 // Objet zones { "1a":"", … } vide (pour seed de brouillon).
 const emptyZones = () => Object.fromEntries(FRAIS_ZONES.map((z) => [z, ""]));
@@ -250,6 +258,172 @@ export function FraisPage() {
       ) : (
         <EmptyBox icon="⏳" text="Chargement…" />
       )}
+
+      {/* Test manuel du moteur distance + indemnité (RH-Frais-2b) */}
+      <FraisTestCalcul />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Test manuel (RH-Frais-2b) — distance routière + indemnité FBTP.
+//  Sélectionne salarié + chantier + origine (dépôt/domicile), appelle la
+//  Cloud Function computeDistanceFrais et affiche la décomposition.
+//  AUCUNE clé Google côté front (tout se passe côté serveur).
+// ─────────────────────────────────────────────────────────────
+function FraisTestCalcul() {
+  const { users, chantiers } = useData();
+
+  const salaries = useMemo(() => salariesConges(users), [users]);
+  const usersById = useMemo(() => {
+    const m = new Map();
+    (users || []).forEach((u) => m.set(u._id || u.id, u));
+    return m;
+  }, [users]);
+  const chantiersActifs = useMemo(
+    () => (chantiers || [])
+      .filter((c) => c.statut !== "Archivé" && c.statut !== "Terminé")
+      .map((c) => ({ id: c._id, num: c.num || c._id, nom: c.nom || "", adresse: c.adresse || "" }))
+      .sort((a, b) => String(a.num).localeCompare(String(b.num))),
+    [chantiers],
+  );
+
+  const [salarieId, setSalarieId] = useState("");
+  const [chantierId, setChantierId] = useState("");
+  const [origineType, setOrigineType] = useState("DEPOT");
+  const [force, setForce] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Pré-remplit l'origine avec le pointDepartFrais du salarié sélectionné.
+  useEffect(() => {
+    if (!salarieId) return;
+    const u = usersById.get(salarieId);
+    if (u) setOrigineType(u.pointDepartFrais === "DOMICILE" ? "DOMICILE" : "DEPOT");
+  }, [salarieId, usersById]);
+
+  const runTest = async () => {
+    if (busy || !salarieId || !chantierId) return;
+    setBusy(true); setError(null); setResult(null);
+    try {
+      const res = await fnComputeDistanceFrais({ salarieId, chantierId, origineType, force });
+      setResult(res.data || null);
+    } catch (e) {
+      console.error("[FraisTestCalcul] computeDistanceFrais échoué :", e);
+      setError(e?.message || "Échec du calcul.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const salarieOptions = [
+    { value: "", label: "— Sélectionner —" },
+    ...salaries.map((s) => ({ value: s.id, label: s.nom })),
+  ];
+  const chantierOptions = [
+    { value: "", label: "— Sélectionner —" },
+    ...chantiersActifs.map((c) => ({ value: c.id, label: `${c.num}${c.nom ? " · " + c.nom : ""}` })),
+  ];
+
+  return (
+    <div style={{ marginTop: space.xl }}>
+      <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
+        Tester le calcul d'une indemnité
+      </div>
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.md }}>
+        Distance routière (Google) entre le point de départ du salarié et l'adresse du chantier,
+        puis indemnité FBTP de l'année courante. Résultat mis en cache par origine.
+      </div>
+
+      <div style={{
+        background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: radius.lg,
+        padding: space.lg,
+      }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, alignItems: "flex-end" }}>
+          <Field as="select" label="Salarié" dense width={200} options={salarieOptions}
+            value={salarieId} onChange={(e) => setSalarieId(e.target.value)} />
+          <Field as="select" label="Chantier" dense width={240} options={chantierOptions}
+            value={chantierId} onChange={(e) => setChantierId(e.target.value)} />
+          <div>
+            <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray700, marginBottom: space.xs + 2 }}>
+              Origine
+            </div>
+            <div style={{ display: "flex", gap: space.xs }}>
+              <Button variant={origineType === "DEPOT" ? "primary" : "ghost"} size="sm" onClick={() => setOrigineType("DEPOT")}>Dépôt</Button>
+              <Button variant={origineType === "DOMICILE" ? "primary" : "ghost"} size="sm" onClick={() => setOrigineType("DOMICILE")}>Domicile</Button>
+            </div>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: space.xs, fontSize: fontSize.sm, color: EPJ.gray700, cursor: "pointer" }}>
+            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: EPJ.blue }} />
+            Forcer le recalcul
+          </label>
+          <Button variant="primary" size="sm" onClick={runTest} loading={busy} disabled={!salarieId || !chantierId}>
+            Tester le calcul
+          </Button>
+        </div>
+
+        {error && (
+          <div style={{
+            marginTop: space.md, padding: `${space.sm}px ${space.md}px`, borderRadius: radius.md,
+            background: `${EPJ.red}0D`, border: `1px solid ${EPJ.red}44`, color: EPJ.red, fontSize: fontSize.sm,
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {result && <FraisTestResult r={result} />}
+      </div>
+    </div>
+  );
+}
+
+function FraisTestResult({ r }) {
+  const eur = (x) => `${Number(x).toFixed(2)} €`;
+  const ind = r.indemnite || {};
+  return (
+    <div style={{ marginTop: space.md, borderTop: `1px solid ${EPJ.gray200}`, paddingTop: space.md }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.sm, flexWrap: "wrap" }}>
+        <span style={{ fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+          {Number(r.distanceKm).toFixed(1)} km
+        </span>
+        {r.dureeMin != null && (
+          <span style={{ fontSize: fontSize.sm, color: EPJ.gray500 }}>· {r.dureeMin} min</span>
+        )}
+        {r.fromCache && (
+          <span style={{
+            fontSize: fontSize.xs, fontWeight: fontWeight.medium, padding: "2px 8px", borderRadius: 999,
+            background: `${EPJ.gray500}18`, color: EPJ.gray700,
+          }}>
+            depuis cache
+          </span>
+        )}
+      </div>
+
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.xs }}>
+        Départ ({r.origineType === "DOMICILE" ? "domicile" : "dépôt"}) : {r.origineAdresse}
+      </div>
+      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.md }}>
+        Chantier : {r.destinationAdresse}
+      </div>
+
+      <div style={{ fontSize: fontSize.sm, color: EPJ.gray700, marginBottom: space.sm }}>
+        Décomposition : {r.nb50} × zone 5 (50 km)
+        {r.reliquat > 0 && r.zoneReliquat
+          ? ` + reliquat ${Number(r.reliquat).toFixed(1)} km (zone ${r.zoneReliquat})`
+          : (r.reliquat > 0 ? ` + reliquat ${Number(r.reliquat).toFixed(1)} km (hors barème)` : "")}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: space.xs, maxWidth: 320 }}>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Transport</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.transport)}</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Trajet</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.trajet)}</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Repas</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.repas)}</span>
+        <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, borderTop: `1px solid ${EPJ.gray200}`, paddingTop: space.xs }}>TOTAL / jour</span>
+        <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, textAlign: "right", borderTop: `1px solid ${EPJ.gray200}`, paddingTop: space.xs }}>{eur(ind.total)}</span>
+      </div>
     </div>
   );
 }

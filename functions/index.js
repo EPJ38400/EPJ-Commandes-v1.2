@@ -160,6 +160,13 @@ export {
 // par adminUpdateUser (fiche utilisateur, AdminUsers). L'ancienne callable
 // setAdresseSalarie a été retirée (doublon).
 
+// ─── Module RH / Frais — moteur distance + indemnité (RH-Frais-2b) ──
+// Cf. functions/computeDistanceFrais.js
+// Callable gestionnaire RH : origine (domicile/dépôt) → chantier (LECTURE
+// SEULE), distance Google Distance Matrix mise en cache (fraisDistances),
+// indemnité FBTP recomposée à chaque appel. Secret GOOGLE_MAPS_API_KEY.
+export { computeDistanceFrais } from "./computeDistanceFrais.js";
+
 // ─── Fonctions backup Firestore + Storage ───────────────────
 // Cf. functions/backups.js — v2.0.0
 export {
