@@ -155,6 +155,12 @@ export {
   clearMustResetPassword,
 } from "./adminUsers.js";
 
+// ─── Module RH / Frais — adresses salariés (RH-Frais-2a) ─────
+// Écrit les 2 champs frais (adresseDomicile, pointDepartFrais) sur une
+// fiche utilisateurs, réservé au gestionnaire RH (le client ne peut pas
+// écrire utilisateurs). Cf. functions/setAdresseSalarie.js.
+export { setAdresseSalarie } from "./setAdresseSalarie.js";
+
 // ─── Fonctions backup Firestore + Storage ───────────────────
 // Cf. functions/backups.js — v2.0.0
 export {
