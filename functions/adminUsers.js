@@ -89,9 +89,9 @@ function buildUserPayload(input, existing = {}) {
     responsableParc: input.responsableParc === true,
     signatureUrl: existing.signatureUrl || "",
     signaturePath: existing.signaturePath || "",
-    // Champs frais (RH-Frais-2a) — écrits par setAdresseSalarie. adminUpdateUser
-    // fait un set() COMPLET : on les préserve depuis `existing` pour ne pas les
-    // effacer lors d'une édition admin (l'UI admin ne les envoie pas).
+    // Champs frais (RH-Frais-2a-bis) — saisis sur la fiche user (AdminUsers).
+    // adminUpdateUser fait un set() COMPLET : on prend l'input en priorité, et
+    // on retombe sur `existing` s'il n'est pas fourni (pour ne pas les effacer).
     adresseDomicile: input.adresseDomicile != null ? input.adresseDomicile : (existing.adresseDomicile || ""),
     pointDepartFrais: input.pointDepartFrais || existing.pointDepartFrais || "DEPOT",
     // uid posé après création du compte Auth
