@@ -256,20 +256,6 @@ service cloud.firestore {
       // Pas de delete (on garde l'historique).
     }
 
-    // ─── config/fraisDepot — adresse du dépôt EPJ (module Frais RH) ──
-    // Doc unique : point de départ « dépôt » pour le calcul des petits
-    // déplacements (RH-Frais-2a). La rule générique config/{id} n'ouvre
-    // l'écriture qu'à l'Admin ; ce bloc l'ÉTEND au gestionnaire RH
-    // (Direction/Assistante/Admin) — sémantique d'union des match, comme
-    // config/counters. Lecture pour tout employé. Pas de delete.
-    match /config/fraisDepot {
-      function isGestionnaireRH() {
-        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
-      }
-      allow read: if isEmployee();
-      allow create, update: if isGestionnaireRH();
-    }
-
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.

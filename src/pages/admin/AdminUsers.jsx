@@ -50,6 +50,8 @@ export function AdminUsers({ onBack, onEditRights }) {
       telephone: "",
       roles: ["Monteur"],
       fonction: "",
+      adresseDomicile: "",
+      pointDepartFrais: "DEPOT",
       canSortirOutil: false,
       directAchat: false,
       responsableParc: false,
@@ -66,6 +68,8 @@ export function AdminUsers({ onBack, onEditRights }) {
       telephone: u.telephone || "",
       roles: getRoles(u),
       fonction: u.fonction || "",
+      adresseDomicile: u.adresseDomicile || "",
+      pointDepartFrais: u.pointDepartFrais || "DEPOT",
       canSortirOutil: u.canSortirOutil === true,
       directAchat: u.directAchat === true,
       responsableParc: u.responsableParc === true,
@@ -113,6 +117,8 @@ export function AdminUsers({ onBack, onEditRights }) {
         telephone: normalizePhone(form.telephone || ""),
         roles: form.roles,
         fonction: form.fonction || form.roles[0],
+        adresseDomicile: (form.adresseDomicile || "").trim(),
+        pointDepartFrais: form.pointDepartFrais === "DOMICILE" ? "DOMICILE" : "DEPOT",
         directAchat: form.directAchat === true,
         canSortirOutil: form.canSortirOutil === true,
         responsableParc: form.responsableParc === true,
@@ -260,6 +266,44 @@ export function AdminUsers({ onBack, onEditRights }) {
               autoComplete="tel"
             />
             <Hint>Format français (06… ou +33…). Utilisé pour les notifications SMS.</Hint>
+          </Field>
+
+          <Field label="Adresse domicile">
+            <input
+              className="epj-input"
+              value={form.adresseDomicile || ""}
+              onChange={e => setForm(f => ({ ...f, adresseDomicile: e.target.value }))}
+              placeholder="N°, rue, code postal, ville"
+            />
+            <Hint>Sert au calcul des petits déplacements (frais). Départ depuis le domicile si sélectionné ci-dessous.</Hint>
+          </Field>
+
+          <Field label="Point de départ frais">
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { v: "DEPOT", l: "Dépôt EPJ" },
+                { v: "DOMICILE", l: "Domicile" },
+              ].map(opt => {
+                const checked = (form.pointDepartFrais || "DEPOT") === opt.v;
+                return (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, pointDepartFrais: opt.v }))}
+                    style={{
+                      padding: "8px 14px", borderRadius: 999,
+                      border: `1px solid ${checked ? EPJ.blue : EPJ.gray200}`,
+                      background: checked ? `${EPJ.blue}15` : EPJ.white,
+                      color: checked ? EPJ.blue : EPJ.gray700,
+                      fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: font.body,
+                    }}
+                  >
+                    {checked ? "✓ " : ""}{opt.l}
+                  </button>
+                );
+              })}
+            </div>
+            <Hint>Point de départ des trajets pour le barème « petits déplacements ».</Hint>
           </Field>
 
           {isNew && (

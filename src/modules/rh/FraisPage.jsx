@@ -9,22 +9,19 @@
 //  année » (pré-remplie depuis l'année précédente ou BAREME_2026), « Injecter
 //  le barème 2026 ».
 //
-//  Section « Adresses salariés » (RH-Frais-2a, fondation — AUCUN calcul de
-//  distance ici) : adresse du dépôt EPJ (config/fraisDepot, setDoc merge) +
-//  par salarié adresseDomicile + pointDepartFrais (DOMICILE|DEPOT). L'écriture
-//  des 2 champs sur `utilisateurs` passe par la Cloud Function callable
-//  setAdresseSalarie (le client ne peut pas écrire utilisateurs — voie b).
+//  Adresses salariés & dépôt EPJ (RH-Frais-2a-bis) : la saisie a migré hors de
+//  cet écran — adresseDomicile + pointDepartFrais sont sur la fiche utilisateur
+//  (AdminUsers → adminUpdateUser) ; l'adresse du dépôt est sur les réglages
+//  société (config/company). Ici : UNIQUEMENT le barème FBTP.
 //
-//  Lecture live onSnapshot(referentielFraisBTP + config/fraisDepot), tri par
-//  année desc. ÉCRIT referentielFraisBTP/{annee} + config/fraisDepot (setDoc
-//  merge) ; utilisateurs via setAdresseSalarie uniquement.
+//  Lecture live onSnapshot(referentielFraisBTP), tri par année desc.
+//  ÉCRIT referentielFraisBTP/{annee} (setDoc merge) uniquement.
 // ═══════════════════════════════════════════════════════════════
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection, doc, onSnapshot, setDoc, getDoc, serverTimestamp,
 } from "firebase/firestore";
-import { httpsCallable, getFunctions } from "firebase/functions";
-import { app, db } from "../../firebase";
+import { db } from "../../firebase";
 import { EPJ, font, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -32,10 +29,7 @@ import { can } from "../../core/permissions";
 import { Field } from "../../core/components/Field";
 import { Button } from "../../core/components/Button";
 import { EmptyAccess } from "../planning/PlanningTab";
-import { salarieResources } from "../planning/planningModel";
 import { FRAIS_ZONES, FRAIS_ZONE_KM, BAREME_2026 } from "./fraisModel";
-
-const fnSetAdresseSalarie = httpsCallable(getFunctions(app, "europe-west1"), "setAdresseSalarie");
 
 // Objet zones { "1a":"", … } vide (pour seed de brouillon).
 const emptyZones = () => Object.fromEntries(FRAIS_ZONES.map((z) => [z, ""]));
@@ -255,160 +249,6 @@ export function FraisPage() {
         />
       ) : (
         <EmptyBox icon="⏳" text="Chargement…" />
-      )}
-
-      {/* Fondation frais (RH-Frais-2a) — adresses & point de départ */}
-      <AdressesSalaries />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Section « Adresses salariés » (RH-Frais-2a) — dépôt EPJ + par salarié.
-//  AUCUN calcul de distance ici (viendra en RH-Frais-2b).
-// ─────────────────────────────────────────────────────────────
-function AdressesSalaries() {
-  const { user } = useAuth();
-  const { users } = useData();
-  const selfId = user?._id || user?.id || "";
-
-  const salaries = useMemo(() => salarieResources(users), [users]);
-  const usersById = useMemo(() => {
-    const m = new Map();
-    (users || []).forEach((u) => m.set(u._id || u.id, u));
-    return m;
-  }, [users]);
-
-  // ─── Adresse du dépôt EPJ (config/fraisDepot) ───
-  const [depotDraft, setDepotDraft] = useState("");
-  const [depotLoaded, setDepotLoaded] = useState(false);
-  const [savingDepot, setSavingDepot] = useState(false);
-  const [savedDepot, setSavedDepot] = useState(false);
-  const depotSeeded = useRef(false);
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, "config", "fraisDepot"),
-      (d) => {
-        const data = d.exists() ? d.data() : null;
-        if (!depotSeeded.current) { setDepotDraft(data?.adresseDepot || ""); depotSeeded.current = true; }
-        setDepotLoaded(true);
-      },
-      (e) => { console.error("[AdressesSalaries] lecture config/fraisDepot échouée :", e); setDepotLoaded(true); },
-    );
-    return unsub;
-  }, []);
-
-  const saveDepot = async () => {
-    if (savingDepot) return;
-    setSavingDepot(true); setSavedDepot(false);
-    try {
-      // Merge : n'écrit que adresseDepot + audit ; lat/lng (RH-Frais-2b) préservés.
-      await setDoc(doc(db, "config", "fraisDepot"), {
-        adresseDepot: depotDraft.trim(),
-        updatedBy: selfId,
-        updatedByNom: `${user?.prenom || ""} ${user?.nom || ""}`.trim() || selfId,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-      setSavedDepot(true);
-    } catch (e) {
-      console.error("[AdressesSalaries] enregistrement dépôt échoué :", e);
-      window.alert("Échec de l'enregistrement de l'adresse du dépôt. Vérifiez votre connexion et réessayez.");
-    } finally {
-      setSavingDepot(false);
-    }
-  };
-
-  // ─── Adresses des salariés (overrides d'édition + écriture via callable) ───
-  const [edits, setEdits] = useState({}); // { [id]: { adresseDomicile?, pointDepartFrais? } }
-  const [savingId, setSavingId] = useState(null);
-  const [savedId, setSavedId] = useState(null);
-
-  const setField = (id, field, val) => {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
-    setSavedId((s) => (s === id ? null : s));
-  };
-
-  const saveRow = async (r) => {
-    if (savingId) return;
-    const stored = usersById.get(r.id) || {};
-    const adresseDomicile = edits[r.id]?.adresseDomicile ?? (stored.adresseDomicile || "");
-    const pointDepartFrais = edits[r.id]?.pointDepartFrais ?? (stored.pointDepartFrais || "DEPOT");
-    setSavingId(r.id); setSavedId(null);
-    try {
-      await fnSetAdresseSalarie({ id: r.id, adresseDomicile, pointDepartFrais });
-      // La lecture live users (DataContext) reflète la valeur → on purge l'override.
-      setEdits((prev) => { const n = { ...prev }; delete n[r.id]; return n; });
-      setSavedId(r.id);
-    } catch (e) {
-      console.error("[AdressesSalaries] setAdresseSalarie échoué :", e);
-      window.alert("Échec de l'enregistrement de l'adresse. Vérifiez votre connexion et réessayez.");
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  return (
-    <div style={{ marginTop: space.xl }}>
-      <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
-        Adresses salariés
-      </div>
-      <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.md }}>
-        Point de départ des petits déplacements. Le calcul des distances / zones arrivera dans un prochain lot.
-      </div>
-
-      {/* Dépôt EPJ */}
-      <div style={{
-        background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: radius.lg,
-        padding: space.lg, marginBottom: space.md,
-        display: "flex", flexWrap: "wrap", gap: space.sm, alignItems: "flex-end",
-      }}>
-        <Field label="Adresse du dépôt EPJ" dense width={360} placeholder="N°, rue, code postal, ville"
-          value={depotDraft} onChange={(e) => { setDepotDraft(e.target.value); setSavedDepot(false); }} />
-        <Button variant={savedDepot ? "secondary" : "primary"} size="sm" onClick={saveDepot} loading={savingDepot} disabled={!depotLoaded}>
-          {savedDepot ? "✓ Enregistré" : "Enregistrer le dépôt"}
-        </Button>
-      </div>
-
-      {/* Salariés (artisans déjà exclus par salarieResources) */}
-      {salaries.length === 0 ? (
-        <EmptyBox icon="👷" text="Aucun salarié à afficher." />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
-          {salaries.map((r) => {
-            const stored = usersById.get(r.id) || {};
-            const adresse = edits[r.id]?.adresseDomicile ?? (stored.adresseDomicile || "");
-            const pd = edits[r.id]?.pointDepartFrais ?? (stored.pointDepartFrais || "DEPOT");
-            const busy = savingId === r.id;
-            return (
-              <div key={r.id} style={{
-                display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: space.sm,
-                background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: radius.md,
-                padding: `${space.sm}px ${space.md}px`,
-              }}>
-                <div style={{ minWidth: 150, flex: "1 1 150px" }}>
-                  <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.nom}
-                  </div>
-                </div>
-                <Field label="Adresse domicile" dense width={280} placeholder="N°, rue, code postal, ville"
-                  value={adresse} onChange={(e) => setField(r.id, "adresseDomicile", e.target.value)} />
-                <div>
-                  <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray700, marginBottom: space.xs + 2 }}>
-                    Point de départ
-                  </div>
-                  <div style={{ display: "flex", gap: space.xs }}>
-                    <Button variant={pd === "DEPOT" ? "primary" : "ghost"} size="sm" onClick={() => setField(r.id, "pointDepartFrais", "DEPOT")}>Dépôt</Button>
-                    <Button variant={pd === "DOMICILE" ? "primary" : "ghost"} size="sm" onClick={() => setField(r.id, "pointDepartFrais", "DOMICILE")}>Domicile</Button>
-                  </div>
-                </div>
-                <Button variant={savedId === r.id ? "secondary" : "primary"} size="sm" onClick={() => saveRow(r)} loading={busy}>
-                  {savedId === r.id ? "✓ Enregistré" : "Enregistrer"}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
       )}
     </div>
   );
