@@ -32,7 +32,17 @@ const GOOGLE_MAPS_API_KEY = defineSecret("GOOGLE_MAPS_API_KEY");
 const GESTIONNAIRE_RH = ["Admin", "Direction", "Assistante"];
 const COL_USERS = "utilisateurs";
 const COL_CHANTIERS = "chantiers";
+const COL_CHANTIERS_ESABORA = "chantiersEsabora";
 const COL_CONFIG = "config";
+
+// Compose "Adresse, CP Ville" (miroir de src/modules/rh/affairesModel.js).
+function adresseCompleteEsabora(a) {
+  const adresse = String(a?.adresse || "").trim();
+  const cp = String(a?.codePostal || "").trim();
+  const ville = String(a?.ville || "").trim();
+  const ligne2 = `${cp} ${ville}`.trim();
+  return [adresse, ligne2].filter(Boolean).join(", ");
+}
 const COL_CACHE = "fraisDistances";
 const COL_BAREME = "referentielFraisBTP";
 
@@ -96,12 +106,21 @@ export const computeDistanceFrais = onCall(
       }
     }
 
-    // ─── b. Destination (chantier — LECTURE SEULE) ───
+    // ─── b. Destination (cascade adresse — chantiers TOUJOURS lecture seule) ───
+    //   1) chantiers/{num}.adresse (app d'abord : plus à jour)
+    //   2) sinon chantiersEsabora/{num} → adresseComplete (fallback référentiel)
+    //   3) sinon erreur explicite.
+    let destinationAdresse = "";
     const chSnap = await db.collection(COL_CHANTIERS).doc(chantierId).get();
-    if (!chSnap.exists) throw new HttpsError("failed-precondition", "Chantier introuvable.");
-    const destinationAdresse = String(chSnap.data()?.adresse || "").trim();
+    if (chSnap.exists) {
+      destinationAdresse = String(chSnap.data()?.adresse || "").trim();
+    }
     if (!destinationAdresse) {
-      throw new HttpsError("failed-precondition", "Adresse du chantier manquante.");
+      const ceSnap = await db.collection(COL_CHANTIERS_ESABORA).doc(chantierId).get();
+      if (ceSnap.exists) destinationAdresse = adresseCompleteEsabora(ceSnap.data());
+    }
+    if (!destinationAdresse) {
+      throw new HttpsError("failed-precondition", `Adresse chantier introuvable (num ${chantierId}).`);
     }
 
     // ─── c. Cache distance ───

@@ -20,6 +20,7 @@ import { AdminCompany } from "./AdminCompany";
 import { AdminUserSignatures } from "./AdminUserSignatures";
 import { AdminSettings } from "./AdminSettings"; // v10.J
 import { AdminFournisseurs } from "./AdminFournisseurs";
+import { AdminAffairesEsabora } from "./AdminAffairesEsabora";
 import { SmsHistoryPage } from "./SmsHistoryPage";
 
 export function AdminPage({ onExit }) {
@@ -35,6 +36,7 @@ export function AdminPage({ onExit }) {
     );
   }
   if (section === "chantiers") return <AdminChantiers onBack={() => setSection(null)}/>;
+  if (section === "affaires-esabora") return <AdminAffairesEsabora onBack={() => setSection(null)}/>;
   if (section === "rights") {
     return (
       <AdminRights
@@ -94,6 +96,9 @@ export function AdminPage({ onExit }) {
       <AdminSection icon="📋" accent={EPJ.red} title="Modèle d'avancement"
         subtitle="Personnaliser les tâches par défaut pour tous les chantiers"
         onClick={() => setSection("tasks")}/>
+      <AdminSection icon="📋" accent={EPJ.catCourantFaible} title="Injection affaires Esabora"
+        subtitle="Importer/mettre à jour le référentiel affaires (adresses) pour les frais"
+        onClick={() => setSection("affaires-esabora")}/>
 
       <GroupTitle>Parc machines</GroupTitle>
       <AdminSection icon="🔧" accent={EPJ.orange} title="Catalogue outillage"
