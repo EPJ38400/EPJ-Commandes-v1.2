@@ -21,13 +21,16 @@ import { Badge } from "../../core/components/Badge";
 import { Button } from "../../core/components/Button";
 import { CongesPage } from "./CongesPage";
 import { FraisPage } from "./FraisPage";
+import { HeuresSalariesPage } from "./HeuresSalariesPage";
 
 const ACCENT = EPJ.catCourantFaible;
 
-// Onglets — la clé = sous-clé de permission rh.<clé>.
+// Onglets — `key` = identité/routage ; `permKey` (défaut = key) = sous-clé de
+// permission rh.<clé>. « Heures salariés » partage la gate rh.frais (gestionnaire).
 const TABS = [
   { key: "rh.conges",  label: "Congés / absences", icon: "🌴", live: true },
   { key: "rh.frais",   label: "Notes de frais",    icon: "🧾", live: true },
+  { key: "rh.heures",  label: "Heures salariés",   icon: "⏱️", live: true, permKey: "rh.frais" },
   { key: "rh.analyse", label: "Analyse",           icon: "📈", live: false },
 ];
 
@@ -37,7 +40,7 @@ export function RHModule({ onExitModule }) {
   const isPwa = useViewport() === "mobile";
 
   const visibleTabs = useMemo(
-    () => TABS.filter((t) => can(user, t.key, "_access", rolesConfig)),
+    () => TABS.filter((t) => can(user, t.permKey || t.key, "_access", rolesConfig)),
     [user, rolesConfig],
   );
 
@@ -111,7 +114,10 @@ export function RHModule({ onExitModule }) {
           {active && active.key === "rh.frais" && (
             <div role="tabpanel"><FraisPage /></div>
           )}
-          {active && active.key !== "rh.conges" && active.key !== "rh.frais" && (
+          {active && active.key === "rh.heures" && (
+            <div role="tabpanel"><HeuresSalariesPage /></div>
+          )}
+          {active && active.key !== "rh.conges" && active.key !== "rh.frais" && active.key !== "rh.heures" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",
