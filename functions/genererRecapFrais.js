@@ -1,0 +1,310 @@
+// ═══════════════════════════════════════════════════════════════
+//  genererRecapFrais — moteur de récap mensuel des frais de déplacement
+//  (RH-Frais-3b1). Callable onCall (europe-west1), RÉSERVÉE au gestionnaire
+//  RH (claim role ∈ Admin / Direction / Assistante).
+//
+//  Input  : { mois: "2026-06", force?: bool }.
+//  Sortie : { nbSalaries, totalGlobal, nbAlertes } (le détail complet est écrit
+//            dans fraisRecap/{mois}).
+//
+//  Flux :
+//   a. Lit heures where mois==mois. Lignes sans salarieId → ALERTES (non mappé).
+//   b. Groupe par (salarieId, date). Par jour :
+//        - pour chaque chantier travaillé : origineType (override chantier sinon
+//          pointDepartFrais du user, défaut DEPOT), base (override sinon "trajet"),
+//          resoudreDestination + calculerDistanceCache. Erreur adresse → ALERTE.
+//        - on RETIENT le chantier le plus éloigné (distance max) → 1 ligne/jour.
+//        - jourBureau si le libellé retenu ~ /BUREAU|DEPOT/ → « à valider »
+//          (aucune indemnité auto).
+//        - indemniteJour = composerIndemnite(distanceMax, barème, {repas, base}).
+//   c. Agrège par salarié (totalMois, nbJours).
+//   d. Écrit fraisRecap/{mois}.
+//
+//  fraisOverrides/{mois__salarieId__chantierNum} : LU seulement ici
+//  (édition = lot 3b2). chantiers = LECTURE SEULE (via distanceCore).
+// ═══════════════════════════════════════════════════════════════
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
+import admin from "firebase-admin";
+import { composerIndemnite } from "./lib/fraisZones.js";
+import {
+  resoudreOrigine, resoudreDestination, calculerDistanceCache, loadBaremeCourant,
+} from "./lib/distanceCore.js";
+
+if (!admin.apps.length) admin.initializeApp();
+const db = admin.firestore();
+
+const GOOGLE_MAPS_API_KEY = defineSecret("GOOGLE_MAPS_API_KEY");
+
+const GESTIONNAIRE_RH = ["Admin", "Direction", "Assistante"];
+const COL_HEURES = "heures";
+const COL_USERS = "utilisateurs";
+const COL_OVERRIDES = "fraisOverrides";
+const COL_RECAP = "fraisRecap";
+
+const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+// Jour « bureau / dépôt » (pas d'indemnité auto → à valider manuellement).
+const RE_BUREAU = /BUREAU|D[ÉE]P[ÔO]T|ATELIER/i;
+
+export const genererRecapFrais = onCall(
+  { region: "europe-west1", timeoutSeconds: 300, memory: "512MiB", secrets: [GOOGLE_MAPS_API_KEY] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Vous devez être connecté.");
+    }
+    const role = request.auth.token?.role;
+    if (!GESTIONNAIRE_RH.includes(role)) {
+      throw new HttpsError("permission-denied", "Réservé au gestionnaire RH.");
+    }
+
+    const mois = String(request.data?.mois || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(mois)) {
+      throw new HttpsError("invalid-argument", "Mois attendu au format YYYY-MM.");
+    }
+    const force = request.data?.force === true;
+    const mapsKey = GOOGLE_MAPS_API_KEY.value();
+
+    // ─── Barème année courante (une fois) ───
+    const bareme = await loadBaremeCourant(db);
+    if (!bareme) {
+      throw new HttpsError("failed-precondition", "Aucun barème FBTP saisi.");
+    }
+
+    // ─── a. Lecture des heures du mois ───
+    const snap = await db.collection(COL_HEURES).where("mois", "==", mois).get();
+    if (snap.empty) {
+      throw new HttpsError("failed-precondition", `Aucune heure importée pour ${mois}.`);
+    }
+    const lignes = snap.docs.map((d) => d.data() || {});
+
+    const alertes = [];
+    const pushAlerte = (a) => alertes.push(a);
+
+    // Salariés non mappés (salarieId null) → alerte unique par nom.
+    const nonMappesVus = new Set();
+    for (const l of lignes) {
+      if (!l.salarieId) {
+        const nomAff = l.salarieNomFichier || l.trigramme || "?";
+        const cle = `${l.trigramme || ""}__${nomAff}`;
+        if (!nonMappesVus.has(cle)) {
+          nonMappesVus.add(cle);
+          pushAlerte({
+            type: "salarie_non_mappe",
+            message: `Salarié non mappé : ${nomAff}${l.trigramme ? ` (${l.trigramme})` : ""} — heures ignorées.`,
+          });
+        }
+      }
+    }
+
+    // ─── b. Groupe (salarieId, date) → { lignes, chantiers } ───
+    // On ne traite QUE les lignes avec salarieId (les autres sont en alertes).
+    const groupes = new Map(); // `${salarieId}__${date}` → { salarieId, date, chantiers:Map }
+    const nomsSalaries = new Map(); // salarieId → nom affichable
+    for (const l of lignes) {
+      if (!l.salarieId) continue;
+      if (!nomsSalaries.has(l.salarieId)) {
+        nomsSalaries.set(l.salarieId, l.salarieNomFichier || l.trigramme || l.salarieId);
+      }
+      const gkey = `${l.salarieId}__${l.date}`;
+      let g = groupes.get(gkey);
+      if (!g) { g = { salarieId: l.salarieId, date: l.date, chantiers: new Map() }; groupes.set(gkey, g); }
+      const chn = l.chantierNum || null;
+      const cle = chn || "NA";
+      if (!g.chantiers.has(cle)) {
+        g.chantiers.set(cle, { chantierNum: chn, chantierLibelle: l.chantierLibelle || "" });
+      } else if (!g.chantiers.get(cle).chantierLibelle && l.chantierLibelle) {
+        g.chantiers.get(cle).chantierLibelle = l.chantierLibelle;
+      }
+    }
+
+    // ─── Mémos (évitent lectures/appels répétés) ───
+    const origineCache = new Map();   // `${salarieId}__${type}` → {origineAdresse} | Error
+    const pointDepartCache = new Map(); // salarieId → "DEPOT"|"DOMICILE"
+    const overrideCache = new Map();  // docId → data | null
+
+    const getPointDepart = async (salarieId) => {
+      if (pointDepartCache.has(salarieId)) return pointDepartCache.get(salarieId);
+      let pd = "DEPOT";
+      try {
+        const uSnap = await db.collection(COL_USERS).doc(salarieId).get();
+        const v = uSnap.exists ? uSnap.data()?.pointDepartFrais : null;
+        if (v === "DOMICILE") pd = "DOMICILE";
+      } catch (e) {
+        console.error("[recapFrais] lecture user échouée :", salarieId, e?.message);
+      }
+      pointDepartCache.set(salarieId, pd);
+      return pd;
+    };
+
+    const getOverride = async (salarieId, chantierNum) => {
+      if (!chantierNum) return null;
+      const id = `${mois}__${salarieId}__${chantierNum}`;
+      if (overrideCache.has(id)) return overrideCache.get(id);
+      let data = null;
+      try {
+        const oSnap = await db.collection(COL_OVERRIDES).doc(id).get();
+        data = oSnap.exists ? oSnap.data() : null;
+      } catch (e) {
+        console.error("[recapFrais] lecture override échouée :", id, e?.message);
+      }
+      overrideCache.set(id, data);
+      return data;
+    };
+
+    const getOrigine = async (salarieId, type) => {
+      const key = `${salarieId}__${type}`;
+      if (origineCache.has(key)) return origineCache.get(key);
+      let res;
+      try {
+        res = await resoudreOrigine(db, salarieId, type);
+      } catch (e) {
+        res = { error: e };
+      }
+      origineCache.set(key, res);
+      return res;
+    };
+
+    // ─── Traitement des groupes → jours par salarié ───
+    const parSalarie = new Map(); // salarieId → { salarieId, nom, origineDefaut, jours:[] }
+    const groupesTries = [...groupes.values()].sort(
+      (a, b) => a.salarieId.localeCompare(b.salarieId) || String(a.date).localeCompare(String(b.date)),
+    );
+
+    for (const g of groupesTries) {
+      const { salarieId, date } = g;
+      const pointDepart = await getPointDepart(salarieId);
+      if (!parSalarie.has(salarieId)) {
+        parSalarie.set(salarieId, {
+          salarieId,
+          nom: nomsSalaries.get(salarieId) || salarieId,
+          origineDefaut: pointDepart,
+          jours: [],
+        });
+      }
+
+      // Calcule la distance de chaque chantier travaillé ce jour-là.
+      const candidats = [];
+      for (const c of g.chantiers.values()) {
+        const chantierNum = c.chantierNum;
+        if (!chantierNum) {
+          pushAlerte({
+            type: "chantier_manquant", salarieId, message:
+              `${nomsSalaries.get(salarieId) || salarieId} — ${date} : ligne sans n° de chantier (indemnité à valider).`,
+          });
+          continue;
+        }
+        const ov = await getOverride(salarieId, chantierNum);
+        const origineType = ov?.origineType === "DOMICILE" || ov?.origineType === "DEPOT"
+          ? ov.origineType : pointDepart;
+        const base = ov?.base === "transport" ? "transport" : "trajet";
+        if (ov?.exclu === true) continue; // chantier explicitement exclu du récap
+
+        const orig = await getOrigine(salarieId, origineType);
+        if (orig.error) {
+          pushAlerte({
+            type: "adresse", salarieId, chantierNum,
+            message: `${nomsSalaries.get(salarieId) || salarieId} — origine ${origineType} : ${orig.error.message}`,
+          });
+          continue;
+        }
+        let dest;
+        try {
+          dest = await resoudreDestination(db, chantierNum);
+        } catch (e) {
+          pushAlerte({
+            type: "adresse", salarieId, chantierNum,
+            message: `Chantier ${chantierNum} : ${e.message}`,
+          });
+          continue;
+        }
+        let dist;
+        try {
+          dist = await calculerDistanceCache(db, {
+            salarieId, chantierNum, origineType,
+            origineAdresse: orig.origineAdresse,
+            destinationAdresse: dest.destinationAdresse,
+            force, mapsKey,
+            calculePar: request.auth.uid || "",
+            calculeParNom: request.auth.token?.name || request.auth.token?.email || "",
+          });
+        } catch (e) {
+          pushAlerte({
+            type: "distance", salarieId, chantierNum,
+            message: `Chantier ${chantierNum} : ${e.message}`,
+          });
+          continue;
+        }
+        candidats.push({
+          chantierNum,
+          chantierLibelle: c.chantierLibelle || "",
+          origineType, base,
+          distanceKm: dist.distanceKm,
+        });
+      }
+
+      if (!candidats.length) continue; // aucun chantier exploitable ce jour (déjà en alertes)
+
+      // Chantier le plus éloigné = base de l'indemnité du jour.
+      const retenu = candidats.reduce((a, b) => (b.distanceKm > a.distanceKm ? b : a));
+      const jourBureau = RE_BUREAU.test(retenu.chantierLibelle || "");
+
+      let deplacement = 0;
+      let repas = 0;
+      let total = 0;
+      if (!jourBureau) {
+        const ind = composerIndemnite(retenu.distanceKm, bareme, { repas: true, base: retenu.base });
+        if (ind) { deplacement = ind.deplacement; repas = ind.repas; total = ind.total; }
+      }
+
+      const jour = {
+        date,
+        chantierNum: retenu.chantierNum,
+        chantierLibelle: retenu.chantierLibelle,
+        origineType: retenu.origineType,
+        base: retenu.base,
+        distanceKm: retenu.distanceKm,
+        deplacement, repas, total,
+      };
+      if (jourBureau) {
+        jour.jourBureau = true;
+        jour.alerte = "Jour bureau/dépôt — indemnité à valider.";
+        pushAlerte({
+          type: "jour_bureau", salarieId, chantierNum: retenu.chantierNum,
+          message: `${nomsSalaries.get(salarieId) || salarieId} — ${date} : jour bureau/dépôt (indemnité à valider).`,
+        });
+      }
+      parSalarie.get(salarieId).jours.push(jour);
+    }
+
+    // ─── c. Agrégation par salarié ───
+    const salaries = [...parSalarie.values()]
+      .map((s) => {
+        const jours = s.jours.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        const totalMois = r2(jours.reduce((acc, j) => acc + (Number(j.total) || 0), 0));
+        return { ...s, jours, totalMois, nbJours: jours.length };
+      })
+      .sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr", { sensitivity: "base" }));
+
+    const totalGlobal = r2(salaries.reduce((acc, s) => acc + s.totalMois, 0));
+
+    // ─── d. Écriture fraisRecap/{mois} ───
+    await db.collection(COL_RECAP).doc(mois).set({
+      mois,
+      genereAt: admin.firestore.FieldValue.serverTimestamp(),
+      generePar: request.auth.uid || "",
+      genereParNom: request.auth.token?.name || request.auth.token?.email || "",
+      bareme: Number(bareme.annee) || null,
+      salaries,
+      alertes,
+    });
+
+    // ─── e. Résumé (alertes renvoyées pour affichage immédiat) ───
+    return {
+      mois,
+      nbSalaries: salaries.length,
+      totalGlobal,
+      nbAlertes: alertes.length,
+      alertes,
+    };
+  },
+);

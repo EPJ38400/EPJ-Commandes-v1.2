@@ -300,6 +300,25 @@ service cloud.firestore {
       allow create, update, delete: if isGestionnaireRH();
     }
 
+    // ─── fraisRecap/{mois} — récap mensuel des frais (RH-Frais-3b1) ──
+    // Écrit UNIQUEMENT par la Cloud Function genererRecapFrais (Admin SDK).
+    // Lecture tout employé (consultation du récap). Aucune écriture client.
+    match /fraisRecap/{id} {
+      allow read: if isEmployee();
+      allow write: if false;   // Admin SDK only (Cloud Function)
+    }
+
+    // ─── fraisOverrides/{mois__salarieId__chantierNum} — réglages récap ──
+    // Ajustements manuels du récap (origineType / base / exclu). LUS par le
+    // moteur genererRecapFrais ; édition (lot 3b2) réservée au gestionnaire RH.
+    match /fraisOverrides/{id} {
+      function isGestionnaireRH() {
+        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
+      }
+      allow read: if isEmployee();
+      allow create, update, delete: if isGestionnaireRH();
+    }
+
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.
