@@ -32,25 +32,26 @@ export function zonePourKm(km) {
 }
 
 // Composition de l'indemnité d'UNE journée pour une distance routière (km).
-// nb50 tranches de 50 km au tarif zone "5" + reliquat < 50 mappé sur sa zone.
+// UNE SEULE composante déplacement (trajet par défaut OU transport) — JAMAIS
+// les deux cumulées — + repas. nb50 tranches de 50 km au tarif zone "5" +
+// reliquat < 50 mappé sur sa zone.
+//   • base = "trajet" (défaut) | "transport" : table de zones utilisée.
 //   • km invalide / barème absent → null.
-export function composerIndemnite(km, bareme, { repas = true } = {}) {
+export function composerIndemnite(km, bareme, { repas = true, base = "trajet" } = {}) {
   if (km == null || km < 0 || !bareme) return null;
+  const table = base === "transport" ? bareme.transport : bareme.trajet;  // UNE seule composante
   const nb50 = Math.floor(km / 50);
-  const reliquat = Math.round((km - nb50 * 50) * 10) / 10;   // < 50
-  let transport = nb50 * (bareme.transport?.["5"] || 0);
-  let trajet    = nb50 * (bareme.trajet?.["5"] || 0);
+  const reliquat = Math.round((km - nb50 * 50) * 10) / 10;
+  let deplacement = nb50 * (table?.["5"] || 0);
   let zoneReliquat = null;
   if (reliquat > 0) {
-    zoneReliquat = zonePourKm(reliquat);        // borne haute inclusive : 20 -> "2"
-    if (zoneReliquat) {
-      transport += bareme.transport?.[zoneReliquat] || 0;
-      trajet    += bareme.trajet?.[zoneReliquat]    || 0;
-    }
+    zoneReliquat = zonePourKm(reliquat);          // borne haute inclusive : 20 -> "2"
+    if (zoneReliquat) deplacement += table?.[zoneReliquat] || 0;
   }
   const repasVal = repas ? (bareme.repas || 0) : 0;
   const r2 = (x) => Math.round(x * 100) / 100;
-  return { nb50, reliquat, zoneReliquat,
-    transport: r2(transport), trajet: r2(trajet), repas: r2(repasVal),
-    total: r2(transport + trajet + repasVal) };
+  return { base, nb50, reliquat, zoneReliquat,
+    deplacement: r2(deplacement),      // trajet (défaut) OU transport, JAMAIS les deux
+    repas: r2(repasVal),
+    total: r2(deplacement + repasVal) };
 }
