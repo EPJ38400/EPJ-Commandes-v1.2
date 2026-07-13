@@ -20,18 +20,19 @@ fournisseurs, acquit réversible) — + **Avancement (M3, 21 chantiers ; taxonom
 (M4, 1 réserve) + Parc machines (M2, désormais **déclaration de panne + suivi SAV** —
 collection `outillageInterventions`).
 **Gestion de chantier (M5) en prod** (nav chantier-first + permissions par onglet ;
-**8 onglets, 4 livrés** = Pieuvres, Suivi commandes, Planning, Validation des avancements
-L9 ; 4 coquilles « à venir » = financier, gantt, tma, démarches). **Planning ressources
-(L8) en prod** — socle partagé M5/RH : page dédiée + onglet chantier, taxonomie postes M3,
-tâche libre hors avancement, SMS récap (cron + manuel), export ICS, validation L9.
-**Module RH (séparé) : tuile + onglet Congés en prod** (collection `conges`,
-validation ACTIF|ANNULE, PAS de workflow N1/N2 en V1) ; **Planning ressources L8
-en prod** (collection `planningCreneaux`) avec **overlay congés** (demi-journées
-grisées + cause) et **vue agenda mobile** (isPwa).
-Rôle **Achat** ajouté en factory (`permissions.js`) — **gère désormais l'intégralité du
-parc machines**. Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11.
-**Module RH** : tuile + onglet Congés livrés (voir §4) ; onglets Frais/Analyse encore
-« Bientôt », workflow de validation des congés (N1/N2) non développé.
+onglets livrés = Pieuvres, Suivi commandes [+ Esabora-directes], Planning, Validation des
+avancements L9, Suivi de chantier [placeholder] ; coquilles = financier, tma, démarches).
+**Planning ressources (L8) en prod** — socle partagé M5/RH : **multi-tâches par créneau +
+validation L9 par tâche + multi-ressources**, taxonomie postes M3, tâche libre hors avancement,
+SMS récap (cron + manuel), export ICS, overlay congés + agenda mobile PWA.
+**Module RH (séparé, `src/modules/rh/`) en prod** : Congés/Récupération avec **workflow
+N1 (conducteur) → N2 (gestionnaire)** (`conges` DEMANDE→VALIDEE_N1→VALIDEE, soldes `rhSoldes`,
+CP mai→mai jours ouvrables BTP, RCR minutes) ; **Frais de déplacement** (barème FBTP
+`referentielFraisBTP`, moteur récap serveur `genererRecapFrais` → `fraisRecap`, cache
+`fraisDistances`) ; **Heures salariés** (import Esabora → `heures` transverse) ; Analyse = coquille.
+Rôle **Achat** en factory (`permissions.js`) — **gère l'intégralité du parc machines**. Overrides
+data `rolesConfig` (Chef chantier ≈ Conducteur ; visibilité tuiles par rôle via `AdminHomeVisibility`).
+Spec seulement = Chiffrage, cockpits, archi N2, mode admin, migration v11, RH-Frais-3b2 (récap éditable).
 
 - **Nom interne** : `epj-commandes` (package.json), aussi appelé **EPJ App Globale**.
 - **Cible métier** : **EPJ Électricité Générale**, PME du bâtiment.
@@ -68,13 +69,14 @@ parc machines**. Spec seulement = Chiffrage, cockpits, archi N2, mode admin, mig
 - **Déploiement auto via GitHub Actions sur push `main`** (`.github/workflows/main.yml`,
   paths : `functions/**`, `firebase.json`, `.firebaserc`, `firestore.rules`,
   `firestore.indexes.json`, le workflow). Le job enchaîne `firebase deploy --only functions`
-  **puis** `firebase deploy --only firestore:rules` (étape « Deploy Firestore rules »,
-  ajoutée juin 2026). Jamais `firebase deploy` manuel sans GO.
-- **⚠️ Les règles Firestore SONT désormais déployées par le CI** (depuis juin 2026 ;
-  avant : déploiement manuel obligatoire). Un push `main` touchant `firestore.rules`
-  les déploie automatiquement. Déploiement manuel `firebase deploy --only firestore:rules
-  --project ap-epj` = filet de secours possible **avec GO** (ex. règle déjà mergée mais
-  CI non redéclenché).
+  **puis** `firebase deploy --only firestore:rules,firestore:indexes` (étape « Deploy
+  Firestore rules », ajoutée juin 2026 ; **correction 2026 : les indexes, d'abord oubliés,
+  sont désormais inclus**). Jamais `firebase deploy` manuel sans GO.
+- **⚠️ Règles ET indexes Firestore SONT désormais déployés par le CI** (depuis juin 2026 ;
+  avant : déploiement manuel obligatoire). Un push `main` touchant `firestore.rules`/
+  `firestore.indexes.json` les déploie automatiquement. Déploiement manuel `firebase deploy
+  --only firestore:rules,firestore:indexes --project ap-epj` = filet de secours possible
+  **avec GO** (ex. règle/index déjà mergé mais CI non redéclenché).
 - **⚠️ CORS configuré sur le bucket Storage `ap-epj.firebasestorage.app`** (2026-07 ;
   origin `"*"`, method `GET`) — **requis pour html2canvas** (quitus : feuille en-tête,
   signature technicien, photos avant/après). Sans CORS, les `<img crossorigin="anonymous">`
@@ -177,9 +179,9 @@ Versions clés : `firebase ^10.12.0`, `react ^18.2.0`, `xlsx ^0.18.5`,
 | M2 | Parc machines | Développé (schémas v8) + **panne & suivi SAV (2026-07)** | panne + suivi SAV livré (2026-07) ; attente photos |
 | M3 | Avancement | EN PROD, dev récent intense | 21 chantiers — usage réel |
 | M4 | Réserves + quitus | Développé (Brique Mail très active) | 1 seule réserve — quasi pas adopté |
-| M5 | Gestion de chantier | **EN PROD** — 8 onglets, 4 livrés (Pieuvres, Suivi commandes, Planning, Validation avancements L9) ; 4 coquilles (financier, gantt, tma, démarches) | nouveau — usage débutant |
-| L8 | Planning ressources | **EN PROD** — socle transversal (`src/modules/planning/`), branché en M5 (onglet) + page dédiée `module:planning` | nouveau |
-| RH | Ressources humaines (module séparé) | **Tuile + onglet Congés (RH-2a) EN PROD** ; overlay congés + agenda mobile sur le Planning L8 (RH-2b/2d) | nouveau |
+| M5 | Gestion de chantier | **EN PROD** — 8 onglets : Pieuvres, Suivi commandes (+ Esabora-directes), Planning, Validation des avancements L9, Suivi de chantier (placeholder, clé `gantt`) ; financier/tma/demarches coquilles | nouveau — usage débutant |
+| L8 | Planning ressources | **EN PROD** — socle transversal (`src/modules/planning/`), **multi-tâches par créneau + validation L9 par tâche + multi-ressources** ; page dédiée `module:planning` + onglet M5 | usage réel croissant |
+| RH | Ressources humaines (module séparé) | **EN PROD** — onglets Congés/Récupération (workflow N1/N2), Notes de frais (barème FBTP + moteur récap serveur), Heures salariés (import Esabora) ; Analyse = coquille | usage réel croissant |
 
 Liste officielle des modules : `src/core/permissions.js` → `MODULES`.
 
@@ -192,11 +194,13 @@ chantiers filtrée `own_chantiers` pour le Conducteur (helper testant `conducteu
 toggle « Tout voir » ; Admin/Direction = tous ; ouvrir un chantier → **fiche à
 onglets**. **8 onglets**, chacun = **clé de permission** `gestionChantier.<onglet>`
 (pieuvres, commandes, planning, financier, suivi, gantt, tma, demarches) ; visibilité
-gatée par `can()`. **4 livrés** : Pieuvres (L2), Suivi commandes (`SuiviCommandesTab`),
+gatée par `can()`. **Livrés** : Pieuvres (L2), Suivi commandes (`SuiviCommandesTab`),
 Planning (`PlanningTab`, cf. §4 Planning), Validation des avancements (clé `suivi` →
-`ValidationAvancement`, L9). **4 coquilles « à venir »** : financier, gantt, tma, demarches.
+`ValidationAvancement`, L9), **Suivi de chantier** (clé ORPHELINE `gestionChantier.gantt`
+réutilisée → placeholder). **Coquilles** : financier, tma, demarches.
 Assistante ne voit que financier + demarches ; Chef/Monteur/Artisan fermés par défaut
-(Chef ouvrable via `permissionsOverride`). **Lecture seule de `chantiers`** (jamais
+(Chef ouvrable via `permissionsOverride`, désormais aussi via l'override `rolesConfig/Chef chantier`,
+cf. §6). **Lecture seule de `chantiers`** (jamais
 d'écriture). Structure module classique
 (`src/modules/gestion-chantier/`, calibre `avancement/`), pas de split N2.
 Fichiers : `GestionChantierModule.jsx` (landing), `ChantierFiche.jsx` (onglets) ;
@@ -215,10 +219,16 @@ doc (`merge:true`), gardée par `can(user,"gestionChantier","edit")`. Rule
 `match /pieuvres/{id}` (read employee / create-update employee / delete conducteur,
 calque `reserves`). **Toujours lecture seule de `chantiers`.**
 
-**Reste à développer** : les 4 onglets coquilles (financier, gantt, tma, demarches) +
-lots restants de la spec `Spec_M5_GestionChantier_et_RH_V1.md` + le **module RH** séparé
-(clés `rh.planning/conges/frais/analyse` posées dans `permissions.js` ; seul `rh.planning`
-est matérialisé via la tuile Planning partagée — pas de dossier `src/modules/rh/`).
+**Onglet Suivi commandes** (`SuiviCommandesTab`) : affiche AUSSI les commandes
+**Esabora-DIRECTES** du chantier (`commandesEsabora` où `chantierNum == chantier.num`
+ET `appCommandeId`/`appCommandeNum == null`), badge « Esabora », tri chronologique
+unifié via `createdAt` (ISO). Les commandes Esabora liées à l'app (`appCommandeId`
+présent) ne servent qu'à enrichir les dates — pas de doublon.
+
+**Reste à développer** : les onglets coquilles (financier, tma, demarches) + le
+placeholder Suivi de chantier + lots restants de la spec
+`Spec_M5_GestionChantier_et_RH_V1.md`. Le **module RH** séparé existe désormais
+(`src/modules/rh/`, cf. section dédiée ci-dessous).
 
 ### Planning ressources (L8) — socle M5/RH (EN PROD) [C]
 
@@ -229,63 +239,104 @@ dans `App.jsx`, tuile HomePage gatée `rh.planning`) **et** onglet chantier
 (`gestionChantier.planning` → `PlanningTab`). Écrit **UNIQUEMENT** `planningCreneaux`
 (jamais `chantiers`).
 
-**Modèle V3 bidirectionnel** (`AffectationModal.jsx` + `planningWrites.js`) : un créneau
-est **AFFECTÉ** (`ressourceId` non nul, id déterministe `{ressourceId}_{date}_{periode}`)
-ou **POOL « à affecter »** (`ressourceId` null, doc auto-id → plusieurs tâches/slot).
-Le sélecteur Ressource pilote créer/affecter/libérer/supprimer ; anti-collision
-inter-chantiers par `getDoc` autoritatif + `window.confirm` (jamais d'écrasement silencieux).
-Plage Du→Au (multi-demi-journées), `writeBatch` atomique.
+**Modèle multi-tâches** (`AffectationModal.jsx` + `planningWrites.js` + `planningModel.js`) :
+un créneau `planningCreneaux/{ressourceId}_{date}_{AM|PM}` porte **`taches[]`** (chaque
+tâche = `chantierId`, `batiment`, `posteAvancementKey`, `posteLabel`, `tempsEstimeH`) +
+un **miroir « tâche primaire »** au niveau du doc (le `chantierId` de tête sert de clé à
+la requête vue mois). Helpers : `getCreneauTaches` / `creneauTotalHours` /
+`demiJourneeHeures(dayIdx, periode)`. **Compat legacy** : un ancien créneau mono-tâche
+(champs plats) est lu comme 1 tâche `t0`. Anti-collision inter-chantiers par `getDoc`
+autoritatif + `window.confirm` (jamais d'écrasement silencieux) ; `writeBatch` atomique.
+**Affectation MULTI-RESSOURCES** : une tâche est affectable à plusieurs ressources
+(écrasement de leur créneau sur le slot). **Vendredi = 4 h matin + 3 h après-midi (7 h)**.
 
-- **Tâche libre (hors avancement)** (PR #38, 2026-07-03) : champ texte toujours visible ;
-  poste vide + texte → `posteAvancementKey:null`, `posteLabel:<texte>`, temps saisi/défaut,
-  chantier **facultatif** → part au planning, **ignorée par L9**. Builders relâchés
-  (`posteLabel`/`tempsEstimeH` dégâtés de `hasChantier`, `batiment`/`posteAvancementKey`
-  restent gâtés).
-- **Validation L9** (`ValidationAvancement.jsx`, onglet chantier clé `suivi`) : le Monteur
-  confirme « Tâche faite » (`etatValidationMonteur`), le Conducteur valide/refuse
-  (`etatValidationConducteur`). Rule bornée : le Monteur ne peut flipper QUE ses 3 champs
-  `etatValidationMonteur*`.
-- **SMS récap** : cron (`functions/planningSms.js` — `planningSmsRecap` lun-ven 15h30 →
-  planning du prochain jour ouvré ; `planningSmsRappelLundi` lundi 7h → rappel du jour),
-  **MONTEURS uniquement**, idempotent (id déterministe `smsQueue`), **kill-switch**
-  `config/settings.planningSmsEnabled` (OFF par défaut, toggle Dashboard Direction).
-  + **SMS manuel** depuis `AffectationModal` (geste explicite, non gaté par le kill-switch,
-  préfixe « MODIF - » si un récap auto a déjà été enfilé).
-- **Export ICS** (`icsExport.js`) : bouton « Ajouter à mon agenda » sur un créneau (pur
-  client, lecture seule, **non gaté** `canWrite` — un monteur exporte son créneau).
+- **Tâche libre (hors avancement)** : sans `posteAvancementKey` (label seul), avec ou sans
+  chantier → part au planning. Validable par le monteur (accusé, **SANS écriture d'avancement**).
+- **Validation L9 PAR TÂCHE** (`ValidationAvancement.jsx`, onglet chantier « Validation des
+  avancements », clé `suivi`) : maps `validationMonteur{tacheId}` / `validationConducteur{tacheId}`
+  + flag `aValiderConducteur`. Rule monteur `planningCreneaux` : update autorisé si
+  `hasOnly(["validationMonteur","aValiderConducteur"])`. La vue = requête **UNION** legacy
+  (`etatValidationMonteur=="FAIT"`) + `aValiderConducteur==true`. Confirmer une tâche à poste
+  → `chantiers.avancementProgress[unitId][poste]=100` (`setDoc merge`, **pattern trio INCHANGÉ**) ;
+  tâche libre → accusé sans avancement. **Index composite** `(chantierId ASC, aValiderConducteur ASC)`.
+- **SMS planning** : cron (`functions/planningSms.js` — `planningSmsRecap` lun-ven 15h30 →
+  prochain jour ouvré ; `planningSmsRappelLundi` lundi 7h → rappel du jour), **MONTEURS
+  uniquement**, idempotent, **kill-switch** `config/settings.planningSmsEnabled` (OFF par défaut).
+  + **SMS manuel** : bouton jour (`AffectationModal`) + bouton semaine par ressource
+  (`PlanningGrid`) → `smsQueue {recipientPhone, message, type PLANNING_MANUEL|PLANNING_SEMAINE_MANUEL}`.
+- **Export ICS** (`icsExport.js`) : bouton « Ajouter à mon agenda » (pur client, lecture seule,
+  **non gaté** `canWrite`).
 - Picker postes **groupé par catégorie** (`GroupedPosteSelect.jsx`) ; création « bulk »
   mensuelle (`PlanningBulkCreate.jsx`, `ChantierPlanningMonth.jsx`, `PlanningGrid.jsx`).
 
-### Module RH — Congés + overlay planning + agenda mobile (EN PROD) [C]
+### Module RH — Congés / Récupération / Frais (EN PROD) [V][C]
 
-Module **séparé** `src/modules/rh/`, distinct du Planning ressources L8 (décrit
-ci-dessus — tuile standalone `module:planning` gatée `rh.planning`, grille hebdo
-ressources × jours × AM/PM, écrit `planningCreneaux`, id
-`creneauId = {ressourceId}_{date}_{periode}`, copie S-1, scopes
-`own_items`/`own_chantiers`/`all` ; fichiers `PlanningPage`/`PlanningGrid`/`planningModel`).
+Module **séparé** `src/modules/rh/`, tuile `rh._access`, shell `RHModule.jsx`
+(onglets : **Congés · Notes de frais · Heures salariés · Analyse** [coquille] — gatés
+par `can()` via un `permKey` : ex. onglet Heures = clé `rh.heures` mais **gate `rh.frais`**).
+Socle demi-journées = **Planning ressources L8** (`planningModel.js` : `terrainResources`,
+`resourcesForConductor`). Le Planning reste la **tuile standalone L8** (`module:planning`,
+gatée `rh.planning`) — pas d'onglet Planning dans le shell RH.
 
-- **Tuile + shell RH** (RH-2a) : tuile HomePage gatée `rh` (`_access`) → route
-  `module:rh` → `RHModule.jsx` (accent `catCourantFaible`). Onglets gatés par sous-clé
-  `can(user, "rh.<clé>", "_access")` : **Congés / absences** (vivant), **Notes de frais**
-  et **Analyse** = coquilles « Bientôt ». **AUCUN onglet Planning** (le Planning reste
-  la tuile standalone L8).
-- **Onglet Congés** (`CongesPage.jsx` / `CongeModal.jsx` / `congesModel.js`) : gate
-  `rh.conges` — en V1 **Admin/Direction/Assistante** (factory `view:all`, pas de branche
-  conducteur). Lecture live `where statut=="ACTIF"` (égalité simple, **pas d'index
-  composite**), filtrage mois client. Vue **mensuelle** « qui est absent quand »
-  (lignes = ressources terrain, colonnes = jours, demi-cellules AM/PM colorées par type)
-  + liste éditable + saisie. Annulation = **update `statut:"ANNULE"`** (jamais de delete).
-- **Overlay congés sur le Planning** (RH-2b/bis) : `PlanningGrid` lit `conges`
-  (**lecture seule**, `where statut=="ACTIF"`, filtre semaine client) et grise les
-  demi-journées absentes (hachures) **+ écrit la CAUSE abrégée** (CP/RTT/Mal./SS/Abs.,
-  `title` = libellé complet, teinte `CONGE_TYPE_COLOR`). Garde-fou `window.confirm`
-  avant d'affecter un slot en congé vide ; le « + » incitatif est masqué sur ces slots.
-- **Agenda mobile** (RH-2d) : sous `isPwa`, `PlanningGrid` bifurque vers
-  `PlanningAgendaMobile.jsx` (liste verticale ressource → jours → demi-journées, cibles
-  tactiles ≥ 44 px, réutilise `openSlot`, **aucune écriture propre**). Desktop = grille
-  inchangée à l'octet ; seule la zone grille bifurque, la barre d'outils reste commune.
-- **Roadmap RH** : Frais/Analyse à développer ; workflow de validation des congés
-  (monteur → N1 → N2) prévu en lot ultérieur (RH-2c), non développé.
+**Congés / Récupération**
+- Collection `conges` : workflow **`DEMANDE → VALIDEE_N1 → VALIDEE`** (+ REFUSEE/ANNULEE).
+  N1 = conducteur (`own_chantiers`) ; N2 = direction/assistante (`all`, mode gestionnaire =
+  saisie directe VALIDEE + maladie). Conducteur/Achat/Assistante demandeurs → **N1 sauté** (`sauteN1`).
+- Collection `rhSoldes/{ressourceId}` : `congesSoldeInitial`, `congesAjustement` (jours),
+  `rcrSoldeMinutes`. Saisie gestionnaire. **« Pris » jamais stocké** (recalculé depuis `conges` VALIDEE).
+- **CP** (`congesModel.js`) : acquis 2,5 j/mois période **mai→mai**, décompte **jours ouvrables BTP**
+  (`joursOuvrablesDecomptes` : lun→sam, **samedi rattaché** si vendredi), remise à zéro 1er mai.
+  Solde = **acquis N-1** (initial+ajustement, disponible) / **acquis N** (2,5/mois en cours, hors
+  disponible) / pris / **disponible = acquisN1 − pris**.
+- **RCR/Récupération** : type `RECUP` (remplace `RTT`), prise journée=420 min / demi=210 min,
+  décompte **jours ouvrés lun-ven** (`minutesRCRDecomptees`, **PAS de samedi rattaché**), solde en
+  minutes (h:min), remise à zéro année civile.
+- Périmètre = `salariesConges(users)` : rôles {Conducteur, Chef chantier, Monteur, Assistante,
+  Achat} ; **exclut Direction/Admin/Artisan** ; trié par nom de famille.
+- Badge « X à valider » sur la tuile RH (listener ciblé validateur) ; overlay planning
+  (VALIDEE grisé plein / en-attente hachures) ; agenda mobile PWA (`PlanningAgendaMobile.jsx`).
+- Rule `conges` **durcie** : transitions bornées par rôle (→VALIDEE_N1=conducteur, →VALIDEE=
+  gestionnaire, création non-gestionnaire forcée DEMANDE), **pas de delete**. Overrides `rolesConfig`
+  (data) : Monteur/Chef `rh.conges{_access:all, view/create:own_items}` ; Conducteur
+  `{view:own_chantiers, create:own_items, validate:own_chantiers}` ; Direction/Assistante
+  `{view/validate:all}` ; **Artisan `{_access:false}`**.
+
+**Frais de déplacement (barème FBTP Isère)**
+- `referentielFraisBTP/{annee}` : barème versionné (repas 12,06 € + 6 zones transport + 6 zones
+  trajet + seuils km 5/10/20/30/40/50). Écran `FraisPage.jsx` (gestionnaire).
+- `fraisModel.js` : `zonePourKm` (bornes **haute inclusive** : 20 km → zone 2) ;
+  `composerIndemnite(km, bareme, {repas, base})` = **UNE composante** `trajet` (défaut) OU
+  `transport`, **JAMAIS cumulées**, + **repas 12,06 € 1×/jour**. >50 km : `nb50` tranches de 50
+  (zone 5) + reliquat dans sa zone (ex. 120 km trajet = 2×9,71 + 3,72 + repas).
+- Adresses : `adresseDomicile` + `pointDepartFrais` (DEPOT|DOMICILE, défaut DEPOT) sur
+  `utilisateurs` (**AdminUsers** via CF `adminUpdateUser`) ; adresse dépôt = `config/company`
+  (**AdminCompany**, siège = dépôt). Matching salarié import = nom normalisé + `fraisMappingSalaries`.
+- **Cloud Functions frais** (europe-west1, secret `GOOGLE_MAPS_API_KEY`, gate gestionnaire RH) :
+  `functions/lib/distanceCore.js` (primitives partagées `resoudreOrigine`/`resoudreDestination`
+  cascade `chantiers/{num}.adresse` → `chantiersEsabora/{num}` → throw / `calculerDistanceCache` /
+  `loadBaremeCourant` ; erreurs porteuses de `.code`) ; `computeDistanceFrais` (wrapper + cache
+  `fraisDistances/{salarieId__chantierNum__origineType}`, rule **write:false**) ; `genererRecapFrais`
+  (callable, timeout 300 s) = **récap mensuel** : lit `heures where mois==`, groupe (salarié, jour),
+  retient le **chantier le plus éloigné/jour** (1 indemnité/jour), flag `jourBureau`
+  (`/BUREAU|DÉPÔT|ATELIER/i` → « à valider »), lit surcharges `fraisOverrides`, écrit
+  `fraisRecap/{mois}` ; non-mappés / adresses manquantes → **alertes** (pas de crash).
+  `functions/lib/fraisZones.js` = copie serveur de `fraisModel.js` (bundle séparé, garder en phase).
+
+**Heures & affaires (collections transverses)**
+- `heures/{mois__salarieId__chantierNum__jour}` : import xlsx Esabora (onglet « Heures salariés »,
+  `HeuresSalariesPage.jsx`, `heuresModel.js` ; champs mois/date/jour/salarieId|null/trigramme/
+  chantierNum/chantierLibelle/heures/rubrique). **Transverse** (servira au Suivi financier M5,
+  requêtable par `chantierNum`). Idempotent. Bouton « Générer le récap {mois} » → `genererRecapFrais`.
+- `chantiersEsabora/{num}` : référentiel affaires léger (num, titre, adresse, CP, ville…), import
+  `AFFAIRES.xlsx` via **Administration → Chantiers & tâches → Injection affaires Esabora**
+  (`AdminAffairesEsabora.jsx`, `affairesModel.js`). **NE touche PAS `chantiers` ni AdminChantiers
+  (trio).** Fallback d'adresse (chantier calculable sans le créer dans le trio).
+- `fraisOverrides/{mois__salarieId__chantierNum}` : surcharges (origineType, base, exclu) — **lues**
+  par le moteur, **éditées en RH-Frais-3b2** (à venir).
+
+**Roadmap RH** : RH-Frais-3b2 (récap **éditable** : surcharges Dépôt/Domicile & Trajet/Transport
+par salarié×chantier, exclusion de lignes, inclusion jours bureau + **export .xlsx comptable**) ;
+onglet **Analyse** (coquille) ; lien **Suivi financier M5** (lira `heures` par chantier).
 
 ### M2 Parc machines — déclaration de panne + suivi SAV (2026-07) [C]
 
@@ -409,6 +460,18 @@ UTILISATEUR** `user.permissionsOverride`. Permission =
 `{ _access, view, create, edit, delete, validate, export }` avec scopes
 `all | own_chantiers | own_items | false`.
 
+**Overrides de rôle posés en data (2026, `permissions.js` NON touché)** :
+- `rolesConfig/Chef chantier` = **clone des droits effectifs du Conducteur travaux**
+  (chef ≈ conducteur : validation avancement `own_chantiers`, gestion de chantier +
+  planning + financier `own_chantiers`). Effet au **logout/login** (refresh claim),
+  prioritaire par clé.
+- **Visibilité d'accueil par rôle** (`AdminHomeVisibility`, `src/pages/admin`) : tuiles
+  d'accueil + dashboards visibles PAR RÔLE, stockés dans
+  `rolesConfig[role]._homeTiles` / `._dashboards` (**données pures — `can()` les ignore**,
+  `permissions.js` non touché). `HomePage` filtre via `getEffectiveRolePerms(role)._homeTiles`
+  (défaut = tuile visible).
+- Overrides `rh.conges` par rôle : cf. §4 Module RH.
+
 ⚠️ Côté front, l'utilisateur porte **`roles` (tableau)** — tester
 `(user?.roles || []).some(r => […])`, **jamais** `user.role` (singulier).
 Côté rules / Cloud Functions, le rôle effectif est le custom claim
@@ -443,15 +506,27 @@ Cluster Planning (déployées, `planningSms.js`, exportées via `index.js`) :
 Kill-switch commun : `config/settings.planningSmsEnabled` (OFF par défaut). Lit
 `planningCreneaux`/`chantiers`/`utilisateurs`, écrit **uniquement** `smsQueue`.
 
+Cluster RH / Frais (déployées, gate gestionnaire RH, secret `GOOGLE_MAPS_API_KEY`) :
+| Fonction | Rôle |
+|----------|------|
+| `computeDistanceFrais` (callable) | test distance + indemnité FBTP d'un couple salarié×chantier ; wrapper de `lib/distanceCore.js` + cache `fraisDistances` |
+| `genererRecapFrais` (callable, timeout 300 s) | récap mensuel : `heures where mois==` → groupe (salarié, jour) → chantier le plus éloigné → indemnité → écrit `fraisRecap/{mois}` + alertes ; lit `fraisOverrides` |
+
+`lib/distanceCore.js` = primitives partagées (`resoudreOrigine`/`resoudreDestination`
+cascade `chantiers`→`chantiersEsabora`→throw / `calculerDistanceCache` / `loadBaremeCourant`) ;
+`lib/fraisZones.js` = copie serveur de `fraisModel.js` (garder en phase). **`chantiers`
+lecture seule** ; écrivent `fraisDistances`/`fraisRecap` (Admin SDK — rules `write:false`).
+
 **Secrets (Secret Manager)** : `BREVO_API_KEY`, `GMAIL_CLIENT_ID`,
 `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` (sav), `GMAIL_ACHAT_REFRESH_TOKEN`
-(achat, scope `gmail.modify` v3), `ANTHROPIC_API_KEY`, `ESABORA_WEBHOOK_TOKEN`.
+(achat, scope `gmail.modify` v3), `ANTHROPIC_API_KEY`, `ESABORA_WEBHOOK_TOKEN`,
+`GOOGLE_MAPS_API_KEY`.
 
 Logique fine non documentée ici : lecture du code `functions/` requise.
 
 ---
 
-## 8. Firestore — 30 collections réelles [V] (2026-06-07) + `pieuvres` (M5 L2) + `planningCreneaux` (Planning L8) + `outillageInterventions` (Parc SAV, 2026-07) + `conges` (Module RH, 2026-07) [C]
+## 8. Firestore — collections réelles (audit 2026-06-07 = 30) + ajouts M5/Planning/Parc/RH [C]
 
 ```
 achatEcartsPrix · avancementValidations · catalogue · chantiers · commandes ·
@@ -462,6 +537,8 @@ planningCreneaux · reserveMails · reserveMailsAClasser · reserves · reserves
 reservesEmetteurs · rolesConfig · smsQueue · smsTemplates · utilisateurs ·
 mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
 ```
+Ajouts RH (2026) : `rhSoldes` · `referentielFraisBTP` · `heures` · `fraisMappingSalaries` ·
+`chantiersEsabora` · `fraisDistances` · `fraisRecap` · `fraisOverrides` (cf. §4 Module RH).
 
 `pieuvres/{chantierId_batiment_niveau}` (M5 onglet Pieuvres) : `chantierId`, `batiment`
 (lettre), `niveau`, `posteAvancementKey` (jointure M3), `jourDemande`/`dateReceptionPlansCotes`/
@@ -469,22 +546,27 @@ mcpAccessTokens · mcpAuthCodes · mcpClients · mcpRefreshTokens
 (A_DEMANDER|DEMANDEE|PLANS_RECUS|LIVREE), `commandeId`, `remarques`, `createdAt`/`updatedAt`.
 Généré idempotemment depuis `buildings[].config` ; aucune écriture dans `chantiers`.
 
-`planningCreneaux/{id}` (Planning L8) — **AFFECTÉ** : id déterministe
-`{ressourceId}_{date}_{periode}` ; **POOL** : id auto (`ressourceId:null`). Champs :
-`ressourceId`/`ressourceNom`/`ressourceType`, `date` (ISO), `periode` (AM|PM), `chantierId`
-(nullable), `batiment` (lettre, nul si pas de chantier), `posteAvancementKey` (jointure
-taxonomie M3, nul si pas de chantier ou tâche libre), `posteLabel` (poste OU texte libre),
-`tempsEstimeH` (défaut demi-journée : 4 h / 3,5 h vendredi), `tacheId`, états L9
-(`etatValidationMonteur`/`etatValidationConducteur` + `*At`/`*Par`), `smsEnvoye`,
-`creePar`/`modifiePar`/`createdAt`/`updatedAt`. **Écrit uniquement par le module Planning ;
-jamais d'écriture `chantiers`.**
+`planningCreneaux/{ressourceId}_{date}_{AM|PM}` (Planning L8) — **multi-tâches** :
+`taches[]` (chaque tâche = `chantierId`, `batiment`, `posteAvancementKey`, `posteLabel`,
+`tempsEstimeH`) + **miroir « tâche primaire »** au niveau du doc (chantierId de tête =
+clé requête vue mois). Aussi : `ressourceId`/`ressourceNom`/`ressourceType`, `date` (ISO),
+`periode` (AM|PM), validation L9 **par tâche** (`validationMonteur{tacheId}` /
+`validationConducteur{tacheId}` + flag `aValiderConducteur`), champs legacy L9
+(`etatValidationMonteur`/`etatValidationConducteur`, lus en UNION), `smsEnvoye`,
+`creePar`/`modifiePar`/`createdAt`/`updatedAt`. **Compat legacy** : créneau mono-tâche plat
+= 1 tâche `t0`. **POOL** « à affecter » = id auto (`ressourceId:null`). Vendredi 4 h + 3 h.
+**Écrit uniquement par le module Planning ; jamais d'écriture `chantiers`.**
 
-`conges/{autoId}` (Module RH — onglet Congés, RH-2a) : `ressourceId` (= id user, aligné
-`planningCreneaux`), `ressourceNom`/`ressourceType` (SALARIE|ARTISAN), `type`
-(CP|RTT|MALADIE|SANS_SOLDE|AUTRE), `du`/`au` (ISO, inclus), `demiJourneeDebut`/`demiJourneeFin`
-(AM|PM), `motif` (nullable), `statut` (ACTIF|ANNULE), `creePar`/`creeParNom`,
-`createdAt`/`updatedAt`. Lu par l'onglet Congés (vue mensuelle) ET par `PlanningGrid`
-(overlay, **lecture seule**). Annulation = update `statut:"ANNULE"` (jamais de delete).
+`conges/{autoId}` (Module RH) : `ressourceId` (= id user), `ressourceNom`/`ressourceType`,
+`type` (**CP|RECUP|MALADIE|SANS_SOLDE|AUTRE** — `RECUP` remplace `RTT`), `du`/`au` (ISO, inclus),
+`demiJourneeDebut`/`demiJourneeFin` (AM|PM), `motif` (nullable), **`statut`
+(DEMANDE|VALIDEE_N1|VALIDEE|REFUSEE|ANNULEE)**, `sauteN1`, champs de validation par niveau,
+`creePar`/`creeParNom`, `createdAt`/`updatedAt`. Workflow N1 (conducteur) → N2 (gestionnaire).
+Lu par l'onglet Congés + `PlanningGrid` (overlay, lecture seule). **Pas de delete** (rule durcie,
+transitions bornées par rôle).
+
+`rhSoldes/{ressourceId}` (Module RH) : `congesSoldeInitial`, `congesAjustement` (jours),
+`rcrSoldeMinutes`. Saisie gestionnaire. **« Pris » jamais stocké** (recalculé depuis `conges` VALIDEE).
 
 `outillageInterventions/{id}` (M2 Parc SAV, 2026-07) : `outilId`, `outilRef`, `outilNom`,
 `panneIds[]`, `descriptionLibre`, `statut` (signalee|en_reparation|reparee|reformee),
@@ -509,6 +591,24 @@ désormais **`isAchat()`**.
   la migration vers `fournisseurs`, non supprimée, non lue/écrite).
 - `gmailAchatExtractions` (cache terminal par gmailId) · `gmailConfigAchat/main`
   (sync incrémentale par historyId, poller `actif`, sain) · `esabora_import` (staging brut webhook).
+
+### Cluster RH / Frais
+- `referentielFraisBTP/{annee}` — barème FBTP versionné : `annee`, `repas`, `transport{1a..5}`,
+  `trajet{1a..5}`, seuils km (5/10/20/30/40/50). Read employé / write gestionnaire (pas de delete).
+- `heures/{mois__salarieId|NC-trigramme__chantierNum|NA__jour}` — heures Esabora **transverses**
+  (RH frais + Suivi financier M5) : `mois`, `date`, `jour`, `salarieId|null`, `trigramme`,
+  `chantierNum|null`, `chantierLibelle`, `heures`, `rubrique`, `importLot`/`importAt`. Idempotent.
+- `chantiersEsabora/{num}` — référentiel affaires léger : `num`, `titre`, `adresse`, `codePostal`,
+  `ville`, `etat`, `nomClient`… Fallback d'adresse frais. **Séparé du trio `chantiers`.**
+- `fraisMappingSalaries/{nomNormalise}` — rapprochement nom fichier → `salarieId` (mémoire d'import).
+- `fraisDistances/{salarieId__chantierNum__origineType}` — cache distance routière : `distanceKm`,
+  `dureeMin`, `origineHash`, adresses + méta. **write:false** (Cloud Function only).
+- `fraisRecap/{mois}` — récap mensuel : `mois`, `genereAt`/`generePar`, `bareme` (année),
+  `salaries[]{salarieId, nom, origineDefaut, jours[]{date, chantierNum, chantierLibelle, origineType,
+  base, distanceKm, deplacement, repas, total, alerte?, jourBureau?}, totalMois, nbJours}`,
+  `alertes[]{type, salarieId?, chantierNum?, message}`. **write:false** (Cloud Function only).
+- `fraisOverrides/{mois__salarieId__chantierNum}` — surcharges récap : `origineType?`, `base?`,
+  `exclu?`, `majPar`/`majAt`. Lues par le moteur (édition RH-Frais-3b2). Read employé / write gestionnaire.
 
 ### Rappels schémas
 - `chantiers/{id}` — id = n° Esabora 6 chiffres ; `buildings[]`, `avancementProgress{}`.
@@ -563,6 +663,10 @@ tarifs fournisseurs, démarches post-devis) · **Cockpits par rôle** + IA perso
 - **Design-system : CHANTIER FERMÉ** (2026-06-12, cf. §13). Prochain chantier :
   **Cockpit Direction v1** (spec courte à venir — maquette validée par PJ,
   `ChatPanel` déjà livré).
+- **RH-Frais-3b2** (prochain lot RH) : écran récap **éditable** (surcharges Dépôt/Domicile
+  & Trajet/Transport par salarié×chantier via `fraisOverrides`, exclusion de lignes, inclusion
+  des jours bureau) + **export .xlsx comptable**. Puis onglet **Analyse** RH + lien **Suivi
+  financier M5** (lira `heures` par `chantierNum`).
 
 Les modules 1 à 4 sont en **stabilisation / finitions**, pas de redéveloppement.
 Toute refonte d'un module existant doit être justifiée et validée par PJ.
@@ -586,14 +690,19 @@ Un GO oral ou implicite ne suffit pas.
   (Admin/Direction/Conducteur/Assistante). Aucune création/suppression client.
 - `fournisseurs/{code}` : lecture employés, écriture `isDirection()`.
 - `planningCreneaux/{id}` : read tout employé ; create/update/delete uniformes
-  **Admin/Assistante/Conducteur/Chef chantier** ; update **Monteur** borné aux 3 champs
-  `etatValidationMonteur*` (L9). Le gating fin `own_chantiers`/`own_items` est côté client.
-  Écrit par le Planning ressources (L8) ; l'overlay congés et l'agenda mobile sont en
-  **lecture seule** de `conges`, aucune écriture ajoutée.
-- `conges/{id}` : rule `match /conges/{id}` = read + create/update tout **employé
-  authentifié** (calque `pieuvres`), **PAS de delete client** (annulation = update
-  `statut:"ANNULE"`). Le gating fin `rh.conges` (Admin/Direction/Assistante en V1) est
-  assuré côté client par `can()`.
+  **Admin/Assistante/Conducteur/Chef chantier** ; update **Monteur** borné à
+  `hasOnly(["validationMonteur","aValiderConducteur"])` (validation L9 par tâche). Le gating
+  fin `own_chantiers`/`own_items` est côté client. Écrit par le Planning ressources (L8) ;
+  l'overlay congés et l'agenda mobile sont en **lecture seule** de `conges`.
+- `conges/{id}` : rule **durcie** — transitions bornées par rôle (→VALIDEE_N1 = conducteur,
+  →VALIDEE = gestionnaire, création non-gestionnaire **forcée `DEMANDE`**), **PAS de delete**
+  (annulation = update `statut:"ANNULE"`). Le gating fin `rh.conges` par rôle est assuré côté
+  client par `can()` + overrides `rolesConfig` (cf. §4).
+- `rhSoldes/{id}` : read employé / write gestionnaire RH.
+- RH frais : `referentielFraisBTP`/`heures`/`fraisMappingSalaries`/`chantiersEsabora`/
+  `fraisOverrides` = read employé / **write gestionnaire RH** ; `fraisDistances`/`fraisRecap`
+  = read employé / **write:false** (Cloud Function only). Helper rule `isGestionnaireRH()`
+  = role ∈ [Admin, Direction, Assistante]. **`chantiers` lecture seule** dans tout le module Frais.
 - L'app tourne avec des **données réelles** (40 commandes, 21 chantiers d'avancement,
   réserves) : perte de commandes/réserves **inacceptable**, perte d'avancement
   rattrapable mais à éviter. Toute modif `firestore.rules`/`storage.rules`/`DataContext.jsx`
@@ -601,13 +710,14 @@ Un GO oral ou implicite ne suffit pas.
 
 ### Git & déploiement
 - Preprod (branche → preview Vercel) → **GO écrit** → merge `main` (auto Vercel prod +
-  GitHub Actions functions **+ firestore:rules**).
+  GitHub Actions functions **+ firestore:rules,firestore:indexes**).
 - **Jamais** `firebase deploy` / `vercel --prod` / merge `main` / push `main` sans GO écrit.
-- **Les rules Firestore passent désormais par le CI** (étape « Deploy Firestore rules »
-  de `main.yml`, depuis juin 2026) : un push `main` touchant `firestore.rules` les déploie
-  automatiquement. Déploiement manuel `firebase deploy --only firestore:rules --project ap-epj`
-  = filet de secours avec GO (ex. CI non redéclenché). Sans déploiement, la feature
-  dépendante reste en `permission-denied`.
+- **Rules ET indexes Firestore passent désormais par le CI** (`main.yml` déploie
+  `firebase deploy --only firestore:rules,firestore:indexes` — correction 2026 : les indexes
+  étaient auparavant oubliés). Un push `main` touchant `firestore.rules`/`firestore.indexes.json`
+  les déploie automatiquement. Déploiement manuel `firebase deploy --only firestore:rules,firestore:indexes
+  --project ap-epj` = filet de secours avec GO. Sans déploiement, la feature dépendante reste
+  en `permission-denied` (rule) ou requête en échec (index composite manquant).
 - ⚠️ **Modif d'un fichier `.github/workflows/*`** : le token Claude Code n'a pas le scope
   GitHub `workflow` → push refusé. Toute retouche du workflow passe par PJ (terminal/GitHub web).
 
@@ -666,6 +776,15 @@ tester `user.role` (singulier) au lieu de `user.roles` (tableau) · committer
 | Parc — droits (Achat inclus) | `src/modules/parc-machines/parcUtils.js` |
 | Avancement — unité Étude/TMA + taxonomie | `getCategoriesForEtude` / `getCategoriesForConfig` (`avancement/avancementTasks.js`) |
 | Planning — exposition unité Étude/TMA | `getPosteOptions` (`planning/planningModel.js`) |
+| RH — shell / onglets | `src/modules/rh/RHModule.jsx` |
+| RH — congés/récup (soldes, décomptes BTP) | `src/modules/rh/congesModel.js` · `CongesPage.jsx` · `CongeModal.jsx` |
+| RH — frais : zones/indemnité (front) | `src/modules/rh/fraisModel.js` · écran `FraisPage.jsx` |
+| RH — heures salariés (import Esabora + récap) | `src/modules/rh/HeuresSalariesPage.jsx` · `heuresModel.js` |
+| RH — frais : distance partagée (serveur) | `functions/lib/distanceCore.js` (+ copie zones `functions/lib/fraisZones.js`) |
+| RH — frais : test distance/indemnité | `functions/computeDistanceFrais.js` |
+| RH — frais : moteur récap mensuel | `functions/genererRecapFrais.js` → `fraisRecap/{mois}` |
+| RH — injection affaires Esabora (admin) | `src/pages/admin/AdminAffairesEsabora.jsx` · `src/modules/rh/affairesModel.js` |
+| Admin — visibilité tuiles/dashboards par rôle | `src/pages/admin/AdminHomeVisibility.jsx` (`rolesConfig[role]._homeTiles/._dashboards`) |
 
 ---
 
@@ -846,4 +965,12 @@ Mise à jour 2026-07-05 [C] : Module RH (tuile `rh` + onglet Congés RH-2a, coll
 `conges` ACTIF|ANNULE) + overlay congés sur le Planning L8 (RH-2b/bis, grisé + cause) +
 vue agenda mobile (RH-2d, `PlanningAgendaMobile`) documentés depuis le code — **pas** de
 nouvel audit live Firestore (volumes `conges` à vérifier au prochain audit).
+Mise à jour 2026-07-13 [C] : sync majeure Planning (multi-tâches par créneau `taches[]` +
+validation L9 PAR TÂCHE + multi-ressources, index `(chantierId, aValiderConducteur)`) ;
+M5 (onglet Suivi de chantier placeholder clé `gantt`, SuiviCommandesTab + Esabora-directes) ;
+Module RH refondu (congés workflow **N1→N2** + `rhSoldes`, RCR/récup, barème FBTP + moteur
+récap serveur `genererRecapFrais`/`fraisRecap` + `distanceCore` partagé, heures `heures`,
+affaires `chantiersEsabora`, `fraisDistances`/`fraisMappingSalaries`/`fraisOverrides`) ;
+overrides data `rolesConfig` (Chef chantier ≈ Conducteur) + `AdminHomeVisibility` ; CI déploie
+rules **ET** indexes. Documenté depuis le code + notes PJ — **pas** de nouvel audit live Firestore.
 Maintenir à jour quand l'archi évolue.*
