@@ -22,6 +22,7 @@ import { Button } from "../../core/components/Button";
 import { CongesPage } from "./CongesPage";
 import { FraisPage } from "./FraisPage";
 import { HeuresSalariesPage } from "./HeuresSalariesPage";
+import { RecapFraisPage } from "./RecapFraisPage";
 
 const ACCENT = EPJ.catCourantFaible;
 
@@ -31,6 +32,7 @@ const TABS = [
   { key: "rh.conges",  label: "Congés / absences", icon: "🌴", live: true },
   { key: "rh.frais",   label: "Notes de frais",    icon: "🧾", live: true },
   { key: "rh.heures",  label: "Heures salariés",   icon: "⏱️", live: true, permKey: "rh.frais" },
+  { key: "rh.recap",   label: "Récap frais",       icon: "🧮", live: true, permKey: "rh.frais" },
   { key: "rh.analyse", label: "Analyse",           icon: "📈", live: false },
 ];
 
@@ -117,7 +119,10 @@ export function RHModule({ onExitModule }) {
           {active && active.key === "rh.heures" && (
             <div role="tabpanel"><HeuresSalariesPage /></div>
           )}
-          {active && active.key !== "rh.conges" && active.key !== "rh.frais" && active.key !== "rh.heures" && (
+          {active && active.key === "rh.recap" && (
+            <div role="tabpanel"><RecapFraisPage /></div>
+          )}
+          {active && active.key !== "rh.conges" && active.key !== "rh.frais" && active.key !== "rh.heures" && active.key !== "rh.recap" && (
             <div role="tabpanel" style={{
               background: EPJ.white, border: `1px solid ${EPJ.gray200}`,
               borderRadius: radius.lg, padding: space.xl, textAlign: "center",
