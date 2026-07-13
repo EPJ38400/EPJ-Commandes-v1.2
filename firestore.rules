@@ -288,6 +288,18 @@ service cloud.firestore {
       allow create, update, delete: if isGestionnaireRH();
     }
 
+    // ─── chantiersEsabora/{num} — référentiel affaires (adresses frais) ──
+    // Référentiel LÉGER et SÉPARÉ de `chantiers` (trio). Import admin idempotent
+    // (RH-Frais-3a2), fallback d'adresse pour le moteur de distance. Lecture tout
+    // employé ; écriture réservée au gestionnaire RH (Admin/Direction/Assistante).
+    match /chantiersEsabora/{num} {
+      function isGestionnaireRH() {
+        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
+      }
+      allow read: if isEmployee();
+      allow create, update, delete: if isGestionnaireRH();
+    }
+
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.
