@@ -167,6 +167,13 @@ export {
 // indemnité FBTP recomposée à chaque appel. Secret GOOGLE_MAPS_API_KEY.
 export { computeDistanceFrais } from "./computeDistanceFrais.js";
 
+// ─── Module RH / Frais — moteur récap mensuel (RH-Frais-3b1) ──
+// Cf. functions/genererRecapFrais.js (via functions/lib/distanceCore.js).
+// Callable gestionnaire RH : lit heures du mois, groupe par (salarié, jour),
+// retient le chantier le plus éloigné, compose l'indemnité FBTP → écrit
+// fraisRecap/{mois}. Overrides fraisOverrides LUS seulement. Secret GOOGLE_MAPS_API_KEY.
+export { genererRecapFrais } from "./genererRecapFrais.js";
+
 // ─── Fonctions backup Firestore + Storage ───────────────────
 // Cf. functions/backups.js — v2.0.0
 export {

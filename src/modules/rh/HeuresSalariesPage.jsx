@@ -24,7 +24,8 @@ import {
   collection, doc, getDocs, onSnapshot, query, where,
   writeBatch, setDoc, serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../../firebase";
+import { httpsCallable, getFunctions } from "firebase/functions";
+import { app, db } from "../../firebase";
 import { EPJ, radius, space, fontSize, fontWeight } from "../../core/theme";
 import { useAuth } from "../../core/AuthContext";
 import { useData } from "../../core/DataContext";
@@ -38,6 +39,8 @@ import { normaliserNom, parseChantier, heureDocId, aggregeHeures } from "./heure
 
 const HEURES_COL = "heures";
 const MAPPING_COL = "fraisMappingSalaries";
+
+const fnGenererRecapFrais = httpsCallable(getFunctions(app, "europe-west1"), "genererRecapFrais");
 
 // ─── Parse d'une cellule date → { date, mois, jour } | null ───
 function parseDateCell(v) {
@@ -430,6 +433,24 @@ function ConsultationSection({ chantiersConnus }) {
   const [loading, setLoading] = useState(false);
   const [fSalarie, setFSalarie] = useState("");
   const [fChantier, setFChantier] = useState("");
+  // Récap frais mensuel (RH-Frais-3b1) — moteur serveur genererRecapFrais.
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [recapResult, setRecapResult] = useState(null);
+  const [recapError, setRecapError] = useState(null);
+
+  const genererRecap = async () => {
+    if (!mois || recapLoading) return;
+    setRecapLoading(true); setRecapResult(null); setRecapError(null);
+    try {
+      const { data } = await fnGenererRecapFrais({ mois });
+      setRecapResult(data);
+    } catch (e) {
+      console.error("[Heures] génération récap frais échouée :", e);
+      setRecapError(e?.message || "Génération du récap impossible.");
+    } finally {
+      setRecapLoading(false);
+    }
+  };
 
   // Liste des mois disponibles (léger : on lit les ids ne suffisant pas, on
   // interroge une fois toute la collection pour peupler le sélecteur de mois).
@@ -545,7 +566,7 @@ function ConsultationSection({ chantiersConnus }) {
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, alignItems: "flex-end", marginBottom: space.md }}>
         <Field as="select" label="Mois" dense width={140} options={moisOptions}
-          value={mois} onChange={(e) => { setMois(e.target.value); setFSalarie(""); setFChantier(""); }} />
+          value={mois} onChange={(e) => { setMois(e.target.value); setFSalarie(""); setFChantier(""); setRecapResult(null); setRecapError(null); }} />
         <Field as="select" label="Salarié" dense width={220}
           options={[{ value: "", label: "Tous" }, ...salariesDuMois]}
           value={fSalarie} onChange={(e) => setFSalarie(e.target.value)} />
@@ -560,6 +581,62 @@ function ConsultationSection({ chantiersConnus }) {
         <Stat label="Total heures" value={totalHeures.toLocaleString("fr-FR")} />
         <Stat label="Salariés" value={parSalarie.length} />
         <Stat label="Chantiers" value={parChantier.length} />
+      </div>
+
+      {/* ─── Récap frais mensuel (RH-Frais-3b1) — moteur serveur ─── */}
+      <div style={{
+        background: EPJ.white, border: `1px solid ${EPJ.gray200}`, borderRadius: radius.lg,
+        padding: space.lg, marginBottom: space.lg,
+      }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, alignItems: "center" }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+              💶 Récap frais de déplacement
+            </div>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginTop: 2 }}>
+              Calcule les distances (chantier le plus éloigné/jour) et l'indemnité FBTP du mois sélectionné.
+            </div>
+          </div>
+          <Button variant="primary" size="sm" onClick={genererRecap} loading={recapLoading} disabled={!mois}>
+            Générer le récap {mois || ""}
+          </Button>
+        </div>
+
+        {recapError && (
+          <div style={{
+            marginTop: space.md, padding: `${space.sm}px ${space.md}px`, borderRadius: radius.md,
+            background: `${EPJ.red}0D`, border: `1px solid ${EPJ.red}44`, color: EPJ.red, fontSize: fontSize.sm,
+          }}>
+            ⚠️ {recapError}
+          </div>
+        )}
+
+        {recapResult && (
+          <div style={{ marginTop: space.md }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, marginBottom: space.md }}>
+              <Stat label="Salariés" value={recapResult.nbSalaries ?? 0} />
+              <Stat label="Total frais" value={`${(Number(recapResult.totalGlobal) || 0).toLocaleString("fr-FR")} €`} />
+              <Stat label="Alertes" value={recapResult.nbAlertes ?? 0} tone={recapResult.nbAlertes ? "warn" : "ok"} />
+            </div>
+            <div style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
+              Récap enregistré (fraisRecap/{recapResult.mois || mois}). Édition détaillée à venir (lot 3b2).
+            </div>
+            {recapResult.nbAlertes > 0 && (
+              <div style={{
+                marginTop: space.sm, padding: `${space.sm}px ${space.md}px`, borderRadius: radius.md,
+                background: `${EPJ.red}0D`, border: `1px solid ${EPJ.red}44`, fontSize: fontSize.xs, color: EPJ.gray700,
+              }}>
+                <b style={{ color: EPJ.red }}>{recapResult.nbAlertes} alerte(s)</b>
+                {" "}(salariés non mappés, adresses chantier introuvables, jours bureau/dépôt à valider) :
+                <ul style={{ margin: `${space.xs}px 0 0`, paddingLeft: 18 }}>
+                  {(recapResult.alertes || []).map((a, i) => (
+                    <li key={i} style={{ marginBottom: 2 }}>{a?.message || JSON.stringify(a)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Totaux par salarié / par chantier */}
