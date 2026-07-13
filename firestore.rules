@@ -264,6 +264,30 @@ service cloud.firestore {
       allow write: if false;   // Admin SDK only (Cloud Function)
     }
 
+    // ─── heures/{id} — heures salariés importées Esabora (RH-Frais-3a) ──
+    // Collection TRANSVERSE (RH frais + Suivi financier M5). id déterministe
+    // `${mois}__${salarieId|NC-trigramme}__${chantierNum|NA}__${jour}`
+    // (ré-import idempotent). Lecture tout employé ; écriture (import / correction)
+    // réservée au gestionnaire RH (Admin/Direction/Assistante).
+    match /heures/{id} {
+      function isGestionnaireRH() {
+        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
+      }
+      allow read: if isEmployee();
+      allow create, update, delete: if isGestionnaireRH();
+    }
+
+    // ─── fraisMappingSalaries/{nomNormalise} — rapprochement nom fichier → user ──
+    // Mémoire de résolution des noms non mappés à l'import (RH-Frais-3a).
+    // Lecture tout employé ; écriture gestionnaire RH.
+    match /fraisMappingSalaries/{nomNormalise} {
+      function isGestionnaireRH() {
+        return isSignedIn() && (role() == "Admin" || role() == "Direction" || role() == "Assistante");
+      }
+      allow read: if isEmployee();
+      allow create, update, delete: if isGestionnaireRH();
+    }
+
     // ─── planningCreneaux/{id} — Planning ressources (socle M5/RH) ──
     // V3 : un créneau est AFFECTÉ (ressourceId non nul, id déterministe) ou
     //   « à affecter » (pool, ressourceId null, doc auto-id). Mêmes droits.
