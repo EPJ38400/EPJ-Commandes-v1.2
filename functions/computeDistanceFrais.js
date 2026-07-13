@@ -69,6 +69,7 @@ export const computeDistanceFrais = onCall(
     const salarieId = String(request.data?.salarieId || "").trim();
     const chantierId = String(request.data?.chantierId || "").trim();
     const origineType = request.data?.origineType === "DOMICILE" ? "DOMICILE" : "DEPOT";
+    const base = request.data?.base === "transport" ? "transport" : "trajet";
     const force = request.data?.force === true;
     if (!salarieId) throw new HttpsError("invalid-argument", "salarieId manquant.");
     if (!chantierId) throw new HttpsError("invalid-argument", "chantierId manquant.");
@@ -172,7 +173,7 @@ export const computeDistanceFrais = onCall(
     if (!bareme) {
       throw new HttpsError("failed-precondition", "Aucun barème FBTP saisi.");
     }
-    const indemnite = composerIndemnite(distanceKm, bareme, { repas: true });
+    const indemnite = composerIndemnite(distanceKm, bareme, { repas: true, base });
     if (!indemnite) {
       throw new HttpsError("internal", "Composition de l'indemnité impossible.");
     }
@@ -184,12 +185,12 @@ export const computeDistanceFrais = onCall(
       origineType,
       origineAdresse,
       destinationAdresse,
+      base: indemnite.base,
       nb50: indemnite.nb50,
       reliquat: indemnite.reliquat,
       zoneReliquat: indemnite.zoneReliquat,
       indemnite: {
-        transport: indemnite.transport,
-        trajet: indemnite.trajet,
+        deplacement: indemnite.deplacement,
         repas: indemnite.repas,
         total: indemnite.total,
       },

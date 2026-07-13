@@ -291,6 +291,7 @@ function FraisTestCalcul() {
   const [salarieId, setSalarieId] = useState("");
   const [chantierId, setChantierId] = useState("");
   const [origineType, setOrigineType] = useState("DEPOT");
+  const [base, setBase] = useState("trajet");
   const [force, setForce] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -307,7 +308,7 @@ function FraisTestCalcul() {
     if (busy || !salarieId || !chantierId) return;
     setBusy(true); setError(null); setResult(null);
     try {
-      const res = await fnComputeDistanceFrais({ salarieId, chantierId, origineType, force });
+      const res = await fnComputeDistanceFrais({ salarieId, chantierId, origineType, base, force });
       setResult(res.data || null);
     } catch (e) {
       console.error("[FraisTestCalcul] computeDistanceFrais échoué :", e);
@@ -352,6 +353,15 @@ function FraisTestCalcul() {
             <div style={{ display: "flex", gap: space.xs }}>
               <Button variant={origineType === "DEPOT" ? "primary" : "ghost"} size="sm" onClick={() => setOrigineType("DEPOT")}>Dépôt</Button>
               <Button variant={origineType === "DOMICILE" ? "primary" : "ghost"} size="sm" onClick={() => setOrigineType("DOMICILE")}>Domicile</Button>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: EPJ.gray700, marginBottom: space.xs + 2 }}>
+              Base
+            </div>
+            <div style={{ display: "flex", gap: space.xs }}>
+              <Button variant={base === "trajet" ? "primary" : "ghost"} size="sm" onClick={() => setBase("trajet")}>Trajet</Button>
+              <Button variant={base === "transport" ? "primary" : "ghost"} size="sm" onClick={() => setBase("transport")}>Transport</Button>
             </div>
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: space.xs, fontSize: fontSize.sm, color: EPJ.gray700, cursor: "pointer" }}>
@@ -415,10 +425,8 @@ function FraisTestResult({ r }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: space.xs, maxWidth: 320 }}>
-        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Transport</span>
-        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.transport)}</span>
-        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Trajet</span>
-        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.trajet)}</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>{r.base === "transport" ? "Transport" : "Trajet"}</span>
+        <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.deplacement)}</span>
         <span style={{ fontSize: fontSize.sm, color: EPJ.gray700 }}>Repas</span>
         <span style={{ fontSize: fontSize.sm, color: EPJ.gray900, textAlign: "right" }}>{eur(ind.repas)}</span>
         <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, borderTop: `1px solid ${EPJ.gray200}`, paddingTop: space.xs }}>TOTAL / jour</span>
