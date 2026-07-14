@@ -54,7 +54,31 @@ const ALERTE_GROUPES = [
   { type: "distance", label: "Calcul de distance impossible" },
   { type: "chantier_manquant", label: "Lignes sans n° de chantier" },
   { type: "jour_bureau", label: "Jours bureau/dépôt à valider" },
+  { type: "ventilation", label: "Écarts de ventilation" },
 ];
+
+const VENT_ZONES = ["1a", "1b", "2", "3", "4", "5"];
+
+// Aplatit une ventilation en lignes { rubrique (affichage), rubriqueBase, zone, qte, taux, montant }.
+function ventilationRows(v) {
+  if (!v) return [];
+  const rows = [];
+  if (v.repas?.nbJours) {
+    rows.push({ id: "repas", rubrique: "Repas", rubriqueBase: "Repas", zone: "",
+      qte: v.repas.nbJours, taux: v.repas.taux, montant: v.repas.montant });
+  }
+  for (const kind of ["trajet", "transport"]) {
+    const table = v[kind];
+    if (!table) continue;
+    const label = kind === "transport" ? "Transport" : "Trajet";
+    for (const z of VENT_ZONES) {
+      const cell = table[z];
+      if (cell) rows.push({ id: `${kind}_${z}`, rubrique: `${label} zone ${z}`, rubriqueBase: label,
+        zone: z, qte: cell.qte, taux: cell.taux, montant: cell.montant });
+    }
+  }
+  return rows;
+}
 
 export function RecapFraisPage() {
   const { user } = useAuth();
@@ -180,9 +204,29 @@ export function RecapFraisPage() {
       synthRows.push(["TOTAL GÉNÉRAL", nbJours, Math.round(totalGlobal * 100) / 100]);
       const wsSynth = XLSX.utils.aoa_to_sheet([synthHead, ...synthRows]);
 
+      // Feuille « Ventilation paie » : 1 ligne par salarié × rubrique + TOTAL GÉNÉRAL.
+      const ventHead = ["Salarié", "Rubrique", "Zone", "Qté", "Taux €", "Montant €"];
+      const ventRows = [];
+      for (const s of salaries) {
+        for (const r of ventilationRows(s.ventilation)) {
+          ventRows.push([
+            s.nom || s.salarieId, r.rubriqueBase, r.zone || "",
+            Number(r.qte) || 0, Number(r.taux) || 0, Number(r.montant) || 0,
+          ]);
+        }
+      }
+      for (const r of ventilationRows(recap.ventilationGlobale)) {
+        ventRows.push([
+          "TOTAL GÉNÉRAL", r.rubriqueBase, r.zone || "",
+          Number(r.qte) || 0, Number(r.taux) || 0, Number(r.montant) || 0,
+        ]);
+      }
+      const wsVent = XLSX.utils.aoa_to_sheet([ventHead, ...ventRows]);
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, wsDetail, "Détail");
       XLSX.utils.book_append_sheet(wb, wsSynth, "Synthèse");
+      XLSX.utils.book_append_sheet(wb, wsVent, "Ventilation paie");
 
       const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
       const blob = new Blob([out], {
@@ -250,6 +294,14 @@ export function RecapFraisPage() {
             <div style={{ fontSize: fontSize.xs, color: EPJ.gray500, marginBottom: space.md }}>
               Barème {recap?.bareme || "—"} · généré le {genereLe.toLocaleString("fr-FR")}
               {recap?.genereParNom ? ` par ${recap.genereParNom}` : ""}.
+            </div>
+          )}
+
+          {/* Ventilation globale (paie) */}
+          {recap?.ventilationGlobale && (
+            <div style={{ marginBottom: space.lg }}>
+              <VentilationTable ventilation={recap.ventilationGlobale} total={totalGlobal}
+                title="🧮 Ventilation globale (paie)" />
             </div>
           )}
 
@@ -370,7 +422,16 @@ function SalariesAccordion({ salaries }) {
               navigable={false}
             />
             {open && (
-              <div style={{ padding: `0 ${space.md}px ${space.md}px`, background: EPJ.gray50 }}>
+              <div style={{ padding: `${space.md}px ${space.md}px`, background: EPJ.gray50 }}>
+                {s.ventilation && (
+                  <div style={{ marginBottom: space.md }}>
+                    <VentilationTable ventilation={s.ventilation} total={s.totalMois}
+                      title="Ventilation paie" />
+                  </div>
+                )}
+                <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
+                  Détail par jour
+                </div>
                 <DataTable columns={jourCols} rows={jourRows} keyField="id"
                   empty={{ icon: "📅", title: "Aucun jour", text: "Aucune journée indemnisée." }} />
               </div>
@@ -378,6 +439,42 @@ function SalariesAccordion({ salaries }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Tableau de ventilation (Rubrique | Qté | Taux | Montant) + TOTAL
+// ═════════════════════════════════════════════════════════════
+function VentilationTable({ ventilation, total, title }) {
+  const rows = useMemo(() => ventilationRows(ventilation), [ventilation]);
+  if (!rows.length) return null;
+  const totalVal = total != null ? total : rows.reduce((s, r) => s + (Number(r.montant) || 0), 0);
+  const cols = [
+    { key: "rubrique", header: "Rubrique" },
+    { key: "qte", header: "Qté", numeric: true, align: "right",
+      render: (v) => (Number(v) || 0).toLocaleString("fr-FR") },
+    { key: "taux", header: "Taux", numeric: true, align: "right", render: (v) => euro(v) },
+    { key: "montant", header: "Montant", numeric: true, align: "right", render: (v) => euro(v) },
+  ];
+  return (
+    <div>
+      {title && (
+        <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
+          {title}
+        </div>
+      )}
+      <DataTable columns={cols} rows={rows} keyField="id" />
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: `${space.sm}px ${space.md}px`, marginTop: -1,
+        border: `1px solid ${EPJ.gray200}`, borderTop: "none",
+        borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md,
+        background: EPJ.gray50, fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900,
+      }}>
+        <span>TOTAL</span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{euro(totalVal)}</span>
+      </div>
     </div>
   );
 }

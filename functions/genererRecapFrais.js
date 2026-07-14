@@ -46,6 +46,87 @@ const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 // Jour « bureau / dépôt » (pas d'indemnité auto → à valider manuellement).
 const RE_BUREAU = /BUREAU|D[ÉE]P[ÔO]T|ATELIER/i;
 
+// ─── Ventilation par zone/rubrique (RH-Frais-3b2-ventilation) ───
+const VENT_ZONES = ["1a", "1b", "2", "3", "4", "5"];
+
+// Table de zones initialisée aux taux du barème (`bareme.trajet` | `bareme.transport`).
+function ventZoneTable(baseTable) {
+  const t = {};
+  for (const z of VENT_ZONES) t[z] = { qte: 0, taux: Number(baseTable?.[z]) || 0, montant: 0 };
+  return t;
+}
+
+// Ne garde que les zones à qté > 0 et calcule le montant = qté × taux.
+function ventFinalize(table) {
+  const out = {};
+  for (const z of VENT_ZONES) {
+    if (table[z].qte > 0) out[z] = { qte: table[z].qte, taux: table[z].taux, montant: r2(table[z].qte * table[z].taux) };
+  }
+  return out;
+}
+
+// Somme des montants d'une table de zones.
+const ventTableSum = (table) =>
+  Object.values(table || {}).reduce((a, z) => a + (Number(z.montant) || 0), 0);
+
+// Construit la ventilation d'UN salarié depuis ses jours retenus indemnisés.
+//   repas = 1×/jour travaillé ; par jour : z5.qte += nb50 ; reliquat → zoneReliquat.qte += 1.
+//   transport présent uniquement si ≥1 jour en base "transport".
+function buildVentilation(jours, bareme) {
+  const repasTaux = Number(bareme.repas) || 0;
+  const trajetTable = ventZoneTable(bareme.trajet);
+  const transportTable = ventZoneTable(bareme.transport);
+  let anyTransport = false;
+  let nbJours = 0;
+
+  for (const j of jours) {
+    if (j.jourBureau || j.alerte) continue; // seuls les jours indemnisés comptent
+    nbJours += 1;
+    const isTransport = j.base === "transport";
+    if (isTransport) anyTransport = true;
+    const table = isTransport ? transportTable : trajetTable;
+    const nb50 = Number(j.nb50) || 0;
+    if (nb50 > 0) table["5"].qte += nb50;            // tranches pleines de 50 km
+    if (j.zoneReliquat && table[j.zoneReliquat]) table[j.zoneReliquat].qte += 1; // reliquat < 50 km
+  }
+
+  const vent = {
+    repas: { nbJours, taux: repasTaux, montant: r2(nbJours * repasTaux) },
+    trajet: ventFinalize(trajetTable),
+  };
+  if (anyTransport) vent.transport = ventFinalize(transportTable);
+  return vent;
+}
+
+// Montant total d'une ventilation (repas + trajet + transport).
+const ventTotal = (v) =>
+  r2((Number(v?.repas?.montant) || 0) + ventTableSum(v?.trajet) + ventTableSum(v?.transport));
+
+// Agrège les ventilations de tous les salariés en une ventilation globale.
+function mergeVentilationGlobale(salaries, bareme) {
+  const global = { repas: { nbJours: 0, taux: Number(bareme.repas) || 0, montant: 0 }, trajet: {} };
+  const acc = { trajet: {}, transport: {} };
+  for (const s of salaries) {
+    const v = s.ventilation;
+    if (!v) continue;
+    global.repas.nbJours += Number(v.repas?.nbJours) || 0;
+    for (const kind of ["trajet", "transport"]) {
+      const table = v[kind];
+      if (!table) continue;
+      for (const [z, cell] of Object.entries(table)) {
+        const cur = acc[kind][z] || { qte: 0, taux: cell.taux, montant: 0 };
+        cur.qte += Number(cell.qte) || 0;
+        cur.montant = r2(cur.montant + (Number(cell.montant) || 0));
+        acc[kind][z] = cur;
+      }
+    }
+  }
+  global.repas.montant = r2(global.repas.nbJours * global.repas.taux);
+  global.trajet = acc.trajet;
+  if (Object.keys(acc.transport).length) global.transport = acc.transport;
+  return global;
+}
+
 export const genererRecapFrais = onCall(
   { region: "europe-west1", timeoutSeconds: 300, memory: "512MiB", secrets: [GOOGLE_MAPS_API_KEY] },
   async (request) => {
@@ -251,9 +332,14 @@ export const genererRecapFrais = onCall(
       let deplacement = 0;
       let repas = 0;
       let total = 0;
+      let nb50 = 0;
+      let zoneReliquat = null;
       if (!jourBureau) {
         const ind = composerIndemnite(retenu.distanceKm, bareme, { repas: true, base: retenu.base });
-        if (ind) { deplacement = ind.deplacement; repas = ind.repas; total = ind.total; }
+        if (ind) {
+          deplacement = ind.deplacement; repas = ind.repas; total = ind.total;
+          nb50 = ind.nb50; zoneReliquat = ind.zoneReliquat;
+        }
       }
 
       const jour = {
@@ -265,6 +351,7 @@ export const genererRecapFrais = onCall(
         distanceKm: retenu.distanceKm,
         deplacement, repas, total,
       };
+      if (!jourBureau) { jour.nb50 = nb50; jour.zoneReliquat = zoneReliquat; }
       if (jourBureau) {
         jour.jourBureau = true;
         jour.alerte = "Jour bureau/dépôt — indemnité à valider.";
@@ -276,16 +363,25 @@ export const genererRecapFrais = onCall(
       parSalarie.get(salarieId).jours.push(jour);
     }
 
-    // ─── c. Agrégation par salarié ───
+    // ─── c. Agrégation par salarié (+ ventilation par zone/rubrique) ───
     const salaries = [...parSalarie.values()]
       .map((s) => {
         const jours = s.jours.sort((a, b) => String(a.date).localeCompare(String(b.date)));
         const totalMois = r2(jours.reduce((acc, j) => acc + (Number(j.total) || 0), 0));
-        return { ...s, jours, totalMois, nbJours: jours.length };
+        const ventilation = buildVentilation(jours, bareme);
+        // Vérif interne : la ventilation doit retomber sur le total mensuel.
+        if (Math.abs(ventTotal(ventilation) - totalMois) > 0.01) {
+          pushAlerte({
+            type: "ventilation", salarieId: s.salarieId,
+            message: `${s.nom || s.salarieId} : ventilation ${ventTotal(ventilation)} € ≠ total ${totalMois} € (à vérifier).`,
+          });
+        }
+        return { ...s, jours, totalMois, nbJours: jours.length, ventilation };
       })
       .sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr", { sensitivity: "base" }));
 
     const totalGlobal = r2(salaries.reduce((acc, s) => acc + s.totalMois, 0));
+    const ventilationGlobale = mergeVentilationGlobale(salaries, bareme);
 
     // ─── d. Écriture fraisRecap/{mois} ───
     await db.collection(COL_RECAP).doc(mois).set({
@@ -295,6 +391,7 @@ export const genererRecapFrais = onCall(
       genereParNom: request.auth.token?.name || request.auth.token?.email || "",
       bareme: Number(bareme.annee) || null,
       salaries,
+      ventilationGlobale,
       alertes,
     });
 
