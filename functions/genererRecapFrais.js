@@ -42,6 +42,10 @@ const COL_USERS = "utilisateurs";
 const COL_OVERRIDES = "fraisOverrides";
 const COL_RECAP = "fraisRecap";
 
+// Liste blanche des rôles ouvrant droit aux frais de déplacement (terrain).
+// Logique OU : un multi-rôles est inclus dès qu'un rôle terrain y figure.
+const ROLES_FRAIS = ["Monteur", "Chef chantier", "Conducteur travaux"];
+
 const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 // Jour « bureau / dépôt » (pas d'indemnité auto → à valider manuellement).
 const RE_BUREAU = /BUREAU|D[ÉE]P[ÔO]T|ATELIER/i;
@@ -200,21 +204,32 @@ export const genererRecapFrais = onCall(
 
     // ─── Mémos (évitent lectures/appels répétés) ───
     const origineCache = new Map();   // `${salarieId}__${type}` → {origineAdresse} | Error
-    const pointDepartCache = new Map(); // salarieId → "DEPOT"|"DOMICILE"
+    const userDataCache = new Map();  // salarieId → data user | null (1 lecture / salarié)
     const overrideCache = new Map();  // docId → data | null
 
-    const getPointDepart = async (salarieId) => {
-      if (pointDepartCache.has(salarieId)) return pointDepartCache.get(salarieId);
-      let pd = "DEPOT";
+    const getUserData = async (salarieId) => {
+      if (userDataCache.has(salarieId)) return userDataCache.get(salarieId);
+      let data = null;
       try {
         const uSnap = await db.collection(COL_USERS).doc(salarieId).get();
-        const v = uSnap.exists ? uSnap.data()?.pointDepartFrais : null;
-        if (v === "DOMICILE") pd = "DOMICILE";
+        data = uSnap.exists ? uSnap.data() : null;
       } catch (e) {
         console.error("[recapFrais] lecture user échouée :", salarieId, e?.message);
       }
-      pointDepartCache.set(salarieId, pd);
-      return pd;
+      userDataCache.set(salarieId, data);
+      return data;
+    };
+
+    const getPointDepart = async (salarieId) => {
+      const data = await getUserData(salarieId);
+      return data?.pointDepartFrais === "DOMICILE" ? "DOMICILE" : "DEPOT";
+    };
+
+    // Éligibilité frais : au moins un rôle terrain (ROLES_FRAIS) sur la fiche user.
+    const estEligibleFrais = async (salarieId) => {
+      const data = await getUserData(salarieId);
+      const roles = Array.isArray(data?.roles) ? data.roles : [];
+      return roles.some((r) => ROLES_FRAIS.includes(r));
     };
 
     const getOverride = async (salarieId, chantierNum) => {
@@ -247,12 +262,16 @@ export const genererRecapFrais = onCall(
 
     // ─── Traitement des groupes → jours par salarié ───
     const parSalarie = new Map(); // salarieId → { salarieId, nom, origineDefaut, jours:[] }
+    const exclusHorsPerimetre = new Set(); // salariés sans rôle terrain (pas de frais)
     const groupesTries = [...groupes.values()].sort(
       (a, b) => a.salarieId.localeCompare(b.salarieId) || String(a.date).localeCompare(String(b.date)),
     );
 
     for (const g of groupesTries) {
       const { salarieId, date } = g;
+      // Liste blanche frais : hors périmètre terrain → exclu du récap (aucun
+      // calcul de distance). Ses heures restent intactes dans `heures`.
+      if (!(await estEligibleFrais(salarieId))) { exclusHorsPerimetre.add(salarieId); continue; }
       const pointDepart = await getPointDepart(salarieId);
       if (!parSalarie.has(salarieId)) {
         parSalarie.set(salarieId, {
@@ -393,6 +412,7 @@ export const genererRecapFrais = onCall(
       salaries,
       ventilationGlobale,
       alertes,
+      meta: { nbExclusHorsPerimetre: exclusHorsPerimetre.size },
     });
 
     // ─── e. Résumé (alertes renvoyées pour affichage immédiat) ───
@@ -401,6 +421,7 @@ export const genererRecapFrais = onCall(
       nbSalaries: salaries.length,
       totalGlobal,
       nbAlertes: alertes.length,
+      nbExclusHorsPerimetre: exclusHorsPerimetre.size,
       alertes,
     };
   },

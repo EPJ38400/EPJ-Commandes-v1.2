@@ -7,7 +7,7 @@
 
 export const ROLES = [
   "Admin", "Direction", "Conducteur travaux", "Assistante", "Achat",
-  "Chef chantier", "Monteur", "Artisan",
+  "Chef chantier", "Monteur", "Artisan", "Étude",
 ];
 
 export const MODULES = [
@@ -187,6 +187,18 @@ export const DEFAULT_PERMISSIONS = {
     _dashboards: { direction:false, conducteur:false, public:false },
     _admin: false,
   },
+  // Rôle « Étude » — bureau d'études (hors terrain). Lecture seule des modules
+  // utiles ; EXCLU des frais de déplacement (liste blanche terrain côté
+  // genererRecapFrais). Droits ouvrables au besoin via rolesConfig.
+  "Étude": {
+    commandes:         { _access:"all", view:"all", create:false, edit:false, delete:false, validate:false, export:false },
+    avancement:        { _access:"all", view:"all", create:false, edit:false, delete:false, validate:false, export:false },
+    "reserves-quitus": { _access:"all", view:"all", create:false, edit:false, delete:false, validate:false, export:false },
+    gestionChantier:         { _access:"all", view:"all", create:false, edit:false, delete:false },
+    "gestionChantier.tma":   { _access:"all", view:"all" },
+    _dashboards: { direction:false, conducteur:false, public:true },
+    _admin: false,
+  },
 };
 
 // ─── Utilitaires ────────────────────────────────────────────────
@@ -273,6 +285,7 @@ export function legacyRoleFromFonction(fonction) {
   if (f.includes("assist"))     return "Assistante";
   if (f.includes("chef"))       return "Chef chantier";
   if (f.includes("artisan"))    return "Artisan";
+  if (f.includes("étude") || f.includes("etude")) return "Étude";
   return "Monteur";
 }
 
