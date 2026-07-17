@@ -67,6 +67,19 @@ export async function queueSms({
   recipient,
   variables = {},
   context = {},
+  // ── Gestion SMS (fenêtre horaire) ──────────────────────────────
+  // origine : 'auto' = généré par un watcher/cron (soumis à la fenêtre
+  // horaire côté dispatcher) ; 'manuel' = déclenché par un bouton
+  // d'envoi humain (part immédiatement, hors fenêtre).
+  // Par défaut on considère un envoi 'manuel' (comportement historique :
+  // départ immédiat). SEULS les rappels/récaps automatiques passent 'auto'.
+  // NB : côté dispatcher, une valeur ABSENTE (docs legacy) est traitée
+  // comme 'auto' par prudence.
+  origine = "manuel",
+  // sourceType/sourceId : permettent au dispatcher de re-vérifier l'état
+  // de la source juste avant l'envoi Brevo (ex. 'outillageSortie' clôturée).
+  sourceType = null,
+  sourceId = null,
 }) {
   if (!type) return { queued: false, reason: "type manquant" };
   if (!templateCode) return { queued: false, reason: "templateCode manquant" };
@@ -102,6 +115,9 @@ export async function queueSms({
       message,
       variables,
       context,
+      origine,
+      sourceType: sourceType || null,
+      sourceId: sourceId || null,
       status: "pending",
     });
     return { queued: true, docId: ref.id };
@@ -573,6 +589,11 @@ export async function smsOutillageRappelRetour({
       dateRetour: dateRetour || "",
     },
     context: { module: "parc-machines", sortieId: sortieId || "", ref: refOutil || "" },
+    // Rappel AUTOMATIQUE (watcher) → soumis à la fenêtre horaire.
+    // Source tracée : le dispatcher re-vérifie la clôture avant l'envoi Brevo.
+    origine: "auto",
+    sourceType: "outillageSortie",
+    sourceId: sortieId || null,
   });
 }
 
@@ -601,6 +622,11 @@ export async function smsOutillageDemandeRetour({
       demandeurNom: demandeur ? `${demandeur.prenom||""} ${demandeur.nom||""}`.trim() : "",
     },
     context: { module: "parc-machines", sortieId: sortieId || "", ref: refOutil || "" },
+    // Demande MANUELLE (bouton) → départ immédiat, mais on trace la source
+    // pour que le dispatcher n'envoie pas un rappel sur une sortie déjà rentrée.
+    origine: "manuel",
+    sourceType: "outillageSortie",
+    sourceId: sortieId || null,
   });
 }
 

@@ -12,10 +12,10 @@
 // ═══════════════════════════════════════════════════════════════
 import { useEffect } from "react";
 import { db } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useData } from "../../core/DataContext";
 import {
-  shouldSendRappelJ, shouldFlagAnomalieJ2,
+  shouldSendRappelJ, shouldFlagAnomalieJ2, isSortieActive,
 } from "./outillageRappel";
 import { smsOutillageRappelRetour, findUserByUid } from "../../core/smsService";
 
@@ -33,10 +33,39 @@ export function OutillageRappelWatcher() {
     const runCheck = async () => {
       if (stopped) return;
       const today = new Date();
-      for (const sortie of outillageSorties) {
+      for (const cached of outillageSorties) {
         if (stopped) return;
         try {
-          // ─── 1) SMS de rappel J ───
+          const sortieId = cached._id || cached.id;
+          // Décision préliminaire sur le cache DataContext (peut être PÉRIMÉ :
+          // sur iPhone PWA en arrière-plan, le listener Firestore se suspend et
+          // l'intervalle refire au réveil sur un tableau obsolète — c'est la
+          // cause du bug prod « SMS de rappel sur outil déjà rentré »).
+          const wantSms = shouldSendRappelJ(cached, today);
+          const wantAnomalie = shouldFlagAnomalieJ2(cached, today);
+          if (!wantSms && !wantAnomalie) continue;
+
+          // ─── DOUBLE GARDE : re-lecture autoritative AVANT toute écriture ───
+          // On ne se fie jamais au cache pour agir : on relit le doc frais.
+          let fresh;
+          try {
+            const snap = await getDoc(doc(db, "outillageSorties", sortieId));
+            if (!snap.exists()) continue;
+            fresh = { ...snap.data(), _id: sortieId };
+          } catch (e) {
+            console.warn("[relance] échec re-lecture sortie", sortieId, e.message);
+            continue;
+          }
+          // Sortie clôturée entre la construction de la file et l'envoi → skip.
+          if (!isSortieActive(fresh)) {
+            console.log(
+              `[relance] sortie ${sortieId} ignorée — rentrée le ${formatDateFR(fresh.dateRetourReelle) || "?"} par ${fresh.retourParNom || "?"}`
+            );
+            continue;
+          }
+
+          const sortie = fresh;
+          // ─── 1) SMS de rappel J (ré-évalué sur le doc frais) ───
           if (shouldSendRappelJ(sortie, today)) {
             const emprunteur = findUserByUid(sortie.emprunteurId, users);
             if (emprunteur && (emprunteur.telephone || emprunteur.tel)) {

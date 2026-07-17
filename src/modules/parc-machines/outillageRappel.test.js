@@ -257,6 +257,40 @@ assertEq(computeProlongedDate({ dateRetourPrevue: "bad" }, 7), null, "prolong da
   assertEq(p.dateRetourPrevue, "2026-05-24", "payload 2e prolong: +7j depuis la prolongée");
 }
 
+// ─── LOT 1 — Double-garde relance (bug « SMS sur outil déjà rentré ») ──
+// Modélise la décision du watcher APRÈS re-lecture autoritative :
+//   1. décision préliminaire sur le doc caché (potentiellement périmé)
+//   2. re-lecture du doc frais
+//   3. n'agit QUE si le doc frais est encore actif.
+function relanceDecision(cached, fresh, today) {
+  const wants = shouldSendRappelJ(cached, today) || shouldFlagAnomalieJ2(cached, today);
+  if (!wants) return "skip";              // rien à faire sur le cache
+  if (!isSortieActive(fresh)) return "skip-obsolete"; // clôturée entre-temps
+  return shouldSendRappelJ(fresh, today) ? "sms" : "no-sms";
+}
+
+// Cas A : sortie déjà clôturée (rentrée) → 0 SMS
+{
+  const clot = { dateRetourPrevue: "2026-05-09", dateRetourReelle: "2026-05-10", etatRetour: "bon" };
+  assertEq(relanceDecision(clot, clot, today), "skip", "relance: sortie clôturée → 0 SMS");
+}
+// Cas B : sortie ouverte + échéance dépassée → 1 SMS
+{
+  const ouverte = { dateRetourPrevue: "2026-05-09" }; // due J-2, active
+  assertEq(relanceDecision(ouverte, ouverte, today), "sms", "relance: ouverte + en retard → 1 SMS");
+}
+// Cas C : ouverte au moment de la requête, RENTRÉE avant l'envoi (cache périmé) → 0 SMS
+{
+  const cached = { dateRetourPrevue: "2026-05-09" };                 // vue périmée : active
+  const fresh  = { dateRetourPrevue: "2026-05-09", dateRetourReelle: "2026-05-11", etatRetour: "bon" }; // rentrée
+  assertEq(relanceDecision(cached, fresh, today), "skip-obsolete", "relance: clôturée entre requête et envoi → 0 SMS");
+}
+// Cas D : idempotence — SMS déjà envoyé → aucun nouveau SMS (même en retard)
+{
+  const s = { dateRetourPrevue: "2026-05-09", smsRappelJSent: true };
+  assertEq(relanceDecision(s, s, today), "no-sms", "relance: smsRappelJSent → pas de nouveau SMS");
+}
+
 console.log("\n────────────────────────────────────────");
 console.log("Tests outillageRappel v10.K : " + pass + " OK, " + fail + " KO");
 if (fail > 0) process.exit(1);
