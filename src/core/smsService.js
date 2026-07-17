@@ -378,6 +378,7 @@ export async function smsReserveRappelLevee({
       dateLevee: dateLevee || "",
     },
     context: { module: "reserves-quitus", reserveId: reserveId || "" },
+    origine: "auto", // rappel automatique (watcher) → soumis à la fenêtre horaire
   });
 }
 

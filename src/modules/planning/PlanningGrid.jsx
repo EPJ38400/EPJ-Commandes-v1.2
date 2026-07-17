@@ -291,6 +291,8 @@ export function PlanningGrid({ chantier = null }) {
         templateCode: "planning_semaine",   // métadonnée/log seulement
         message,
         variables: { prenom: u.prenom || "", semaine: cols[0].dateLabel },
+        origine: "manuel", // envoi humain → départ immédiat, hors fenêtre horaire
+        status: "pending",
         createdAt: serverTimestamp(),
       });
       toast("SMS semaine envoyé à " + (u.prenom || r.nom));
