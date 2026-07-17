@@ -83,10 +83,43 @@ function computeProlongedDate(sortie, daysToAdd) {
   return yyyy + "-" + mm + "-" + dd;
 }
 
+function toISODate(d) {
+  if (!d || isNaN(d.getTime())) return null;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return yyyy + "-" + mm + "-" + dd;
+}
+function prolongationMinDateISO(sortie, todayISO) {
+  const today = parseSortieDate(todayISO) || new Date(Date.UTC(1970, 0, 1));
+  const sortieDate = parseSortieDate(sortie && sortie.dateSortie);
+  const min = (sortieDate && sortieDate.getTime() > today.getTime()) ? sortieDate : today;
+  return toISODate(min);
+}
+function validateProlongation(sortie, newDateISO, todayISO) {
+  const nd = parseSortieDate(newDateISO);
+  if (!nd) return { ok: false, error: "Date invalide." };
+  const minISO = prolongationMinDateISO(sortie, todayISO);
+  const min = parseSortieDate(minISO);
+  if (min && nd.getTime() < min.getTime()) {
+    return { ok: false, error: "Date antérieure à aujourd'hui — refusée." };
+  }
+  return { ok: true, error: null };
+}
+function buildProlongationEntry(sortie, user, newDateISO, le) {
+  return {
+    ancienneDate: (sortie && sortie.dateRetourPrevue) || null,
+    nouvelleDate: newDateISO,
+    par: (user && (user._id || user.id)) || "",
+    parNom: user ? ((user.prenom || "") + " " + (user.nom || "")).trim() : "",
+    le: le || null,
+  };
+}
+
 function buildProlongationPayload(sortie, user, opts) {
   const o = opts || {};
-  const newDate = computeProlongedDate(sortie, o.days || 7);
-  if (!newDate) throw new Error("Date prevue invalide");
+  const newDate = o.newDate || computeProlongedDate(sortie, o.days || 7);
+  if (!newDate || !parseSortieDate(newDate)) throw new Error("Date prevue invalide");
   return {
     dateRetourPrevue: newDate,
     dateRetourPrevueOriginale: sortie.dateRetourPrevueOriginale || sortie.dateRetourPrevue,
@@ -289,6 +322,42 @@ function relanceDecision(cached, fresh, today) {
 {
   const s = { dateRetourPrevue: "2026-05-09", smsRappelJSent: true };
   assertEq(relanceDecision(s, s, today), "no-sms", "relance: smsRappelJSent → pas de nouveau SMS");
+}
+
+// ─── LOT 2 — Prolongation à date libre ────────────────────────
+const todayISOStr = "2026-05-11";
+// min = max(aujourd'hui, date de sortie)
+assertEq(prolongationMinDateISO({ dateSortie: "2026-05-01" }, todayISOStr), "2026-05-11", "min prolong: sortie passée → aujourd'hui");
+assertEq(prolongationMinDateISO({ dateSortie: "2026-06-01" }, todayISOStr), "2026-06-01", "min prolong: sortie future → date sortie");
+assertEq(prolongationMinDateISO({}, todayISOStr), "2026-05-11", "min prolong: pas de date sortie → aujourd'hui");
+
+// validation
+assertEq(validateProlongation({ dateSortie: "2026-05-01" }, "2026-05-20", todayISOStr).ok, true, "valide: date future OK");
+assertEq(validateProlongation({ dateSortie: "2026-05-01" }, "2026-05-11", todayISOStr).ok, true, "valide: aujourd'hui OK (borne incluse)");
+assertEq(validateProlongation({ dateSortie: "2026-05-01" }, "2026-05-10", todayISOStr).ok, false, "valide: hier → refusé");
+assertEq(validateProlongation({ dateSortie: "2026-05-01" }, "", todayISOStr).ok, false, "valide: date vide → refusé");
+assertEq(validateProlongation({ dateSortie: "2026-05-01" }, "pas-une-date", todayISOStr).ok, false, "valide: date invalide → refusé");
+
+// payload date libre
+{
+  const s = { dateRetourPrevue: "2026-05-09", smsRappelJSent: true, anomalieJ2: true };
+  const u = { id: "u1", prenom: "PJ", nom: "YVER" };
+  const p = buildProlongationPayload(s, u, { newDate: "2026-06-15" });
+  assertEq(p.dateRetourPrevue, "2026-06-15", "payload libre: date cible");
+  assertEq(p.dateRetourPrevueOriginale, "2026-05-09", "payload libre: date originale conservée");
+  assertEq(p.smsRappelJSent, false, "payload libre: reset smsRappelJSent");
+  assertEq(p.anomalieJ2, false, "payload libre: reset anomalieJ2");
+}
+// entrée d'historique (additif, jamais d'écrasement — arrayUnion côté UI)
+{
+  const s = { dateRetourPrevue: "2026-05-09" };
+  const u = { id: "u1", prenom: "PJ", nom: "YVER" };
+  const e = buildProlongationEntry(s, u, "2026-06-15", "TS");
+  assertEq(e.ancienneDate, "2026-05-09", "entrée: ancienneDate");
+  assertEq(e.nouvelleDate, "2026-06-15", "entrée: nouvelleDate");
+  assertEq(e.par, "u1", "entrée: par (uid)");
+  assertEq(e.parNom, "PJ YVER", "entrée: parNom");
+  assertEq(e.le, "TS", "entrée: le (Timestamp passé par l'appelant)");
 }
 
 console.log("\n────────────────────────────────────────");

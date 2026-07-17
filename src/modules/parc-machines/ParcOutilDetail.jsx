@@ -13,19 +13,23 @@ import { useToast } from "../../core/components/Toast";
 import {
   OUTIL_STATUTS, computeOutilStatut, findSortieEnCours, canSortirOutil,
   canGererCatalogue, isLate, formatDate, getCategorieIcon, getCategorieLabel,
-  renderSmsTemplate, copyToClipboard,
+  renderSmsTemplate, copyToClipboard, todayISO,
 } from "./parcUtils";
+import { Field } from "../../core/components/Field";
+import { Button } from "../../core/components/Button";
 import { ParcOutilSortie } from "./ParcOutilSortie";
 import { ParcOutilRetour } from "./ParcOutilRetour";
 import { ParcOutilTransfert } from "./ParcOutilTransfert";
 import { ParcDeclarerPanne } from "./ParcDeclarerPanne";
 import { INTERVENTION_STATUTS, isInterventionOuverte } from "./outillageInterventions";
-// v10.K — Prolongation +7j et demande de retour manuelle
+// v10.K — Prolongation (date libre) et demande de retour manuelle
 import {
   canProlonger, canDemanderRetour, buildProlongationPayload,
+  computeProlongedDate, prolongationMinDateISO, validateProlongation,
+  buildProlongationEntry,
 } from "./outillageRappel";
 import { db } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, Timestamp } from "firebase/firestore";
 import { smsOutillageDemandeRetour, findUserByUid } from "../../core/smsService";
 
 export function ParcOutilDetail({ outil, onBack }) {
@@ -332,24 +336,9 @@ export function ParcOutilDetail({ outil, onBack }) {
           {/* v10.K — Actions automatiques rappel */}
           <div style={{display: "flex", flexDirection: "column", gap: 8, marginTop: 10}}>
 
-            {/* Prolonger +7j */}
+            {/* Prolonger à une date libre */}
             {canProlonger(sortieEnCours, user) && (
-              <button onClick={async () => {
-                const newPayload = buildProlongationPayload(sortieEnCours, user, { days: 7 });
-                if (!confirm(`Prolonger la date de retour de 7 jours ?\n\nNouvelle date : ${formatDate(newPayload.dateRetourPrevue)}`)) return;
-                try {
-                  await updateDoc(doc(db, "outillageSorties", sortieEnCours._id || sortieEnCours.id), newPayload);
-                  toast(`✓ Prolongation enregistrée — nouvelle date : ${formatDate(newPayload.dateRetourPrevue)}`);
-                } catch(e) {
-                  toast("❌ Erreur : " + e.message);
-                }
-              }} style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                background: `${EPJ.orange}12`, color: EPJ.orange,
-                border: `1px solid ${EPJ.orange}40`,
-                fontSize: 12, fontWeight: 700, cursor: "pointer",
-                fontFamily: font.body,
-              }}>📅 Prolonger le retour de 7 jours{sortieEnCours.prolonge ? " (re-prolongation)" : ""}</button>
+              <ProlongationControl sortie={sortieEnCours} user={user} toast={toast} />
             )}
 
             {/* Demander le retour (SMS au monteur) */}
@@ -651,6 +640,84 @@ export function ParcOutilDetail({ outil, onBack }) {
             );
           })}
         </>
+      )}
+    </div>
+  );
+}
+
+// ── Prolongation à date libre (remplace l'ancien bouton « +7 jours ») ──
+function ProlongationControl({ sortie, user, toast }) {
+  const minISO = prolongationMinDateISO(sortie, todayISO());
+  const [date, setDate] = useState("");
+  const [busy, setBusy] = useState(false);
+  const prolongations = Array.isArray(sortie.prolongations) ? sortie.prolongations : [];
+
+  const submit = async () => {
+    const v = validateProlongation(sortie, date, todayISO());
+    if (!v.ok) { toast("❌ " + v.error); return; }
+    setBusy(true);
+    try {
+      const patch = buildProlongationPayload(sortie, user, { newDate: date });
+      const entry = buildProlongationEntry(sortie, user, date, Timestamp.now());
+      await updateDoc(doc(db, "outillageSorties", sortie._id || sortie.id), {
+        ...patch,
+        prolongations: arrayUnion(entry),
+      });
+      toast(`✓ Prolongation enregistrée — nouvelle date : ${formatDate(date)}`);
+      setDate("");
+    } catch (e) {
+      toast("❌ Erreur : " + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{
+      padding: "10px 12px", borderRadius: 8,
+      background: `${EPJ.orange}0A`, border: `1px solid ${EPJ.orange}40`,
+    }}>
+      <div style={{
+        fontSize: 12, fontWeight: 700, color: EPJ.orange, marginBottom: 8,
+        fontFamily: font.body,
+      }}>📅 Prolonger le retour{sortie.prolonge ? " (re-prolongation)" : ""}</div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <Field
+          label="Nouvelle date de retour"
+          type="date"
+          value={date}
+          min={minISO}
+          onChange={(e) => setDate(e.target.value)}
+          width={170}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setDate(computeProlongedDate(sortie, 7) || "")}
+        >+7 jours</Button>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={!date || busy}
+          loading={busy}
+          onClick={submit}
+        >Valider</Button>
+      </div>
+
+      {prolongations.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 3 }}>
+          {prolongations.map((p, i) => {
+            const le = p.le && typeof p.le.toDate === "function" ? p.le.toDate() : null;
+            return (
+              <div key={i} style={{ fontSize: 10, color: EPJ.gray500, lineHeight: 1.4 }}>
+                {formatDate(p.ancienneDate)} → <b style={{ color: EPJ.gray700 }}>{formatDate(p.nouvelleDate)}</b>
+                {p.parNom ? ` · ${p.parNom}` : ""}
+                {le ? ` · ${le.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}` : ""}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

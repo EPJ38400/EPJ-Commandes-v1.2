@@ -113,12 +113,14 @@ export function computeProlongedDate(sortie, daysToAdd) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Construit le patch Firestore pour une prolongation +7j.
+// Construit le patch Firestore (champs scalaires) pour une prolongation.
+//   - opts.newDate : date cible explicite (ISO YYYY-MM-DD) → prolongation libre.
+//   - sinon opts.days (défaut 7) → raccourci « +N jours » depuis la date prévue.
 // Reset smsRappelJSent et anomalieJ2 (nouveau cycle si la nouvelle date passe).
 export function buildProlongationPayload(sortie, user, opts) {
   const o = opts || {};
-  const newDate = computeProlongedDate(sortie, o.days || 7);
-  if (!newDate) throw new Error("Date prevue invalide");
+  const newDate = o.newDate || computeProlongedDate(sortie, o.days || 7);
+  if (!newDate || !parseSortieDate(newDate)) throw new Error("Date prevue invalide");
   return {
     dateRetourPrevue: newDate,
     dateRetourPrevueOriginale: sortie.dateRetourPrevueOriginale || sortie.dateRetourPrevue,
@@ -130,5 +132,47 @@ export function buildProlongationPayload(sortie, user, opts) {
     smsRappelJSent: false,
     smsRappelJSentAt: null,
     anomalieJ2: false,
+  };
+}
+
+// Formate un objet Date (UTC) en ISO YYYY-MM-DD.
+function toISODate(d) {
+  if (!d || isNaN(d.getTime())) return null;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Date minimale autorisée pour une prolongation libre (ISO) :
+// max(aujourd'hui, date de sortie). todayISO = date du jour (ISO).
+export function prolongationMinDateISO(sortie, todayISO) {
+  const today = parseSortieDate(todayISO) || new Date(Date.UTC(1970, 0, 1));
+  const sortieDate = parseSortieDate(sortie && sortie.dateSortie);
+  const min = (sortieDate && sortieDate.getTime() > today.getTime()) ? sortieDate : today;
+  return toISODate(min);
+}
+
+// Valide une date de prolongation libre. Retourne { ok, error }.
+export function validateProlongation(sortie, newDateISO, todayISO) {
+  const nd = parseSortieDate(newDateISO);
+  if (!nd) return { ok: false, error: "Date invalide." };
+  const minISO = prolongationMinDateISO(sortie, todayISO);
+  const min = parseSortieDate(minISO);
+  if (min && nd.getTime() < min.getTime()) {
+    return { ok: false, error: "Date antérieure à aujourd'hui — refusée." };
+  }
+  return { ok: true, error: null };
+}
+
+// Construit UNE entrée d'historique de prolongation (élément du tableau
+// additif `prolongations[]`). `le` est fourni par l'appelant (Timestamp).
+export function buildProlongationEntry(sortie, user, newDateISO, le) {
+  return {
+    ancienneDate: (sortie && sortie.dateRetourPrevue) || null,
+    nouvelleDate: newDateISO,
+    par: (user && (user._id || user.id)) || "",
+    parNom: user ? ((user.prenom || "") + " " + (user.nom || "")).trim() : "",
+    le: le || null,
   };
 }
