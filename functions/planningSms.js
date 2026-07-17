@@ -163,6 +163,7 @@ async function buildAndQueue(targetDateISO, kind /* "recap" | "rappel" */) {
       message,
       variables: { prenom, date: dateLabel },
       context: { module: "planning", date: targetDateISO, kind },
+      origine: "auto", // cron → soumis à la fenêtre horaire (config/sms)
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       status: "pending",
     });
