@@ -83,6 +83,12 @@ export const onSmsQueueCreate = onDocumentCreated(
       return;
     }
 
+    // ─── Garde clôture parc (Lot 1 — anti « relance sur outil déjà rentré ») ───
+    // Un SMS lié à une sortie d'outil (sourceType:'outillageSortie') ne doit
+    // JAMAIS partir si la sortie a été rentrée entre l'enfilage et l'envoi
+    // (cache client périmé, dépilage différé…). On relit la source ici.
+    if (await isSortieObsolete(data, docId)) return;
+
     // ─── Envoi Brevo ───
     try {
       const apiKey = BREVO_API_KEY.value();
@@ -141,6 +147,32 @@ async function markFailed(docId, reason) {
     });
   } catch (e) {
     console.error(`[v10.O] Impossible de marquer ${docId} failed : ${e.message}`);
+  }
+}
+
+// ─── Garde clôture parc ───────────────────────────────────────
+// Re-lit la sortie d'outil source. Si elle est clôturée (rentrée) ou
+// introuvable, marque le SMS ANNULE_OBSOLETE et renvoie true (→ ne pas envoyer).
+// Sur erreur de lecture, renvoie false (on laisse l'envoi suivre son cours).
+async function isSortieObsolete(data, docId) {
+  if (data.sourceType !== "outillageSortie" || !data.sourceId) return false;
+  try {
+    const snap = await db.collection("outillageSorties").doc(data.sourceId).get();
+    const s = snap.exists ? snap.data() : null;
+    const active = s && !s.dateRetourReelle && !s.etatRetour;
+    if (active) return false;
+    await db.collection("smsQueue").doc(docId).update({
+      status: "ANNULE_OBSOLETE",
+      annuleAt: admin.firestore.FieldValue.serverTimestamp(),
+      annuleRaison: s
+        ? `sortie rentrée le ${s.dateRetourReelle || "?"} par ${s.retourParNom || "?"}`
+        : "sortie introuvable",
+    });
+    console.log(`[relance] doc ${docId} annulé (ANNULE_OBSOLETE) — sortie ${data.sourceId} clôturée`);
+    return true;
+  } catch (e) {
+    console.warn(`[relance] re-check clôture sortie ${data.sourceId} échoué : ${e.message}`);
+    return false;
   }
 }
 
