@@ -26,6 +26,8 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { setGlobalOptions } from "firebase-functions/v2";
 import admin from "firebase-admin";
+// Gestion SMS — fenêtre horaire d'envoi (logique pure)
+import { estDansFenetre, prochaineOuverture, DEFAULT_FENETRE } from "./lib/smsWindow.js";
 
 // Initialise Firebase Admin SDK (auto-config avec les credentials du compte de service)
 admin.initializeApp();
@@ -83,54 +85,119 @@ export const onSmsQueueCreate = onDocumentCreated(
       return;
     }
 
-    // ─── Envoi Brevo ───
-    try {
-      const apiKey = BREVO_API_KEY.value();
-      if (!apiKey) {
-        await markFailed(docId, "BREVO_API_KEY non configurée côté serveur");
+    // ─── Garde clôture parc (Lot 1 — anti « relance sur outil déjà rentré ») ───
+    // Un SMS lié à une sortie d'outil (sourceType:'outillageSortie') ne doit
+    // JAMAIS partir si la sortie a été rentrée entre l'enfilage et l'envoi
+    // (cache client périmé, dépilage différé…). On relit la source ici.
+    if (await isSortieObsolete(data, docId)) return;
+
+    // ─── Garde config : type de SMS désactivé (smsTemplates.actif) ───
+    if (await isTypeDesactive(data, docId)) return;
+
+    // ─── Fenêtre horaire (SMS 'auto' uniquement ; 'manuel' = immédiat) ───
+    // origine ABSENTE (docs legacy) traitée comme 'auto' par prudence.
+    const origine = data.origine || "auto";
+    if (origine === "auto") {
+      const fenetre = await loadFenetre();
+      if (fenetre.actif && !estDansFenetre(new Date(), fenetre)) {
+        const envoyerApres = prochaineOuverture(new Date(), fenetre);
+        await db.collection("smsQueue").doc(docId).update({
+          status: "EN_ATTENTE_FENETRE",
+          envoyerApres: admin.firestore.Timestamp.fromDate(envoyerApres),
+          fenetreCalculeeAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`[sms] doc ${docId} différé (EN_ATTENTE_FENETRE) → ${envoyerApres.toISOString()}`);
         return;
       }
-
-      const response = await fetch("https://api.brevo.com/v3/transactionalSMS/sms", {
-        method: "POST",
-        headers: {
-          "accept": "application/json",
-          "api-key": apiKey,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          sender: SMS_SENDER,
-          recipient: phone,
-          content: message,
-          type: "transactional",
-        }),
-      });
-
-      let body = null;
-      try { body = await response.json(); } catch { body = await response.text(); }
-
-      if (!response.ok) {
-        const err = `HTTP ${response.status} — ${JSON.stringify(body)}`;
-        await markFailed(docId, err);
-        console.error(`[v10.O] Brevo refuse : ${err}`);
-        return;
-      }
-
-      // Succès : marque sent
-      await db.collection("smsQueue").doc(docId).update({
-        status: "sent",
-        sentAt: admin.firestore.FieldValue.serverTimestamp(),
-        brevoMessageId: body?.messageId || body?.reference || null,
-        brevoResponse: body || null,
-      });
-      console.log(`[v10.O] ✓ SMS envoyé ${docId} → ${data.recipientName} (${phone})`);
-    } catch (err) {
-      const msg = err?.message || String(err);
-      await markFailed(docId, msg);
-      console.error(`[v10.O] Erreur envoi ${docId} : ${msg}`);
     }
+
+    // ─── Envoi Brevo ───
+    await sendViaBrevo(docId, data, BREVO_API_KEY.value());
   }
 );
+
+// ─── Envoi Brevo réutilisable (onCreate + dépilage fenêtre) ───
+async function sendViaBrevo(docId, data, apiKey) {
+  const phone = data.recipientPhone;
+  const message = data.message;
+  if (!phone) { await markFailed(docId, "Pas de numéro de téléphone"); return; }
+  if (!message) { await markFailed(docId, "Pas de message rendu"); return; }
+  try {
+    if (!apiKey) {
+      await markFailed(docId, "BREVO_API_KEY non configurée côté serveur");
+      return;
+    }
+    const response = await fetch("https://api.brevo.com/v3/transactionalSMS/sms", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: SMS_SENDER,
+        recipient: phone,
+        content: message,
+        type: "transactional",
+      }),
+    });
+
+    let body = null;
+    try { body = await response.json(); } catch { body = await response.text(); }
+
+    if (!response.ok) {
+      const err = `HTTP ${response.status} — ${JSON.stringify(body)}`;
+      await markFailed(docId, err);
+      console.error(`[v10.O] Brevo refuse : ${err}`);
+      return;
+    }
+
+    await db.collection("smsQueue").doc(docId).update({
+      status: "sent",
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      brevoMessageId: body?.messageId || body?.reference || null,
+      brevoResponse: body || null,
+    });
+    console.log(`[v10.O] ✓ SMS envoyé ${docId} → ${data.recipientName} (${phone})`);
+  } catch (err) {
+    const msg = err?.message || String(err);
+    await markFailed(docId, msg);
+    console.error(`[v10.O] Erreur envoi ${docId} : ${msg}`);
+  }
+}
+
+// Charge la fenêtre horaire depuis config/sms (défauts si absente).
+async function loadFenetre() {
+  try {
+    const snap = await db.collection("config").doc("sms").get();
+    const f = (snap.exists && snap.data() && snap.data().fenetre) || {};
+    return { ...DEFAULT_FENETRE, ...f };
+  } catch (e) {
+    console.warn(`[sms] lecture config/sms échouée : ${e.message}`);
+    return DEFAULT_FENETRE;
+  }
+}
+
+// Garde config : si le type (smsTemplates/{templateCode}) est désactivé,
+// annule le SMS (ANNULE_CONFIG) et renvoie true.
+async function isTypeDesactive(data, docId) {
+  if (!data.templateCode) return false;
+  try {
+    const snap = await db.collection("smsTemplates").doc(data.templateCode).get();
+    if (snap.exists && snap.data().actif === false) {
+      await db.collection("smsQueue").doc(docId).update({
+        status: "ANNULE_CONFIG",
+        annuleAt: admin.firestore.FieldValue.serverTimestamp(),
+        annuleRaison: `type "${data.templateCode}" désactivé`,
+      });
+      console.log(`[sms] doc ${docId} annulé (ANNULE_CONFIG) — type ${data.templateCode} désactivé`);
+      return true;
+    }
+  } catch (e) {
+    console.warn(`[sms] check type désactivé ${data.templateCode} échoué : ${e.message}`);
+  }
+  return false;
+}
 
 async function markFailed(docId, reason) {
   try {
@@ -141,6 +208,32 @@ async function markFailed(docId, reason) {
     });
   } catch (e) {
     console.error(`[v10.O] Impossible de marquer ${docId} failed : ${e.message}`);
+  }
+}
+
+// ─── Garde clôture parc ───────────────────────────────────────
+// Re-lit la sortie d'outil source. Si elle est clôturée (rentrée) ou
+// introuvable, marque le SMS ANNULE_OBSOLETE et renvoie true (→ ne pas envoyer).
+// Sur erreur de lecture, renvoie false (on laisse l'envoi suivre son cours).
+async function isSortieObsolete(data, docId) {
+  if (data.sourceType !== "outillageSortie" || !data.sourceId) return false;
+  try {
+    const snap = await db.collection("outillageSorties").doc(data.sourceId).get();
+    const s = snap.exists ? snap.data() : null;
+    const active = s && !s.dateRetourReelle && !s.etatRetour;
+    if (active) return false;
+    await db.collection("smsQueue").doc(docId).update({
+      status: "ANNULE_OBSOLETE",
+      annuleAt: admin.firestore.FieldValue.serverTimestamp(),
+      annuleRaison: s
+        ? `sortie rentrée le ${s.dateRetourReelle || "?"} par ${s.retourParNom || "?"}`
+        : "sortie introuvable",
+    });
+    console.log(`[relance] doc ${docId} annulé (ANNULE_OBSOLETE) — sortie ${data.sourceId} clôturée`);
+    return true;
+  } catch (e) {
+    console.warn(`[relance] re-check clôture sortie ${data.sourceId} échoué : ${e.message}`);
+    return false;
   }
 }
 
@@ -262,6 +355,44 @@ export const purgeSmsQueue = onSchedule(
       total += Math.min(500, docs.length - i);
     }
     console.log(`[purgeSmsQueue] ✓ ${total} docs supprimés`);
+  }
+);
+
+// ─── Gestion SMS — dépilage des SMS différés (fenêtre horaire) ─
+// Toutes les 15 min : envoie les SMS EN_ATTENTE_FENETRE dont l'heure
+// d'ouverture (envoyerApres) est atteinte. Re-vérifie clôture parc
+// (ANNULE_OBSOLETE) et type désactivé (ANNULE_CONFIG) au moment du
+// dépilage. Index requis : smsQueue (status ASC, envoyerApres ASC).
+export const dispatchSmsEnAttenteFenetre = onSchedule(
+  {
+    schedule: "*/15 * * * *",
+    timeZone: "Europe/Paris",
+    region: "europe-west1",
+    secrets: [BREVO_API_KEY],
+    timeoutSeconds: 120,
+    memory: "256MiB",
+  },
+  async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snap = await db.collection("smsQueue")
+      .where("status", "==", "EN_ATTENTE_FENETRE")
+      .where("envoyerApres", "<=", now)
+      .get();
+    if (snap.empty) {
+      console.log("[sms-fenetre] Aucun SMS à dépiler");
+      return;
+    }
+    const apiKey = BREVO_API_KEY.value();
+    let envoyes = 0;
+    for (const d of snap.docs) {
+      const data = d.data();
+      const docId = d.id;
+      if (await isSortieObsolete(data, docId)) continue;
+      if (await isTypeDesactive(data, docId)) continue;
+      await sendViaBrevo(docId, data, apiKey);
+      envoyes++;
+    }
+    console.log(`[sms-fenetre] ${envoyes} SMS dépilé(s) sur ${snap.size}`);
   }
 );
 

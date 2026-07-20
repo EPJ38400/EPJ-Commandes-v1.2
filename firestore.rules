@@ -389,6 +389,8 @@ service cloud.firestore {
         && id == "settings"
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["planningSmsEnabled"])
         && request.resource.data.planningSmsEnabled is bool;
+      // Direction : réglages Gestion SMS (fenêtre horaire) sur config/sms.
+      allow create, update: if isDirection() && id == "sms";
     }
 
     // ─── config/counters ─────────────────────────────────────────

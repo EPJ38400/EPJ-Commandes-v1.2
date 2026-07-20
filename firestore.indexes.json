@@ -73,6 +73,14 @@
       ]
     },
     {
+      "collectionGroup": "smsQueue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "envoyerApres", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "planningCreneaux",
       "queryScope": "COLLECTION",
       "fields": [

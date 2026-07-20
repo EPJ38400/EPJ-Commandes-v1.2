@@ -363,6 +363,7 @@ export function AffectationModal({
         templateCode: "planning_jour", message,
         variables: { prenom: u?.prenom || "", date: dateLabel },
         context: { module: "planning", date: dateIso, kind: "manuel" },
+        origine: "manuel", // envoi humain → départ immédiat, hors fenêtre horaire
         status: "pending", createdAt: serverTimestamp(),
       });
       toast("SMS enfilé pour " + res.nom);
