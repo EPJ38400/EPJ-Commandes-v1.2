@@ -499,8 +499,16 @@ export function CongesPage() {
                         background: weekend ? EPJ.gray50 : "transparent",
                         display: "flex",
                       }}>
-                        <div title={cAm ? `${CONGE_TYPE_LABEL[cAm.type]}${isFerme(cAm) ? "" : " (en attente)"}` : undefined} style={{ flex: 1, background: bg(cAm) }} />
-                        <div title={cPm ? `${CONGE_TYPE_LABEL[cPm.type]}${isFerme(cPm) ? "" : " (en attente)"}` : undefined} style={{ flex: 1, background: bg(cPm) }} />
+                        <div
+                          title={cAm ? `${CONGE_TYPE_LABEL[cAm.type]}${isFerme(cAm) ? "" : " (en attente)"}` : undefined}
+                          onClick={cAm ? () => setModal({ conge: cAm }) : undefined}
+                          style={{ flex: 1, background: bg(cAm), cursor: cAm ? "pointer" : "default" }}
+                        />
+                        <div
+                          title={cPm ? `${CONGE_TYPE_LABEL[cPm.type]}${isFerme(cPm) ? "" : " (en attente)"}` : undefined}
+                          onClick={cPm ? () => setModal({ conge: cPm }) : undefined}
+                          style={{ flex: 1, background: bg(cPm), cursor: cPm ? "pointer" : "default" }}
+                        />
                       </div>
                     );
                   })}

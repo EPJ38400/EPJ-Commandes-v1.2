@@ -202,6 +202,11 @@ export function CongeModal({ user, users, conge, onClose }) {
           <div style={{ fontSize: fontSize.sm, color: EPJ.gray500, marginTop: 2 }}>
             {gestionnaire ? "Congés & absences des équipes" : "Votre demande sera soumise à validation"}
           </div>
+          {isEdit && gestionnaire && conge?.statut === "VALIDEE" && (
+            <div style={{ fontSize: fontSize.sm, color: EPJ.blue, fontWeight: fontWeight.medium, marginTop: 2 }}>
+              Congé validé — correction possible (Admin/Direction).
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
