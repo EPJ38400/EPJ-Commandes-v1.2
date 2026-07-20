@@ -31,6 +31,7 @@ import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
   slotIndex, slotToCell, expandRange, posteLabel, getCreneauTaches,
   makeTacheId, demiJourneeHeures, tacheValMonteur, tacheValConducteur,
+  weekColumns, weekLabel, addDays, fromISO, toISODate,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
 import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
@@ -48,6 +49,25 @@ export function AffectationModal({
 
   const initFrom = slotToCell(fromSlot);
   const initTo = slotToCell(toSlot);
+
+  // ─── Navigation semaine DANS le modal (report sur une autre semaine) ───
+  // `weekCols` (prop) = semaine SOURCE (celle de la grille) ; ne sert plus qu'à
+  // initialiser `weekStart`. `cols` (locales) = semaine AFFICHÉE dans le modal,
+  // pilote tous les usages internes (dayOptions, slotMeta → dateIso cible).
+  const [weekStart, setWeekStart] = useState(() => fromISO(weekCols[0].iso));
+  const cols = useMemo(() => weekColumns(weekStart), [weekStart]);
+  const isSourceWeek = toISODate(weekStart) === weekCols[0].iso;
+
+  // Coordonnées SOURCE FIGÉES au montage, INDÉPENDANTES de la navigation (clé du
+  // fix doublon). `prefill` (construit dans PlanningGrid) ne porte PAS .date/.periode
+  // → on gèle les coords depuis la semaine SOURCE (weekCols) × le slot d'origine
+  // (initFrom, dérivé du prop fromSlot, stable). Un créneau affecté = 1 seul slot.
+  // Création pure (sans prefill) → aucun slot source à libérer.
+  const sourceRessourceId = initialRessource?.id || null;
+  const sourceSlots = prefill
+    ? [{ date: weekCols[initFrom.dayIdx].iso, periode: initFrom.periode }]
+    : [];
+
   const [ressourceId, setRessourceId] = useState(initialRessource?.id || "");
   const [fromDay, setFromDay] = useState(String(initFrom.dayIdx));
   const [fromPer, setFromPer] = useState(initFrom.periode);
@@ -95,7 +115,7 @@ export function AffectationModal({
   // Tâche primaire = 1re avec chantier, sinon 1re ligne (miroir/compat).
   const primaryLine = taches.find((l) => l.chantierId) || taches[0] || null;
 
-  const dayOptions = weekCols.map((c, idx) => ({ value: String(idx), label: `${c.dayLabel} ${c.dateLabel}` }));
+  const dayOptions = cols.map((c, idx) => ({ value: String(idx), label: `${c.dayLabel} ${c.dateLabel}` }));
   const ressourceOptions = [
     { value: "", label: "— À affecter (aucune ressource) —" },
     ...(resources || []).map((r) => ({ value: r.id, label: r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom })),
@@ -127,7 +147,7 @@ export function AffectationModal({
 
   const slotMeta = (slot) => {
     const { dayIdx, periode } = slotToCell(slot);
-    return { dayIdx, periode, dateIso: weekCols[dayIdx].iso };
+    return { dayIdx, periode, dateIso: cols[dayIdx].iso };
   };
 
   // Lignes de formulaire → tableau `taches` pour les builders (posteLabel calculé
@@ -160,11 +180,15 @@ export function AffectationModal({
   const overCapacity = sommeTemps > capacite + 1e-9;
 
   // ─── Payloads (builders partagés planningWrites — zéro duplication) ──
-  const payloadAffected = (res, slot) => {
+  // `existing` = doc CIBLE autoritatif (snap.data() du getDoc), passé explicitement.
+  // Sur une semaine non chargée, getExisting (cache grille) renverrait undefined et
+  // n'est pas fiable → l'appelant lit toujours la cible via getDoc. Vierge → validations
+  // aux valeurs par défaut (report = travail à refaire) ; rempli → validations préservées.
+  const payloadAffected = (res, slot, existing) => {
     const { dayIdx, periode, dateIso } = slotMeta(slot);
     return affectedCreneauPayload({
       res, date: dateIso, periode, dayIdx, taches: linesToTaches(),
-      existing: getExisting(res.id, dateIso, periode), userId: user._id,
+      existing, userId: user._id,
     });
   };
 
@@ -198,22 +222,18 @@ export function AffectationModal({
           const { dateIso, periode } = slotMeta(s);
           const ref = doc(db, "planningCreneaux", creneauId(target.id, dateIso, periode));
           const snap = await getDoc(ref);
-          if (snap.exists()) {
-            const ex = snap.data();
-            if (ex.chantierId && ex.chantierId !== (primaryLine?.chantierId || null)) {
-              const autre = (allChantiers || []).find((c) => c.num === ex.chantierId)?.nom || ex.chantierId;
-              const ok = window.confirm(
-                `${target.nom} est déjà affecté au chantier ${autre} ce créneau (${dateIso} ${periode}). Le déplacer ici ?`,
-              );
-              if (!ok) continue; // ne pas écrire ce slot
-            }
+          const ex = snap.exists() ? snap.data() : undefined;
+          if (ex && ex.chantierId && ex.chantierId !== (primaryLine?.chantierId || null)) {
+            const autre = (allChantiers || []).find((c) => c.num === ex.chantierId)?.nom || ex.chantierId;
+            const ok = window.confirm(
+              `${target.nom} est déjà affecté au chantier ${autre} ce créneau (${dateIso} ${periode}). Le déplacer ici ?`,
+            );
+            if (!ok) continue; // ne pas écrire ce slot
           }
-          batch.set(ref, payloadAffected(target, s), { merge: true });
+          // `existing` = doc CIBLE autoritatif (week-agnostic) → report sur semaine
+          // vierge = validations réinitialisées ; cible occupée = validations préservées.
+          batch.set(ref, payloadAffected(target, s, ex), { merge: true });
           wrote++;
-          // Réaffectation : libérer le créneau de l'ancienne ressource (ce slot).
-          if (initialRessource && initialRessource.id !== target.id) {
-            batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
-          }
         }
         // ── Co-affectation : MÊMES tâches sur les ressources supplémentaires ──
         // Slot par slot, ÉCRASE inconditionnellement (pas de test d'occupation,
@@ -223,21 +243,41 @@ export function AffectationModal({
         // supprimées par la boucle primaire), sinon Firestore rejette 2 writes
         // du même doc.
         const handled = new Set([target.id]);
-        if (initialRessource && initialRessource.id !== target.id) handled.add(initialRessource.id);
+        if (sourceRessourceId && sourceRessourceId !== target.id) handled.add(sourceRessourceId);
         const extras = autresRessources.filter((id) => id && !handled.has(id));
         for (const id of extras) {
           const res = (resources || []).find((r) => r.id === id);
           if (!res) continue;
           for (const s of rangeSlots) {
             const { dateIso, periode } = slotMeta(s);
-            batch.set(doc(db, "planningCreneaux", creneauId(id, dateIso, periode)), payloadAffected(res, s), { merge: true });
+            const ref = doc(db, "planningCreneaux", creneauId(id, dateIso, periode));
+            const snap = await getDoc(ref); // autoritatif (cache grille aveugle hors semaine source)
+            batch.set(ref, payloadAffected(res, s, snap.exists() ? snap.data() : undefined), { merge: true });
           }
         }
         if (wrote === 0 && extras.length === 0) { setSaving(false); onClose(); return; }
+        // Report = DÉPLACEMENT : libérer le(s) slot(s) SOURCE dès que la cible diffère
+        // de la source sur N'IMPORTE quelle coordonnée (ressource, semaine, jour, période).
+        // Coords SOURCE figées (jamais les coords cible) → pas de doublon en navigation.
+        // Uniquement si le write primaire a bien eu lieu (collision refusée → source gardée).
+        if (wrote > 0) {
+          for (const src of sourceSlots) {
+            const rid = sourceRessourceId;
+            const targetHitsSource = rid === target.id && rangeSlots.some((s) => {
+              const m = slotMeta(s);
+              return m.dateIso === src.date && m.periode === src.periode;
+            });
+            if (rid && !targetHitsSource) {
+              batch.delete(doc(db, "planningCreneaux", creneauId(rid, src.date, src.periode)));
+            }
+          }
+        }
         // Source pool → on retire la tâche du pool (elle devient affectée).
         if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
         await batch.commit();
-        if (extras.length) {
+        if (!isSourceWeek) {
+          toast(`Tâche reportée sur la semaine du ${weekLabel(weekStart)}`);
+        } else if (extras.length) {
           const n = 1 + extras.length;
           toast(`Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`);
         }
@@ -261,10 +301,14 @@ export function AffectationModal({
         } else {
           batch.set(doc(collection(db, "planningCreneaux")), payloadPool(s)); // auto-id
         }
-        if (initialRessource) {
-          batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
-        }
       });
+      // Libérer le slot AFFECTÉ source (coords figées, pas les coords cible) : un pool
+      // est en auto-id, jamais l'id déterministe affecté → suppression toujours sûre.
+      for (const src of sourceSlots) {
+        if (sourceRessourceId) {
+          batch.delete(doc(db, "planningCreneaux", creneauId(sourceRessourceId, src.date, src.periode)));
+        }
+      }
       await batch.commit();
       onClose();
     } catch (e) {
@@ -281,11 +325,11 @@ export function AffectationModal({
     try {
       const batch = writeBatch(db);
       if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
-      if (initialRessource) {
-        rangeSlots.forEach((s) => {
-          const { dateIso, periode } = slotMeta(s);
-          batch.delete(doc(db, "planningCreneaux", creneauId(initialRessource.id, dateIso, periode)));
-        });
+      // Supprime le(s) slot(s) SOURCE aux coords figées (pas les coords cible/navigation).
+      for (const src of sourceSlots) {
+        if (sourceRessourceId) {
+          batch.delete(doc(db, "planningCreneaux", creneauId(sourceRessourceId, src.date, src.periode)));
+        }
       }
       await batch.commit();
       onClose();
@@ -446,6 +490,38 @@ export function AffectationModal({
           boxShadow: "0 20px 50px rgba(0,0,0,.2)",
         }}
       >
+        {/* Navigation semaine : reporter la tâche sur une AUTRE semaine sans fermer le
+            modal. Gatée canWrite (le report est une écriture ; lecture seule = semaine
+            source figée, comportement inchangé). */}
+        {canWrite && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: space.sm, marginBottom: space.md,
+          }}>
+            <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, -7))}>←</Button>
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>
+                Semaine du {weekLabel(weekStart)}
+              </span>
+              {!isSourceWeek && (
+                <Button variant="ghost" size="sm" onClick={() => setWeekStart(fromISO(weekCols[0].iso))}>
+                  Semaine source
+                </Button>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, 7))}>→</Button>
+          </div>
+        )}
+        {canWrite && !isSourceWeek && (
+          <div style={{
+            marginBottom: space.md, padding: `${space.xs}px ${space.sm}px`,
+            background: EPJ.infoBg, border: `1px solid ${EPJ.gray200}`,
+            borderRadius: radius.md, fontSize: fontSize.sm, color: EPJ.gray700,
+          }}>
+            Report sur la semaine du {weekLabel(weekStart)}
+          </div>
+        )}
+
         <div style={{ marginBottom: space.md }}>
           <div style={{
             fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
