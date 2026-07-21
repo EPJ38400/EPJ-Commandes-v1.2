@@ -485,44 +485,51 @@ export function AffectationModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: EPJ.white, borderRadius: isPwa ? `${radius.xl}px ${radius.xl}px 0 0` : radius.xl,
-          padding: space.lg, width: "100%", maxWidth: 480,
-          maxHeight: "90vh", overflowY: "auto",
+          // Safe-area PWA : respecte l'encoche (haut + bas), latéraux inchangés.
+          paddingLeft: space.lg, paddingRight: space.lg,
+          paddingTop: isPwa ? `max(${space.lg}px, env(safe-area-inset-top))` : space.lg,
+          paddingBottom: isPwa ? `max(${space.lg}px, env(safe-area-inset-bottom))` : space.lg,
+          width: "100%", maxWidth: 480,
+          // Hauteur capée pour ne jamais passer sous l'encoche (PWA) ; 90vh desktop.
+          maxHeight: isPwa ? `calc(100vh - env(safe-area-inset-top) - ${space.md}px)` : "90vh",
+          overflowY: "auto",
           boxShadow: "0 20px 50px rgba(0,0,0,.2)",
         }}
       >
-        {/* Navigation semaine : reporter la tâche sur une AUTRE semaine sans fermer le
-            modal. Gatée canWrite (le report est une écriture ; lecture seule = semaine
-            source figée, comportement inchangé). */}
-        {canWrite && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: space.sm, marginBottom: space.md,
-          }}>
-            <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, -7))}>←</Button>
-            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700, fontVariantNumeric: "tabular-nums" }}>
-                Semaine du {weekLabel(weekStart)}
-              </span>
-              {!isSourceWeek && (
-                <Button variant="ghost" size="sm" onClick={() => setWeekStart(fromISO(weekCols[0].iso))}>
-                  Semaine source
-                </Button>
-              )}
+        {/* En-tête STICKY : barre nav semaine + identité monteur. Reste visible et
+            atteignable quel que soit le scroll interne (nom jamais rogné). */}
+        <div style={{
+          position: "sticky", top: 0, zIndex: 2, background: EPJ.white,
+          paddingBottom: space.sm, marginBottom: space.md,
+        }}>
+          {/* Navigation semaine : reporter la tâche sur une AUTRE semaine sans fermer
+              le modal. Gatée canWrite (lecture seule = semaine source figée). Teintée
+              EPJ.infoBg hors semaine source → signale le report (plus de bandeau séparé). */}
+          {canWrite && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: space.sm, marginBottom: space.sm,
+              padding: `${space.xs}px ${space.sm}px`, borderRadius: radius.md,
+              background: isSourceWeek ? "transparent" : EPJ.infoBg,
+              border: `1px solid ${isSourceWeek ? "transparent" : EPJ.gray200}`,
+            }}>
+              <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, -7))}>←</Button>
+              <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
+                <span style={{
+                  fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700,
+                  fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+                }}>
+                  Semaine du {weekLabel(weekStart)}
+                </span>
+                {!isSourceWeek && (
+                  <Button variant="ghost" size="sm" onClick={() => setWeekStart(fromISO(weekCols[0].iso))}>
+                    Semaine source
+                  </Button>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, 7))}>→</Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, 7))}>→</Button>
-          </div>
-        )}
-        {canWrite && !isSourceWeek && (
-          <div style={{
-            marginBottom: space.md, padding: `${space.xs}px ${space.sm}px`,
-            background: EPJ.infoBg, border: `1px solid ${EPJ.gray200}`,
-            borderRadius: radius.md, fontSize: fontSize.sm, color: EPJ.gray700,
-          }}>
-            Report sur la semaine du {weekLabel(weekStart)}
-          </div>
-        )}
-
-        <div style={{ marginBottom: space.md }}>
+          )}
           <div style={{
             fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
             color: EPJ.gray900, letterSpacing: "-0.01em",
