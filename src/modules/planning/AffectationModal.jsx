@@ -50,11 +50,11 @@ export function AffectationModal({
   const initFrom = slotToCell(fromSlot);
   const initTo = slotToCell(toSlot);
 
-  // ─── Navigation semaine DANS le modal (report sur une autre semaine) ───
-  // `weekCols` (prop) = semaine SOURCE (celle de la grille) ; ne sert plus qu'à
-  // initialiser `weekStart`. `cols` (locales) = semaine AFFICHÉE dans le modal,
-  // pilote tous les usages internes (dayOptions, slotMeta → dateIso cible).
-  const [weekStart, setWeekStart] = useState(() => fromISO(weekCols[0].iso));
+  // `weekCols` (prop) = semaine SOURCE (celle de la grille). `weekStart` est FIGÉ
+  // sur cette semaine (plus de flèches de navigation → il ne bouge jamais) ; `cols`
+  // = colonnes de cette semaine, pilotent dayOptions/slotMeta (édition intra-semaine
+  // identique à main). Le report sur une autre semaine passe par un BOUTON dédié.
+  const [weekStart] = useState(() => fromISO(weekCols[0].iso));
   const cols = useMemo(() => weekColumns(weekStart), [weekStart]);
   const isSourceWeek = toISODate(weekStart) === weekCols[0].iso;
 
@@ -339,6 +339,46 @@ export function AffectationModal({
     }
   };
 
+  // ─── Reporter la tâche AFFECTÉE à la semaine suivante (J+7, DÉPLACEMENT) ───
+  // Move direct sans passer par le range UI : même ressource, même jour de semaine
+  // (dayIdx source inchangé par un +7 → capacité vendredi 4h/3h correcte), même
+  // période. Réutilise les tâches du créneau source (linesToTaches ← prefill).
+  // La cible vierge → validations réinitialisées (ex undefined) ; cible occupée par
+  // un autre chantier → window.confirm avant écrasement.
+  const reporterSemaineSuivante = async () => {
+    if (!canWrite || saving || !prefill || !targetRes) return;
+    setSaving(true); setErr(null);
+    try {
+      const batch = writeBatch(db);
+      const chantierIdCourant = primaryLine?.chantierId || null;
+      for (const src of sourceSlots) {
+        const targetDate = toISODate(addDays(fromISO(src.date), 7)); // même jour, semaine +7
+        const targetRef = doc(db, "planningCreneaux", creneauId(sourceRessourceId, targetDate, src.periode));
+        const snap = await getDoc(targetRef);
+        const ex = snap.exists() ? snap.data() : undefined;
+        if (ex && ex.chantierId && ex.chantierId !== chantierIdCourant) {
+          if (!window.confirm("La semaine suivante a déjà une tâche sur ce créneau. Écraser ?")) {
+            setSaving(false); return;
+          }
+        }
+        batch.set(targetRef, affectedCreneauPayload({
+          res: { id: sourceRessourceId, nom: initialRessource.nom, type: initialRessource.type },
+          date: targetDate, periode: src.periode, dayIdx: initFrom.dayIdx,
+          taches: linesToTaches(), existing: ex, userId: user._id,
+        }), { merge: true });
+        // Vrai déplacement : libérer le slot source (coords figées).
+        batch.delete(doc(db, "planningCreneaux", creneauId(sourceRessourceId, src.date, src.periode)));
+      }
+      await batch.commit();
+      toast("Tâche reportée à la semaine suivante");
+      onClose();
+    } catch (e) {
+      console.error("[AffectationModal] report semaine suivante échoué :", e);
+      toast("Échec du report");
+      setErr(e); setSaving(false);
+    }
+  };
+
   // ─── Export .ics « Ajouter à mon agenda » (PUR CLIENT, lecture seule) ───
   // Visible sur une seule demi-journée (fromSlot === toSlot) avec un chantier.
   // Basé sur la tâche primaire. NON gaté par canWrite (un monteur exporte son créneau).
@@ -485,51 +525,12 @@ export function AffectationModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: EPJ.white, borderRadius: isPwa ? `${radius.xl}px ${radius.xl}px 0 0` : radius.xl,
-          // Safe-area PWA : respecte l'encoche (haut + bas), latéraux inchangés.
-          paddingLeft: space.lg, paddingRight: space.lg,
-          paddingTop: isPwa ? `max(${space.lg}px, env(safe-area-inset-top))` : space.lg,
-          paddingBottom: isPwa ? `max(${space.lg}px, env(safe-area-inset-bottom))` : space.lg,
-          width: "100%", maxWidth: 480,
-          // Hauteur capée pour ne jamais passer sous l'encoche (PWA) ; 90vh desktop.
-          maxHeight: isPwa ? `calc(100vh - env(safe-area-inset-top) - ${space.md}px)` : "90vh",
-          overflowY: "auto",
+          padding: space.lg, width: "100%", maxWidth: 480,
+          maxHeight: "90vh", overflowY: "auto",
           boxShadow: "0 20px 50px rgba(0,0,0,.2)",
         }}
       >
-        {/* En-tête STICKY : barre nav semaine + identité monteur. Reste visible et
-            atteignable quel que soit le scroll interne (nom jamais rogné). */}
-        <div style={{
-          position: "sticky", top: 0, zIndex: 2, background: EPJ.white,
-          paddingBottom: space.sm, marginBottom: space.md,
-        }}>
-          {/* Navigation semaine : reporter la tâche sur une AUTRE semaine sans fermer
-              le modal. Gatée canWrite (lecture seule = semaine source figée). Teintée
-              EPJ.infoBg hors semaine source → signale le report (plus de bandeau séparé). */}
-          {canWrite && (
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: space.sm, marginBottom: space.sm,
-              padding: `${space.xs}px ${space.sm}px`, borderRadius: radius.md,
-              background: isSourceWeek ? "transparent" : EPJ.infoBg,
-              border: `1px solid ${isSourceWeek ? "transparent" : EPJ.gray200}`,
-            }}>
-              <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, -7))}>←</Button>
-              <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
-                <span style={{
-                  fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: EPJ.gray700,
-                  fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
-                }}>
-                  Semaine du {weekLabel(weekStart)}
-                </span>
-                {!isSourceWeek && (
-                  <Button variant="ghost" size="sm" onClick={() => setWeekStart(fromISO(weekCols[0].iso))}>
-                    Semaine source
-                  </Button>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setWeekStart((d) => addDays(d, 7))}>→</Button>
-            </div>
-          )}
+        <div style={{ marginBottom: space.md }}>
           <div style={{
             fontFamily: font.display, fontSize: fontSize.lg, fontWeight: fontWeight.regular,
             color: EPJ.gray900, letterSpacing: "-0.01em",
@@ -669,6 +670,16 @@ export function AffectationModal({
         )}
 
         <div style={{ display: "flex", gap: space.sm, marginTop: space.lg, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          {/* Report J+7 (tâche AFFECTÉE existante uniquement). Wrapper marginRight
+              auto (le <Button> ne relaie pas `style`) → poussé à gauche, séparé
+              d'Annuler/Affecter. */}
+          {canWrite && prefill && targetRes && !saving && (
+            <span style={{ marginRight: "auto" }}>
+              <Button variant="secondary" onClick={reporterSemaineSuivante}>
+                Reporter à la semaine suivante
+              </Button>
+            </span>
+          )}
           <Button variant="ghost" onClick={onClose}>
             {canWrite ? "Annuler" : "Fermer"}
           </Button>
