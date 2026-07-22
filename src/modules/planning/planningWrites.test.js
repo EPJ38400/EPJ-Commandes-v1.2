@@ -110,6 +110,72 @@ console.log("planningWrites — docCore");
     { bat: null, poste: null, label: "Libre" }, "sans chantier → batiment/poste null, label conservé");
 }
 
+// ─── Report inter-semaine : préservation/réinit des états de validation L9 ───
+// Reproduit le bloc `existing?...` d'affectedCreneauPayload (planningWrites.js).
+// Le report passe `existing` = doc CIBLE autoritatif (snap.data()) :
+//   • cible VIERGE (undefined) → validations réinitialisées (report = travail à refaire) ;
+//   • cible OCCUPÉE → validations préservées (pas d'écrasement).
+function affectedValidation(existing) {
+  return {
+    etatValidationMonteur: existing?.etatValidationMonteur || "NON",
+    etatValidationConducteur: existing?.etatValidationConducteur || "NON",
+    validationMonteur: existing?.validationMonteur || {},
+    validationConducteur: existing?.validationConducteur || {},
+    aValiderConducteur: existing?.aValiderConducteur ?? false,
+    smsEnvoye: existing?.smsEnvoye ?? false,
+  };
+}
+
+console.log("\nplanningWrites — report L9 (existing explicite)");
+
+// (6) existing undefined (slot cible vierge) → tout aux valeurs par défaut.
+{
+  const v = affectedValidation(undefined);
+  eq(v, {
+    etatValidationMonteur: "NON", etatValidationConducteur: "NON",
+    validationMonteur: {}, validationConducteur: {},
+    aValiderConducteur: false, smsEnvoye: false,
+  }, "existing vierge → validations réinitialisées (report = à refaire)");
+}
+
+// (7) existing rempli (slot cible occupé) → validations préservées.
+{
+  const existing = {
+    etatValidationMonteur: "FAIT", etatValidationConducteur: "VALIDE",
+    validationMonteur: { t0: { etat: "FAIT" } }, validationConducteur: { t0: { etat: "VALIDE" } },
+    aValiderConducteur: true, smsEnvoye: true,
+  };
+  eq(affectedValidation(existing), existing, "existing rempli → validations préservées (pas d'écrasement)");
+}
+
+// ─── Matrice de déplacement (report) — non testable sans Firestore, documentée ───
+// Logique dans AffectationModal.runSave : source figée (sourceRessourceId + sourceSlots
+// aux coords SOURCE), libérée dès que la cible diffère sur ressource | semaine | jour | période.
+//   a. Même ressource, semaine ≠   → source libérée sur semaine origine, 1 seul créneau final.
+//   b. Même ressource, même semaine, autre jour → idem (bug doublon latent corrigé).
+//   c. Ressource + semaine changées → ancien slot (ancienne ressource, semaine origine) libéré.
+//   d. Co-affectation → extras sur slot CIBLE ; source libérée UNE fois ; pas de double-write
+//      (handled exclut sourceRessourceId, pas initialRessource.id).
+//   e. Collision inter-chantier sur cible → window.confirm (getDoc autoritatif) inchangé.
+//   f. Cas source=cible (même slot) → targetHitsSource=true → PAS de suppression, merge préserve.
+
+// ─── Report : capacité au dayIdx CIBLE, pas source (vendredi PM 3h → lundi PM 4h) ──
+// Le handler reporter() passe dayIdx = targetDayIdx à affectedCreneauPayload. Une
+// tâche SANS temps (temps hérité de la demi-journée) doit prendre la capacité du jour
+// D'ARRIVÉE. Vendredi PM = 3 h, lundi PM = 4 h → le miroir doit valoir 4, jamais 3.
+{
+  const source = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 4, "PM");
+  eq(source.tempsEstimeH, 3, "source vendredi PM sans temps → miroir 3 h");
+  const cible = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 0, "PM");
+  eq(cible.tempsEstimeH, 4, "report vers lundi PM (dayIdx cible) → miroir 4 h (PAS 3 h du vendredi)");
+}
+
+// (bis) une tâche AVEC temps explicite est indifférente au dayIdx (report conserve le temps).
+{
+  const cible = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement", tempsEstimeH: 2 }], 0, "PM");
+  eq(cible.tempsEstimeH, 2, "temps explicite → conservé quel que soit le jour cible");
+}
+
 console.log("\n────────────────────────────────────────");
 console.log(`Tests planningWrites : ${ok} OK, ${ko} KO`);
 if (ko > 0) process.exit(1);
