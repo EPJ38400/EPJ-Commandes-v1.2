@@ -9,14 +9,17 @@
 //
 //  Flux :
 //   a. Lit heures where mois==mois. Lignes sans salarieId → ALERTES (non mappé).
-//   b. Groupe par (salarieId, date). Par jour :
-//        - pour chaque chantier travaillé : origineType (override chantier sinon
-//          pointDepartFrais du user, défaut DEPOT), base (override sinon "trajet"),
-//          resoudreDestination + calculerDistanceCache. Erreur adresse → ALERTE.
-//        - on RETIENT le chantier le plus éloigné (distance max) → 1 ligne/jour.
-//        - jourBureau si le libellé retenu ~ /BUREAU|DEPOT/ → « à valider »
-//          (aucune indemnité auto).
-//        - indemniteJour = composerIndemnite(distanceMax, barème, {repas, base}).
+//   b. Groupe par (salarieId, date). Par jour, sélection DÉTERMINISTE via
+//      config/fraisChantiersSpeciaux (spec[num] = {type:"bureau"|"absence"}) :
+//        - on retire les chantiers "absence" ; s'il ne reste RIEN → JOUR ABSENCE
+//          (aucune indemnité, aucun appel distance, jour marqué { absence:true }).
+//        - sinon, parmi les chantiers restants ouvrant un trajet (type != "bureau") :
+//          origineType (override sinon pointDepartFrais, défaut DEPOT), base
+//          (override sinon "trajet"), resoudreDestination + calculerDistanceCache
+//          (erreur adresse → ALERTE), on RETIENT le plus éloigné → 1 ligne/jour,
+//          indemniteJour = composerIndemnite(distanceMax, barème, {repas, base}).
+//        - si SEULEMENT du bureau → { bureauSeul:true } : repas SEUL (deplacement 0).
+//      (L'ancien heuristique regex /BUREAU|DEPOT|ATELIER/ est SUPPRIMÉ.)
 //   c. Agrège par salarié (totalMois, nbJours).
 //   d. Écrit fraisRecap/{mois}.
 //
@@ -41,14 +44,14 @@ const COL_HEURES = "heures";
 const COL_USERS = "utilisateurs";
 const COL_OVERRIDES = "fraisOverrides";
 const COL_RECAP = "fraisRecap";
+const COL_CONFIG = "config";
+const DOC_CHANTIERS_SPECIAUX = "fraisChantiersSpeciaux";
 
 // Liste blanche des rôles ouvrant droit aux frais de déplacement (terrain).
 // Logique OU : un multi-rôles est inclus dès qu'un rôle terrain y figure.
 const ROLES_FRAIS = ["Monteur", "Chef chantier", "Conducteur travaux"];
 
 const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
-// Jour « bureau / dépôt » (pas d'indemnité auto → à valider manuellement).
-const RE_BUREAU = /BUREAU|D[ÉE]P[ÔO]T|ATELIER/i;
 
 // ─── Ventilation par zone/rubrique (RH-Frais-3b2-ventilation) ───
 const VENT_ZONES = ["1a", "1b", "2", "3", "4", "5"];
@@ -73,19 +76,22 @@ function ventFinalize(table) {
 const ventTableSum = (table) =>
   Object.values(table || {}).reduce((a, z) => a + (Number(z.montant) || 0), 0);
 
-// Construit la ventilation d'UN salarié depuis ses jours retenus indemnisés.
-//   repas = 1×/jour travaillé ; par jour : z5.qte += nb50 ; reliquat → zoneReliquat.qte += 1.
+// Construit la ventilation d'UN salarié depuis ses jours retenus.
+//   repas = 1×/jour dès qu'une indemnité repas est due (jour normal OU bureauSeul).
+//   par jour normal : z5.qte += nb50 ; reliquat → zoneReliquat.qte += 1.
+//   jour absence → n'ajoute RIEN ; jour bureauSeul → repas seul, 0 unité de zone.
 //   transport présent uniquement si ≥1 jour en base "transport".
 function buildVentilation(jours, bareme) {
   const repasTaux = Number(bareme.repas) || 0;
   const trajetTable = ventZoneTable(bareme.trajet);
   const transportTable = ventZoneTable(bareme.transport);
   let anyTransport = false;
-  let nbJours = 0;
+  let nbRepas = 0;
 
   for (const j of jours) {
-    if (j.jourBureau || j.alerte) continue; // seuls les jours indemnisés comptent
-    nbJours += 1;
+    if (j.absence) continue;               // jour absence → aucune ventilation
+    if (Number(j.repas) > 0) nbRepas += 1; // repas dû (jour normal OU bureauSeul)
+    if (j.bureauSeul) continue;            // bureau seul → pas d'unité de zone
     const isTransport = j.base === "transport";
     if (isTransport) anyTransport = true;
     const table = isTransport ? transportTable : trajetTable;
@@ -95,7 +101,7 @@ function buildVentilation(jours, bareme) {
   }
 
   const vent = {
-    repas: { nbJours, taux: repasTaux, montant: r2(nbJours * repasTaux) },
+    repas: { nbJours: nbRepas, taux: repasTaux, montant: r2(nbRepas * repasTaux) },
     trajet: ventFinalize(trajetTable),
   };
   if (anyTransport) vent.transport = ventFinalize(transportTable);
@@ -154,6 +160,19 @@ export const genererRecapFrais = onCall(
     if (!bareme) {
       throw new HttpsError("failed-precondition", "Aucun barème FBTP saisi.");
     }
+
+    // ─── Chantiers spéciaux (config/fraisChantiersSpeciaux, lu une seule fois) ───
+    //  spec[num] = { type:"bureau"|"absence", ... }. Remplace l'ancien regex BUREAU.
+    //  Doc absent / champ vide = {} → aucun chantier spécial (comportement normal).
+    let spec = {};
+    try {
+      const cfgSnap = await db.collection(COL_CONFIG).doc(DOC_CHANTIERS_SPECIAUX).get();
+      const cfg = cfgSnap.exists ? cfgSnap.data() : null;
+      if (cfg && cfg.chantiers && typeof cfg.chantiers === "object") spec = cfg.chantiers;
+    } catch (e) {
+      console.error("[recapFrais] lecture config chantiers spéciaux échouée :", e?.message);
+    }
+    const specType = (num) => (num && spec[num] && typeof spec[num] === "object" ? spec[num].type : undefined);
 
     // ─── a. Lecture des heures du mois ───
     const snap = await db.collection(COL_HEURES).where("mois", "==", mois).get();
@@ -282,9 +301,44 @@ export const genererRecapFrais = onCall(
         });
       }
 
-      // Calcule la distance de chaque chantier travaillé ce jour-là.
+      // ─── Sélection déterministe du chantier retenu ce jour-là ───
+      //  a. tous les chantiers du jour ; b. retrait des "absence" ;
+      //  c. plus aucun → JOUR ABSENCE (aucune indemnité, aucun appel distance) ;
+      //  d. sinon trajet parmi les non-bureau, sinon bureauSeul (repas seul).
+      const chantiersJour = [...g.chantiers.values()];
+      const chantiersAbsence = [];   // n° des chantiers d'absence rencontrés ce jour
+      let absenceLibelle = "";
+      const candidatsBureau = [];    // spec[num].type === "bureau" (n'ouvre pas de trajet)
+      const candidatsTrajet = [];    // tout le reste (type !== "bureau", y c. hors config)
+      for (const c of chantiersJour) {
+        const t = specType(c.chantierNum);
+        if (t === "absence") {
+          if (c.chantierNum) chantiersAbsence.push(c.chantierNum);
+          if (!absenceLibelle) absenceLibelle = c.chantierLibelle || "";
+          continue;
+        }
+        if (t === "bureau") candidatsBureau.push(c);
+        else candidatsTrajet.push(c);
+      }
+
+      // c. Aucun chantier non-absence → jour d'absence (pour l'UI + rapprochement conges).
+      if (!candidatsBureau.length && !candidatsTrajet.length) {
+        if (chantiersAbsence.length) {
+          parSalarie.get(salarieId).jours.push({
+            date,
+            absence: true,
+            chantiersAbsence,
+            chantierNum: chantiersAbsence[0] || null,
+            chantierLibelle: absenceLibelle,
+            deplacement: 0, repas: 0, total: 0,
+          });
+        }
+        continue;
+      }
+
+      // d. Calcule la distance des seuls chantiers ouvrant un trajet.
       const candidats = [];
-      for (const c of g.chantiers.values()) {
+      for (const c of candidatsTrajet) {
         const chantierNum = c.chantierNum;
         if (!chantierNum) {
           pushAlerte({
@@ -342,44 +396,39 @@ export const genererRecapFrais = onCall(
         });
       }
 
-      if (!candidats.length) continue; // aucun chantier exploitable ce jour (déjà en alertes)
-
-      // Chantier le plus éloigné = base de l'indemnité du jour.
-      const retenu = candidats.reduce((a, b) => (b.distanceKm > a.distanceKm ? b : a));
-      const jourBureau = RE_BUREAU.test(retenu.chantierLibelle || "");
-
-      let deplacement = 0;
-      let repas = 0;
-      let total = 0;
-      let nb50 = 0;
-      let zoneReliquat = null;
-      if (!jourBureau) {
+      if (candidats.length) {
+        // Jour normal : chantier le plus éloigné = base de l'indemnité (trajet + repas).
+        const retenu = candidats.reduce((a, b) => (b.distanceKm > a.distanceKm ? b : a));
+        let deplacement = 0, repas = 0, total = 0, nb50 = 0, zoneReliquat = null;
         const ind = composerIndemnite(retenu.distanceKm, bareme, { repas: true, base: retenu.base });
         if (ind) {
           deplacement = ind.deplacement; repas = ind.repas; total = ind.total;
           nb50 = ind.nb50; zoneReliquat = ind.zoneReliquat;
         }
-      }
-
-      const jour = {
-        date,
-        chantierNum: retenu.chantierNum,
-        chantierLibelle: retenu.chantierLibelle,
-        origineType: retenu.origineType,
-        base: retenu.base,
-        distanceKm: retenu.distanceKm,
-        deplacement, repas, total,
-      };
-      if (!jourBureau) { jour.nb50 = nb50; jour.zoneReliquat = zoneReliquat; }
-      if (jourBureau) {
-        jour.jourBureau = true;
-        jour.alerte = "Jour bureau/dépôt — indemnité à valider.";
-        pushAlerte({
-          type: "jour_bureau", salarieId, chantierNum: retenu.chantierNum,
-          message: `${nomsSalaries.get(salarieId) || salarieId} — ${date} : jour bureau/dépôt (indemnité à valider).`,
+        parSalarie.get(salarieId).jours.push({
+          date,
+          chantierNum: retenu.chantierNum,
+          chantierLibelle: retenu.chantierLibelle,
+          origineType: retenu.origineType,
+          base: retenu.base,
+          distanceKm: retenu.distanceKm,
+          deplacement, repas, total, nb50, zoneReliquat,
+        });
+      } else if (candidatsBureau.length) {
+        // Bureau seul (aucun trajet exploitable) : repas SEUL, aucune distance.
+        const bureauC = candidatsBureau[0];
+        const repasDu = spec[bureauC.chantierNum]?.repas === false ? 0 : (Number(bareme.repas) || 0);
+        parSalarie.get(salarieId).jours.push({
+          date,
+          bureauSeul: true,
+          chantierNum: bureauC.chantierNum || null,
+          chantierLibelle: bureauC.chantierLibelle || "",
+          deplacement: 0,
+          repas: repasDu,
+          total: r2(repasDu),
         });
       }
-      parSalarie.get(salarieId).jours.push(jour);
+      // sinon : que du trajet mais tout en alerte/exclu → rien (déjà tracé en alertes).
     }
 
     // ─── c. Agrégation par salarié (+ ventilation par zone/rubrique) ───
