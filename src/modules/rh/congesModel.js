@@ -88,10 +88,13 @@ export function congeCoversSlot(conge, dateIso, periode) {
 //
 //  Périmètre plus large que les seuls rôles « terrain » : inclut aussi
 //  Achat (Thomas SILVESTRE) et Assistante (Audrey LAMENDOLA), qui ont bien
-//  des congés. Exclut Direction / Admin / Artisan. Tri par NOM DE FAMILLE.
+//  des congés. Inclut également Étude (bureau d'études, ex. CAUBIT) : ce rôle
+//  a des congés visibles dans le planning, mais reste EXCLU des frais de
+//  déplacement (liste blanche ROLES_FRAIS distincte, cf. module frais).
+//  Exclut Direction / Admin / Artisan. Tri par NOM DE FAMILLE.
 // ═══════════════════════════════════════════════════════════════
 export const SALARIE_CONGES_ROLES =
-  ["Conducteur travaux", "Chef chantier", "Monteur", "Assistante", "Achat"];
+  ["Conducteur travaux", "Chef chantier", "Monteur", "Assistante", "Achat", "Étude"];
 
 export function salariesConges(users) {
   return (users || [])
