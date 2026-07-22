@@ -31,7 +31,7 @@ import {
   creneauId, getPosteOptions, PERIODES, PERIODE_LABEL,
   slotIndex, slotToCell, expandRange, posteLabel, getCreneauTaches,
   makeTacheId, demiJourneeHeures, tacheValMonteur, tacheValConducteur,
-  weekColumns, weekLabel, addDays, fromISO, toISODate,
+  weekColumns, addDays, fromISO,
 } from "./planningModel";
 import { affectedCreneauPayload, poolCreneauPayload } from "./planningWrites";
 import { prettifyPoste, buildPlanningMessage } from "./planningSmsBody";
@@ -56,7 +56,6 @@ export function AffectationModal({
   // identique à main). Le report sur une autre semaine passe par un BOUTON dédié.
   const [weekStart] = useState(() => fromISO(weekCols[0].iso));
   const cols = useMemo(() => weekColumns(weekStart), [weekStart]);
-  const isSourceWeek = toISODate(weekStart) === weekCols[0].iso;
 
   // Coordonnées SOURCE FIGÉES au montage, INDÉPENDANTES de la navigation (clé du
   // fix doublon). `prefill` (construit dans PlanningGrid) ne porte PAS .date/.periode
@@ -75,6 +74,10 @@ export function AffectationModal({
   const [toPer, setToPer] = useState(initTo.periode);
   // Co-affectation : ressources SUPPLÉMENTAIRES (ids) recevant les MÊMES tâches.
   const [autresRessources, setAutresRessources] = useState([]);
+  // Report d'une tâche affectée : destination dans la semaine SUIVANTE, choisie
+  // (jour + période). Défaut = même jour + même période que la source → report
+  // « à date » si on ne touche à rien. Value = `${dayIdx}_${periode}`.
+  const [reportSlot, setReportSlot] = useState(`${initFrom.dayIdx}_${initFrom.periode}`);
 
   // ─── Lignes de tâches (L3 multi-tâches) ───
   // Une ligne de formulaire = { id, chantierId, batiment, poste, tacheLibre, temps }.
@@ -116,6 +119,18 @@ export function AffectationModal({
   const primaryLine = taches.find((l) => l.chantierId) || taches[0] || null;
 
   const dayOptions = cols.map((c, idx) => ({ value: String(idx), label: `${c.dayLabel} ${c.dateLabel}` }));
+
+  // ─── Destinations de report (semaine SUIVANTE, 5 jours × {AM, PM}) ───
+  // Base calculée depuis le LUNDI source (weekCols[0]), jamais depuis la date de
+  // la tâche (weekColumns exige un lundi).
+  const nextCols = useMemo(() => weekColumns(addDays(fromISO(weekCols[0].iso), 7)), [weekCols]);
+  const nextWeekOptions = nextCols.flatMap((c, dayIdx) =>
+    PERIODES.map((p) => ({
+      value: `${dayIdx}_${p}`,
+      label: `${c.dayLabel} ${c.dateLabel} — ${p === "AM" ? "Matin" : "Après-midi"}`,
+    })),
+  );
+
   const ressourceOptions = [
     { value: "", label: "— À affecter (aucune ressource) —" },
     ...(resources || []).map((r) => ({ value: r.id, label: r.type === "ARTISAN" ? `${r.nom} (art.)` : r.nom })),
@@ -275,9 +290,7 @@ export function AffectationModal({
         // Source pool → on retire la tâche du pool (elle devient affectée).
         if (poolTask) batch.delete(doc(db, "planningCreneaux", poolTask.id));
         await batch.commit();
-        if (!isSourceWeek) {
-          toast(`Tâche reportée sur la semaine du ${weekLabel(weekStart)}`);
-        } else if (extras.length) {
+        if (extras.length) {
           const n = 1 + extras.length;
           toast(`Tâche affectée à ${n} ressource${n > 1 ? "s" : ""}`);
         }
@@ -339,41 +352,44 @@ export function AffectationModal({
     }
   };
 
-  // ─── Reporter la tâche AFFECTÉE à la semaine suivante (J+7, DÉPLACEMENT) ───
-  // Move direct sans passer par le range UI : même ressource, même jour de semaine
-  // (dayIdx source inchangé par un +7 → capacité vendredi 4h/3h correcte), même
-  // période. Réutilise les tâches du créneau source (linesToTaches ← prefill).
-  // La cible vierge → validations réinitialisées (ex undefined) ; cible occupée par
-  // un autre chantier → window.confirm avant écrasement.
-  const reporterSemaineSuivante = async () => {
+  // ─── Reporter la tâche AFFECTÉE dans la semaine suivante (DÉPLACEMENT) ───
+  // Destination choisie (jour + période) via `reportSlot` ; même ressource, tâches
+  // du créneau source réutilisées (linesToTaches ← prefill). ⚠️ dayIdx = celui de
+  // la CIBLE (capacité vendredi 4h/3h ≠ lundi 4h). Cible vierge → validations
+  // réinitialisées (ex undefined) ; cible occupée par un autre chantier → confirm.
+  const reporter = async () => {
     if (!canWrite || saving || !prefill || !targetRes) return;
+    const [dStr, targetPeriode] = reportSlot.split("_");
+    const targetDayIdx = Number(dStr);
+    const targetCol = nextCols[targetDayIdx];
+    if (!targetCol) return;
+    const targetDate = targetCol.iso;
     setSaving(true); setErr(null);
     try {
       const batch = writeBatch(db);
       const chantierIdCourant = primaryLine?.chantierId || null;
       for (const src of sourceSlots) {
-        const targetDate = toISODate(addDays(fromISO(src.date), 7)); // même jour, semaine +7
-        const targetRef = doc(db, "planningCreneaux", creneauId(sourceRessourceId, targetDate, src.periode));
+        const targetRef = doc(db, "planningCreneaux", creneauId(sourceRessourceId, targetDate, targetPeriode));
         const snap = await getDoc(targetRef);
         const ex = snap.exists() ? snap.data() : undefined;
         if (ex && ex.chantierId && ex.chantierId !== chantierIdCourant) {
-          if (!window.confirm("La semaine suivante a déjà une tâche sur ce créneau. Écraser ?")) {
+          if (!window.confirm("Ce créneau a déjà une tâche d'un autre chantier. Écraser ?")) {
             setSaving(false); return;
           }
         }
         batch.set(targetRef, affectedCreneauPayload({
           res: { id: sourceRessourceId, nom: initialRessource.nom, type: initialRessource.type },
-          date: targetDate, periode: src.periode, dayIdx: initFrom.dayIdx,
+          date: targetDate, periode: targetPeriode, dayIdx: targetDayIdx,
           taches: linesToTaches(), existing: ex, userId: user._id,
         }), { merge: true });
         // Vrai déplacement : libérer le slot source (coords figées).
         batch.delete(doc(db, "planningCreneaux", creneauId(sourceRessourceId, src.date, src.periode)));
       }
       await batch.commit();
-      toast("Tâche reportée à la semaine suivante");
+      toast(`Tâche reportée au ${targetCol.dayLabel} ${targetCol.dateLabel} ${targetPeriode === "AM" ? "matin" : "après-midi"}`);
       onClose();
     } catch (e) {
-      console.error("[AffectationModal] report semaine suivante échoué :", e);
+      console.error("[AffectationModal] report échoué :", e);
       toast("Échec du report");
       setErr(e); setSaving(false);
     }
@@ -661,6 +677,20 @@ export function AffectationModal({
               La somme des temps dépasse la capacité d'une demi-journée ({capacite} h). Réduisez les temps ou retirez une tâche.
             </div>
           )}
+
+          {/* Report d'une tâche AFFECTÉE existante vers la semaine suivante : choix
+              du jour + période d'arrivée (défaut = même jour/période). Dans le flux
+              (scrolle normalement), pas dans le header. */}
+          {canWrite && prefill && targetRes && (
+            <div style={{
+              display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: space.sm,
+              paddingTop: space.md, borderTop: `1px solid ${EPJ.gray200}`,
+            }}>
+              <Field as="select" dense label="Reporter au" value={reportSlot} options={nextWeekOptions}
+                onChange={(e) => setReportSlot(e.target.value)} />
+              <Button variant="secondary" onClick={reporter} disabled={saving}>Reporter</Button>
+            </div>
+          )}
         </div>
 
         {err && (
@@ -670,16 +700,6 @@ export function AffectationModal({
         )}
 
         <div style={{ display: "flex", gap: space.sm, marginTop: space.lg, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          {/* Report J+7 (tâche AFFECTÉE existante uniquement). Wrapper marginRight
-              auto (le <Button> ne relaie pas `style`) → poussé à gauche, séparé
-              d'Annuler/Affecter. */}
-          {canWrite && prefill && targetRes && !saving && (
-            <span style={{ marginRight: "auto" }}>
-              <Button variant="secondary" onClick={reporterSemaineSuivante}>
-                Reporter à la semaine suivante
-              </Button>
-            </span>
-          )}
           <Button variant="ghost" onClick={onClose}>
             {canWrite ? "Annuler" : "Fermer"}
           </Button>

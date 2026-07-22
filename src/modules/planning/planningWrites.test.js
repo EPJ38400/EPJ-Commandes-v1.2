@@ -159,6 +159,23 @@ console.log("\nplanningWrites — report L9 (existing explicite)");
 //   e. Collision inter-chantier sur cible → window.confirm (getDoc autoritatif) inchangé.
 //   f. Cas source=cible (même slot) → targetHitsSource=true → PAS de suppression, merge préserve.
 
+// ─── Report : capacité au dayIdx CIBLE, pas source (vendredi PM 3h → lundi PM 4h) ──
+// Le handler reporter() passe dayIdx = targetDayIdx à affectedCreneauPayload. Une
+// tâche SANS temps (temps hérité de la demi-journée) doit prendre la capacité du jour
+// D'ARRIVÉE. Vendredi PM = 3 h, lundi PM = 4 h → le miroir doit valoir 4, jamais 3.
+{
+  const source = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 4, "PM");
+  eq(source.tempsEstimeH, 3, "source vendredi PM sans temps → miroir 3 h");
+  const cible = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement" }], 0, "PM");
+  eq(cible.tempsEstimeH, 4, "report vers lundi PM (dayIdx cible) → miroir 4 h (PAS 3 h du vendredi)");
+}
+
+// (bis) une tâche AVEC temps explicite est indifférente au dayIdx (report conserve le temps).
+{
+  const cible = docCore([{ id: "t0", chantierId: "251234", batiment: "A", posteAvancementKey: "log-1", posteLabel: "Logement", tempsEstimeH: 2 }], 0, "PM");
+  eq(cible.tempsEstimeH, 2, "temps explicite → conservé quel que soit le jour cible");
+}
+
 console.log("\n────────────────────────────────────────");
 console.log(`Tests planningWrites : ${ok} OK, ${ko} KO`);
 if (ko > 0) process.exit(1);
