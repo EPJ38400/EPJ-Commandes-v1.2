@@ -35,7 +35,7 @@ import { EmptyAccess } from "../planning/PlanningTab";
 import { toISODate, fromISO, resourcesForConductor } from "../planning/planningModel";
 import { CongeModal } from "./CongeModal";
 import {
-  CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
+  CONGE_TYPES, CONGE_TYPE_LABEL, CONGE_TYPE_SHORT, CONGE_TYPE_COLOR, CONGE_STATUT_LABEL,
   congeCoversSlot, isFerme, soldeCongesCP, joursOuvrablesDecomptes,
   soldeRCR, minutesRCRDecomptees, formatMinutes, salariesConges,
 } from "./congesModel";
@@ -108,6 +108,7 @@ export function CongesPage() {
   const [actingId, setActingId] = useState(null);
   const [soldesMap, setSoldesMap] = useState({}); // rhSoldes indexés par ressourceId
   const [showSoldes, setShowSoldes] = useState(false); // panneau « Soldes CP » (gestionnaire)
+  const [exporting, setExporting] = useState(false); // export Excel de la grille
 
   // ─── Lecture rhSoldes (RH-3a) — ciblée selon la vue ───
   //   • salarié (own_items) → uniquement SON doc ;
@@ -243,6 +244,160 @@ export function CongesPage() {
     const vBloc = { par: selfId, parNom: `${user?.prenom || ""} ${user?.nom || ""}`.trim() || selfId, decision: "REFUS", commentaire: commentaire || null, date: serverTimestamp() };
     if (isN1) doUpdate(conge, { statut: "REFUSEE", validationN1: vBloc });
     else doUpdate(conge, { statut: "REFUSEE", validationN2: vBloc });
+  };
+
+  // ─── Export Excel de la grille (gestionnaire) — mise en forme fidèle ───
+  //  ExcelJS en import DYNAMIQUE (hors bundle de boot). Couleurs de cellules +
+  //  hachures natives xlsx (pattern "lightUp") que SheetJS ne sait pas écrire.
+  const exportGrilleXlsx = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const mod = await import("exceljs");
+      const ExcelJS = mod.default || mod;
+
+      // Hex EPJ → ARGB xlsx (préfixe alpha FF). Texte noir/blanc selon luminance.
+      const argb = (hex) => "FF" + String(hex).replace("#", "").toUpperCase();
+      const solid = (hex) => ({ type: "pattern", pattern: "solid", fgColor: { argb: argb(hex) } });
+      const hatch = (hex) => ({ type: "pattern", pattern: "lightUp", fgColor: { argb: argb(hex) }, bgColor: { argb: "FFFFFFFF" } });
+      const thin = { style: "thin", color: { argb: argb(EPJ.gray200) } };
+      const allThin = { top: thin, left: thin, bottom: thin, right: thin };
+      const textArgbFor = (hex) => {
+        const h = String(hex).replace("#", "");
+        const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+        const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        return lum > 0.6 ? "FF1D1D1D" : "FFFFFFFF";
+      };
+
+      const mm = String(monthRef.m + 1).padStart(2, "0");
+      const moisKey = `${monthRef.y}-${mm}`;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(`Congés ${moisKey}`);
+      const nDays = days.length;
+      const lastCol = 1 + nDays;
+
+      // Ligne 1 : titre fusionné.
+      ws.mergeCells(1, 1, 1, lastCol);
+      const t = ws.getCell(1, 1);
+      t.value = `Planning congés — ${MONTH_LABELS[monthRef.m]} ${monthRef.y}`;
+      t.font = { bold: true, size: 13, color: { argb: argb(EPJ.gray900) } };
+      t.alignment = { vertical: "middle", horizontal: "left" };
+      ws.getRow(1).height = 22;
+
+      // Ligne 2 : en-têtes (Salarié + « L 14 »), week-ends grisés.
+      const head = ws.getRow(2);
+      const hSal = head.getCell(1);
+      hSal.value = "Salarié";
+      hSal.font = { bold: true, size: 10, color: { argb: argb(EPJ.gray700) } };
+      hSal.alignment = { vertical: "middle" };
+      hSal.border = allThin;
+      days.forEach((iso, i) => {
+        const dow = fromISO(iso).getDay();
+        const weekend = dow === 0 || dow === 6;
+        const c = head.getCell(2 + i);
+        c.value = `${WEEKDAY_LETTER[dow]} ${iso.slice(8, 10)}`;
+        c.font = { bold: true, size: 8, color: { argb: argb(EPJ.gray700) } };
+        c.alignment = { horizontal: "center", vertical: "middle" };
+        if (weekend) c.fill = solid(EPJ.gray100);
+        c.border = allThin;
+      });
+      head.height = 16;
+
+      // Lignes ressources (ordre de la grille = resources = salariesConges trié).
+      resources.forEach((r, ri) => {
+        const row = ws.getRow(3 + ri);
+        const nc = row.getCell(1);
+        nc.value = r.nom;
+        nc.font = { size: 10, color: { argb: argb(EPJ.gray900) } };
+        nc.alignment = { vertical: "middle" };
+        nc.border = allThin;
+        days.forEach((iso, i) => {
+          const dow = fromISO(iso).getDay();
+          const weekend = dow === 0 || dow === 6;
+          const cell = row.getCell(2 + i);
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.border = allThin;
+          const cAm = slotConge(r.id, iso, "AM");
+          const cPm = slotConge(r.id, iso, "PM");
+          if (!cAm && !cPm) {
+            if (weekend) cell.fill = solid(EPJ.gray100);
+            return;
+          }
+          const short = (c) => CONGE_TYPE_SHORT[c.type] || c.type;
+          let text, typeColor, pending;
+          if (cAm && cPm && cAm.type === cPm.type) {          // journée pleine même type
+            typeColor = CONGE_TYPE_COLOR[cAm.type] || EPJ.gray400;
+            text = short(cAm);
+            pending = !isFerme(cAm) || !isFerme(cPm);
+          } else if (cAm && cPm) {                             // AM/PM types différents
+            typeColor = CONGE_TYPE_COLOR[cAm.type] || EPJ.gray400;
+            text = `${short(cAm)}/${short(cPm)}`;
+            pending = !isFerme(cAm) || !isFerme(cPm);
+          } else if (cAm) {                                    // matin seul
+            typeColor = CONGE_TYPE_COLOR[cAm.type] || EPJ.gray400;
+            text = `${short(cAm)} (mat.)`;
+            pending = !isFerme(cAm);
+          } else {                                             // après-midi seul
+            typeColor = CONGE_TYPE_COLOR[cPm.type] || EPJ.gray400;
+            text = `${short(cPm)} (ap.)`;
+            pending = !isFerme(cPm);
+          }
+          if (pending) {
+            cell.fill = hatch(typeColor);
+            cell.value = `${text} ?`;
+            cell.font = { size: 8, color: { argb: "FF1D1D1D" } };
+          } else {
+            cell.fill = solid(typeColor);
+            cell.value = text;
+            cell.font = { size: 8, bold: true, color: { argb: textArgbFor(typeColor) } };
+          }
+        });
+      });
+
+      // Largeurs + figeage en-tête (ligne 2) et colonne A.
+      ws.getColumn(1).width = 22;
+      for (let c = 2; c <= lastCol; c++) ws.getColumn(c).width = 6;
+      ws.views = [{ state: "frozen", xSplit: 1, ySplit: 2 }];
+
+      // Légende sous la grille.
+      let lr = 3 + resources.length + 1; // 1 ligne vide de séparation
+      const lt = ws.getCell(lr, 1);
+      lt.value = "Légende";
+      lt.font = { bold: true, size: 10, color: { argb: argb(EPJ.gray900) } };
+      lr += 1;
+      CONGE_TYPES.forEach((ty) => {
+        const sw = ws.getCell(lr, 1);
+        sw.fill = solid(CONGE_TYPE_COLOR[ty]);
+        sw.border = allThin;
+        const lb = ws.getCell(lr, 2);
+        lb.value = `${CONGE_TYPE_SHORT[ty]} — ${CONGE_TYPE_LABEL[ty]}`;
+        lb.font = { size: 9, color: { argb: argb(EPJ.gray700) } };
+        lr += 1;
+      });
+      const hs = ws.getCell(lr, 1);
+      hs.fill = hatch(EPJ.gray600);
+      hs.border = allThin;
+      const hlbl = ws.getCell(lr, 2);
+      hlbl.value = "hachuré = en attente de validation";
+      hlbl.font = { size: 9, color: { argb: argb(EPJ.gray700) } };
+
+      // Téléchargement (pas de localStorage).
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Conges_${moisKey}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[CongesPage] export Excel échoué :", e);
+      window.alert("Export Excel impossible. Réessayez.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   // ─── Gate d'accès (après les hooks) ───
@@ -383,6 +538,8 @@ export function CongesPage() {
         </div>
         {gestionnaire ? (
           <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap" }}>
+            <Button variant="ghost" size="sm" onClick={exportGrilleXlsx} loading={exporting}
+              disabled={resources.length === 0}>⬇ Exporter Excel</Button>
             <Button variant="secondary" size="sm" onClick={() => setShowSoldes(true)}>🌴 Soldes CP</Button>
             <Button variant="primary" size="sm" onClick={() => setModal({ conge: null })}>+ Nouveau congé</Button>
           </div>
