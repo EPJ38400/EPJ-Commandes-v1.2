@@ -11,6 +11,7 @@
     "test:unit": "node src/modules/commandes/catalogImporter.test.js && node src/modules/commandes/orderEdit.test.js && node src/core/smsService.test.js && node src/modules/commandes/orderDates.test.js && node src/modules/commandes/orderReceive.test.js && node src/modules/parc-machines/outillageRappel.test.js && node src/modules/commandes/esaboraUtils.test.js && node src/modules/parc-machines/outilsImporter.test.js && node src/modules/parc-machines/outillageInterventions.test.js && node src/modules/reserves/reservesRappel.test.js && node src/modules/planning/planningModel.test.js && node src/modules/planning/planningWrites.test.js && node functions/lib/smsWindow.test.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "firebase": "^10.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
