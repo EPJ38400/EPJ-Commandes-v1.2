@@ -1,22 +1,30 @@
 // ═══════════════════════════════════════════════════════════════
-//  RecapFraisPage — onglet « Récap frais » du module RH (RH-Frais-3b2a)
+//  RecapFraisPage — onglet « Récap frais » du module RH (RH-Frais-3b2b)
 //
 //  Écran RÉSERVÉ AU GESTIONNAIRE (gate rh.frais._access = Admin/Direction/
 //  Assistante, partagée avec « Notes de frais » / « Heures salariés »).
 //
-//  Affichage + export du récap mensuel des frais de déplacement :
+//  Affichage + ÉDITION + export du récap mensuel des frais de déplacement :
 //   • sélecteur mois (fraisRecap existants ∪ mois des heures importées) +
 //     bouton « Générer / Regénérer » → callable genererRecapFrais({mois, force:true}) ;
-//   • lecture LIVE fraisRecap/{mois} (onSnapshot) ;
-//   • bandeau résumé <StatCard> + section alertes repliable <Banner> ;
-//   • tableau par salarié (accordéon) → 1 ligne/jour ;
-//   • export .xlsx (SheetJS, import dynamique) : feuilles « Détail » + « Synthèse ».
+//   • lecture LIVE fraisRecap/{mois} (onSnapshot) + surcharges LIVE fraisOverrides ;
+//   • bandeau résumé <StatCard> + section alertes (adresse éditable / non-mappé) ;
+//   • tableau par salarié (accordéon) → 1 ligne/jour, avec contrôles inline
+//     (origine Dépôt↔Domicile, base Trajet↔Transport, exclure) → écrit
+//     fraisOverrides/{mois__salarieId__date} (debounce léger) ;
+//   • bandeau « Modifs non recalculées » + bouton « ↻ Recalculer » ;
+//   • export .xlsx (SheetJS, import dynamique) : « Détail » (+ Statut) / « Synthèse »
+//     / « Ventilation paie ».
 //
-//  ⚠️ LECTURE PURE + appel CF. AUCUNE écriture Firestore ici (les surcharges
-//  fraisOverrides = lot RH-Frais-3b2b). chantiers jamais touché.
+//  ⚠️ Écrit fraisOverrides (surcharges/jour) + chantiersEsabora (correction
+//  d'adresse). Ne recalcule PAS à chaque toggle : l'utilisateur groupe puis
+//  recalcule. `chantiers` (trio) jamais touché.
 // ═══════════════════════════════════════════════════════════════
-import { useState, useEffect, useMemo } from "react";
-import { collection, doc, getDocs, onSnapshot } from "firebase/firestore";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  collection, doc, getDocs, onSnapshot, query, where,
+  setDoc, deleteDoc, deleteField, serverTimestamp,
+} from "firebase/firestore";
 import { httpsCallable, getFunctions } from "firebase/functions";
 import { app, db } from "../../firebase";
 import { EPJ, radius, space, fontSize, fontWeight } from "../../core/theme";
@@ -35,6 +43,8 @@ import { EmptyAccess } from "../planning/PlanningTab";
 
 const RECAP_COL = "fraisRecap";
 const HEURES_COL = "heures";
+const OVERRIDES_COL = "fraisOverrides";
+const CHANTIERS_ESABORA_COL = "chantiersEsabora";
 
 const fnGenererRecapFrais = httpsCallable(getFunctions(app, "europe-west1"), "genererRecapFrais");
 
@@ -47,13 +57,22 @@ const baseLabel = (b) => (b === "transport" ? "Transport" : "Trajet");
 const chantierLabel = (num, libelle) =>
   num ? `${num}${libelle ? ` · ${libelle}` : ""}` : (libelle || "—");
 
+// Statut métier d'un jour → badge (B1) + libellé d'export (D).
+function jourStatut(j) {
+  if (j.absence) return { tone: "neutral", label: "absence" };
+  if (j.exclu) return { tone: "neutral", label: "exclu" };
+  if (j.bureauSeul) return { tone: "info", label: "bureau — repas seul" };
+  return { tone: "success", label: "ok" };
+}
+const statutExport = (j) =>
+  j.absence ? "absence" : (j.exclu ? "exclu" : (j.bureauSeul ? "bureau" : "normal"));
+
 // Libellés des types d'alerte (regroupement).
 const ALERTE_GROUPES = [
   { type: "salarie_non_mappe", label: "Salariés non mappés" },
-  { type: "adresse", label: "Adresses chantier introuvables" },
+  { type: "adresse", label: "Adresses introuvables" },
   { type: "distance", label: "Calcul de distance impossible" },
   { type: "chantier_manquant", label: "Lignes sans n° de chantier" },
-  { type: "jour_bureau", label: "Jours bureau/dépôt à valider" },
   { type: "ventilation", label: "Écarts de ventilation" },
 ];
 
@@ -80,12 +99,17 @@ function ventilationRows(v) {
   return rows;
 }
 
-export function RecapFraisPage() {
+export function RecapFraisPage({ onGoTab, onNavigate }) {
   const { user } = useAuth();
   const { rolesConfig } = useData();
   const toast = useToast();
 
   const accessScope = can(user, "rh.frais", "_access", rolesConfig);
+  const isAdmin = (user?.roles || []).includes("Admin");
+  const majParNom = useMemo(
+    () => `${user?.prenom || ""} ${user?.nom || ""}`.trim() || user?._id || "",
+    [user],
+  );
 
   // ─── Liste des mois disponibles (fraisRecap ∪ heures) ───
   const [moisDispo, setMoisDispo] = useState([]);
@@ -127,6 +151,107 @@ export function RecapFraisPage() {
     return unsub;
   }, [mois]);
 
+  // ─── Surcharges live fraisOverrides (where mois==) ───
+  //  key `${salarieId}__${date}` → { origineType?, base?, exclu?, majAt }.
+  const [overrides, setOverrides] = useState({});
+  useEffect(() => {
+    if (!mois) { setOverrides({}); return undefined; }
+    const unsub = onSnapshot(
+      query(collection(db, OVERRIDES_COL), where("mois", "==", mois)),
+      (snap) => {
+        const m = {};
+        snap.docs.forEach((d) => {
+          const o = d.data() || {};
+          if (o.salarieId && o.date) m[`${o.salarieId}__${o.date}`] = o;
+        });
+        setOverrides(m);
+      },
+      (e) => console.error("[RecapFrais] lecture surcharges échouée :", e),
+    );
+    return unsub;
+  }, [mois]);
+
+  // ─── État d'édition (draft optimiste + drapeau « à recalculer ») ───
+  const [draft, setDraft] = useState({});          // key → { origineType, base, exclu }
+  const [manualDirty, setManualDirty] = useState(false);
+  const timers = useRef({});
+  useEffect(() => {
+    setDraft({});
+    setManualDirty(false);
+    Object.values(timers.current).forEach((t) => clearTimeout(t));
+    timers.current = {};
+  }, [mois]);
+
+  // État courant d'un jour (draft > override > défaut salarié).
+  const dayState = useCallback((s, j) => {
+    const key = `${s.salarieId}__${j.date}`;
+    if (draft[key]) return draft[key];
+    const o = overrides[key] || {};
+    return {
+      origineType: (o.origineType === "DOMICILE" || o.origineType === "DEPOT")
+        ? o.origineType : (s.origineDefaut === "DOMICILE" ? "DOMICILE" : "DEPOT"),
+      base: o.base === "transport" ? "transport" : "trajet",
+      exclu: o.exclu === true,
+    };
+  }, [draft, overrides]);
+
+  // Écriture (debouncée) d'une surcharge/jour ; défaut → suppression de la clé.
+  const flushWrite = useCallback(async (salarieId, date, origineDefaut, st) => {
+    const id = `${mois}__${salarieId}__${date}`;
+    const dft = origineDefaut === "DOMICILE" ? "DOMICILE" : "DEPOT";
+    const isDefault = st.origineType === dft && st.base === "trajet" && !st.exclu;
+    try {
+      if (isDefault) {
+        await deleteDoc(doc(db, OVERRIDES_COL, id));
+      } else {
+        await setDoc(doc(db, OVERRIDES_COL, id), {
+          mois, salarieId, date,
+          origineType: st.origineType !== dft ? st.origineType : deleteField(),
+          base: st.base === "transport" ? "transport" : deleteField(),
+          exclu: st.exclu ? true : deleteField(),
+          majPar: user?._id || "",
+          majParNom,
+          majAt: serverTimestamp(),
+        }, { merge: true });
+      }
+      setManualDirty(true);
+    } catch (e) {
+      console.error("[RecapFrais] écriture surcharge échouée :", e);
+      toast("Surcharge impossible (droits ?).", 3000);
+    }
+  }, [mois, user, majParNom, toast]);
+
+  // Toggle inline → maj optimiste + flush debouncé (400 ms) par jour.
+  const setDay = useCallback((s, j, patch) => {
+    const key = `${s.salarieId}__${j.date}`;
+    const next = { ...dayState(s, j), ...patch };
+    setDraft((d) => ({ ...d, [key]: next }));
+    if (timers.current[key]) clearTimeout(timers.current[key]);
+    timers.current[key] = setTimeout(() => {
+      flushWrite(s.salarieId, j.date, s.origineDefaut, next);
+    }, 400);
+  }, [dayState, flushWrite]);
+
+  // ─── Correction d'adresse chantier (chantiersEsabora, merge) ───
+  const saveAddress = useCallback(async (num, patch) => {
+    if (!num) return;
+    try {
+      await setDoc(doc(db, CHANTIERS_ESABORA_COL, num), {
+        num,
+        ...(patch.adresse != null ? { adresse: patch.adresse } : {}),
+        ...(patch.codePostal != null ? { codePostal: patch.codePostal } : {}),
+        ...(patch.ville != null ? { ville: patch.ville } : {}),
+        majFraisPar: user?._id || "",
+        majFraisAt: serverTimestamp(),
+      }, { merge: true });
+      setManualDirty(true);
+      toast(`Adresse chantier ${num} enregistrée — pensez à recalculer.`, 3000);
+    } catch (e) {
+      console.error("[RecapFrais] enregistrement adresse échoué :", e);
+      toast("Enregistrement adresse impossible (droits ?).", 3000);
+    }
+  }, [user, toast]);
+
   // ─── Génération / regénération (force:true = recalcul complet) ───
   const [generating, setGenerating] = useState(false);
   const genererRecap = async () => {
@@ -134,6 +259,8 @@ export function RecapFraisPage() {
     setGenerating(true);
     try {
       const { data } = await fnGenererRecapFrais({ mois, force: true });
+      setManualDirty(false);
+      setDraft({});
       toast(
         `Récap ${mois} : ${data?.nbSalaries ?? 0} salariés · ${euro(data?.totalGlobal)} · ${data?.nbAlertes ?? 0} alerte(s)`,
         4000,
@@ -163,7 +290,17 @@ export function RecapFraisPage() {
     [salaries],
   );
 
-  // ─── Export .xlsx (2 feuilles) ───
+  // Modifs non recalculées : surcharge plus récente que le récap OU édition locale.
+  const overrideStale = useMemo(() => {
+    const gen = recap?.genereAt?.toMillis ? recap.genereAt.toMillis() : 0;
+    return Object.values(overrides).some((o) => {
+      const t = o.majAt?.toMillis ? o.majAt.toMillis() : 0;
+      return t > gen;
+    });
+  }, [overrides, recap]);
+  const dirty = manualDirty || overrideStale;
+
+  // ─── Export .xlsx (3 feuilles) ───
   const [exporting, setExporting] = useState(false);
   const exportXlsx = async () => {
     if (!recap || exporting) return;
@@ -171,7 +308,7 @@ export function RecapFraisPage() {
     try {
       const XLSX = await import("xlsx");
 
-      // Feuille « Détail » : 1 ligne par salarié × jour.
+      // Feuille « Détail » : 1 ligne par salarié × jour (+ colonne Statut).
       const detailHead = [
         "Salarié", "Date", "Chantier n°", "Chantier", "Origine", "Base",
         "Distance km", "Déplacement €", "Repas €", "Total €", "Statut",
@@ -190,7 +327,7 @@ export function RecapFraisPage() {
             Number(j.deplacement) || 0,
             Number(j.repas) || 0,
             Number(j.total) || 0,
-            j.jourBureau ? "à valider" : (j.alerte ? "alerte" : "ok"),
+            statutExport(j),
           ]);
         }
       }
@@ -279,6 +416,23 @@ export function RecapFraisPage() {
           text={`Aucun récap pour ${mois}. Cliquez sur « Générer / Regénérer ».`} />
       ) : (
         <>
+          {/* Bandeau « modifs non recalculées » */}
+          {dirty && (
+            <div style={{ marginBottom: space.md }}>
+              <Banner
+                tone="warning"
+                icon="🔄"
+                title="Modifs non recalculées"
+                text="Des surcharges ou corrections d'adresse ont été enregistrées. Recalculez pour mettre à jour les montants."
+                action={
+                  <Button variant="primary" size="sm" onClick={genererRecap} loading={generating}>
+                    ↻ Recalculer
+                  </Button>
+                }
+              />
+            </div>
+          )}
+
           {/* Résumé */}
           <div style={{
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
@@ -305,11 +459,18 @@ export function RecapFraisPage() {
             </div>
           )}
 
-          {/* Alertes */}
-          {alertes.length > 0 && <AlertesSection alertes={alertes} />}
+          {/* Alertes (adresse éditable + liens de résolution) */}
+          {alertes.length > 0 && (
+            <AlertesSection
+              alertes={alertes}
+              onSaveAddress={saveAddress}
+              onGoHeures={onGoTab ? () => onGoTab("rh.heures") : null}
+              onGoAdminEsabora={(isAdmin && onNavigate) ? () => onNavigate("admin") : null}
+            />
+          )}
 
-          {/* Tableau par salarié (accordéon) */}
-          <SalariesAccordion salaries={salaries} />
+          {/* Tableau par salarié (accordéon) + contrôles inline */}
+          <SalariesAccordion salaries={salaries} dayState={dayState} setDay={setDay} />
         </>
       )}
     </div>
@@ -317,9 +478,9 @@ export function RecapFraisPage() {
 }
 
 // ═════════════════════════════════════════════════════════════
-//  Section alertes (repliable), regroupées par type
+//  Section alertes (repliable), regroupées par type + correction inline
 // ═════════════════════════════════════════════════════════════
-function AlertesSection({ alertes }) {
+function AlertesSection({ alertes, onSaveAddress, onGoHeures, onGoAdminEsabora }) {
   const [open, setOpen] = useState(true);
   const groupes = useMemo(() => {
     const known = ALERTE_GROUPES.map((g) => ({
@@ -329,6 +490,19 @@ function AlertesSection({ alertes }) {
     if (autresItems.length) known.push({ type: "autre", label: "Autres", items: autresItems });
     return known;
   }, [alertes]);
+
+  // Chantiers à corriger (adresse manquante côté chantier, hors erreurs d'origine).
+  const chantiersACorriger = useMemo(() => {
+    const m = new Map();
+    for (const a of alertes) {
+      if (a.type === "adresse" && a.sousType !== "origine" && a.chantierNum && !m.has(a.chantierNum)) {
+        m.set(a.chantierNum, { chantierNum: a.chantierNum, chantierLibelle: a.chantierLibelle || "" });
+      }
+    }
+    return [...m.values()];
+  }, [alertes]);
+
+  const hasNonMappe = alertes.some((a) => a.type === "salarie_non_mappe");
 
   return (
     <div style={{ marginBottom: space.lg }}>
@@ -345,6 +519,29 @@ function AlertesSection({ alertes }) {
           borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md,
           background: EPJ.white, padding: space.md,
         }}>
+          {/* Correction rapide des adresses chantier manquantes */}
+          {chantiersACorriger.length > 0 && (
+            <div style={{ marginBottom: space.md }}>
+              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
+                Corriger les adresses chantier <span style={{ color: EPJ.gray500, fontWeight: fontWeight.regular }}>({chantiersACorriger.length})</span>
+              </div>
+              {chantiersACorriger.map((c) => (
+                <AddressFixRow key={c.chantierNum} chantier={c} onSave={onSaveAddress}
+                  onGoAdminEsabora={onGoAdminEsabora} />
+              ))}
+            </div>
+          )}
+
+          {/* Lien résolution salariés non mappés */}
+          {hasNonMappe && onGoHeures && (
+            <div style={{ marginBottom: space.md }}>
+              <Button variant="secondary" size="sm" onClick={onGoHeures}>
+                → Résoudre dans « Heures salariés »
+              </Button>
+            </div>
+          )}
+
+          {/* Détail des alertes par groupe */}
           {groupes.map((g) => (
             <div key={g.type} style={{ marginBottom: space.md }}>
               <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
@@ -360,7 +557,7 @@ function AlertesSection({ alertes }) {
             </div>
           ))}
           <div style={{ fontSize: fontSize.xs, color: EPJ.gray500 }}>
-            Lecture seule — la résolution des surcharges arrive au prochain lot.
+            Après correction, cliquez sur « ↻ Recalculer » pour mettre à jour le récap.
           </div>
         </div>
       )}
@@ -368,10 +565,59 @@ function AlertesSection({ alertes }) {
   );
 }
 
+// Ligne de correction d'adresse d'un chantier (écrit chantiersEsabora).
+function AddressFixRow({ chantier, onSave, onGoAdminEsabora }) {
+  const [adresse, setAdresse] = useState("");
+  const [codePostal, setCodePostal] = useState("");
+  const [ville, setVille] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (saving) return;
+    if (!adresse.trim() && !codePostal.trim() && !ville.trim()) return;
+    setSaving(true);
+    try {
+      await onSave(chantier.chantierNum, {
+        adresse: adresse.trim(), codePostal: codePostal.trim(), ville: ville.trim(),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: "flex", flexWrap: "wrap", gap: space.xs, alignItems: "flex-end",
+      padding: `${space.sm}px 0`, borderBottom: `1px solid ${EPJ.gray100}`,
+    }}>
+      <div style={{ minWidth: 150, flex: "1 1 150px" }}>
+        <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: EPJ.gray900 }}>
+          {chantierLabel(chantier.chantierNum, chantier.chantierLibelle)}
+        </div>
+      </div>
+      <Field label="Adresse" dense width={200} value={adresse}
+        onChange={(e) => setAdresse(e.target.value)} placeholder="rue…" />
+      <Field label="CP" dense width={80} value={codePostal}
+        onChange={(e) => setCodePostal(e.target.value)} placeholder="38000" />
+      <Field label="Ville" dense width={140} value={ville}
+        onChange={(e) => setVille(e.target.value)} placeholder="Grenoble" />
+      <Button variant="primary" size="sm" onClick={save} loading={saving}
+        disabled={!adresse.trim() && !codePostal.trim() && !ville.trim()}>
+        Enregistrer
+      </Button>
+      {onGoAdminEsabora && (
+        <Button variant="ghost" size="sm" onClick={onGoAdminEsabora}>
+          Ouvrir dans Injection affaires Esabora
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════
-//  Accordéon par salarié → détail 1 ligne/jour
+//  Accordéon par salarié → détail 1 ligne/jour (+ contrôles inline)
 // ═════════════════════════════════════════════════════════════
-function SalariesAccordion({ salaries }) {
+function SalariesAccordion({ salaries, dayState, setDay }) {
   const [openIds, setOpenIds] = useState(() => new Set());
   const toggle = (id) => setOpenIds((prev) => {
     const next = new Set(prev);
@@ -379,28 +625,51 @@ function SalariesAccordion({ salaries }) {
     return next;
   });
 
-  const jourCols = [
-    { key: "date", header: "Date", width: 110, sortable: true },
-    { key: "chantier", header: "Chantier", sortable: true,
-      render: (_v, r) => chantierLabel(r.chantierNum, r.chantierLibelle) },
-    { key: "origineType", header: "Origine", width: 90, render: (v) => origineLabel(v) },
-    { key: "base", header: "Base", width: 90, render: (v) => baseLabel(v) },
-    { key: "distanceKm", header: "Distance", numeric: true, align: "right", sortable: true,
-      render: (v) => km(v) },
-    { key: "deplacement", header: "Déplacement", numeric: true, align: "right", render: (v) => euro(v) },
-    { key: "repas", header: "Repas", numeric: true, align: "right", render: (v) => euro(v) },
-    { key: "total", header: "Total", numeric: true, align: "right", sortable: true, render: (v) => euro(v) },
-    { key: "statut", header: "Statut", width: 96,
-      render: (_v, r) => (
-        r.jourBureau
-          ? <Badge tone="warning" label="à valider" />
-          : (r.alerte ? <Badge tone="danger" label="alerte" /> : <Badge tone="neutral" label="ok" />)
-      ) },
-  ];
-
   if (!salaries.length) {
     return <EmptyBox icon="👷" title="Aucun salarié" text="Aucune ligne dans ce récap." />;
   }
+
+  // Colonnes construites PAR salarié (les contrôles inline capturent `s`).
+  const makeCols = (s) => [
+    { key: "date", header: "Date", width: 104, sortable: true },
+    { key: "chantier", header: "Chantier", sortable: true,
+      render: (_v, r) => (
+        <span style={{ textDecoration: r.exclu ? "line-through" : "none", color: r.exclu ? EPJ.gray500 : undefined }}>
+          {chantierLabel(r.chantierNum, r.chantierLibelle)}
+        </span>
+      ) },
+    { key: "origineType", header: "Origine", width: 150,
+      render: (_v, r) => (
+        r.absence
+          ? <span style={{ color: EPJ.gray400 }}>—</span>
+          : <Segmented value={dayState(s, r).origineType}
+              options={[{ v: "DEPOT", l: "Dépôt" }, { v: "DOMICILE", l: "Domicile" }]}
+              onChange={(v) => setDay(s, r, { origineType: v })} />
+      ) },
+    { key: "base", header: "Base", width: 150,
+      render: (_v, r) => (
+        r.absence
+          ? <span style={{ color: EPJ.gray400 }}>—</span>
+          : <Segmented value={dayState(s, r).base}
+              options={[{ v: "trajet", l: "Trajet" }, { v: "transport", l: "Transport" }]}
+              onChange={(v) => setDay(s, r, { base: v })} />
+      ) },
+    { key: "distanceKm", header: "Distance", numeric: true, align: "right", sortable: true,
+      render: (v, r) => (r.absence || r.bureauSeul ? "—" : km(v)) },
+    { key: "deplacement", header: "Déplacement", numeric: true, align: "right", render: (v) => euro(v) },
+    { key: "repas", header: "Repas", numeric: true, align: "right", render: (v) => euro(v) },
+    { key: "total", header: "Total", numeric: true, align: "right", sortable: true, render: (v) => euro(v) },
+    { key: "exclu", header: "Exclure", width: 78, align: "center",
+      render: (_v, r) => (
+        r.absence
+          ? <span style={{ color: EPJ.gray400 }}>—</span>
+          : <input type="checkbox" checked={dayState(s, r).exclu}
+              onChange={(e) => setDay(s, r, { exclu: e.target.checked })}
+              aria-label="Exclure ce jour" style={{ cursor: "pointer" }} />
+      ) },
+    { key: "statut", header: "Statut", width: 130,
+      render: (_v, r) => { const st = jourStatut(r); return <Badge tone={st.tone} label={st.label} />; } },
+  ];
 
   return (
     <div style={{
@@ -432,11 +701,42 @@ function SalariesAccordion({ salaries }) {
                 <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: EPJ.gray900, marginBottom: space.xs }}>
                   Détail par jour
                 </div>
-                <DataTable columns={jourCols} rows={jourRows} keyField="id"
+                <DataTable columns={makeCols(s)} rows={jourRows} keyField="id"
                   empty={{ icon: "📅", title: "Aucun jour", text: "Aucune journée indemnisée." }} />
               </div>
             )}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Bascule segmentée à 2 états (Dépôt/Domicile, Trajet/Transport) ───
+function Segmented({ value, options, onChange }) {
+  return (
+    <div style={{
+      display: "inline-flex", border: `1px solid ${EPJ.gray200}`,
+      borderRadius: radius.sm, overflow: "hidden",
+    }}>
+      {options.map((o, i) => {
+        const active = value === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => { if (!active) onChange(o.v); }}
+            style={{
+              border: "none", cursor: active ? "default" : "pointer",
+              padding: `2px ${space.sm}px`, fontSize: fontSize.xs,
+              fontWeight: active ? fontWeight.semibold : fontWeight.regular,
+              background: active ? EPJ.catCourantFaible : EPJ.white,
+              color: active ? EPJ.white : EPJ.gray700,
+              borderLeft: i > 0 ? `1px solid ${EPJ.gray200}` : "none",
+            }}
+          >
+            {o.l}
+          </button>
         );
       })}
     </div>

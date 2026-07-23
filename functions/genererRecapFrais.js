@@ -23,8 +23,15 @@
 //   c. Agrège par salarié (totalMois, nbJours).
 //   d. Écrit fraisRecap/{mois}.
 //
-//  fraisOverrides/{mois__salarieId__chantierNum} : LU seulement ici
-//  (édition = lot 3b2). chantiers = LECTURE SEULE (via distanceCore).
+//  SURCHARGES À LA MAILLE JOUR (RH-Frais-3b2b) :
+//  fraisOverrides/{mois__salarieId__date} = { origineType?, base?, exclu? }.
+//  Appliquées PAR JOUR : origineType (défaut = pointDepartFrais) pilote le calcul
+//  de distance de tous les chantiers du jour ; base (défaut "trajet") pilote la
+//  composante d'indemnité ; exclu === true sort le jour (déplacement/repas/total
+//  = 0, flag exclu:true). Les jours absence/bureauSeul ne sont PAS surchargeables
+//  en origine/base (pas de trajet) — seul "exclu" s'y applique (retire le repas).
+//  Chaque jour du récap porte { origineType, base, exclu, absence, bureauSeul }.
+//  chantiers = LECTURE SEULE (via distanceCore).
 // ═══════════════════════════════════════════════════════════════
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
@@ -251,9 +258,10 @@ export const genererRecapFrais = onCall(
       return roles.some((r) => ROLES_FRAIS.includes(r));
     };
 
-    const getOverride = async (salarieId, chantierNum) => {
-      if (!chantierNum) return null;
-      const id = `${mois}__${salarieId}__${chantierNum}`;
+    // Surcharge à la maille JOUR : clé mois__salarieId__date.
+    const getOverride = async (salarieId, date) => {
+      if (!date) return null;
+      const id = `${mois}__${salarieId}__${date}`;
       if (overrideCache.has(id)) return overrideCache.get(id);
       let data = null;
       try {
@@ -301,6 +309,15 @@ export const genererRecapFrais = onCall(
         });
       }
 
+      // ─── Surcharge du JOUR (mois__salarieId__date) ───
+      //  origineType pilote le calcul de distance de tous les chantiers du jour ;
+      //  base pilote la composante d'indemnité ; exclu sort le jour (montants 0).
+      const ov = await getOverride(salarieId, date);
+      const origineType = ov?.origineType === "DOMICILE" || ov?.origineType === "DEPOT"
+        ? ov.origineType : pointDepart;
+      const base = ov?.base === "transport" ? "transport" : "trajet";
+      const exclu = ov?.exclu === true;
+
       // ─── Sélection déterministe du chantier retenu ce jour-là ───
       //  a. tous les chantiers du jour ; b. retrait des "absence" ;
       //  c. plus aucun → JOUR ABSENCE (aucune indemnité, aucun appel distance) ;
@@ -322,6 +339,7 @@ export const genererRecapFrais = onCall(
       }
 
       // c. Aucun chantier non-absence → jour d'absence (pour l'UI + rapprochement conges).
+      //    Non surchargeable (origine/base sans objet) ; montants toujours à 0.
       if (!candidatsBureau.length && !candidatsTrajet.length) {
         if (chantiersAbsence.length) {
           parSalarie.get(salarieId).jours.push({
@@ -330,13 +348,14 @@ export const genererRecapFrais = onCall(
             chantiersAbsence,
             chantierNum: chantiersAbsence[0] || null,
             chantierLibelle: absenceLibelle,
+            origineType, base, exclu,
             deplacement: 0, repas: 0, total: 0,
           });
         }
         continue;
       }
 
-      // d. Calcule la distance des seuls chantiers ouvrant un trajet.
+      // d. Calcule la distance des seuls chantiers ouvrant un trajet (origine du jour).
       const candidats = [];
       for (const c of candidatsTrajet) {
         const chantierNum = c.chantierNum;
@@ -347,16 +366,10 @@ export const genererRecapFrais = onCall(
           });
           continue;
         }
-        const ov = await getOverride(salarieId, chantierNum);
-        const origineType = ov?.origineType === "DOMICILE" || ov?.origineType === "DEPOT"
-          ? ov.origineType : pointDepart;
-        const base = ov?.base === "transport" ? "transport" : "trajet";
-        if (ov?.exclu === true) continue; // chantier explicitement exclu du récap
-
         const orig = await getOrigine(salarieId, origineType);
         if (orig.error) {
           pushAlerte({
-            type: "adresse", salarieId, chantierNum,
+            type: "adresse", sousType: "origine", salarieId, chantierNum,
             message: `${nomsSalaries.get(salarieId) || salarieId} — origine ${origineType} : ${orig.error.message}`,
           });
           continue;
@@ -366,7 +379,8 @@ export const genererRecapFrais = onCall(
           dest = await resoudreDestination(db, chantierNum);
         } catch (e) {
           pushAlerte({
-            type: "adresse", salarieId, chantierNum,
+            type: "adresse", sousType: "chantier", salarieId, chantierNum,
+            chantierLibelle: c.chantierLibelle || "",
             message: `Chantier ${chantierNum} : ${e.message}`,
           });
           continue;
@@ -391,44 +405,48 @@ export const genererRecapFrais = onCall(
         candidats.push({
           chantierNum,
           chantierLibelle: c.chantierLibelle || "",
-          origineType, base,
           distanceKm: dist.distanceKm,
         });
       }
 
       if (candidats.length) {
         // Jour normal : chantier le plus éloigné = base de l'indemnité (trajet + repas).
+        //  exclu === true → jour sorti : montants à 0, chantier conservé pour l'UI.
         const retenu = candidats.reduce((a, b) => (b.distanceKm > a.distanceKm ? b : a));
         let deplacement = 0, repas = 0, total = 0, nb50 = 0, zoneReliquat = null;
-        const ind = composerIndemnite(retenu.distanceKm, bareme, { repas: true, base: retenu.base });
-        if (ind) {
-          deplacement = ind.deplacement; repas = ind.repas; total = ind.total;
-          nb50 = ind.nb50; zoneReliquat = ind.zoneReliquat;
+        if (!exclu) {
+          const ind = composerIndemnite(retenu.distanceKm, bareme, { repas: true, base });
+          if (ind) {
+            deplacement = ind.deplacement; repas = ind.repas; total = ind.total;
+            nb50 = ind.nb50; zoneReliquat = ind.zoneReliquat;
+          }
         }
         parSalarie.get(salarieId).jours.push({
           date,
           chantierNum: retenu.chantierNum,
           chantierLibelle: retenu.chantierLibelle,
-          origineType: retenu.origineType,
-          base: retenu.base,
+          origineType, base, exclu,
           distanceKm: retenu.distanceKm,
           deplacement, repas, total, nb50, zoneReliquat,
         });
       } else if (candidatsBureau.length) {
         // Bureau seul (aucun trajet exploitable) : repas SEUL, aucune distance.
+        //  exclu === true → retire aussi le repas (montants 0).
         const bureauC = candidatsBureau[0];
-        const repasDu = spec[bureauC.chantierNum]?.repas === false ? 0 : (Number(bareme.repas) || 0);
+        const repasDefaut = spec[bureauC.chantierNum]?.repas === false ? 0 : (Number(bareme.repas) || 0);
+        const repasDu = exclu ? 0 : repasDefaut;
         parSalarie.get(salarieId).jours.push({
           date,
           bureauSeul: true,
           chantierNum: bureauC.chantierNum || null,
           chantierLibelle: bureauC.chantierLibelle || "",
+          origineType, base, exclu,
           deplacement: 0,
           repas: repasDu,
           total: r2(repasDu),
         });
       }
-      // sinon : que du trajet mais tout en alerte/exclu → rien (déjà tracé en alertes).
+      // sinon : que du trajet mais tout en alerte → rien (déjà tracé en alertes).
     }
 
     // ─── c. Agrégation par salarié (+ ventilation par zone/rubrique) ───

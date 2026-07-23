@@ -36,7 +36,7 @@ const TABS = [
   { key: "rh.analyse", label: "Analyse",           icon: "📈", live: false },
 ];
 
-export function RHModule({ onExitModule }) {
+export function RHModule({ onExitModule, onNavigate }) {
   const { user } = useAuth();
   const { rolesConfig } = useData();
   const isPwa = useViewport() === "mobile";
@@ -120,7 +120,7 @@ export function RHModule({ onExitModule }) {
             <div role="tabpanel"><HeuresSalariesPage /></div>
           )}
           {active && active.key === "rh.recap" && (
-            <div role="tabpanel"><RecapFraisPage /></div>
+            <div role="tabpanel"><RecapFraisPage onGoTab={setActiveKey} onNavigate={onNavigate} /></div>
           )}
           {active && active.key !== "rh.conges" && active.key !== "rh.frais" && active.key !== "rh.heures" && active.key !== "rh.recap" && (
             <div role="tabpanel" style={{

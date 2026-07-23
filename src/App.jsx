@@ -205,7 +205,7 @@ function Router() {
       )}
 
       {route === "module:rh" && (
-        <RHModule onExitModule={() => setRoute("home")}/>
+        <RHModule onExitModule={() => setRoute("home")} onNavigate={(r) => setRoute(r)}/>
       )}
 
       {route === "module:parc-machines" && (
